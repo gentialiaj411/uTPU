@@ -1,0 +1,38 @@
+==========
+SPEC
+==========
+
+========Overview==========
+
+Takes in 
+
+
+========Modules===========
+UART Module
+
+
+
+2x2 MAC Array:
+    Has a accumulate resgister inside storing weights
+    Every clock it takes its inputs, multiplies them and
+    adds to the accumulated value passed to it
+    This output is then sent down the array 
+    Can be put into modes to load weights
+
+
+Quantizer:
+    The int16 output from the MAC array will be quantized 
+    into a int4. 
+
+    [-32768, 32767] -> [-8, 7]
+
+    All this does is >> 12
+
+
+LeakyReLU Unit:
+    Takes the int8 output of the Quantizer and performs ReLU
+    
+    leakyReLU = x if x>0 else ax
+
+    a is stored in a register in the unit
+
