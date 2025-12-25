@@ -124,7 +124,7 @@ module top #(
 	    .result(accumulator_out)
 	);
 
-    leaky_relu relu #(
+    leaky_relu relu #
 	    .ALPHA(ALPHA),
 	    .COMPUTE_DATA_WIDTH(COMPUTE_DATA_WIDTH)
 	) (
@@ -152,9 +152,61 @@ module top #(
 	);
 
 
-    typedef enum logic [] {
-	IDLE,
-
+    typedef enum logic [2:0] {
+	RESET, // Resets all of the ptrs
+	FETCH, // Gets the next 
+	DECODE,
+	LOAD_STREAM,
+	COMPUTE,
+	STORE_STREAM,
+	HALT
     } state_e
 
-endmodule: top`
+    state_e current_state;
+
+    logic [BUFFER_WORD_SIZE-1:0] instruction;
+    logic 		         instruction_half;
+
+
+    typedef enum logic [] {
+	
+	    
+    } opcode_e
+
+    typedef enum logic {
+	FETCH_INSTRUCTION,
+	FETCH_ADDRESS
+    } fetch_mode_e
+
+    always @(posedge clk) begin
+	if (rst) 
+	    current_state <= RESET;
+	else begin
+	    case (current_state)
+		RESET: 
+		    instruction_half <= 1'b0;
+		    current_state <= FETCH;  // Assuming resest can happen in one clk cycle
+		FETCH: begin
+		    if (~rx_empty && ~instruction_half) begin
+			rx_re <= 1'b1;
+			instruction[FIFO_DATA_WIDTH-1:0] <= r_data;
+			rx_re <= 1'b0;
+			instruction_half <= 1'b1;
+		    end else if (~rx_empty && instruction_half) begin
+	    		rx_re <= 1'b1;
+			instruction[BUFFER_DATA_WIDTH-1:0] <= r_data;
+			rx_re <= 1'b0;
+			instruction_half <= 1'b0;
+			current_state <= DECODE;
+		    end
+		end
+		DECODE: begin
+
+
+	    endcase
+	end
+    end
+
+
+
+endmodule: top
