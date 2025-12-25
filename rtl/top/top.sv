@@ -178,31 +178,67 @@ module top #(
 	FETCH_ADDRESS
     } fetch_mode_e
 
+    fetch_mode_e fetch_mode;
+
     always @(posedge clk) begin
 	if (rst) 
 	    current_state <= RESET;
 	else begin
 	    case (current_state)
-		RESET: 
+		RESET: begin
 		    instruction_half <= 1'b0;
 		    current_state <= FETCH;  // Assuming resest can happen in one clk cycle
+		    fetch_mode <= FETCH_INSTRUCTION;
+		end
+		// before you enter, you must set fetch_mode and
+		// instruction_half to 0
 		FETCH: begin
-		    if (~rx_empty && ~instruction_half) begin
-			rx_re <= 1'b1;
-			instruction[FIFO_DATA_WIDTH-1:0] <= r_data;
-			rx_re <= 1'b0;
-			instruction_half <= 1'b1;
-		    end else if (~rx_empty && instruction_half) begin
-	    		rx_re <= 1'b1;
-			instruction[BUFFER_DATA_WIDTH-1:0] <= r_data;
-			rx_re <= 1'b0;
-			instruction_half <= 1'b0;
-			current_state <= DECODE;
-		    end
+		    case (fetch_mode)
+			FETCH_INSTRUCTION: begin
+			   if (~rx_empty && ~instruction_half) begin
+				rx_re <= 1'b1;
+				instruction[FIFO_DATA_WIDTH-1:0] <= r_data;
+				rx_re <= 1'b0;
+				instruction_half <= 1'b1;
+			    end else if (~rx_empty && instruction_half) begin
+				rx_re <= 1'b1;
+				instruction[BUFFER_DATA_WIDTH-1:FIFO_DATA_WIDTH] <= r_data;
+				rx_re <= 1'b0;
+				instruction_half <= 1'b0;
+				current_state <= DECODE;
+			    end
+			end
+			FETCH_ADDRESS: begin
+			    if (~rx_empty && ~instruction_half) begin
+				rx_re <= 1'b1;
+				address[FIFO_DATA_WIDTH-1:0] <= r_data;
+				rx_re <= 1'b0;
+				instruction_half <= 1'b1;
+			    end else if (~rx_empty && instruction_half) begin
+				rx_re <= 1'b1;
+				address[ADDRESS_SIZE:FIFO_DATA_WIDTH] <= r_data;
+				rx_re <= 1'b0;
+				instruction_half <= 1'b0;
+				current_state <= DECODE;
+			    end
+			end
+		    endcase
 		end
 		DECODE: begin
+		
+		end
+		LOAD_STREAM: begin
 
+		end
+		COMPUTE: begin
 
+		end
+		STORE_STREAM: begin
+
+		end
+		HALT: begin
+		    
+		end
 	    endcase
 	end
     end
