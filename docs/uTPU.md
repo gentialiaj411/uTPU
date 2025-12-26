@@ -26,7 +26,7 @@ UART TX <- FIFO TX <------------|
 
     Address is 9 bits wide
     
-    A-TYPE STORE
+    A-TYPE STORE (for now address_length is not used as always 4 bits)
      3 bits  1 bit     1 bit                         4 bits                         4 bits
     [OPCODE] [TOP/BOT] [IMMEDIATE/ADDRESS INDICATOR] [address_lengthb or NOT USED] [address_lengtha]
      
@@ -35,9 +35,9 @@ UART TX <- FIFO TX <------------|
     or 
     [int4] [int4] [int4] [int4]
 
-    B-TYPE RUN
-    3 bits    1 bit     3 bits      9 bits
-    [OPCODE] [RELU_EN] [NOT USED] [RESULT_ADDRESS]
+    C-TYPE RUN (if COMPUTE_EN then QUANTIZER_EN implied)
+    3 bits    1 bit        1 bits        1 bit     9 bits
+    [OPCODE] [COMPUTE_EN] [QUANTIZER_EN] [RELU_EN] [RESULT_ADDRESS]
 
     B-TYPE LOAD ( WILL HAVE TO BE CHANGED IF DIMENSIONS OF MAC ARRAY CHANGES)
     3 bits    1 bit                  3 bits     9 bits
@@ -53,12 +53,18 @@ UART TX <- FIFO TX <------------|
 #### Opcodes (3 bits)
     
     STORE (A-TYPE)
+        - Requires to fetch 1/2 addresses depending on if has immediate value
+        - If 2 addresses, needs to fetch value from buffer before continuing
 
     FETCH (B-TYPE)
 
     RUN (B-TYPE)
 
     LOAD (B-TYPE)
+        - It is better to store the value in the controller then load it or just 
+          just allow the information to flow from the memory directly to the compute
+                - I think it is better to direct flow as we can start doing other things
+                  while the value is settling
 
     HALT (D-TYPE)
 
@@ -67,6 +73,7 @@ UART TX <- FIFO TX <------------|
     **** (NOT SET)
 
     NOP (D-TYPE)
+
 
 
 #### Instructions

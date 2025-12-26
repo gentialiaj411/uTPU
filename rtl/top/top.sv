@@ -6,13 +6,17 @@ module top #(
 	parameter COMPUTE_DATA_WIDTH     = 4,
 	parameter ACCUMULATOR_DATA_WIDTH = 16, 
 	parameter ARRAY_SIZE		 = 2,
+	parameter ARRAY_SIZE_WIDTH       = $clog2(ARRAY_SIZE),
 	parameter FIFO_WIDTH		 = 256,
 	parameter FIFO_DATA_WIDTH	 = 8,
 	parameter BUFFER_SIZE		 = 1024,
 	parameter BUFFER_WORD_SIZE	 = 16,
 	parameter ADDRESS_SIZE		 = $clog2(BUFFER_SIZE),
-	parameter OPCODE_WIDTH	 	 = 3
-
+	parameter OPCODE_WIDTH	 	 = 3,
+	parameter RELU_SIZE		 = 2,
+	parameter RELU_SIZE_WIDTH     = $clog2(RELU_SIZE),
+	parameter QUANTIZER_SIZE         = 2,
+	parameter QUANTIZER_SIZE_WIDTH   = $clog2(QUANTIZER_SIZE)
     ) (
 	input  logic clk, rst, start,
 	input  logic rx,
@@ -20,7 +24,9 @@ module top #(
     );
 
     // Controller registers
-    logic [ADDRESS_SIZE-1:0]       address;    
+    logic [ADDRESS_SIZE-1:0]       address; 
+    logic 			   compute_en;
+    logic 	   		   quantizer_en;
     logic 		           relu_en;
     logic 	                   bot_mem;
     logic [COMPUTE_DATA_WIDTH-1:0] store_val;
@@ -42,27 +48,28 @@ module top #(
     // MAC Array control signals/flags
     logic compute_start, compute_load_en;
     // MAC Array data
-    logic [COMPUTE_DATA_WIDTH-1:0]     mem_to_compute [ARRAY_SIZE-1:0];
+    logic [COMPUTE_DATA_WIDTH-1:0]     compute_in [ARRAY_SIZE-1:0];
     logic [ACCUMULATOR_DATA_WIDTH-1:0] compute_out [ARRAY_SIZE-1:0];
 
 
     // Quantizer data
-    logic [ACCUMULATOR_DATA_WIDTH-1:0] accumulator_in;
-    logic [COMPUTE_DATA_WIDTH-1:0]     accumulator_out;
+    logic [ACCUMULATOR_DATA_WIDTH-1:0] quantizer_in [QUANTIZER_SIZE-1:0];
+    logic [COMPUTE_DATA_WIDTH-1:0]     quantizer_out [QUANTIZER_SIZE-1:0];
 
 
     // ReLU data
-    logic [COMPUTE_DATA_WIDTH-1:0] relu_in;
-    logic [COMPUTE_DATA_WIDTH-1:0] relu_out;
+    logic [COMPUTE_DATA_WIDTH-1:0] relu_in [RELU_SIZE-1:0];
+    logic [COMPUTE_DATA_WIDTH-1:0] relu_out [RELU_SIZE_WIDTH-1:0];
 
 
     // Buffer control signals/flags
-    logic buffer_we, buffer_re, buffer_compute_en, buffer_fifo_en;
+    logic buffer_we, buffer_re, buffer_compute_en, buffer_fifo_en, buffer_done;
     // Buffer data
-    logic [COMPUTED_DATA_WIDTH-1:0] compute_to_buffer;
+    logic [COMPUTE_DATA_WIDTH-1:0] mem_to_compute    [ARRAY_SIZE-1:0];
+    logic [COMPUTE_DATA_WIDTH-1:0] compute_to_buffer [ARRAY_SIZE-1:0];
 
 
-    uart_reciever reciever ( 
+    uart_receiver u_uart_receiver ( 
 	    .rst(rst),
 	    .clk(clk),
 	    .rx(rx),
@@ -70,7 +77,7 @@ module top #(
 	    .result(rx_to_fifo)
 	);
 
-    uart_transmitter transmitter (
+    uart_transmitter u_uart_transmitter (
 	    .rst(rst),
 	    .clk(clk),
 	    .tx(tx),
@@ -88,7 +95,7 @@ module top #(
 	    .re(rx_re),
 	    .empty(rx_empty),
 	    .full(rx_full),
-	    .w_data(rx_to_fifo),		// These two go to memory
+	    .w_data(rx_to_fifo),			    
 	    .r_data(rx_fifo_to_mem)
 
 	);
@@ -102,12 +109,13 @@ module top #(
 	    .we(tx_we),
 	    .re(tx_re),
 	    .start(tx_start),
-	    .w_data(tx_to_fifo),
-	    .r_data(mem_to_tx_fifo)
+	    .w_data(mem_to_tx_fifo),
+	    .r_data(tx_to_fifo)
 	);
 
-    pe_array pe #(
+    pe_array u_pe_array #(
 	    .ARRAY_SIZE(ARRAY_SIZE),
+	    .ARRAY_SIZE_WIDTH(ARRAY_SIZE_WIDTH),
 	    .COMPUTE_DATA_WIDTH(COMPUTE_DATA_WIDTH),
 	    .ACCUMULATOR_DATA_WIDTH(ACCUMULATOR_DATA_WIDTH)
 	) (
@@ -115,19 +123,23 @@ module top #(
 	    .rst(rst),
 	    .compute(compute_start),
 	    .load_en(compute_load_en),
-	    .in(mem_to_compute),
-	    .accumulator(compute_out)
+	    .ins(compute_in),
+	    .results(compute_out)
 	);
 
-    quantizer quant #(
+    quantizer_array u_quantizer_array #(
+	    .QUANTIZER_SIZE(QUANTIZER_SIZE),
+	    .QUANTIZER_SIZE_WIDTH(QUANTIZER_SIZE_WIDTH),
 	    .ACCUMULATOR_DATA_WIDTH(ACCUMULATOR_DATA_WIDTH),
 	    .COMPUTE_DATA_WIDTH(COMPUTE_DATA_WIDTH)
 	) (
-	    .in_val(accumulator_in),
-	    .result(accumulator_out)
+	    .ins(quantizer_in),
+	    .results(quantizer_out)
 	);
 
-    leaky_relu relu #
+    leaky_relu_array u_leaky_relu_array #(
+	    .RELU_SIZE(RELU_SIZE),
+	    .RELU_SIZE_WIDTH(RELU_SIZE_WIDTH),
 	    .ALPHA(ALPHA),
 	    .COMPUTE_DATA_WIDTH(COMPUTE_DATA_WIDTH)
 	) (
@@ -135,7 +147,7 @@ module top #(
 	    .result(relu_out)
 	);
 
-    unified_buffer buffer #(
+    unified_buffer u_unified_buffer #(
 	    .BUFFER_SIZE(BUFFER_SIZE),
 	    .BUFFER_WORD_SIZE(BUFFER_WORD_SIZE),
 	    .FIFO_DATA_WIDTH(FIFO_DATA_WIDTH),
@@ -147,18 +159,21 @@ module top #(
 	    .re(buffer_re),
 	    .compute_en(buffer_compute_en),
 	    .fifo_en(buffer_fifo_en),
+	    .done(buffer_done),
 	    .address(address),
 	    .fifo_in(rx_fifo_to_mem),
 	    .fifo_out(mem_to_tx_fifo),
-	    .compute_in(mem_to_compute),
-	    .compute_out(compute_to_buffer)
+	    .compute_in(compute_to_buffer),
+	    .compute_out(mem_to_compute)
 	);
 
 
     typedef enum logic [3:0] {
 	RESET_STATE, // Resets all of the ptrs
-	FETCH_STATE, // Gets the next 
+	FETCH_FIFO_STATE, // Gets the next 
 	DECODE_STATE,
+	FETCH_ADDRESS_STATE,
+	FETCH_BUFFER_STATE,
 	LOAD_STATE,
 	COMPUTE_STATE,
 	STORE_STATE,
@@ -176,10 +191,10 @@ module top #(
 	HALT_OP,
 	NOP    
     } opcode_e
-
-    typedef enum logic {
+    
+     typedef enum logic {
 	FETCH_INSTRUCTION,
-	FETCH_ADDRESS    
+	FETCH_ADDRESS //ONLY USED FOR STORES
     } fetch_mode_e
 
     logic [BUFFER_WORD_SIZE-1:0] instruction;
@@ -189,6 +204,7 @@ module top #(
     assign opcode = instruction[OPCODE_WIDTH-1:0];
 
     fetch_mode_e fetch_mode;
+    logic address_indicator;
 
     // NEXT STATE FSM
     always_ff @(posedge clk) begin
@@ -196,16 +212,21 @@ module top #(
 	    next_state <= RESET_STATE;
 	else begin
 	    case (current_state)
-		FETCH_STATE: 
-		    if (~rx_empty && instruction_half)
-			next_state <= DECODE;
+		RESET_STATE:
+		    next_state <= FETCH_FIFO_STATE; // Assuming reset can happen in one clk cycle
+		FETCH_FIFO_STATE: 
+		    if (~rx_empty && instruction_half) begin
+			if (fetch_mode == FETCH_ADDRESS && address_indicator)
+			    next_state <= FETCH_ADDRESS_STATE;
+			else
+			    next_state <= DECODE_STATE;
+		    end
 		DECODE_STATE:
 		    case (opcode)
-			STORE_OP: begin
-			    // TODO
-			end
+			STORE_OP: 
+			    next_state <= FETCH_FIFO_STATE;
 			FETCH_OP:
-			    next_state <= FETCH_STATE;
+			    next_state <= FETCH_BUFFER_STATE;
 			RUN_OP:
 			    next_state <= COMPUTE_STATE;
 			LOAD_OP:
@@ -213,98 +234,150 @@ module top #(
 			HALT_OP:
 			    next_state <= HALT_STATE;
 			NOP:
-			    next_state <= FETCH_STATE;
-		COMPUTE_STATE:
-		    
+			    next_state <= FETCH_FIFO_STATE;
+		    endcase
+		FETCH_ADDRESS_STATE:
+		    if (buffer_done)
+			next_state <= FETCH_FIFO_STATE;	
+		FETCH_BUFFER_STATE:
+		    if (buffer_done):
+			next_state <= FETCH_FIFO_STATE;
+		LOAD_STATE:
+		    if (buffer_done)
+			next_state <= FETCH_FIFO_STATE;
+		COMPUTE_STATE: // THIS MIGHT WORK as it just waits for stored final value
+		    if (buffer_done)
+			next_state <= FETCH_FIFO_STATE;
+		STORE_STATE:
+		    if (buffer_done)
+			next_state <= FETCH_FIFO_STATE;
 	    endcase
 	end
     end
 
+
     always_ff @(posedge clk) begin
-	if (rst) 
-	    current_state <= RESET_STATE;
-	else begin
-	    case (current_state)
-		RESET_STATE: begin
-		    instruction_half <= 1'b0;
-		    current_state <= FETCH_STATE;  // Assuming resest can happen in one clk cycle
-		    fetch_mode <= FETCH_INSTRUCTION;
+	case (current_state)
+	    RESET_STATE: begin // THIS IS NOT FINISHED TODO
+		instruction_half <= 1'b0;
+		buffer_re        <= 1'b0;
+		buffer_we        <= 1'b0;
+		rx_re            <= 1'b0;
+		tx_we            <= 1'b0;
+		compute_start    <= 1'b0;
+	        fetch_mode       <= FETCH_INSTRUCTION;		
+	    end
+	    // before you enter, you must set fetch_mode and
+	    // instruction_half to 0
+	    FETCH_FIFO_STATE: begin
+		case (fetch_mode)
+		    FETCH_INSTRUCTION: begin
+			if (~rx_empty && ~instruction_half) begin
+			    rx_re            <= 1'b1;
+			    instruction[FIFO_DATA_WIDTH-1:0] <= rx_fifo_to_mem;
+			    rx_re            <= 1'b0;
+			    instruction_half <= 1'b1;
+			end else if (~rx_empty && instruction_half) begin
+			    rx_re            <= 1'b1;
+			    instruction[BUFFER_WORD_SIZE-1:FIFO_DATA_WIDTH] <= rx_fifo_to_mem;
+			    rx_re            <= 1'b0;
+			    instruction_half <= 1'b0;
+			end
+		    end
+		    FETCH_ADDRESS: begin
+			if (~rx_empty && ~instruction_half) begin
+			    rx_re            <= 1'b1;
+			    address[FIFO_DATA_WIDTH-1:0] <= rx_fifo_to_mem;
+			    rx_re            <= 1'b0;
+			    instruction_half <= 1'b1;
+			end else if (~rx_empty && instruction_half) begin
+			    rx_re            <= 1'b1;
+			    address[ADDRESS_SIZE:FIFO_DATA_WIDTH] <= rx_fifo_to_mem;
+			    rx_re            <= 1'b0;
+			    instruction_half <= 1'b0;
+			end
+		    end
+		endcase
+	    end
+	    DECODE_STATE: begin
+		case (opcode)
+		    STORE_OP: begin	
+			bot_mem           <= (instruction[3]) ? 1'b1 : 1'b0;
+			address_indicator <= (instruction[4]) ? 1'b1 : 1'b0;
+			fetch_mode        <= FETCH_ADDRESS;
+		    end
+		    FETCH_OP: begin
+			bot_mem    <= (instruction[3]) ? 1'b1 : 1'b0;
+			address    <= instruction[BUFFER_WORD_SIZE-1:BUFFER_WORD_SIZE-ADDRESS_SIZE-1];
+			fetch_mode <= FETCH_INSTRUCTION;
+		    end
+		    RUN_OP: begin
+			compute_en   <= (instruction[3]) ? 1'b1 : 1'b0;
+			quantizer_en <= (instruction[4]) ? 1'b1 : 1'b0;
+			relu_en      <= (instruction[5]) ? 1'b1 : 1'b0;
+			address      <= instruction[BUFFER_WORD_SIZE-1:BUFFER_WORD_SIZE-ADDRESS_SIZE-1];
+		    end
+		    LOAD_OP: begin
+			compute_load_en <= (instruction[3]) ? 1'b1 : 1'b0;
+			address         <= instruction[BUFFER_WORD_SIZE-1:BUFFER_WORD_SIZE-ADDRESS_SIZE-1];
+		    end
+		    NOP: 
+			fetch_mode <= FETCH_INSTRUCTION;
+		endcase
+	    end
+	    FETCH_ADDRESS_STATE: begin
+		compute_load_en <= 1'b0;
+		buffer_re       <= 1'b1;
+		buffer_we       <= 1'b0;
+		buffer_compute_en <= 1'b1;
+		if (buffer_done) begin
+		    store_val <= mem_to_compute;
+		    buffer_re <= 1'b0;
+		    buffer_compute_en <= 1'b0;
 		end
-		// before you enter, you must set fetch_mode and
-		// instruction_half to 0
-		FETCH_STATE: begin
-		    case (fetch_mode)
-			FETCH_INSTRUCTION: begin
-			   if (~rx_empty && ~instruction_half) begin
-				rx_re <= 1'b1;
-				instruction[FIFO_DATA_WIDTH-1:0] <= r_data;
-				rx_re <= 1'b0;
-				instruction_half <= 1'b1;
-			    end else if (~rx_empty && instruction_half) begin
-				rx_re <= 1'b1;
-				instruction[BUFFER_DATA_WIDTH-1:FIFO_DATA_WIDTH] <= r_data;
-				rx_re <= 1'b0;
-				instruction_half <= 1'b0;
-				current_state <= DECODE;
-			    end
-			end
-			FETCH_ADDRESS: begin
-			    if (~rx_empty && ~instruction_half) begin
-				rx_re <= 1'b1;
-				address[FIFO_DATA_WIDTH-1:0] <= r_data;
-				rx_re <= 1'b0;
-				instruction_half <= 1'b1;
-			    end else if (~rx_empty && instruction_half) begin
-				rx_re <= 1'b1;
-				address[ADDRESS_SIZE:FIFO_DATA_WIDTH] <= r_data;
-				rx_re <= 1'b0;
-				instruction_half <= 1'b0;
-				current_state <= DECODE;
-			    end
-			end
-		    endcase
-		end
-		DECODE_STATE: begin
-		    case (opcode)
-			STORE_OP: begin
-			    
-			end
-			FETCH_OP: begin
-			    bot_mem       <= (instruction[3]) ? 1'b1 : 1'b0;
-			    address       <= instruction[BUFFER_WORD_SIZE-1:BUFFER_WORD_SIZE-ADDRESS_SIZE-1];
-			    current_state <= FETCH_STATE;
+	    end
+	    FETCH_BUFFER_STATE: begin
+		buffer_we <= 1'b1;
+		buffer_re <= 1'b0;
 
-			end
-			RUN_OP: begin
-			    relu_en       <= (instruction[3]) ? 1'b1 : 1'b0;				
-			    address       <= instruction[BUFFER_WORD_SIZE-1:BUFFER_WORD_SIZE-ADDRESS_SIZE-1];
-			    current_state <= COMPUTE_STATE;
-			end
-			LOAD_OP: begin
-			    compute_load_en <= (instruction[3]) ? 1'b1 : 1'b0;
-			    address         <= instruction[BUFFER_WORD_SIZE-1:BUFFER_WORD_SIZE-ADDRESS_SIZE-1];
-			    current_state   <= LOAD_STATE;
-			end
-			HALT_OP: begin
-			    current_state <= HALT_STATE;
-			end
-		    endcase
+	    end
+	    LOAD_STATE: begin
+		compute_en <= 1'b0; // maybe not needed 
+		buffer_re <= 1'b1;
+		buffer_compute_en <= 1'b1;
+		if (buffer_done) begin
+		    compute_in <= mem_to_compute;
+		    buffer_re <= 1'b0;
+		    buffer_compute_en <= 1'b0;
 		end
-		LOAD_STATE: begin
-		    buffer_re
+	    end
+	    COMPUTE_STATE: begin
+		if (~compute_en && ~quantizer_en && relu_en) begin
+		    relu_in           <= mem_to_compute;
+		    compute_to_buffer <= relu_out; 
+		end else if (~compute_en && quantizer_en && relu_en) begin
+		    quantizer_in      <= mem_to_compute;
+		    relu_in           <= quantizer_out;
+		    compute_to_buffer <= relu_out;
+		end else begin
+		    compute_in        <= mem_to_compute;
+		    quantizer_in      <= compute_out;
+		    relu_in           <= quantizer_out;
+		    compute_to_buffer <= relu_out; 
 		end
-		COMPUTE_STATE: begin
-		    
-		end
-		STORE_STATE: begin
-
-		end
-		HALT_STATE: 
-		    ;
-		NOP: 
-		    current_state <= FETCH_STATE;
-	    endcase
+	    end
+	    STORE_STATE: begin
+		buffer_we <= 1'b1;
+		buffer_re <= 1'b0;
+		buffer_compute_en <= 1'b1;
+		compute_to_buffer <= store_val;
+	    end
 	end
+    end
+
+    // UART communication happens at the same time as everything else
+    always_ff @(posedge clk) begin: uart communication
+	
     end
 
 

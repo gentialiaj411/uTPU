@@ -2,13 +2,13 @@
 
 
 module quantizer_array #(
-	parameter QUANTIZER_SIZE = 4,
-	parameter QUANTIZER_SIZE_WIDTH = $clog2(QUANTIZER_SIZE),
+	parameter QUANTIZER_SIZE         = 4,
+	parameter QUANTIZER_SIZE_WIDTH   = $clog2(QUANTIZER_SIZE),
 	parameter ACCUMULATOR_DATA_WIDTH = 16,
-	parameter COMPUTE_DATA_WIDTH = 4
+	parameter COMPUTE_DATA_WIDTH     = 4
     ) (
-	input logic [ACCUMULATOR_DATA_WIDTH-1:0] ins [QUANTIZER_SIZE_WIDTH-1:0],
-	output logic [COMPUTE_DATA_WIDTH-1:0] results [QUANTIZER_SIZE_WIDTH-1:0]
+	input  logic [ACCUMULATOR_DATA_WIDTH-1:0] ins     [QUANTIZER_SIZE-1:0],
+	output logic [COMPUTE_DATA_WIDTH-1:0]     results [QUANTIZER_SIZE-1:0]
     );
 
     genvar i;
@@ -19,7 +19,7 @@ module quantizer_array #(
 		.COMPUTE_DATA_WIDTH(COMPUTE_DATA_WIDTH)
 	    ) u_quant (
 		.in(ins[i]),
-		.result(resuls[i])
+		.result(results[i])
 	    );
 	end
     endgenerate

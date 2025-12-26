@@ -1,11 +1,11 @@
 /*
- * Module `uart_reciever`
+ * Module `uart_receiver`
  *
  * This is an 8 bit uart receiver module.
  * The 8 bit output from the transaction is given.
  */
 
-module uart_reciever (
+module uart_receiver (
         input logic        rst,
         input logic        clk,
         input logic        rx,
@@ -48,4 +48,4 @@ module uart_reciever (
         end
     end
 
-endmodule: uart_reciever
+endmodule: uart_receiver
