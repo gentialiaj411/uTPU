@@ -11,37 +11,80 @@ which has a word size of 2 B. The memory connects to
 the compute unit made of a 4-bit 2x2 systolic array, 
 quantizer, and leakyrelu modules.
 
+UART RX -> FIFO RX -------------|
+                      MAC ARRAY | BUFFER
+                                |
+                      QUANTIZER |
+                                |
+                      LEAKYRELU |
+                                |
+UART TX <- FIFO TX <------------|
+
 
 ### ISA
     Multi-word instructions where each word is 16 bits
-    
-    A-TYPE STORE & FETCH
 
-    [OPCODE] [IMM or ADR] [
+    Address is 9 bits wide
+    
+    A-TYPE STORE
+     3 bits  1 bit     1 bit                         4 bits                         4 bits
+    [OPCODE] [TOP/BOT] [IMMEDIATE/ADDRESS INDICATOR] [address_lengthb or NOT USED] [address_lengtha]
+     
+     7 bits     9 bits
+    [NOT USED] [ADDRESS]
+    or 
+    [int4] [int4] [int4] [int4]
 
     B-TYPE RUN
+    3 bits    1 bit     3 bits      9 bits
+    [OPCODE] [RELU_EN] [NOT USED] [RESULT_ADDRESS]
 
-    C-TYPE 
+    B-TYPE LOAD ( WILL HAVE TO BE CHANGED IF DIMENSIONS OF MAC ARRAY CHANGES)
+    3 bits    1 bit                  3 bits     9 bits
+    [OPCODE] [IN/WEIGHTS INDICATOR] [NOT USED] [ADDRESS]
 
+    B-TYPE FETCH
+    3 bits   1 bit     3 bits      9 bis
+    [OPCODE] [TOP/BOT] [NOT USED] [ADDRESS]
 
+    D-TYPE 
+    [OPCODE] [NOT USED]
+
+#### Opcodes (3 bits)
+    
+    STORE (A-TYPE)
+
+    FETCH (B-TYPE)
+
+    RUN (B-TYPE)
+
+    LOAD (B-TYPE)
+
+    HALT (D-TYPE)
+
+    **** (NOT SET)
+
+    **** (NOT SET)
+
+    NOP (D-TYPE)
 
 
 #### Instructions
-    0x0      0x1
+    
     STORETOP/STOREBOT - which loads the top/bottom of the 16 bit mem location
-    0x3    0x4
+    
     ENRELU/DISRELU - which change the activation state of RELU module
-    0x5
+    
     LOADIN - loads the 4 vals at the address into the compute unit input
-    0x6 
+     
     LOADWEI - loads the 4 weights at the address into mac array
-    0x7
+    
     RUN -  allows the inputs to flow through the compute unit
-    0x8      0x9
+    
     FETCHTOP/FETCHBOT - which returns the top/bottom 8 bits at mem location
-    0xA
-    ENDPROGRAM
-    0xF  
+        
+    HALT
+      
     NOP
 
 

@@ -2,8 +2,8 @@ module mac #(
 	parameter COMPUTE_DATA_WIDTH  	 = 4, // int4 systolic array input width
 	parameter ACCUMULATOR_DATA_WIDTH = 16
     ) (
-	input  logic 			   	  clk, rst, compute, load_en,
-	input  logic [COMPUTE_DATA_WIDTH-1:0]       in,
+	input  logic clk, rst, compute, load_en,
+	input  logic [COMPUTE_DATA_WIDTH-1:0]     in,
 	output logic [ACCUMULATOR_DATA_WIDTH-1:0] accumulator 
     );
    

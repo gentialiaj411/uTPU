@@ -1,3 +1,6 @@
+// Looking back at this, this is wrong
+
+
 `include "mac.sv"
 
 module mac_array #(
@@ -19,6 +22,7 @@ module mac_array #(
 	    ) u_mac (
 		.clk(clk),
 		.rst(rst),
+		.compute(compute),
 		.load_en(load_en),
 		.in(in[i]),
 		.accumulator(accumulator[i])

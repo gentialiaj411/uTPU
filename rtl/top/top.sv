@@ -10,7 +10,8 @@ module top #(
 	parameter FIFO_DATA_WIDTH	 = 8,
 	parameter BUFFER_SIZE		 = 1024,
 	parameter BUFFER_WORD_SIZE	 = 16,
-	parameter ADDRESS_SIZE		 = $clog2(BUFFER_SIZE)
+	parameter ADDRESS_SIZE		 = $clog2(BUFFER_SIZE),
+	parameter OPCODE_WIDTH	 	 = 3
 
     ) (
 	input  logic clk, rst, start,
@@ -19,9 +20,11 @@ module top #(
     );
 
     // Controller registers
-    logic [ADDRESS_SIZE-1:0] address;
-    logic 		     relu_en;
-    
+    logic [ADDRESS_SIZE-1:0]       address;    
+    logic 		           relu_en;
+    logic 	                   bot_mem;
+    logic [COMPUTE_DATA_WIDTH-1:0] store_val;
+
     // FIFO reciever control signals/flags
     logic rx_we, rx_re, rx_empty, rx_full, rx_valid;
     // FIFO reciever data
@@ -39,8 +42,8 @@ module top #(
     // MAC Array control signals/flags
     logic compute_start, compute_load_en;
     // MAC Array data
-    logic [COMPUTE_DATA_WIDTH-1:0]     mem_to_compute;
-    logic [ACCUMULATOR_DATA_WIDTH-1:0] compute_out;
+    logic [COMPUTE_DATA_WIDTH-1:0]     mem_to_compute [ARRAY_SIZE-1:0];
+    logic [ACCUMULATOR_DATA_WIDTH-1:0] compute_out [ARRAY_SIZE-1:0];
 
 
     // Quantizer data
@@ -103,7 +106,7 @@ module top #(
 	    .r_data(mem_to_tx_fifo)
 	);
 
-    mac_array mac #(
+    pe_array pe #(
 	    .ARRAY_SIZE(ARRAY_SIZE),
 	    .COMPUTE_DATA_WIDTH(COMPUTE_DATA_WIDTH),
 	    .ACCUMULATOR_DATA_WIDTH(ACCUMULATOR_DATA_WIDTH)
@@ -152,47 +155,84 @@ module top #(
 	);
 
 
-    typedef enum logic [2:0] {
-	RESET, // Resets all of the ptrs
-	FETCH, // Gets the next 
-	DECODE,
-	LOAD_STREAM,
-	COMPUTE,
-	STORE_STREAM,
-	HALT
+    typedef enum logic [3:0] {
+	RESET_STATE, // Resets all of the ptrs
+	FETCH_STATE, // Gets the next 
+	DECODE_STATE,
+	LOAD_STATE,
+	COMPUTE_STATE,
+	STORE_STATE,
+	HALT_STATE
     } state_e
 
     state_e current_state;
+    state_e next_state;
 
-    logic [BUFFER_WORD_SIZE-1:0] instruction;
-    logic 		         instruction_half;
-
-
-    typedef enum logic [] {
-	
-	    
+    typedef enum logic [OPCODE_WIDTH-1:0] {
+	STORE_OP,
+	FETCH_OP,
+	RUN_OP,
+	LOAD_OP,
+	HALT_OP,
+	NOP    
     } opcode_e
 
     typedef enum logic {
 	FETCH_INSTRUCTION,
-	FETCH_ADDRESS
+	FETCH_ADDRESS    
     } fetch_mode_e
+
+    logic [BUFFER_WORD_SIZE-1:0] instruction;
+    logic 		         instruction_half;
+
+    opcode_e opcode;
+    assign opcode = instruction[OPCODE_WIDTH-1:0];
 
     fetch_mode_e fetch_mode;
 
-    always @(posedge clk) begin
-	if (rst) 
-	    current_state <= RESET;
+    // NEXT STATE FSM
+    always_ff @(posedge clk) begin
+	if (rst)
+	    next_state <= RESET_STATE;
 	else begin
 	    case (current_state)
-		RESET: begin
+		FETCH_STATE: 
+		    if (~rx_empty && instruction_half)
+			next_state <= DECODE;
+		DECODE_STATE:
+		    case (opcode)
+			STORE_OP: begin
+			    // TODO
+			end
+			FETCH_OP:
+			    next_state <= FETCH_STATE;
+			RUN_OP:
+			    next_state <= COMPUTE_STATE;
+			LOAD_OP:
+			    next_state <= LOAD_STATE;
+			HALT_OP:
+			    next_state <= HALT_STATE;
+			NOP:
+			    next_state <= FETCH_STATE;
+		COMPUTE_STATE:
+		    
+	    endcase
+	end
+    end
+
+    always_ff @(posedge clk) begin
+	if (rst) 
+	    current_state <= RESET_STATE;
+	else begin
+	    case (current_state)
+		RESET_STATE: begin
 		    instruction_half <= 1'b0;
-		    current_state <= FETCH;  // Assuming resest can happen in one clk cycle
+		    current_state <= FETCH_STATE;  // Assuming resest can happen in one clk cycle
 		    fetch_mode <= FETCH_INSTRUCTION;
 		end
 		// before you enter, you must set fetch_mode and
 		// instruction_half to 0
-		FETCH: begin
+		FETCH_STATE: begin
 		    case (fetch_mode)
 			FETCH_INSTRUCTION: begin
 			   if (~rx_empty && ~instruction_half) begin
@@ -224,21 +264,45 @@ module top #(
 			end
 		    endcase
 		end
-		DECODE: begin
-		
-		end
-		LOAD_STREAM: begin
+		DECODE_STATE: begin
+		    case (opcode)
+			STORE_OP: begin
+			    
+			end
+			FETCH_OP: begin
+			    bot_mem       <= (instruction[3]) ? 1'b1 : 1'b0;
+			    address       <= instruction[BUFFER_WORD_SIZE-1:BUFFER_WORD_SIZE-ADDRESS_SIZE-1];
+			    current_state <= FETCH_STATE;
 
+			end
+			RUN_OP: begin
+			    relu_en       <= (instruction[3]) ? 1'b1 : 1'b0;				
+			    address       <= instruction[BUFFER_WORD_SIZE-1:BUFFER_WORD_SIZE-ADDRESS_SIZE-1];
+			    current_state <= COMPUTE_STATE;
+			end
+			LOAD_OP: begin
+			    compute_load_en <= (instruction[3]) ? 1'b1 : 1'b0;
+			    address         <= instruction[BUFFER_WORD_SIZE-1:BUFFER_WORD_SIZE-ADDRESS_SIZE-1];
+			    current_state   <= LOAD_STATE;
+			end
+			HALT_OP: begin
+			    current_state <= HALT_STATE;
+			end
+		    endcase
 		end
-		COMPUTE: begin
-
+		LOAD_STATE: begin
+		    buffer_re
 		end
-		STORE_STREAM: begin
-
-		end
-		HALT: begin
+		COMPUTE_STATE: begin
 		    
 		end
+		STORE_STATE: begin
+
+		end
+		HALT_STATE: 
+		    ;
+		NOP: 
+		    current_state <= FETCH_STATE;
 	    endcase
 	end
     end
