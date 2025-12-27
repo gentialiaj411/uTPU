@@ -1,12 +1,10 @@
-module uart_transmitter (
-	input  logic 	   rst,
-	input  logic       clk,
-	output logic       tx,
-	input  logic 	   start,
-	input  logic [7:0] message
+module uart_transmitter #(
+	parameter UART_BITS_TRANSFERED = 8
+    ) (
+	input  logic clk, rst, start,
+	output logic tx,
+	input  logic [UART_BITS_TRANSFERED-1:0] message
     );
-
-    localparam int BITS_TRANSFERED = 8;
 
     typedef enum logic {
 	IDLE,
@@ -34,7 +32,7 @@ module uart_transmitter (
 		MESSAGE: begin
 		    tx <= message[transmitting_bit];
 		    transmitting_bit <= transmitting_bit + 1;
-		    if (transmitting_bit == BITS_TRANSFERED) begin
+		    if (transmitting_bit == UART_BITS_TRANSFERED) begin
 			transmitting_bit <= 0;
 			current_state <= STOP;
 		    end

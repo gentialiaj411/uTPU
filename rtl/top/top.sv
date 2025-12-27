@@ -2,6 +2,7 @@
 
 
 module top #(
+	parameter UART_BITS_TRANSFERED   = 8,
 	parameter ALPHA			 = 2,
 	parameter COMPUTE_DATA_WIDTH     = 4,
 	parameter ACCUMULATOR_DATA_WIDTH = 16, 
@@ -14,7 +15,7 @@ module top #(
 	parameter ADDRESS_SIZE		 = $clog2(BUFFER_SIZE),
 	parameter OPCODE_WIDTH	 	 = 3,
 	parameter RELU_SIZE		 = 2,
-	parameter RELU_SIZE_WIDTH     = $clog2(RELU_SIZE),
+	parameter RELU_SIZE_WIDTH        = $clog2(RELU_SIZE),
 	parameter QUANTIZER_SIZE         = 2,
 	parameter QUANTIZER_SIZE_WIDTH   = $clog2(QUANTIZER_SIZE)
     ) (
@@ -69,103 +70,99 @@ module top #(
     logic [COMPUTE_DATA_WIDTH-1:0] compute_to_buffer [ARRAY_SIZE-1:0];
 
 
-    uart_receiver u_uart_receiver ( 
-	    .rst(rst),
-	    .clk(clk),
-	    .rx(rx),
-	    .valid(rx_valid),
-	    .result(rx_to_fifo)
-	);
+    uart #(
+	.UART_BITS_TRANSFERED(UART_BITS_TRANSFERED)
+    ) u_uart (
+	.clk(clk),
+	.rst(rst),
+	.tx_start(tx_start),
+	.rx(rx),
+	.rx_valid(rx_valid),
+	.tx(tx),
+	.tx_message(tx_to_fifo),
+	.rx_result(rx_to_fifo)
+    );
 
-    uart_transmitter u_uart_transmitter (
-	    .rst(rst),
-	    .clk(clk),
-	    .tx(tx),
-	    .start(tx_start),
-	    .message(tx_to_fifo)
-	);
+    fifo_rx #(
+	.FIFO_WIDTH(FIFO_WIDTH),
+	.FIFO_DATA_WIDTH(FIFO_DATA_WIDTH)
+    ) fifo_in (
+	.clk(clk),
+	.rst(rst),
+	.we(rx_we),	// These go to the controller
+	.re(rx_re),
+	.empty(rx_empty),
+	.full(rx_full),
+	.w_data(rx_to_fifo),			    
+	.r_data(rx_fifo_to_mem)
+    );
 
-    fifo_rx fifo_in #(
-	    .FIFO_WIDTH(FIFO_WIDTH),
-	    .FIFO_DATA_WIDTH(FIFO_DATA_WIDTH)
-	) (
-	    .clk(clk),
-	    .rst(rst),
-	    .we(rx_we),	// These go to the controller
-	    .re(rx_re),
-	    .empty(rx_empty),
-	    .full(rx_full),
-	    .w_data(rx_to_fifo),			    
-	    .r_data(rx_fifo_to_mem)
+    fifo_tx #(
+	.FIFO_WIDTH(FIFO_WIDTH),
+	.FIFO_DATA_WIDTH(FIFO_DATA_WIDTH)
+    ) fifo_out (
+	.clk(clk),
+	.rst(rst),
+	.we(tx_we),
+	.re(tx_re),
+	.start(tx_start),
+	.w_data(mem_to_tx_fifo),
+	.r_data(tx_to_fifo)
+    );
 
-	);
+    pe_array #(
+	.ARRAY_SIZE(ARRAY_SIZE),
+	.ARRAY_SIZE_WIDTH(ARRAY_SIZE_WIDTH),
+	.COMPUTE_DATA_WIDTH(COMPUTE_DATA_WIDTH),
+	.ACCUMULATOR_DATA_WIDTH(ACCUMULATOR_DATA_WIDTH)
+    ) u_pe_array (
+	.clk(clk),
+	.rst(rst),
+	.compute(compute_start),
+	.load_en(compute_load_en),
+	.ins(compute_in),
+	.results(compute_out)
+    );
 
-    fifo_tx fifo_out #(
-	    .FIFO_WIDTH(FIFO_WIDTH),
-	    .FIFO_DATA_WIDTH(FIFO_DATA_WIDTH)
-	) (
-	    .clk(clk),
-	    .rst(rst),
-	    .we(tx_we),
-	    .re(tx_re),
-	    .start(tx_start),
-	    .w_data(mem_to_tx_fifo),
-	    .r_data(tx_to_fifo)
-	);
+    quantizer_array #(
+	.QUANTIZER_SIZE(QUANTIZER_SIZE),
+	.QUANTIZER_SIZE_WIDTH(QUANTIZER_SIZE_WIDTH),
+	.ACCUMULATOR_DATA_WIDTH(ACCUMULATOR_DATA_WIDTH),
+	.COMPUTE_DATA_WIDTH(COMPUTE_DATA_WIDTH)
+    ) u_quantizer_array (
+	.ins(quantizer_in),
+	.results(quantizer_out)
+    );
 
-    pe_array u_pe_array #(
-	    .ARRAY_SIZE(ARRAY_SIZE),
-	    .ARRAY_SIZE_WIDTH(ARRAY_SIZE_WIDTH),
-	    .COMPUTE_DATA_WIDTH(COMPUTE_DATA_WIDTH),
-	    .ACCUMULATOR_DATA_WIDTH(ACCUMULATOR_DATA_WIDTH)
-	) (
-	    .clk(clk),
-	    .rst(rst),
-	    .compute(compute_start),
-	    .load_en(compute_load_en),
-	    .ins(compute_in),
-	    .results(compute_out)
-	);
+    leaky_relu_array #(
+	.RELU_SIZE(RELU_SIZE),
+	.RELU_SIZE_WIDTH(RELU_SIZE_WIDTH),
+	.ALPHA(ALPHA),
+	.COMPUTE_DATA_WIDTH(COMPUTE_DATA_WIDTH)
+    ) u_leaky_relu_array (
+	.in(relu_in),
+	.result(relu_out)
+    );
 
-    quantizer_array u_quantizer_array #(
-	    .QUANTIZER_SIZE(QUANTIZER_SIZE),
-	    .QUANTIZER_SIZE_WIDTH(QUANTIZER_SIZE_WIDTH),
-	    .ACCUMULATOR_DATA_WIDTH(ACCUMULATOR_DATA_WIDTH),
-	    .COMPUTE_DATA_WIDTH(COMPUTE_DATA_WIDTH)
-	) (
-	    .ins(quantizer_in),
-	    .results(quantizer_out)
-	);
-
-    leaky_relu_array u_leaky_relu_array #(
-	    .RELU_SIZE(RELU_SIZE),
-	    .RELU_SIZE_WIDTH(RELU_SIZE_WIDTH),
-	    .ALPHA(ALPHA),
-	    .COMPUTE_DATA_WIDTH(COMPUTE_DATA_WIDTH)
-	) (
-	    .in(relu_in),
-	    .result(relu_out)
-	);
-
-    unified_buffer u_unified_buffer #(
-	    .BUFFER_SIZE(BUFFER_SIZE),
-	    .BUFFER_WORD_SIZE(BUFFER_WORD_SIZE),
-	    .FIFO_DATA_WIDTH(FIFO_DATA_WIDTH),
-	    .COMPUTE_DATA_WIDTH(COMPUTE_DATA_WIDTH),
-	    .ADDRESS_SIZE(ADDRESS_SIZE)
-	) (
-	    .clk(clk),
-	    .we(buffer_we),
-	    .re(buffer_re),
-	    .compute_en(buffer_compute_en),
-	    .fifo_en(buffer_fifo_en),
-	    .done(buffer_done),
-	    .address(address),
-	    .fifo_in(rx_fifo_to_mem),
-	    .fifo_out(mem_to_tx_fifo),
-	    .compute_in(compute_to_buffer),
-	    .compute_out(mem_to_compute)
-	);
+    unified_buffer #(
+	.BUFFER_SIZE(BUFFER_SIZE),
+	.BUFFER_WORD_SIZE(BUFFER_WORD_SIZE),
+	.FIFO_DATA_WIDTH(FIFO_DATA_WIDTH),
+	.COMPUTE_DATA_WIDTH(COMPUTE_DATA_WIDTH),
+	.ADDRESS_SIZE(ADDRESS_SIZE)
+    ) u_unified_buffer (
+	.clk(clk),
+	.we(buffer_we),
+	.re(buffer_re),
+	.compute_en(buffer_compute_en),
+	.fifo_en(buffer_fifo_en),
+	.done(buffer_done),
+	.address(address),
+	.fifo_in(rx_fifo_to_mem),
+	.fifo_out(mem_to_tx_fifo),
+	.compute_in(compute_to_buffer),
+	.compute_out(mem_to_compute)
+    );
 
 
     typedef enum logic [3:0] {
@@ -377,7 +374,7 @@ module top #(
 
     // UART communication happens at the same time as everything else
     always_ff @(posedge clk) begin: uart communication
-	
+			
     end
 
 
