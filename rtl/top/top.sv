@@ -106,6 +106,8 @@ module top #(
 	.we(tx_we),
 	.re(tx_re),
 	.start(tx_start),
+	.empty(tx_empty),
+	.full(tx_full),
 	.w_data(mem_to_tx_fifo),
 	.r_data(tx_to_fifo)
     );
@@ -194,6 +196,9 @@ module top #(
 	FETCH_ADDRESS //ONLY USED FOR STORES
     } fetch_mode_e
 
+    typedef enum logic {
+
+
     logic [BUFFER_WORD_SIZE-1:0] instruction;
     logic 		         instruction_half;
 
@@ -269,16 +274,18 @@ module top #(
 	    FETCH_FIFO_STATE: begin
 		case (fetch_mode)
 		    FETCH_INSTRUCTION: begin
-			if (~rx_empty && ~instruction_half) begin
-			    rx_re            <= 1'b1;
-			    instruction[FIFO_DATA_WIDTH-1:0] <= rx_fifo_to_mem;
-			    rx_re            <= 1'b0;
-			    instruction_half <= 1'b1;
-			end else if (~rx_empty && instruction_half) begin
-			    rx_re            <= 1'b1;
-			    instruction[BUFFER_WORD_SIZE-1:FIFO_DATA_WIDTH] <= rx_fifo_to_mem;
-			    rx_re            <= 1'b0;
-			    instruction_half <= 1'b0;
+			if (~rx_we) begin
+			    if (~rx_empty && ~instruction_half) begin
+				rx_re            <= 1'b1;
+				instruction[FIFO_DATA_WIDTH-1:0] <= rx_fifo_to_mem;
+				rx_re            <= 1'b0;
+				instruction_half <= 1'b1;
+			    end else if (~rx_empty && instruction_half) begin
+				rx_re            <= 1'b1;
+				instruction[BUFFER_WORD_SIZE-1:FIFO_DATA_WIDTH] <= rx_fifo_to_mem;
+				rx_re            <= 1'b0;
+				instruction_half <= 1'b0;
+			    end
 			end
 		    end
 		    FETCH_ADDRESS: begin
@@ -323,20 +330,27 @@ module top #(
 		endcase
 	    end
 	    FETCH_ADDRESS_STATE: begin
-		compute_load_en <= 1'b0;
-		buffer_re       <= 1'b1;
-		buffer_we       <= 1'b0;
-		buffer_compute_en <= 1'b1;
-		if (buffer_done) begin
-		    store_val <= mem_to_compute;
-		    buffer_re <= 1'b0;
-		    buffer_compute_en <= 1'b0;
+		if (~tx_full) begin
+		    compute_load_en <= 1'b0;
+		    buffer_re       <= 1'b1;
+		    buffer_we       <= 1'b0;
+		    buffer_compute_en <= 1'b1;
+		    if (buffer_done) begin
+			store_val <= mem_to_compute;
+			buffer_re <= 1'b0;
+			buffer_compute_en <= 1'b0;
+		    end
 		end
 	    end
 	    FETCH_BUFFER_STATE: begin
 		buffer_we <= 1'b1;
 		buffer_re <= 1'b0;
-
+		buffer_fifo_en <= 1'b1;
+		buffer_compute_en <= 1'b0;
+		if (buffer_done) begin
+		    buffer_fifo_en <= 1'b0;
+		    buffer_we <= 1'b1;
+		end
 	    end
 	    LOAD_STATE: begin
 		compute_en <= 1'b0; // maybe not needed 
@@ -374,7 +388,18 @@ module top #(
 
     // UART communication happens at the same time as everything else
     always_ff @(posedge clk) begin: uart communication
-		
+	// Rx Control
+	if (~rx_re && rx_valid)
+	    rx_we <= 1'b1;
+	else
+	    rx_we <= 1'b0;
+
+	//Tx Control
+	if (~tx_we && ~tx_empty)
+	    tx_rx <= 1'b1;
+	else 
+	    tx_rx <= 1'b0;
+
     end
 
 

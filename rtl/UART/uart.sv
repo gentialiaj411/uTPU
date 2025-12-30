@@ -19,6 +19,7 @@ module uart #(
 	.UART_CLK(UART_CLK)
     ) u_clk_divider (
 	.clk(clk),
+	.rst(rst),
 	.uart_clk(uart_clk)
     );
 
