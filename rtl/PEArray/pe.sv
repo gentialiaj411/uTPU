@@ -20,7 +20,6 @@ module pe #(
 	    accumulator <= '0;
 	end else begin
 	    activation_out <= in;
-
 	    if (load_en) 
 		weight <= in;
 	    else if (compute) begin

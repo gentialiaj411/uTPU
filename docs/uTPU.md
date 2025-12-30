@@ -184,4 +184,5 @@ UART TX <- FIFO TX <------------|
     - Empty
     - Full
 
-
+### Possible Problems in Design
+    1. What happens if UART_RX begins receiving data before the fifo has stored the previous
