@@ -4,7 +4,8 @@ module unified_buffer #(
 	parameter FIFO_DATA_WIDTH    = 8,    // Number of bits recieved/sent from/to fifos
 	parameter COMPUTE_DATA_WIDTH = 4,  // Number of bits recieved/sent from/to compute unit
 	parameter ADDRESS_SIZE       = $clog2(BUFFER_SIZE),
-	parameter ARRAY_SIZE         = 2
+	parameter ARRAY_SIZE         = 2,
+	parameter NUM_COMPUTE_LANES  = BUFFER_WORD_SIZE/COMPUTE_DATA_WIDTH
     ) (
 	input  logic clk, we, re, compute_en, fifo_en,
 	output logic 			      done,
@@ -12,8 +13,8 @@ module unified_buffer #(
 	input  logic [ADDRESS_SIZE-1:0]	      address,
 	input  logic [FIFO_DATA_WIDTH-1:0]    fifo_in,
 	output logic [FIFO_DATA_WIDTH-1:0]    fifo_out,
-	input  logic [COMPUTE_DATA_WIDTH-1:0] compute_in [ARRAY_SIZE-1:0], 
-	output logic [COMPUTE_DATA_WIDTH-1:0] compute_out [ARRAY_SIZE-1:0]	
+	input  logic [COMPUTE_DATA_WIDTH-1:0] compute_in [NUM_COMPUTE_LANES-1:0], 
+	output logic [COMPUTE_DATA_WIDTH-1:0] compute_out [NUM_COMPUTE_LANES-1:0] 
     );
     
     logic [BUFFER_WORD_SIZE-1:0] mem [BUFFER_SIZE-1:0];
@@ -22,10 +23,9 @@ module unified_buffer #(
 	done <= 1'b0;
 	if (we) begin
 	    if (compute_en) begin
-		mem[address][COMPUTE_DATA_WIDTH-1:0] <= compute_in[0];
-		mem[address][COMPUTE_DATA_WIDTH*2-1:COMPUTE_DATA_WIDTH] <= compute_in[1];
-	        mem[address][COMPUTE_DATA_WIDTH*3-1:COMPUTE_DATA_WIDTH*2] <= compute_in[2];
-		mem[address][COMPUTE_DATA_WIDTH*4-1:COMPUTE_DATA_WIDTH*3] <= compute_in[3];
+		for (int i=0; i < NUM_COMPUTE_LANES; i++) begin 
+		    mem[address][COMPUTE_DATA_WIDTH*(i+1)-1:COMPUTE_DATA_WIDTH*i] <= compute_in[i];
+		end
 	    end else if (fifo_en)
 		case (section)
 		    1'b0: mem[address][FIFO_DATA_WIDTH-1:0] <= fifo_in;
@@ -34,10 +34,9 @@ module unified_buffer #(
 	    done <= 1'b1;
 	end else if (re) begin
 	    if (compute_en) begin
-		compute_out[0] <= mem[address][COMPUTE_DATA_WIDTH-1:0];
-		compute_out[1] <= mem[address][COMPUTE_DATA_WIDTH*2-1:COMPUTE_DATA_WIDTH];
-		compute_out[2] <= mem[address][COMPUTE_DATA_WIDTH*3-1:COMPUTE_DATA_WIDTH*2];
-		compute_out[3] <= mem[address][COMPUTE_DATA_WIDTH*4-1:COMPUTE_DATA_WIDTH*3];
+		for (int i=0; i < NUM_COMPUTE_LANES; i++) begin
+		    compute_out[i] <= mem[address][COMPUTE_DATA_WIDTH*(i+1)-1:COMPUTE_DATA_WIDTH*i];
+		end
 	    end else if (fifo_en)
 		case (section)
 		    1'b0: fifo_out <= mem[address][FIFO_DATA_WIDTH-1:0];

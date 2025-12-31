@@ -1,6 +1,3 @@
-
-
-
 module top #(
 	parameter UART_BITS_TRANSFERED   = 8,
 	parameter ALPHA			 = 2,
@@ -30,8 +27,8 @@ module top #(
     logic 	   		   quantizer_en;
     logic 		           relu_en;
     logic 	                   bot_mem;
-    logic [COMPUTE_DATA_WIDTH-1:0] store_val;
-
+    logic 		   	   mem_section; // used for fifo where 0 top / 1 bot
+    logic [COMPUTE_DATA_WIDTH-1:0] store_val [BUFFER_WORD_SIZE/COMPUTE_DATA_WIDTH-1:0];    
     // FIFO reciever control signals/flags
     logic rx_we, rx_re, rx_empty, rx_full, rx_valid;
     // FIFO reciever data
@@ -151,7 +148,8 @@ module top #(
 	.BUFFER_WORD_SIZE(BUFFER_WORD_SIZE),
 	.FIFO_DATA_WIDTH(FIFO_DATA_WIDTH),
 	.COMPUTE_DATA_WIDTH(COMPUTE_DATA_WIDTH),
-	.ADDRESS_SIZE(ADDRESS_SIZE)
+	.ADDRESS_SIZE(ADDRESS_SIZE),
+	.ARRAY_SIZE(ARRAY_SIZE)
     ) u_unified_buffer (
 	.clk(clk),
 	.we(buffer_we),
@@ -159,6 +157,7 @@ module top #(
 	.compute_en(buffer_compute_en),
 	.fifo_en(buffer_fifo_en),
 	.done(buffer_done),
+	.section(section),
 	.address(address),
 	.fifo_in(rx_fifo_to_mem),
 	.fifo_out(mem_to_tx_fifo),
@@ -306,7 +305,6 @@ module top #(
 	    DECODE_STATE: begin
 		case (opcode)
 		    STORE_OP: begin	
-			bot_mem           <= (instruction[3]) ? 1'b1 : 1'b0;
 			address_indicator <= (instruction[4]) ? 1'b1 : 1'b0;
 			fetch_mode        <= FETCH_ADDRESS;
 		    end
@@ -336,7 +334,7 @@ module top #(
 		    buffer_we       <= 1'b0;
 		    buffer_compute_en <= 1'b1;
 		    if (buffer_done) begin
-			store_val <= mem_to_compute;
+			store_val <= mem_to_compute[;
 			buffer_re <= 1'b0;
 			buffer_compute_en <= 1'b0;
 		    end
@@ -347,6 +345,7 @@ module top #(
 		buffer_re <= 1'b0;
 		buffer_fifo_en <= 1'b1;
 		buffer_compute_en <= 1'b0;
+		section <= bot_mem;
 		if (buffer_done) begin
 		    buffer_fifo_en <= 1'b0;
 		    buffer_we <= 1'b1;
@@ -374,7 +373,7 @@ module top #(
 		    compute_in        <= mem_to_compute;
 		    quantizer_in      <= compute_out;
 		    relu_in           <= quantizer_out;
-		    compute_to_buffer <= relu_out; 
+		    compute_to_buffer <= relu_out;
 		end
 	    end
 	    STORE_STATE: begin

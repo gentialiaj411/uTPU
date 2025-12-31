@@ -28,8 +28,8 @@ UART TX <- FIFO TX <------------|
     
     A-TYPE STORE (for now address_length is not used as always 4 bits)
      3 bits  1 bit     1 bit                         4 bits                         4 bits
-    [OPCODE] [TOP/BOT] [IMMEDIATE/ADDRESS INDICATOR] [address_lengthb or NOT USED] [address_lengtha]
-     
+    [OPCODE] [NOT USED] [IMMEDIATE/ADDRESS INDICATOR] [address_lengthb or NOT USED] [address_lengtha]
+              (Was top/bottom but would only be used if sending 2 int4 instead of 4)
      7 bits     9 bits
     [NOT USED] [ADDRESS]
     or 
@@ -194,4 +194,5 @@ UART TX <- FIFO TX <------------|
     Fix the laning issue between the buffer and compute 
         - mem to 4-input
     Work out how to control the parameters with the toml file
-
+    
+    
