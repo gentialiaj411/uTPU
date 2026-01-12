@@ -190,7 +190,7 @@ module top #(
 	NOP    
     } opcode_e
     
-     typedef enum logic {
+    typedef enum logic {
 	FETCH_INSTRUCTION,
 	FETCH_ADDRESS //ONLY USED FOR STORES
     } fetch_mode_e
@@ -241,7 +241,7 @@ module top #(
 		    if (buffer_done)
 			next_state <= FETCH_FIFO_STATE;	
 		FETCH_BUFFER_STATE:
-		    if (buffer_done):
+		    if (buffer_done)
 			next_state <= FETCH_FIFO_STATE;
 		LOAD_STATE:
 		    if (buffer_done)

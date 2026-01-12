@@ -13,19 +13,20 @@ module pe #(
     logic [COMPUTE_DATA_WIDTH-1:0] weight;
 
     always_ff @(posedge clk) begin
-	if (rst) begin
-	    weight <= '0;
-	    activation_out <= '0;
-	    //partial_sum_out <= '0;
-	    accumulator <= '0;
-	end else begin
-	    activation_out <= in;
-	    if (load_en) 
-		weight <= in;
-	    else if (compute) begin
-		accumulator <= partial_sum_in + (in * weight);
-		//partial_sum_out <= partial_sum_in + (data_in * weight);
-	end
+        if (rst) begin
+            weight <= '0;
+            activation_out <= '0;
+            //partial_sum_out <= '0;
+            accumulator <= '0;
+        end else begin
+            activation_out <= in;
+            if (load_en) 
+            weight <= in;
+            else if (compute) begin
+            accumulator <= partial_sum_in + (in * weight);
+            //partial_sum_out <= partial_sum_in + (data_in * weight);
+           end
+        end
     end
 endmodule: pe
 

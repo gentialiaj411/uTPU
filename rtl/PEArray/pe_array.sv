@@ -1,17 +1,19 @@
 `include "pe.sv"
 
 module pe_array #(
-	parameter ARRAY_SIZE = 2,
+	parameter ARRAY_SIZE = 4,
 	parameter ARRAY_SIZE_WIDTH = $clog2(ARRAY_SIZE),
 	parameter COMPUTE_DATA_WIDTH = 4,
-	parameter ACCUMULATOR_DATA_WIDTH = 16
+	parameter ACCUMULATOR_DATA_WIDTH = 16,
+	parameter BUFFER_WORD_SIZE = 16,
+	parameter NUM_COMPUTE_LANES = BUFFER_WORD_SIZE/COMPUTE_DATA_WIDTH;
     ) (
 	input logic clk, rst, compute, load_en,
-	input logic [COMPUTE_DATA_WIDTH-1:0] ins [ARRAY_SIZE-1:0],
-	output logic [ACCUMULATOR_DATA_WIDTH-1:0] results [ARRAY_SIZE-1:0]
+	input logic [COMPUTE_DATA_WIDTH-1:0] ins [COMPUTE_DATA_WIDTH-1:0],
+	output logic [ACCUMULATOR_DATA_WIDTH-1:0] results [COMPUTE_DATA_WIDTH-1:0]
     );
-
     
+     
     logic [ACCUMULATOR_DATA_WIDTH-1:0] accumulators [ARRAY_SIZE-1:0][ARRAY_SIZE-1:0];
     logic [COMPUTE_DATA_WIDTH-1:0] activations [ARRAY_SIZE-1:0][ARRAY_SIZE:0];
 
