@@ -1,0 +1,9 @@
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "/home/sportsman/coding/systemverilog/uTPU/rtl/PEArray/pe.sv" into library work
+INFO: [VRFC 10-311] analyzing module pe
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "/home/sportsman/coding/systemverilog/uTPU/rtl/PEArray/pe_array.sv" into library work
+INFO: [VRFC 10-311] analyzing module pe_array
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "/home/sportsman/coding/systemverilog/uTPU/sim/PEArray/pe_array_tb2.sv" into library work
+INFO: [VRFC 10-311] analyzing module pe_array_tb2
+ERROR: [VRFC 10-3000] 'dut' is not valid in an expression [/home/sportsman/coding/systemverilog/uTPU/sim/PEArray/pe_array_tb2.sv:56]
+ERROR: [VRFC 10-9022] illegal argument in write; expected an expression that returns a value [/home/sportsman/coding/systemverilog/uTPU/sim/PEArray/pe_array_tb2.sv:56]
+ERROR: [VRFC 10-8530] module 'pe_array_tb2' is ignored due to previous errors [/home/sportsman/coding/systemverilog/uTPU/sim/PEArray/pe_array_tb2.sv:4]
