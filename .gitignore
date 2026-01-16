@@ -15,3 +15,14 @@ build/
 xsim.dir/
 
 todo.md
+
+__pycache__/
+*.pyc
+
+software/data/
+software/preprocesses/mnist_raw/
+
+software/model/weights/
+
+*.npy
+*.bin

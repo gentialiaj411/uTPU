@@ -9,7 +9,7 @@ def downscale(images_28x28):
     images_14x14 = np.zeros((N, 14, 14), dtype=np.float32) #initialize 14x14 matrix for each image, w/ type 32 bit
     for row in range(14):
         for col in range(14):
-            block = images_28x28[:,row*2+row*2+2, col*2:col*2+2]
+            block = images_28x28[:,row*2:row*2+2, col*2:col*2+2]
             images_14x14[:, row, col] = block.mean(axis=(1, 2)) #avg over rows and columns, axis = 0 would be N (numImages)
     return images_14x14
 
@@ -60,5 +60,5 @@ def main():
     print(f"Test images: {test_images_14x14.shape}") #shape: (10000, 14, 14)
     print(f"Pixel value range: [{train_images_14x14.min():.3f}, {train_images_14x14.max():.3f}]")
 
-    if __name__ == "__main__":
-        main()
+if __name__ == "__main__":
+    main()
