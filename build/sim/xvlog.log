@@ -1,6 +1,4 @@
-INFO: [VRFC 10-2263] Analyzing SystemVerilog file "/home/sportsman/coding/systemverilog/uTPU/rtl/PEArray/pe.sv" into library work
-INFO: [VRFC 10-311] analyzing module pe
-INFO: [VRFC 10-2263] Analyzing SystemVerilog file "/home/sportsman/coding/systemverilog/uTPU/rtl/PEArray/pe_array.sv" into library work
-INFO: [VRFC 10-311] analyzing module pe_array
-INFO: [VRFC 10-2263] Analyzing SystemVerilog file "/home/sportsman/coding/systemverilog/uTPU/sim/PEArray/pe_array_tb2.sv" into library work
-INFO: [VRFC 10-311] analyzing module pe_array_tb2
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "/home/sportsman/coding/systemverilog/uTPU/rtl/PEArray/pe_controller.sv" into library work
+INFO: [VRFC 10-311] analyzing module pe_controller
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "/home/sportsman/coding/systemverilog/uTPU/sim/PEArray/pe_controller_tb.sv" into library work
+INFO: [VRFC 10-311] analyzing module pe_controller_tb

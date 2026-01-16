@@ -1,7 +1,7 @@
 Vivado Simulator v2024.1
 Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
 Copyright 2022-2024 Advanced Micro Devices, Inc. All Rights Reserved.
-Running: /opt/Xilinx/Vivado/2024.1/bin/unwrapped/lnx64.o/xelab pe_array_tb2 -debug typical 
+Running: /opt/Xilinx/Vivado/2024.1/bin/unwrapped/lnx64.o/xelab pe_controller_tb -debug typical 
 Multi-threading is on. Using 18 slave threads.
 Starting static elaboration
 Pass Through NonSizing Optimizer
@@ -10,6 +10,7 @@ Starting simulation data flow analysis
 Completed simulation data flow analysis
 Time Resolution for simulation is 1ps
 Compiling module work.pe
-Compiling module work.pe_array(ARRAY_SIZE=2)
-Compiling module work.pe_array_tb2
-Built simulation snapshot work.pe_array_tb2
+Compiling module work.pe_array(ARRAY_SIZE_WIDTH=3,NUM_...
+Compiling module work.pe_controller(NUM_COMPUTE_LANES=...
+Compiling module work.pe_controller_tb
+Built simulation snapshot work.pe_controller_tb

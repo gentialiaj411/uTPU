@@ -1,4 +1,17 @@
-*.out
-*.vvp
-*.vcd
+
+# Vivado / xsim artifacts
+*.jou
+*.log
+*.pb
+*.wdb
+*.dbg
+*.mem
+*.rtti
+*.xdbg
+*.sdb
+*.rlx
+
+build/
+xsim.dir/
+
 todo.md

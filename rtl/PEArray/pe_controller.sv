@@ -1,3 +1,5 @@
+`timescale 1ns/1ps
+
 module pe_controller #(
 	parameter ARRAY_SIZE 		 = 8,
 	parameter ARRAY_SIZE_WIDTH 	 = $clog2(ARRAY_SIZE),
@@ -12,28 +14,46 @@ module pe_controller #(
 	output logic signed [ACCUMULATOR_DATA_WIDTH-1:0] results_arr [ARRAY_SIZE*ARRAY_SIZE-1:0]
     );
     
-    localparam CYCLE_LENGTH = ARRAY_SIZE*2-1;
+    localparam CYCLE_LENGTH = ARRAY_SIZE*3-1;
+    localparam OUT_OFFSET   = ARRAY_SIZE+1;
 
     logic        [$clog2(CYCLE_LENGTH)-1:0]   cycle_count;
     logic signed [COMPUTE_DATA_WIDTH-1:0]     datas_in [ARRAY_SIZE-1:0];
     logic signed [ACCUMULATOR_DATA_WIDTH-1:0] results  [ARRAY_SIZE-1:0];
    
+    int i, j;
+    int k;
+    int base_idx;
+
     always_ff @(posedge clk) begin
-	if (rst)
+	if (rst) begin
 	    cycle_count <= '0;
-	else begin
+	    for (i=0; i < ARRAY_SIZE; i++)
+		datas_in[i] <= '0;
+	end else begin
 	    if (cycle_count == CYCLE_LENGTH) 
 		cycle_count <= '0;
-	    datas_in[0] <= (cycle_count < ARRAY_SIZE) ? datas_arr[ARRAY_SIZE*cycle_count] : '0;
-	    datas_in[1] <= (cycle_count < ARRAY_SIZE+1 && cycle_count > 0) ? datas_arr[ARRAY_SIZE*cycle_count + 1] : '0;
-	    datas_in[2] <= (cycle_count < ARRAY_SIZE+2 && cycle_count > 1) ? datas_arr[ARRAY_SIZE*cycle_count + 2] : '0;
-	    datas_in[3] <= (cycle_count < ARRAY_SIZE+3 && cycle_count > 2) ? datas_arr[ARRAY_SIZE*cycle_count + 3] : '0;
-	    datas_in[4] <= (cycle_count < ARRAY_SIZE+4 && cycle_count > 3) ? datas_arr[ARRAY_SIZE*cycle_count + 4] : '0;
-	    datas_in[5] <= (cycle_count < ARRAY_SIZE+5 && cycle_count > 4) ? datas_arr[ARRAY_SIZE*cycle_count + 5] : '0;
-	    datas_in[6] <= (cycle_count < ARRAY_SIZE+6 && cycle_count > 5) ? datas_arr[ARRAY_SIZE*cycle_count + 6] : '0;
-	    datas_in[7] <= (cycle_count < ARRAY_SIZE+7 && cycle_count > 6) ? datas_arr[ARRAY_SIZE*cycle_count + 7] : '0;
+	    else 
+		cycle_count <= cycle_count + 1'b1;
+
+	    for (i=0; i < ARRAY_SIZE; i++) begin
+		if ((cycle_count < ARRAY_SIZE + i) && (cycle_count >= i)) 
+		    datas_in[i] <= datas_arr[ARRAY_SIZE*(cycle_count - i) + i];
+		else 
+		    datas_in[i] <= '0;
+	    end
+	    
+	    if (cycle_count >= OUT_OFFSET && cycle_count < OUT_OFFSET + ARRAY_SIZE) begin
+		k = (cycle_count - OUT_OFFSET) + 1;     // 1..ARRAY_SIZE
+		base_idx = (k * (k - 1)) / 2;           // 0,1,3,6,... triangular numbers
+
+		for (j = 0; j < k; j++) begin
+		    results_arr[base_idx + j] <= results[(k - 1) - j];
+		end
+	    end
 	end
     end
+
 
     pe_array #(
 	.ARRAY_SIZE(ARRAY_SIZE),
