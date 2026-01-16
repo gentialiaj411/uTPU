@@ -15,15 +15,12 @@ module pe_controller #(
     );
     
     localparam CYCLE_LENGTH = ARRAY_SIZE*3-1;
-    localparam OUT_OFFSET   = ARRAY_SIZE+1;
 
     logic        [$clog2(CYCLE_LENGTH)-1:0]   cycle_count;
     logic signed [COMPUTE_DATA_WIDTH-1:0]     datas_in [ARRAY_SIZE-1:0];
     logic signed [ACCUMULATOR_DATA_WIDTH-1:0] results  [ARRAY_SIZE-1:0];
    
-    int i, j;
-    int k;
-    int base_idx;
+    int i;
 
     always_ff @(posedge clk) begin
 	if (rst) begin
@@ -42,13 +39,12 @@ module pe_controller #(
 		else 
 		    datas_in[i] <= '0;
 	    end
-	    
-	    if (cycle_count >= OUT_OFFSET && cycle_count < OUT_OFFSET + ARRAY_SIZE) begin
-		k = (cycle_count - OUT_OFFSET) + 1;     // 1..ARRAY_SIZE
-		base_idx = (k * (k - 1)) / 2;           // 0,1,3,6,... triangular numbers
-
-		for (j = 0; j < k; j++) begin
-		    results_arr[base_idx + j] <= results[(k - 1) - j];
+	
+	   // TODO: You have to write some connection from the result output
+	   // to reuslts_arr 
+	    for (i=0; i < ARRAY_SIZE*ARRAY_SIZE; i++) begin
+		if (ARRAY_SIZE + 1 + (i % ARRAY_SIZE) + (i / ARRAY_SIZE) == cycle_count) begin
+		    results_arr[i] <= results[i % ARRAY_SIZE];
 		end
 	    end
 	end
