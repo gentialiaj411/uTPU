@@ -109,17 +109,20 @@ module top #(
 	.r_data(tx_to_fifo)
     );
 
-    pe_array #(
+    pe_controller #(
 	.ARRAY_SIZE(ARRAY_SIZE),
 	.ARRAY_SIZE_WIDTH(ARRAY_SIZE_WIDTH),
 	.COMPUTE_DATA_WIDTH(COMPUTE_DATA_WIDTH),
-	.ACCUMULATOR_DATA_WIDTH(ACCUMULATOR_DATA_WIDTH)
+	.ACCUMULATOR_DATA_WIDTH(ACCUMULATOR_DATA_WIDTH),
+	.BUFFER_WORD_SIZE(BUFFER_WORD_SIZE),
+	.NUM_COMPUTE_LANES(NUM_COMPUTE_LANES)
     ) u_pe_array (
 	.clk(clk),
 	.rst(rst),
 	.compute(compute_start),
 	.load_en(compute_load_en),
-	.ins(compute_in),
+	.data_arr(compute_in),
+	.weights_in(compute_in),
 	.results(compute_out)
     );
 

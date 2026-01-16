@@ -4,8 +4,8 @@ module unified_buffer #(
 	parameter FIFO_DATA_WIDTH    = 8,    // Number of bits recieved/sent from/to fifos
 	parameter COMPUTE_DATA_WIDTH = 4,  // Number of bits recieved/sent from/to compute unit
 	parameter ADDRESS_SIZE       = $clog2(BUFFER_SIZE),
-	parameter ARRAY_SIZE         = 2,
-	parameter NUM_COMPUTE_LANES  = BUFFER_WORD_SIZE/COMPUTE_DATA_WIDTH
+	parameter ARRAY_SIZE         = 8,
+	parameter NUM_COMPUTE_LANES  = ARRAY_SIZE*ARRAY_SIZE
     ) (
 	input  logic clk, we, re, compute_en, fifo_en,
 	output logic 			      done,
@@ -17,14 +17,19 @@ module unified_buffer #(
 	output logic [COMPUTE_DATA_WIDTH-1:0] compute_out [NUM_COMPUTE_LANES-1:0] 
     );
     
+    localparam ITEMS_IN_SLOT = BUFFER_WORD_SIZE/COMPUTE_DATA_WIDTH;
+
     logic [BUFFER_WORD_SIZE-1:0] mem [BUFFER_SIZE-1:0];
 
     always_ff @(posedge clk) begin
 	done <= 1'b0;
 	if (we) begin
 	    if (compute_en) begin
-		for (int i=0; i < NUM_COMPUTE_LANES; i++) begin 
-		    mem[address][COMPUTE_DATA_WIDTH*(i+1)-1:COMPUTE_DATA_WIDTH*i] <= compute_in[i];
+		for (int i=0; i < NUM_COMPUTE_LANES/ITEMS_IN_SLOT; i++) begin 
+		    for (int j=0; j < ITEM_IN_SLOT; j++) begin
+			mem[address+i][COMPUTE_DATA_WIDTH*(j+1)-1:COMPUTE_DATA_WIDTH*j] 
+			         <= compute_in[j+i*ITEMS_IN_SLOT];
+		    end
 		end
 	    end else if (fifo_en)
 		case (section)
@@ -34,8 +39,10 @@ module unified_buffer #(
 	    done <= 1'b1;
 	end else if (re) begin
 	    if (compute_en) begin
-		for (int i=0; i < NUM_COMPUTE_LANES; i++) begin
-		    compute_out[i] <= mem[address][COMPUTE_DATA_WIDTH*(i+1)-1:COMPUTE_DATA_WIDTH*i];
+		for (int i=0; i < NUM_COMPUTE_LANES/ITEMS_IN_SLOT; i++) begin 
+		    for (int j=0; j < ITEM_IN_SLOT; j++) begin
+			compute_in[j+i*ITEMS_IN_SLOT] 
+			       <= mem[address+i][COMPUTE_DATA_WIDTH*(j+1)-1:COMPUTE_DATA_WIDTH*j];
 		end
 	    end else if (fifo_en)
 		case (section)
