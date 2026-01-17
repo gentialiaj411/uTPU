@@ -1,7 +1,7 @@
 Vivado Simulator v2024.1
 Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
 Copyright 2022-2024 Advanced Micro Devices, Inc. All Rights Reserved.
-Running: /opt/Xilinx/Vivado/2024.1/bin/unwrapped/lnx64.o/xelab top_tb -debug typical 
+Running: /opt/Xilinx/Vivado/2024.1/bin/unwrapped/lnx64.o/xelab system_tb -debug typical 
 Multi-threading is on. Using 18 slave threads.
 Starting static elaboration
 Pass Through NonSizing Optimizer

@@ -30,5 +30,5 @@ INFO: [VRFC 10-2263] Analyzing SystemVerilog file "/home/sportsman/coding/system
 INFO: [VRFC 10-311] analyzing module uart
 INFO: [VRFC 10-2263] Analyzing SystemVerilog file "/home/sportsman/coding/systemverilog/uTPU/rtl/top/top.sv" into library work
 INFO: [VRFC 10-311] analyzing module top
-INFO: [VRFC 10-2263] Analyzing SystemVerilog file "/home/sportsman/coding/systemverilog/uTPU/sim/top/top_tb.sv" into library work
-INFO: [VRFC 10-311] analyzing module top_tb
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "/home/sportsman/coding/systemverilog/uTPU/sim/top/system_tb.sv" into library work
+INFO: [VRFC 10-311] analyzing module system_tb
