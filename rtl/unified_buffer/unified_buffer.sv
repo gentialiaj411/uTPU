@@ -19,7 +19,8 @@ module unified_buffer #(
 	output logic [FIFO_DATA_WIDTH-1:0]    fifo_out,
 	input  logic [COMPUTE_DATA_WIDTH-1:0] compute_in [NUM_COMPUTE_LANES-1:0], 
 	output logic [COMPUTE_DATA_WIDTH-1:0] compute_out [NUM_COMPUTE_LANES-1:0],
-	input  logic [STORE_DATA_WIDTH-1:0]   store_in
+	input  logic [STORE_DATA_WIDTH-1:0]   store_in,
+	output logic [STORE_DATA_WIDTH-1:0]   store_out
     ); 
     
     localparam int ITEMS_IN_SLOT = BUFFER_WORD_SIZE/COMPUTE_DATA_WIDTH;
@@ -44,7 +45,7 @@ module unified_buffer #(
                     1'b0: mem[address][0 +: FIFO_DATA_WIDTH] <= fifo_in;                // low byte
                     1'b1: mem[address][FIFO_DATA_WIDTH +: FIFO_DATA_WIDTH] <= fifo_in;  // high byte
                 endcase
-	    end else if (store_in) begin 
+	    end else if (store_en) begin 
 		mem[address][STORE_DATA_WIDTH-1:0] <= store_in;
 	    end
             done <= 1'b1;
@@ -63,7 +64,8 @@ module unified_buffer #(
                     1'b0: fifo_out <= mem[address][0 +: FIFO_DATA_WIDTH];
                     1'b1: fifo_out <= mem[address][FIFO_DATA_WIDTH +: FIFO_DATA_WIDTH];
                 endcase
-            end
+	    end else if (store_en) begin
+		store_out <= mem[address][STORE_DATA_WIDTH-1:0];1
             done <= 1'b1;
         end
     end

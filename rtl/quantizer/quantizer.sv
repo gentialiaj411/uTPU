@@ -9,6 +9,6 @@ module quantizer #(
 	output signed logic [COMPUTE_DATA_WIDTH-1:0] 	  result
     );
     
-    assign result = in >>> ACCUMULATOR_DATA_WIDTH - COMPUTE_DATA_WIDTH;
+    assign result = in >>> (ACCUMULATOR_DATA_WIDTH - COMPUTE_DATA_WIDTH);
 
 endmodule: quantizer

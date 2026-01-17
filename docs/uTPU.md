@@ -51,49 +51,6 @@ UART TX <- FIFO TX <------------|
     D-TYPE 
     [OPCODE] [NOT USED]
 
-#### Opcodes (3 bits)
-    
-    STORE (A-TYPE)
-        - Requires to fetch 1/2 addresses depending on if has immediate value
-        - If 2 addresses, needs to fetch value from buffer before continuing
-
-    FETCH (B-TYPE)
-
-    RUN (B-TYPE)
-
-    LOAD (B-TYPE)
-        - It is better to store the value in the controller then load it or just 
-          just allow the information to flow from the memory directly to the compute
-                - I think it is better to direct flow as we can start doing other things
-                  while the value is settling
-
-    HALT (D-TYPE)
-
-    **** (NOT SET)
-
-    **** (NOT SET)
-
-    NOP (D-TYPE)
-
-
-
-#### Instructions
-    
-    STORETOP/STOREBOT - which loads the top/bottom of the 16 bit mem location
-    
-    ENRELU/DISRELU - which change the activation state of RELU module
-    
-    LOADIN - loads the 4 vals at the address into the compute unit input
-     
-    LOADWEI - loads the 4 weights at the address into mac array
-    
-    RUN -  allows the inputs to flow through the compute unit
-    
-    FETCHTOP/FETCHBOT - which returns the top/bottom 8 bits at mem location
-        
-    HALT
-      
-    NOP
 
 
 ### Modules

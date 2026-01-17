@@ -15,7 +15,8 @@ module top #(
 	parameter RELU_SIZE_WIDTH        = $clog2(RELU_SIZE),
 	parameter QUANTIZER_SIZE         = ARRAY_SIZE*ARRAY_SIZE,
 	parameter QUANTIZER_SIZE_WIDTH   = $clog2(QUANTIZER_SIZE),
-	parameter NUM_COMPUTE_LANES      = ARRAY_SIZE*ARRAY_SIZE
+	parameter NUM_COMPUTE_LANES      = ARRAY_SIZE*ARRAY_SIZE,
+	parameter STORE_DATA_WIDTH       = 16
     ) (
 	input  logic clk, rst, start,
 	input  logic rx,
@@ -66,6 +67,8 @@ module top #(
     // Buffer data
     logic [COMPUTE_DATA_WIDTH-1:0] mem_to_compute    [NUM_COMPUTE_LANES-1:0];
     logic [COMPUTE_DATA_WIDTH-1:0] compute_to_buffer [NUM_COMPUTE_LANES-1:0];
+    logic [STORE_DATA_WIDTH-1:0]   controller_to_buffer;
+    logic [STORE_DATA_WIDTH-1:0]   buffer_to_controller;
 
 
     uart #(
@@ -169,7 +172,9 @@ module top #(
 	.fifo_in(rx_fifo_to_mem),
 	.fifo_out(mem_to_tx_fifo),
 	.compute_in(compute_to_buffer),
-	.compute_out(mem_to_compute)
+	.compute_out(mem_to_compute),
+	.store_in(controller_to_buffer),
+	.store_out(buffer_to_controller)
     );
 
 
@@ -197,14 +202,16 @@ module top #(
 	NOP    
     } opcode_e;
     
-    typedef enum logic {
+    typedef enum logic [1:0] {
 	FETCH_INSTRUCTION,
-	FETCH_ADDRESS //ONLY USED FOR STORES
+	FETCH_ADDRESS, //ONLY USED FOR STORES
+	FETCH_INTS, //ONLY USED FOR STORES
     } fetch_mode_e;
 
 
     logic [BUFFER_WORD_SIZE-1:0] instruction;
     logic 		         instruction_half;
+    logic 	  		 fetch_bot;
 
     opcode_e opcode;
     assign opcode = opcode_e'(instruction[OPCODE_WIDTH-1:0]);
@@ -248,7 +255,8 @@ module top #(
 			next_state = FETCH_FIFO_STATE;
 		endcase
 	    FETCH_ADDRESS_STATE:
-		if (buffer_done) 
+		if (buffer_done) begin
+		    if (
 		    next_state = STORE_STATE;
 	    FETCH_BUFFER_STATE:
 		if (buffer_done)
@@ -291,8 +299,8 @@ module top #(
 			    end else if (~rx_empty && instruction_half) begin
 				rx_re            <= 1'b1;
 				instruction[BUFFER_WORD_SIZE-1:FIFO_DATA_WIDTH] <= rx_fifo_to_mem;
-				rx_re            <= 1'b0;
 				instruction_half <= 1'b0;
+				
 			    end
 			end
 		    end
@@ -312,6 +320,7 @@ module top #(
 		endcase
 	    end
 	    DECODE_STATE: begin
+		rx_re <= '0;
 		case (opcode)
 		    STORE_OP: begin	
 			address_indicator <= (instruction[4]) ? 1'b1 : 1'b0;
@@ -337,13 +346,14 @@ module top #(
 		endcase
 	    end
 	    FETCH_ADDRESS_STATE: begin
+		rx_re <= '0;
 		if (~tx_full) begin
 		    compute_load_en   <= 1'b0;
 		    buffer_re         <= 1'b1;
 		    buffer_we         <= 1'b0;
 		    buffer_compute_en <= 1'b1;
 		    if (buffer_done) begin
-			store_val <= mem_to_compute[BUFFER_DATA_WIDTH-1:0];
+			store_val <= mem_to_compute[BUFFER_WORD_SIZE-1:0];
 			buffer_re <= 1'b0;
 			buffer_compute_en <= 1'b0;
 		    end
@@ -371,19 +381,37 @@ module top #(
 		end
 	    end
 	    COMPUTE_STATE: begin
-		if (~compute_en && ~quantizer_en && relu_en) begin
+		compute_start <= 1'b1;
+		if (~compute_en && ~quantizer_en && relu_en) begin // relu only
 		    relu_in           <= mem_to_compute;
 		    compute_to_buffer <= relu_out; 
-		end else if (~compute_en && quantizer_en && relu_en) begin
+		end else if (~compute_en && quantizer_en && ~relu_en) begin // only quantizer
+		    quantizer_in        <= mem_to_compute;
+		    compute_to_buffer   <= quantizer_out;
+		end else if (~compute_en && quantizer_en && relu_en) begin // quantizer and relu
 		    quantizer_in      <= mem_to_compute;
 		    relu_in           <= quantizer_out;
+		    compute_to_buffer <= relu_out; 
+		end else if (compute_en && ~quanitzer_en && ~relu_en) begin // only compute
+		    compute_in        <= mem_to_compute;
+		    compute_to_buffer <= compute_out;
+		end else if (compute_en && ~quantizer_en && relu_en) begin // compute and relu (ngl idk if this
+		    compute_in        <= mem_to_compute;		   // is even legal int16 in->int4 in)
+		    relu_in           <= compute_out;
 		    compute_to_buffer <= relu_out;
-		end else begin
+		end else if (compute_en && quantizer_en && ~relu_en) begin // compute and quantizer
 		    compute_in        <= mem_to_compute;
 		    quantizer_in      <= compute_out;
+		    compute_to_buffer <= quantizer_out;
+		end else if (compute_en && quantizer_en && relu_en) begin // all three
+		    compute_in        <= mem_to_compute;
+		    quanitzer_in      <= compute_out;
 		    relu_in           <= quantizer_out;
 		    compute_to_buffer <= relu_out;
 		end
+
+		if (compute_done)
+		    compute_start <= '0;
 	    end
 	    STORE_STATE: begin
 		buffer_we <= 1'b1;

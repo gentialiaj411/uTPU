@@ -40,7 +40,8 @@ module uart_receiver #(
                 RECEIVING: begin
                     result[received_bit] <= rx;
                     received_bit <= received_bit + 1;
-                    if (received_bit == UART_BITS_TRANSFERED) begin
+                    if (received_bit == UART_BITS_TRANSFERED-1) begin
+			valid 	      <= 1'b1;
                         received_bit  <= 0;
                         current_state <= IDLE;
                     end
