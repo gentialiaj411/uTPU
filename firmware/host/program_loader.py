@@ -1,8 +1,8 @@
 import numpy as np
 import time
 from typing import List, Optional
-from uart_driver import UARTDriver
-from isa_encoder import (
+from host.uart_driver import UARTDriver
+from host.isa_encoder import (
     ISAEncoder,
     encodeStoreValues,
     encodeLoadWeights,
@@ -32,12 +32,12 @@ class ProgramLoader:
 
     # send bytes to chip
     def sendBytes(self, data):
-        self.uart.sendBytes(data)
+        self.uart.send_bytes_to_chip(data)
         self._log(f"Sent {len(data)} bytes")
 
     # send single encoded instruction
     def sendInstructions(self, instruction_bytes):
-        self.uart.sendBytes(instruction_bytes)
+        self.uart.send_bytes_to_chip(instruction_bytes)
         time.sleep(0.001)
 
     # send program to chip
@@ -47,7 +47,7 @@ class ProgramLoader:
 
         for i in range(0, len(program), chunk_size):
             chunk = program[i:i + chunk_size]
-            self.uart.sendBytes(chunk)
+            self.uart.send_bytes_to_chip(chunk)
             time.sleep(0.015)
 
         self._log("Program sent successfully")
@@ -95,7 +95,7 @@ class ProgramLoader:
         time.sleep(0.1)
 
         numBytes = numWords * 2
-        received = self.uart.receiveBytes(numBytes)
+        received = self.uart.receive_bytes(numBytes)
         self._log(f"Received {len(received)} bytes")
 
         results = []
@@ -134,7 +134,7 @@ class ProgramLoader:
         self.sendProgram(program)
 
         time.sleep(0.05)
-        received = self.uart.receiveBytes(2)
+        received = self.uart.receive_bytes(2)
 
         results = []
         for byte in received:
@@ -148,11 +148,11 @@ class ProgramLoader:
     # sends reset sequence to chip
     def resetChip(self):
         self._log("Resetting chip...")
-        self.uart.flushInput()
+        self.uart.flush_input()
         for _ in range(5):
             self.sendInstructions(encodeHalt())
         time.sleep(0.1)
-        self.uart.flushInput()
+        self.uart.flush_input()
         self._log("Chip reset complete")
 
 

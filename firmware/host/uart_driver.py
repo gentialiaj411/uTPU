@@ -76,7 +76,7 @@ class UARTDriver:
     
     #check how many bytes are waiting to be read
     def bytes_waiting(self) -> int:
-        return self.ser_in_waiting
+        return self.ser.in_waiting
     
     #close serial connection
     def close(self) -> None:
@@ -103,7 +103,7 @@ if __name__ == "__main__":
         with UARTDriver(port, baud=115200) as uart:
             print("\nSending test bytes...")
             test_data = bytes([0x00, 0x55, 0xAA, 0xFF]) 
-            uart.send_bytes(test_data)
+            uart.send_bytes_to_chip(test_data)
             print(f"Sent: {test_data.hex()}")
             
             print("\nWaiting for response...")

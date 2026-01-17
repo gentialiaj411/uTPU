@@ -91,7 +91,7 @@ def run_all_tests(port: str) -> None:
     loader = ProgramLoader(uart, verbose=False)
     
     print("\nResetting chip...")
-    loader.reset_chip()
+    loader.resetChip()
     
     passed = 0
     failed = 0
@@ -124,7 +124,7 @@ def interactive_test(port: str) -> None:
     
     uart = UARTDriver(port, baud=115200)
     loader = ProgramLoader(uart, verbose=True)
-    loader.reset_chip()
+    loader.resetChip()
     
     while True:
         try:
@@ -151,7 +151,13 @@ def interactive_test(port: str) -> None:
                 continue
             
             print("\nRunning computation...")
-            results = loader.execute_2x2_matmul(weights, inputs)
+            results = loader.execute2x2MatMul(
+                weights, 
+                inputs,
+                ProgramLoader.BUFFER_SECTION_B,
+                ProgramLoader.BUFFER_SECTION_A,
+                ProgramLoader.BUFFER_SECTION_C
+                )
             
             print(f"\nWeights: [[{weights[0]}, {weights[1]}], [{weights[2]}, {weights[3]}]]")
             print(f"Inputs: [{inputs[0]}, {inputs[1]}]")
