@@ -5,6 +5,9 @@
  * The 8 bit output from the transaction is given.
  */
 
+
+`timescale 1ns/1ps
+
 module uart_receiver #(
 	parameter UART_BITS_TRANSFERED = 8
     ) (

@@ -1,3 +1,5 @@
+`timescale 1ns/1ps
+
 module clk_divider #(
     	parameter INPUT_CLK            = 27000000,
 	parameter UART_CLK             = 1000000
@@ -9,7 +11,7 @@ module clk_divider #(
     localparam DIVIDER_COUNT = INPUT_CLK / UART_CLK;
 
     
-    logic [$clog2(DIVIDER)-1:0] count;
+    logic [$clog2(DIVIDER_COUNT)-1:0] count;
 
 
     always_ff @(posedge clk) begin

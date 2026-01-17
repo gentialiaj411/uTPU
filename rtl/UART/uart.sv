@@ -1,5 +1,5 @@
-`include "uart_transmitter.sv"
-`include "uart_receiver.sv"
+
+`timescale 1ns/1ps
 
 module uart #(
 	parameter UART_BITS_TRANSFERED = 8,
@@ -8,8 +8,8 @@ module uart #(
     ) (
 	input  logic clk, rst, tx_start, rx,
 	output logic rx_valid, tx,
-	input  logic [UART_BITS_TRANSFERED-1:0] tx_message
-	output logic [UART_BITS_TRANSFERED-1:0] rx_result,
+	input  logic [UART_BITS_TRANSFERED-1:0] tx_message,
+	output logic [UART_BITS_TRANSFERED-1:0] rx_result
     );
 
     logic uart_clk;

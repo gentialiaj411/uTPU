@@ -1,3 +1,6 @@
+
+`timescale 1ns/1ps
+
 module uart_transmitter #(
 	parameter UART_BITS_TRANSFERED = 8
     ) (

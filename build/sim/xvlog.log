@@ -1,4 +1,34 @@
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "/home/sportsman/coding/systemverilog/uTPU/rtl/fifo/fifo.sv" into library work
+INFO: [VRFC 10-311] analyzing module fifo
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "/home/sportsman/coding/systemverilog/uTPU/rtl/fifo/fifo_rx.sv" into library work
+INFO: [VRFC 10-311] analyzing module fifo_rx
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "/home/sportsman/coding/systemverilog/uTPU/rtl/fifo/fifo_tx.sv" into library work
+INFO: [VRFC 10-311] analyzing module fifo_tx
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "/home/sportsman/coding/systemverilog/uTPU/rtl/LeakyReLU/leaky_relu.sv" into library work
+INFO: [VRFC 10-311] analyzing module leaky_relu
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "/home/sportsman/coding/systemverilog/uTPU/rtl/LeakyReLU/leaky_relu_array.sv" into library work
+INFO: [VRFC 10-311] analyzing module leaky_relu_array
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "/home/sportsman/coding/systemverilog/uTPU/rtl/quantizer/quantizer.sv" into library work
+INFO: [VRFC 10-311] analyzing module quantizer
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "/home/sportsman/coding/systemverilog/uTPU/rtl/quantizer/quantizer_array.sv" into library work
+INFO: [VRFC 10-311] analyzing module quantizer_array
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "/home/sportsman/coding/systemverilog/uTPU/rtl/PEArray/pe.sv" into library work
+INFO: [VRFC 10-311] analyzing module pe
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "/home/sportsman/coding/systemverilog/uTPU/rtl/PEArray/pe_array.sv" into library work
+INFO: [VRFC 10-311] analyzing module pe_array
 INFO: [VRFC 10-2263] Analyzing SystemVerilog file "/home/sportsman/coding/systemverilog/uTPU/rtl/PEArray/pe_controller.sv" into library work
 INFO: [VRFC 10-311] analyzing module pe_controller
-INFO: [VRFC 10-2263] Analyzing SystemVerilog file "/home/sportsman/coding/systemverilog/uTPU/sim/PEArray/pe_controller_tb.sv" into library work
-INFO: [VRFC 10-311] analyzing module pe_controller_tb
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "/home/sportsman/coding/systemverilog/uTPU/rtl/unified_buffer/unified_buffer.sv" into library work
+INFO: [VRFC 10-311] analyzing module unified_buffer
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "/home/sportsman/coding/systemverilog/uTPU/rtl/UART/clk_divider.sv" into library work
+INFO: [VRFC 10-311] analyzing module clk_divider
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "/home/sportsman/coding/systemverilog/uTPU/rtl/UART/uart_receiver.sv" into library work
+INFO: [VRFC 10-311] analyzing module uart_receiver
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "/home/sportsman/coding/systemverilog/uTPU/rtl/UART/uart_transmitter.sv" into library work
+INFO: [VRFC 10-311] analyzing module uart_transmitter
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "/home/sportsman/coding/systemverilog/uTPU/rtl/UART/uart.sv" into library work
+INFO: [VRFC 10-311] analyzing module uart
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "/home/sportsman/coding/systemverilog/uTPU/rtl/top/top.sv" into library work
+INFO: [VRFC 10-311] analyzing module top
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "/home/sportsman/coding/systemverilog/uTPU/sim/top/top_tb.sv" into library work
+INFO: [VRFC 10-311] analyzing module top_tb

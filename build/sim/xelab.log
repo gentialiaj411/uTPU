@@ -1,16 +1,18 @@
 Vivado Simulator v2024.1
 Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
 Copyright 2022-2024 Advanced Micro Devices, Inc. All Rights Reserved.
-Running: /opt/Xilinx/Vivado/2024.1/bin/unwrapped/lnx64.o/xelab pe_controller_tb -debug typical 
+Running: /opt/Xilinx/Vivado/2024.1/bin/unwrapped/lnx64.o/xelab top_tb -debug typical 
 Multi-threading is on. Using 18 slave threads.
 Starting static elaboration
 Pass Through NonSizing Optimizer
-Completed static elaboration
-Starting simulation data flow analysis
-Completed simulation data flow analysis
-Time Resolution for simulation is 1ps
-Compiling module work.pe
-Compiling module work.pe_array(ARRAY_SIZE_WIDTH=3,NUM_...
-Compiling module work.pe_controller(NUM_COMPUTE_LANES=...
-Compiling module work.pe_controller_tb
-Built simulation snapshot work.pe_controller_tb
+ERROR: [VRFC 10-3180] cannot find port 'results' on this module [/home/sportsman/coding/systemverilog/uTPU/rtl/top/top.sv:127]
+ERROR: [VRFC 10-3180] cannot find port 'data_arr' on this module [/home/sportsman/coding/systemverilog/uTPU/rtl/top/top.sv:125]
+ERROR: [VRFC 10-8530] module 'fifo_rx_default' is ignored due to previous errors [/home/sportsman/coding/systemverilog/uTPU/rtl/fifo/fifo_rx.sv:4]
+ERROR: [VRFC 10-8530] module 'fifo_tx_default' is ignored due to previous errors [/home/sportsman/coding/systemverilog/uTPU/rtl/fifo/fifo_tx.sv:4]
+ERROR: [VRFC 10-8530] module 'pe_controller(ARRAY_SIZE_WIDTH=3,NUM_COMPUTE_LANES=64)' is ignored due to previous errors [/home/sportsman/coding/systemverilog/uTPU/rtl/PEArray/pe_controller.sv:3]
+ERROR: [VRFC 10-8530] module 'quantizer_array(QUANTIZER_SIZE=64,QUANTIZER_SIZE_WIDTH=6)' is ignored due to previous errors [/home/sportsman/coding/systemverilog/uTPU/rtl/quantizer/quantizer_array.sv:4]
+ERROR: [VRFC 10-8530] module 'leaky_relu_array(RELU_SIZE_WIDTH=6)' is ignored due to previous errors [/home/sportsman/coding/systemverilog/uTPU/rtl/LeakyReLU/leaky_relu_array.sv:3]
+ERROR: [VRFC 10-8530] module 'unified_buffer(BUFFER_SIZE=512,ADDRESS_SIZE=9)' is ignored due to previous errors [/home/sportsman/coding/systemverilog/uTPU/rtl/unified_buffer/unified_buffer.sv:4]
+ERROR: [VRFC 10-8530] module 'clk_divider_default' is ignored due to previous errors [/home/sportsman/coding/systemverilog/uTPU/rtl/UART/clk_divider.sv:3]
+ERROR: [VRFC 10-8530] module 'pe_array(ARRAY_SIZE_WIDTH=3,NUM_COMPUTE_LANES=64)' is ignored due to previous errors [/home/sportsman/coding/systemverilog/uTPU/rtl/PEArray/pe_array.sv:17]
+ERROR: [XSIM 43-3322] Static elaboration of top level Verilog design unit(s) in library work failed.

@@ -1,9 +1,9 @@
-`include "leaky_relu.sv"
+`timescale 1ns/1ps
 
 module leaky_relu_array #(
-	parameter RELU_SIZE          = 4,
+	parameter RELU_SIZE          = 64,
 	parameter RELU_SIZE_WIDTH    = $clog2(RELU_SIZE),
-￼	parameter ALPHA              = 2,
+	parameter ALPHA              = 2,
 	parameter COMPUTE_DATA_WIDTH = 4
     ) ( 
 	input  logic signed [COMPUTE_DATA_WIDTH-1:0] in     [RELU_SIZE-1:0],

@@ -1,3 +1,5 @@
+`timescale 1ns/1ps
+
 module leaky_relu #(
 	parameter ALPHA		         = 2,
 	parameter COMPUTE_DATA_WIDTH     = 4

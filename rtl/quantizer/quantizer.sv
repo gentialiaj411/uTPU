@@ -1,3 +1,6 @@
+
+`timescale 1ns/1ps
+
 module quantizer #(
 	parameter ACCUMULATOR_DATA_WIDTH = 16,
 	parameter COMPUTE_DATA_WIDTH     = 4

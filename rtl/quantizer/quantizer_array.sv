@@ -1,8 +1,8 @@
-`include "quantizer.sv"
 
+`timescale 1ns/1ps
 
 module quantizer_array #(
-	parameter QUANTIZER_SIZE         = 4,
+	parameter QUANTIZER_SIZE         = 8*8,
 	parameter QUANTIZER_SIZE_WIDTH   = $clog2(QUANTIZER_SIZE),
 	parameter ACCUMULATOR_DATA_WIDTH = 16,
 	parameter COMPUTE_DATA_WIDTH     = 4

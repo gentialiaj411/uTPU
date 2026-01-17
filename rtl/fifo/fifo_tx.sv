@@ -1,3 +1,6 @@
+
+`timescale 1ns/1ps
+
 module fifo_tx #(
 	parameter FIFO_WIDTH = 256,
 	parameter FIFO_DATA_WIDTH = 8

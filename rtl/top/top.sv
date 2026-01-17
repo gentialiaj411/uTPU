@@ -3,7 +3,7 @@ module top #(
 	parameter ALPHA			 = 2,
 	parameter COMPUTE_DATA_WIDTH     = 4,
 	parameter ACCUMULATOR_DATA_WIDTH = 16, 
-	parameter ARRAY_SIZE		 = 2,
+	parameter ARRAY_SIZE		 = 8,
 	parameter ARRAY_SIZE_WIDTH       = $clog2(ARRAY_SIZE),
 	parameter FIFO_WIDTH		 = 256,
 	parameter FIFO_DATA_WIDTH	 = 8,
@@ -11,10 +11,11 @@ module top #(
 	parameter BUFFER_WORD_SIZE	 = 16,
 	parameter ADDRESS_SIZE		 = $clog2(BUFFER_SIZE),
 	parameter OPCODE_WIDTH	 	 = 3,
-	parameter RELU_SIZE		 = 2,
+	parameter RELU_SIZE		 = ARRAY_SIZE*ARRAY_SIZE,
 	parameter RELU_SIZE_WIDTH        = $clog2(RELU_SIZE),
-	parameter QUANTIZER_SIZE         = 2,
-	parameter QUANTIZER_SIZE_WIDTH   = $clog2(QUANTIZER_SIZE)
+	parameter QUANTIZER_SIZE         = ARRAY_SIZE*ARRAY_SIZE,
+	parameter QUANTIZER_SIZE_WIDTH   = $clog2(QUANTIZER_SIZE),
+	parameter NUM_COMPUTE_LANES      = ARRAY_SIZE*ARRAY_SIZE
     ) (
 	input  logic clk, rst, start,
 	input  logic rx,
@@ -61,7 +62,7 @@ module top #(
 
 
     // Buffer control signals/flags
-    logic buffer_we, buffer_re, buffer_compute_en, buffer_fifo_en, buffer_done;
+    logic buffer_we, buffer_re, buffer_compute_en, buffer_fifo_en, buffer_done, section;
     // Buffer data
     logic [COMPUTE_DATA_WIDTH-1:0] mem_to_compute    [ARRAY_SIZE-1:0];
     logic [COMPUTE_DATA_WIDTH-1:0] compute_to_buffer [ARRAY_SIZE-1:0];
@@ -179,7 +180,7 @@ module top #(
 	COMPUTE_STATE,
 	STORE_STATE,
 	HALT_STATE
-    } state_e
+    } state_e;
 
     state_e current_state;
     state_e next_state;
@@ -191,21 +192,19 @@ module top #(
 	LOAD_OP,
 	HALT_OP,
 	NOP    
-    } opcode_e
+    } opcode_e;
     
     typedef enum logic {
 	FETCH_INSTRUCTION,
 	FETCH_ADDRESS //ONLY USED FOR STORES
-    } fetch_mode_e
-
-    typedef enum logic {
+    } fetch_mode_e;
 
 
     logic [BUFFER_WORD_SIZE-1:0] instruction;
     logic 		         instruction_half;
 
     opcode_e opcode;
-    assign opcode = instruction[OPCODE_WIDTH-1:0];
+    assign opcode = opcode_e'(instruction[OPCODE_WIDTH-1:0]);
 
     fetch_mode_e fetch_mode;
     logic address_indicator;
@@ -332,35 +331,35 @@ module top #(
 	    end
 	    FETCH_ADDRESS_STATE: begin
 		if (~tx_full) begin
-		    compute_load_en <= 1'b0;
-		    buffer_re       <= 1'b1;
-		    buffer_we       <= 1'b0;
+		    compute_load_en   <= 1'b0;
+		    buffer_re         <= 1'b1;
+		    buffer_we         <= 1'b0;
 		    buffer_compute_en <= 1'b1;
 		    if (buffer_done) begin
-			store_val <= mem_to_compute[;
+			store_val <= mem_to_compute[FIFO_WIDTH-1:0];
 			buffer_re <= 1'b0;
 			buffer_compute_en <= 1'b0;
 		    end
 		end
 	    end
 	    FETCH_BUFFER_STATE: begin
-		buffer_we <= 1'b1;
-		buffer_re <= 1'b0;
-		buffer_fifo_en <= 1'b1;
+		buffer_we         <= 1'b1;
+		buffer_re         <= 1'b0;
+		buffer_fifo_en    <= 1'b1;
 		buffer_compute_en <= 1'b0;
-		section <= bot_mem;
+		section           <= bot_mem;
 		if (buffer_done) begin
 		    buffer_fifo_en <= 1'b0;
-		    buffer_we <= 1'b1;
+		    buffer_we      <= 1'b1;
 		end
 	    end
 	    LOAD_STATE: begin
-		compute_en <= 1'b0; // maybe not needed 
-		buffer_re <= 1'b1;
+		compute_en        <= 1'b0; // maybe not needed 
+		buffer_re 	  <= 1'b1;
 		buffer_compute_en <= 1'b1;
 		if (buffer_done) begin
-		    compute_in <= mem_to_compute;
-		    buffer_re <= 1'b0;
+		    compute_in        <= mem_to_compute;
+		    buffer_re         <= 1'b0;
 		    buffer_compute_en <= 1'b0;
 		end
 	    end
@@ -385,23 +384,23 @@ module top #(
 		buffer_compute_en <= 1'b1;
 		compute_to_buffer <= store_val;
 	    end
-	end
+	endcase
     end
 
     // UART communication happens at the same time as everything else
-    always_ff @(posedge clk) begin: uart communication
+    always_ff @(posedge clk) begin
 	// Rx Control
-	if (~rx_re && rx_valid)
+	if (~rx_re && rx_valid) begin 
 	    rx_we <= 1'b1;
-	else
+	end else begin
 	    rx_we <= 1'b0;
-
+	end 
 	//Tx Control
-	if (~tx_we && ~tx_empty)
+	if (~tx_we && ~tx_empty) begin
 	    tx_re <= 1'b1;
-	else 
+	end else begin 
 	    tx_re <= 1'b0;
-
+	end
     end
 
 
