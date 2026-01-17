@@ -35,6 +35,8 @@ UART TX <- FIFO TX <------------|
     or 
     [int4] [int4] [int4] [int4]
 
+    - FIRST SEND THE 4xint4 (or address to where it is) then the address of where to store it
+
     C-TYPE RUN (if COMPUTE_EN then QUANTIZER_EN implied)
     3 bits    1 bit        1 bits        1 bit     9 bits
     [OPCODE] [COMPUTE_EN] [QUANTIZER_EN] [RELU_EN] [RESULT_ADDRESS]
