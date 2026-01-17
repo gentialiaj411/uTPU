@@ -186,18 +186,42 @@ int encode_instruction(const char* line, int line_num, uint16_t* output) {
         
         case OP_STORE: {
             int is_bot = (strstr(mnemonic, "BOT") != NULL) ? 1 : 0;
-            uint16_t addr = 0;
-            if (token_count > 1) {
-                addr = parse_number(tokens[1]) & 0x1FF;
+            uint16_t source_val = 0;
+            uint16_t dest_addr = 0;
+            int source_is_addr = 1; // Default to address
+
+            // Expecting 2 arguments: STORE <source>, <dest>
+            if (token_count < 3) {
+                 fprintf(stderr, "Error (line %d): STORE requires 2 arguments: source, dest\n", line_num);
+                 return -1;
             }
-            // Word 1: Opcode + is_bot (bit 3) + address_indicator (bit 4)
+
+            // Parse Source (Token 1)
+            char* src_token = tokens[1];
+            if (src_token[0] == '#') {
+                source_is_addr = 0; // Immediate
+                source_val = parse_number(src_token + 1); // Skip '#'
+            } else {
+                source_is_addr = 1; // Address
+                source_val = parse_number(src_token) & 0x1FF;
+            }
+
+            // Parse Destination (Token 2)
+            dest_addr = parse_number(tokens[2]) & 0x1FF;
+
+            // Word 1: Opcode + is_bot (bit 3) + source_type (bit 4)
             instr = (uint16_t)opcode;
             instr |= (is_bot << 3);
-            instr |= (1 << 4); 
+            instr |= (source_is_addr << 4); 
             output[0] = instr;
-            // Word 2: Raw address bits [8:0]. 
-            output[1] = addr; 
-            words = 2;
+
+            // Word 2: Source Value
+            output[1] = source_val;
+
+            // Word 3: Destination Address
+            output[2] = dest_addr;
+
+            words = 3;
             return words;
         }
         default: break;
