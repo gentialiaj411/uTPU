@@ -1,8 +1,8 @@
 import numpy as np
 import time
 from typing import List, Optional
-from host.uart_driver import UARTDriver
-from host.isa_encoder import (
+from uart_driver import UARTDriver
+from isa_encoder import (
     ISAEncoder,
     encodeStoreValues,
     encodeLoadWeights,
@@ -95,7 +95,7 @@ class ProgramLoader:
         time.sleep(0.1)
 
         numBytes = numWords * 2
-        received = self.uart.receive_bytes(numBytes)
+        received = self.uart.receive_exact(numBytes, timeout=0.2)
         self._log(f"Received {len(received)} bytes")
 
         results = []
@@ -114,7 +114,8 @@ class ProgramLoader:
         return results[:count]
 
     # execute 2x2 matrix multiply on the chip
-    def execute2x2MatMul(self, weights, inputs, weight_addr, input_addr, result_addr):
+    def execute2x2MatMul(self, weights, inputs, weight_addr, input_addr, result_addr,
+                         quantize: bool = True, relu: bool = True, timeout: float = 0.5):
         self._log("Executing 2x2 matmul")
         self.encoder.clear()
 
@@ -125,16 +126,31 @@ class ProgramLoader:
         self.encoder.store(input_addr, inputPadded)
         self.encoder.loadInputs(input_addr)
 
-        self.encoder.run(result_addr, compute=True, quantize=True, relu=True)
+        self.encoder.run(result_addr, compute=True, quantize=quantize, relu=relu)
+        self.encoder.halt()
+
+        compute_program = self.encoder.getProgram()
+        self.uart.flush_input()
+        self.sendProgram(compute_program)
+
+        # allow compute to complete before fetch
+        time.sleep(0.01)
+
+        self.encoder.clear()
         self.encoder.fetch(result_addr, top_half=False)
         self.encoder.fetch(result_addr, top_half=True)
         self.encoder.halt()
 
-        program = self.encoder.getProgram()
-        self.sendProgram(program)
+        fetch_program = self.encoder.getProgram()
+        self.uart.flush_input()
+        self.sendProgram(fetch_program)
 
-        time.sleep(0.05)
-        received = self.uart.receive_bytes(2)
+        deadline = time.time() + timeout
+        while self.uart.bytes_waiting() < 2 and time.time() < deadline:
+            time.sleep(0.002)
+
+        remaining = max(0.0, deadline - time.time())
+        received = self.uart.receive_exact(2, timeout=remaining if remaining > 0 else 0.1)
 
         results = []
         for byte in received:

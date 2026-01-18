@@ -66,6 +66,31 @@ class UARTDriver:
             print(f"Warning: Only received {len(data)}/{count} bytes (timeout?)")
         return data
 
+    #receive exact number of bytes with overall timeout
+    def receive_exact(self, count: int, timeout: Optional[float] = None) -> bytes:
+        if count <= 0:
+            return b""
+
+        if timeout is None:
+            timeout = self.ser.timeout if self.ser.timeout is not None else 1.0
+
+        deadline = time.time() + timeout
+        chunks = []
+        remaining = count
+
+        while remaining > 0 and time.time() < deadline:
+            data = self.ser.read(remaining)
+            if data:
+                chunks.append(data)
+                remaining -= len(data)
+            else:
+                time.sleep(0.01)
+
+        data = b"".join(chunks)
+        if len(data) < count:
+            print(f"Warning: Only received {len(data)}/{count} bytes (timeout?)")
+        return data
+
     #discard unread data in RX buffer
     def flush_input(self) -> None:
         self.ser.reset_input_buffer()
@@ -126,4 +151,3 @@ if __name__ == "__main__":
         print("  3. You have permission to access the port")
     
      
-

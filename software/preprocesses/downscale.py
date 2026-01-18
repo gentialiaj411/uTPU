@@ -22,13 +22,15 @@ def quantize(images_float):
 
 
 def main():
+    script_dir = os.path.dirname(os.path.abspath(__file__))
     #create output directory
-    output_dir = '../data'
+    output_dir = os.path.join(script_dir, '..', 'data')
     os.makedirs(output_dir, exist_ok=True)
 
     #download MNIST dataset
-    train_dataset = datasets.MNIST('./mnist_raw', train=True, download=True)
-    test_dataset = datasets.MNIST('./mnist_raw', train=False, download=True) 
+    mnist_raw_dir = os.path.join(script_dir, 'mnist_raw')
+    train_dataset = datasets.MNIST(mnist_raw_dir, train=True, download=True)
+    test_dataset = datasets.MNIST(mnist_raw_dir, train=False, download=True)
 
 
     #convert tensors to np arrays

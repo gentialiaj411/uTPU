@@ -153,8 +153,8 @@ class ISAEncoder:
         return self
     
     #add FETCH instruction
-    def fetch(self, addr: int, top: bool=True) -> "ISAEncoder":
-        self.instructions.append(encodeFetch(addr, top))
+    def fetch(self, addr: int, top_half: bool=True) -> "ISAEncoder":
+        self.instructions.append(encodeFetch(addr, top_half))
         return self
     
     #add HALT instruction

@@ -91,8 +91,9 @@ def evaluate(model, test_loader):
     return accuracy
 
 def main():
-    DATA_DIR = '../data'
-    WEIGHTS_DIR = 'weights'
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    DATA_DIR = os.path.join(script_dir, '..', 'data')
+    WEIGHTS_DIR = os.path.join(script_dir, 'weights')
     NUM_EPOCHS = 50
     LEARNING_RATE = 0.005
     os.makedirs(WEIGHTS_DIR, exist_ok=True)

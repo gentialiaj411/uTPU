@@ -2,7 +2,8 @@
 `timescale 1ns/1ps
 
 module uart_transmitter #(
-	parameter UART_BITS_TRANSFERED = 8
+	parameter UART_BITS_TRANSFERED = 8,
+	parameter OVERSAMPLE = 16
     ) (
 	input  logic clk, rst, start,
 	output logic tx,
@@ -18,31 +19,55 @@ module uart_transmitter #(
 
     state_e current_state;
     int transmitting_bit = 0;
+    int tick_count = 0;
 
     always_ff @(posedge clk, posedge rst) begin
-	if (rst)
+	if (rst) begin
 	    current_state <= IDLE;
-	else begin
+	    transmitting_bit <= 0;
+	    tick_count <= 0;
+	    tx <= 1'b1;
+	end else begin
 	    case (current_state)
 		IDLE: begin
 		    tx <= 1'b1;
-		    current_state <= (start) ? START : IDLE;
+		    if (start) begin
+			current_state <= START;
+			tick_count <= OVERSAMPLE;
+		    end
 		end
 		START: begin
 		    tx <= 1'b0;
-		    current_state <= MESSAGE;
+		    if (tick_count == 0) begin
+			current_state <= MESSAGE;
+			tick_count <= OVERSAMPLE;
+			transmitting_bit <= 0;
+		    end else begin
+			tick_count <= tick_count - 1;
+		    end
 		end
 		MESSAGE: begin
 		    tx <= message[transmitting_bit];
-		    transmitting_bit <= transmitting_bit + 1;
-		    if (transmitting_bit == UART_BITS_TRANSFERED) begin
-			transmitting_bit <= 0;
-			current_state <= STOP;
+		    if (tick_count == 0) begin
+			if (transmitting_bit == UART_BITS_TRANSFERED-1) begin
+			    current_state <= STOP;
+			    tick_count <= OVERSAMPLE;
+			    transmitting_bit <= 0;
+			end else begin
+			    transmitting_bit <= transmitting_bit + 1;
+			    tick_count <= OVERSAMPLE;
+			end
+		    end else begin
+			tick_count <= tick_count - 1;
 		    end
 		end
 		STOP: begin
 		    tx <= 1'b1;
-		    current_state <= IDLE;
+		    if (tick_count == 0) begin
+			current_state <= IDLE;
+		    end else begin
+			tick_count <= tick_count - 1;
+		    end
 		end
 	    endcase
 	end  

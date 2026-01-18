@@ -1,8 +1,9 @@
 import sys
+import os
 import numpy as np
-sys.path.append('..')
-from host.uart_driver import UARTDriver
-from host.program_loader import ProgramLoader
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from uart_driver import UARTDriver
+from program_loader import ProgramLoader
 
 
 TEST_CASES = [

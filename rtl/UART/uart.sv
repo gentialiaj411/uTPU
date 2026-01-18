@@ -4,7 +4,8 @@
 module uart #(
 	parameter UART_BITS_TRANSFERED = 8,
 	parameter INPUT_CLK            = 27000000,
-	parameter UART_CLK             = 1000000
+	parameter UART_CLK             = 1000000,
+	parameter OVERSAMPLE           = 16
     ) (
 	input  logic clk, rst, tx_start, rx,
 	output logic rx_valid, tx,
@@ -20,9 +21,11 @@ module uart #(
     logic rx_toggle_sync1, rx_toggle_sync2;
     logic rx_pending_valid;
 
+    localparam UART_CLK_OS = UART_CLK * OVERSAMPLE;
+
     clk_divider #(
 	.INPUT_CLK(INPUT_CLK),
-	.UART_CLK(UART_CLK)
+	.UART_CLK(UART_CLK_OS)
     ) u_clk_divider (
 	.clk(clk),
 	.rst(rst),
@@ -30,7 +33,8 @@ module uart #(
     );
 
     uart_receiver #(
-	.UART_BITS_TRANSFERED(UART_BITS_TRANSFERED)
+	.UART_BITS_TRANSFERED(UART_BITS_TRANSFERED),
+	.OVERSAMPLE(OVERSAMPLE)
     ) u_uart_receiver (
 	.clk(uart_clk),
 	.rst(rst),
@@ -40,7 +44,8 @@ module uart #(
     );
 
     uart_transmitter #(
-	.UART_BITS_TRANSFERED(UART_BITS_TRANSFERED)
+	.UART_BITS_TRANSFERED(UART_BITS_TRANSFERED),
+	.OVERSAMPLE(OVERSAMPLE)
     ) u_uart_transmitter (
 	.clk(uart_clk),
 	.rst(rst),

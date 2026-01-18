@@ -27,6 +27,7 @@ class FPGAInference:
                 self.uart = UARTDriver(port, baud=115200)
                 self.loader = ProgramLoader(self.uart, verbose=verbose)
                 self._log(f"Connected to FPGA on {port}")
+                self.loader.resetChip()
             except Exception as e:
                 print(f"Warning: Could not connect to FPGA: {e}")
                 print("Falling back to simulation mode")
@@ -34,6 +35,10 @@ class FPGAInference:
 
         if self.simulation_mode:
             self._log("Running in SIMULATION mode")
+        else:
+            self.engine.tile_runner = self.run_tile_on_hardware
+            self._log("Running in HARDWARE tile mode (2x2 tiles via UART)")
+            print("NOTE: Hardware tile mode uses per-tile quantized outputs; accuracy may differ from software.")
 
     def _log(self, msg):
         if self.verbose:
@@ -50,9 +55,20 @@ class FPGAInference:
                 w[1, 0] * x[0] + w[1, 1] * x[1]
             ], dtype=np.int32)
         else:
-            #TODO: replace with actual uart commands when hardware ready
-            self._log("Hardware not implemented, using simulation")
-            return self.run_tile_simulated(weights, inputs)
+            weight_list = weights.astype(np.int8).flatten().tolist()
+            input_list = inputs.astype(np.int8).flatten().tolist()
+            results = self.loader.execute2x2MatMul(
+                weight_list,
+                input_list,
+                self.loader.BUFFER_SECTION_B,
+                self.loader.BUFFER_SECTION_A,
+                self.loader.BUFFER_SECTION_C,
+                quantize=True,
+                relu=False,
+            )
+            if len(results) < 2:
+                raise RuntimeError("FPGA tile read returned no data (UART timeout?)")
+            return np.array(results, dtype=np.int32)
 
     #simulated hardware tile
     def run_tile_simulated(self, weights, inputs):

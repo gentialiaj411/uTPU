@@ -84,8 +84,9 @@ def weights_to_binary(weights, output_dir):
 
 
 def main():
-    MODEL_PATH = '../model/weights/model_best.pth'  
-    OUTPUT_DIR = '../model/weights'                 
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    MODEL_PATH = os.path.join(script_dir, 'weights', 'model_best.pth')
+    OUTPUT_DIR = os.path.join(script_dir, 'weights')
 
     #check if model exists
     if not os.path.exists(MODEL_PATH):
@@ -117,5 +118,4 @@ def main():
 
 if __name__ == '__main__':
     main()
-
 

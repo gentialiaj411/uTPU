@@ -10,8 +10,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../software/model
 #models hardware int32 accumulator behavior exactly
 class TiledInferenceEngine:
 
-    def __init__(self, weights_dir, model_path, verbose=False):
+    def __init__(self, weights_dir, model_path, verbose=False, tile_runner=None):
         self.verbose = verbose
+        self.tile_runner = tile_runner
 
         weights_dir = os.path.abspath(weights_dir)
         model_path = os.path.abspath(model_path)
@@ -105,6 +106,14 @@ class TiledInferenceEngine:
             w[1, 0] * x[0] + w[1, 1] * x[1]
         ], dtype=np.int32)
 
+    def _run_tile(self, weight_tile, input_tile):
+        if self.tile_runner is None:
+            return self.matmul_2x2_int32(weight_tile, input_tile)
+        result = self.tile_runner(weight_tile, input_tile)
+        if result is None or len(result) != 2:
+            raise RuntimeError("Tile runner did not return 2 values")
+        return result
+
     #matrix-vector multiply using 2x2 tiles with int32 accumulator
     def tiled_matmul_int32(self, weights, inputs):
         out_dim, in_dim = weights.shape
@@ -129,7 +138,7 @@ class TiledInferenceEngine:
                 weight_tile = weights_pad[o:o+2, i:i+2]
                 input_tile = inputs_pad[i:i+2]
 
-                partial = self.matmul_2x2_int32(weight_tile, input_tile)
+                partial = self._run_tile(weight_tile, input_tile)
                 accum[o:o+2] += partial
 
         return accum[:out_dim]

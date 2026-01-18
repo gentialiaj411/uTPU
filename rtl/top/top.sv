@@ -48,6 +48,9 @@ module top #(
     // FIFO transmitter data
     logic [FIFO_DATA_WIDTH-1:0] tx_to_fifo;
     logic [FIFO_DATA_WIDTH-1:0] mem_to_tx_fifo;
+    logic [FIFO_DATA_WIDTH-1:0] tx_wdata;
+    logic                       tx_pending;
+    logic [FIFO_DATA_WIDTH-1:0] tx_pending_data;
 
 
     // MAC Array control signals/flags
@@ -118,7 +121,7 @@ module top #(
 	.start(tx_start),
 	.empty(tx_empty),
 	.full(tx_full),
-	.w_data(mem_to_tx_fifo),
+	.w_data(tx_wdata),
 	.r_data(tx_to_fifo)
     );
 
@@ -285,7 +288,10 @@ module top #(
     end
 
 
+    logic tx_selftest_sent;
+
     always_ff @(posedge clk) begin
+	tx_we <= 1'b0;
 	case (current_state)
 	    RESET_STATE: begin // THIS IS NOT FINISHED TODO
 		instruction_half <= 1'b0;
@@ -294,10 +300,12 @@ module top #(
 		buffer_re        <= 1'b0;
 		buffer_we        <= 1'b0;
 		rx_re            <= 1'b0;
-		tx_we            <= 1'b0;
 		compute_start    <= 1'b0;
 	        fetch_mode       <= FETCH_INSTRUCTION;	
 		fetch_bot        <= '0;
+		tx_pending       <= 1'b0;
+		tx_pending_data  <= '0;
+		tx_selftest_sent <= 1'b0;
 	    end
 	    // before you enter, you must set fetch_mode and
 	    // instruction_half to 0
@@ -394,6 +402,8 @@ module top #(
 		if (buffer_done) begin
 		    buffer_fifo_en <= 1'b0;
 		    buffer_re      <= 1'b0;
+		    tx_pending     <= 1'b1;
+		    tx_pending_data <= mem_to_tx_fifo;
 		end
 	    end
 	    LOAD_STATE: begin
@@ -452,6 +462,20 @@ module top #(
 		end
 	    end
 	endcase
+
+	// one-time TX self-test byte after reset
+	if (~tx_selftest_sent && ~tx_full) begin
+	    tx_we <= 1'b1;
+	    tx_wdata <= 8'hAA;
+	    tx_selftest_sent <= 1'b1;
+	end
+
+	// enqueue TX byte after buffer read completes
+	if (tx_pending && ~tx_full) begin
+	    tx_we   <= 1'b1;
+	    tx_wdata <= tx_pending_data;
+	    tx_pending <= 1'b0;
+	end
     end
 
     // UART communication happens at the same time as everything else
