@@ -3,7 +3,7 @@ module top #(
 	parameter UART_INPUT_CLK         = 100000000,
 	parameter UART_BAUD              = 115200,
 	parameter FORCE_UART_AA          = 0,
-	parameter FORCE_UART_ECHO        = 1,
+	parameter FORCE_UART_ECHO        = 0,
 	parameter ALPHA			 = 2,
 	parameter COMPUTE_DATA_WIDTH     = 4,
 	parameter ACCUMULATOR_DATA_WIDTH = 16, 
@@ -22,7 +22,7 @@ module top #(
 	parameter NUM_COMPUTE_LANES      = ARRAY_SIZE*ARRAY_SIZE,
 	parameter STORE_DATA_WIDTH       = 16,
     parameter DEBUG_STORE_ACK        = 0,
-    parameter DEBUG_FETCH_ACK        = 1
+    parameter DEBUG_FETCH_ACK        = 0
     ) (
 	input  logic clk, rst,
 	input  logic rx,

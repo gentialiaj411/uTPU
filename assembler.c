@@ -94,9 +94,8 @@ int encode_instruction(const char* line, int line_num, uint16_t* output) {
     strncpy(buffer, line, MAX_LINE_LENGTH - 1);
     buffer[MAX_LINE_LENGTH - 1] = '\0';
     
-    char* comment = strchr(buffer, '#');
-    if (comment) *comment = '\0';
-    comment = strchr(buffer, ';');
+    // Only use ';' for comments (# is used for immediate values)
+    char* comment = strchr(buffer, ';');
     if (comment) *comment = '\0';
     
     char* trimmed = trim(buffer);
