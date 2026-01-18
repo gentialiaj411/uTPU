@@ -22,21 +22,16 @@ def extract_int4_weights(model):
         #convert to numpy int8 (numpy doesn't have smaller)
         w_int4 = w_clamped.numpy().astype(np.int8)
 
-        #do same for bias
-        b = layer.bias.data.clone()
-        b_scaled = b / scale
-        b_rounded = torch.round(b_scaled)
-        b_clamped = torch.clamp(b_rounded, -8, 7)
-        b_int4 = b_clamped.numpy().astype(np.int8)
+        w_int4 = w_clamped.numpy().astype(np.int8)
+
+        #bias logic removed (hardware mismatch)
 
         weights[f'{name}_weight'] = w_int4
-        weights[f'{name}_bias'] = b_int4
         weights[f'{name}_scale'] = scale
 
         print(f"\n{name} layer:")
         print(f"  Weight shape: {w_int4.shape}")
         print(f"  Weight range: [{w_int4.min()}, {w_int4.max()}]")
-        print(f"  Bias shape: {b_int4.shape}")
         print(f"  Scale factor: {scale:.4f}")
     
     return weights
@@ -65,7 +60,8 @@ def int4_to_bytes(int4_array):
 #save weights to binary
 def weights_to_binary(weights, output_dir):
     os.makedirs(output_dir, exist_ok=True)
-    for name in ['fc1_weight', 'fc1_bias', 'fc2_weight', 'fc2_bias']:
+    os.makedirs(output_dir, exist_ok=True)
+    for name in ['fc1_weight', 'fc2_weight']:
         data = weights[name]
         packed = int4_to_bytes(data)
         filepath = f'{output_dir}/{name}.bin'
@@ -110,9 +106,7 @@ def main():
     print("Export complete!")
     print("Binary files ready for uTPU:")
     print(f"  {OUTPUT_DIR}/fc1_weight.bin")
-    print(f"  {OUTPUT_DIR}/fc1_bias.bin")
     print(f"  {OUTPUT_DIR}/fc2_weight.bin")
-    print(f"  {OUTPUT_DIR}/fc2_bias.bin")
     print("="*50)
 
 

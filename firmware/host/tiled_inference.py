@@ -46,23 +46,18 @@ class TiledInferenceEngine:
         self.fc1_scale = float(scales['fc1_scale'])
         self.fc2_scale = float(scales['fc2_scale'])
 
-        #load original float biases from pth file
-        state_dict = self._load_state_dict(model_path)
-        self.fc1_bias = self._get_tensor(state_dict, 'fc1.bias').astype(np.float32)  # (16,)
-        self.fc2_bias = self._get_tensor(state_dict, 'fc2.bias').astype(np.float32)  # (10,)
+        #biases removed (HW mismatch)
 
         #validate shapes
-        assert self.fc1_weight.shape == (16, 196)
-        assert self.fc2_weight.shape == (10, 16)
-        assert self.fc1_bias.shape == (16,)
-        assert self.fc2_bias.shape == (10,)
+        assert self.fc1_weight.shape == (9, 196) # 196-9-10
+        assert self.fc2_weight.shape == (10, 9)
 
         #validate weight ranges are int4
         assert self.fc1_weight.min() >= -8 and self.fc1_weight.max() <= 7
         assert self.fc2_weight.min() >= -8 and self.fc2_weight.max() <= 7
 
-        self._log(f"FC1: weight {self.fc1_weight.shape}, bias {self.fc1_bias.shape}, scale {self.fc1_scale:.6f}")
-        self._log(f"FC2: weight {self.fc2_weight.shape}, bias {self.fc2_bias.shape}, scale {self.fc2_scale:.6f}")
+        self._log(f"FC1: weight {self.fc1_weight.shape}, scale {self.fc1_scale:.6f}")
+        self._log(f"FC2: weight {self.fc2_weight.shape}, scale {self.fc2_scale:.6f}")
         self._log("Initialization complete")
 
     def _log(self, msg):
@@ -154,15 +149,15 @@ class TiledInferenceEngine:
         return np.clip(np.round(activated), -8, 7).astype(np.float32)
 
     #compute fc layer using hardware-equivalent tiled matmul
-    def fc_layer(self, inputs, weights, bias, scale, apply_relu=True):
+    def fc_layer(self, inputs, weights, scale, apply_relu=True):
         #ensure inputs are int8
         inputs_int = np.clip(np.round(inputs), -8, 7).astype(np.int8)
 
         #step 1: integer tiled matmul (hardware behavior)
         accum = self.tiled_matmul_int32(weights, inputs_int)
 
-        #step 2: scale and bias (software/float)
-        output = accum.astype(np.float32) * scale + bias
+        #step 2: scale (software/float) - NO BIAS
+        output = accum.astype(np.float32) * scale
 
         #step 3: activation and quantization
         if apply_relu:
@@ -185,11 +180,11 @@ class TiledInferenceEngine:
         self._log(f"Preprocessed: shape={x.shape}, range=[{x.min()}, {x.max()}]")
 
         #fc1 + relu + quantize
-        x = self.fc_layer(x, self.fc1_weight, self.fc1_bias, self.fc1_scale, apply_relu=True)
+        x = self.fc_layer(x, self.fc1_weight, self.fc1_scale, apply_relu=True)
         self._log(f"After FC1: shape={x.shape}, range=[{x.min()}, {x.max()}]")
 
         #fc2 (no relu on output layer)
-        x = self.fc_layer(x, self.fc2_weight, self.fc2_bias, self.fc2_scale, apply_relu=False)
+        x = self.fc_layer(x, self.fc2_weight, self.fc2_scale, apply_relu=False)
         self._log(f"After FC2: shape={x.shape}, range=[{x.min():.2f}, {x.max():.2f}]")
 
         return x

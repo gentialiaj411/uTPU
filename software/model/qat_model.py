@@ -25,12 +25,12 @@ class QATLinear(nn.Module):
     def __init__(self, in_features, out_features):
         super().__init__()
         self.weight = nn.Parameter(torch.rand(out_features, in_features)*2)
-        self.bias= nn.Parameter(torch.zeros(out_features))
+        #self.bias= nn.Parameter(torch.zeros(out_features)) # HW does not support bias
         self.scale = nn.Parameter(torch.tensor(1.0))
 
     def forward(self, x):
         w_quant = quantize_int4(self.weight/self.scale)*self.scale
-        return F.linear(x, w_quant, self.bias)
+        return F.linear(x, w_quant, bias=None)
 
 class MNISTNet(nn.Module):
     #neural network
@@ -38,11 +38,11 @@ class MNISTNet(nn.Module):
     def __init__(self):
         super().__init__()
 
-        #input: 14x14, output: 16 hidden neurons
-        self.fc1 = QATLinear(196, 16)
+        #input: 14x14, output: 9 hidden neurons (to fit in 1KB)
+        self.fc1 = QATLinear(196, 9)
 
-        #input: 16 (from prev layer), output: 10 (one score per digit 0-9)
-        self.fc2 = QATLinear(16, 10)
+        #input: 9 (from prev layer), output: 10 (one score per digit 0-9)
+        self.fc2 = QATLinear(9, 10)
 
     def forward(self, x):
         
