@@ -7,8 +7,8 @@ module quantizer_array #(
 	parameter ACCUMULATOR_DATA_WIDTH = 16,
 	parameter COMPUTE_DATA_WIDTH     = 4
     ) (
-	input  logic [ACCUMULATOR_DATA_WIDTH-1:0] ins     [QUANTIZER_SIZE-1:0],
-	output logic [COMPUTE_DATA_WIDTH-1:0]     results [QUANTIZER_SIZE-1:0]
+	input  logic signed [ACCUMULATOR_DATA_WIDTH-1:0] ins     [QUANTIZER_SIZE-1:0],
+	output logic signed [COMPUTE_DATA_WIDTH-1:0]     results [QUANTIZER_SIZE-1:0]
     );
 
     genvar i;

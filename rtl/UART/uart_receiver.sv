@@ -29,11 +29,15 @@ module uart_receiver #(
     always_ff @(posedge clk or posedge rst) begin
         if (rst) begin
             current_state <= IDLE;
+	    valid <= 1'b0;
+	    received_bit <= 0;
         end
 	else begin
+	    valid <= 1'b0;
             case (current_state) 
                 IDLE: begin 
                     if (~rx) begin
+			received_bit <= 0;
                         current_state <= RECEIVING;
                     end
                 end

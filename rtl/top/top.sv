@@ -1,5 +1,7 @@
 module top #(
 	parameter UART_BITS_TRANSFERED   = 8,
+	parameter UART_INPUT_CLK         = 100000000,
+	parameter UART_BAUD              = 115200,
 	parameter ALPHA			 = 2,
 	parameter COMPUTE_DATA_WIDTH     = 4,
 	parameter ACCUMULATOR_DATA_WIDTH = 16, 
@@ -33,6 +35,9 @@ module top #(
     logic [BUFFER_WORD_SIZE-1:0] store_val;    
     // FIFO reciever control signals/flags
     logic rx_we, rx_re, rx_empty, rx_full, rx_valid;
+    logic rx_we_d;
+    logic [FIFO_DATA_WIDTH-1:0] rx_data_buf;
+    logic rx_rvalid, rx_pending;
     // FIFO reciever data
     logic [FIFO_DATA_WIDTH-1:0] rx_to_fifo;
     logic [FIFO_DATA_WIDTH-1:0] rx_fifo_to_mem;
@@ -48,31 +53,33 @@ module top #(
     // MAC Array control signals/flags
     logic compute_start, compute_load_en, compute_done;
     // MAC Array data
-    logic [COMPUTE_DATA_WIDTH-1:0]     compute_in  [NUM_COMPUTE_LANES-1:0];
-    logic [ACCUMULATOR_DATA_WIDTH-1:0] compute_out [NUM_COMPUTE_LANES-1:0];
+    logic signed [COMPUTE_DATA_WIDTH-1:0]     compute_in  [NUM_COMPUTE_LANES-1:0];
+    logic signed [ACCUMULATOR_DATA_WIDTH-1:0] compute_out [NUM_COMPUTE_LANES-1:0];
 
 
     // Quantizer data
-    logic [ACCUMULATOR_DATA_WIDTH-1:0] quantizer_in  [QUANTIZER_SIZE-1:0];
-    logic [COMPUTE_DATA_WIDTH-1:0]     quantizer_out [QUANTIZER_SIZE-1:0];
+    logic signed [ACCUMULATOR_DATA_WIDTH-1:0] quantizer_in  [QUANTIZER_SIZE-1:0];
+    logic signed [COMPUTE_DATA_WIDTH-1:0]     quantizer_out [QUANTIZER_SIZE-1:0];
 
 
     // ReLU data
-    logic [COMPUTE_DATA_WIDTH-1:0] relu_in  [RELU_SIZE-1:0];
-    logic [COMPUTE_DATA_WIDTH-1:0] relu_out [RELU_SIZE-1:0];
+    logic signed [COMPUTE_DATA_WIDTH-1:0] relu_in  [RELU_SIZE-1:0];
+    logic signed [COMPUTE_DATA_WIDTH-1:0] relu_out [RELU_SIZE-1:0];
 
 
     // Buffer control signals/flags
     logic buffer_we, buffer_re, buffer_compute_en, buffer_fifo_en, buffer_done, section, buffer_store_en;
     // Buffer data
-    logic [COMPUTE_DATA_WIDTH-1:0] mem_to_compute    [NUM_COMPUTE_LANES-1:0];
-    logic [COMPUTE_DATA_WIDTH-1:0] compute_to_buffer [NUM_COMPUTE_LANES-1:0];
+    logic signed [COMPUTE_DATA_WIDTH-1:0] mem_to_compute    [NUM_COMPUTE_LANES-1:0];
+    logic signed [COMPUTE_DATA_WIDTH-1:0] compute_to_buffer [NUM_COMPUTE_LANES-1:0];
     logic [STORE_DATA_WIDTH-1:0]   controller_to_buffer;
     logic [STORE_DATA_WIDTH-1:0]   buffer_to_controller;
 
 
     uart #(
-	.UART_BITS_TRANSFERED(UART_BITS_TRANSFERED)
+	.UART_BITS_TRANSFERED(UART_BITS_TRANSFERED),
+	.INPUT_CLK(UART_INPUT_CLK),
+	.UART_CLK(UART_BAUD)
     ) u_uart (
 	.clk(clk),
 	.rst(rst),
@@ -95,8 +102,9 @@ module top #(
 	.valid(rx_valid),
 	.empty(rx_empty),
 	.full(rx_full),
-	.w_data(rx_to_fifo),			    
-	.r_data(rx_fifo_to_mem)
+	.w_data(rx_data_buf),			    
+	.r_data(rx_fifo_to_mem),
+	.r_valid(rx_rvalid)
     );
 
     fifo_tx #(
@@ -211,6 +219,7 @@ module top #(
     logic [BUFFER_WORD_SIZE-1:0] instruction;
     logic 		         instruction_half; // determines if this is the top or bottom of instruction
     logic 	  		 fetch_bot;
+    logic		         instr_ready;
 
     opcode_e opcode;
     assign opcode = opcode_e'(instruction[OPCODE_WIDTH-1:0]);
@@ -231,15 +240,17 @@ module top #(
 	case (current_state)
 	    RESET_STATE:
 		next_state = FETCH_FIFO_STATE; // Assuming reset can happen in one clk cycle
-	    FETCH_FIFO_STATE:
-		if (~rx_empty && instruction_half) begin
+	    FETCH_FIFO_STATE: begin
+		if (fetch_mode == FETCH_INSTRUCTION) begin
+		    if (instr_ready)
+			next_state = DECODE_STATE;
+		end else if (~rx_empty && instruction_half) begin
 		    if (fetch_mode == FETCH_ADDRESS && address_indicator && ~fetch_bot)
 			next_state = FETCH_ADDRESS_STATE;
 		    else if (fetch_mode == FETCH_ADDRESS && fetch_bot)
 			next_state = STORE_STATE;
-		    else if (fetch_mode != FETCH_ADDRESS)
-			next_state = DECODE_STATE;
 		end
+	    end
 	    DECODE_STATE:
 		case (opcode)
 		    STORE_OP: 
@@ -278,6 +289,8 @@ module top #(
 	case (current_state)
 	    RESET_STATE: begin // THIS IS NOT FINISHED TODO
 		instruction_half <= 1'b0;
+		instr_ready      <= 1'b0;
+		rx_pending       <= 1'b0;
 		buffer_re        <= 1'b0;
 		buffer_we        <= 1'b0;
 		rx_re            <= 1'b0;
@@ -289,52 +302,50 @@ module top #(
 	    // before you enter, you must set fetch_mode and
 	    // instruction_half to 0
 	    FETCH_FIFO_STATE: begin
-		case (fetch_mode)
-		    FETCH_INSTRUCTION: begin
-			if (~rx_we) begin
-			    if (~rx_empty && ~instruction_half) begin
-				rx_re            <= 1'b1;
+		rx_re <= 1'b0;
+		if (rx_rvalid) begin
+		    rx_pending <= 1'b0;
+		    case (fetch_mode)
+			FETCH_INSTRUCTION: begin
+			    if (~instruction_half) begin
 				instruction[FIFO_DATA_WIDTH-1:0] <= rx_fifo_to_mem;
-				rx_re            <= 1'b0;
 				instruction_half <= 1'b1;
-			    end else if (~rx_empty && instruction_half) begin
-				rx_re            <= 1'b1;
+				instr_ready <= 1'b0;
+			    end else begin
 				instruction[BUFFER_WORD_SIZE-1:FIFO_DATA_WIDTH] <= rx_fifo_to_mem;
 				instruction_half <= 1'b0;	
+				instr_ready <= 1'b1;
 			    end
 			end
-		    end
-		    FETCH_ADDRESS: begin
-			if (~rx_empty) begin
+			FETCH_ADDRESS: begin
 			    if (address_indicator) begin // if fetching values from mem
 				if (instruction_half) begin
-				    rx_re            <= 1'b1;
 				    address[ADDRESS_SIZE-1:FIFO_DATA_WIDTH] <= rx_fifo_to_mem;
 				    instruction_half <= 1'b0;
 				end else begin
-				    rx_re            <= 1'b1;
 				    address[FIFO_DATA_WIDTH-1:0] <= rx_fifo_to_mem;
 				    instruction_half <= 1'b1;
-				     
 				end
 			    end else begin // if fetching the values from fifo
 				if (instruction_half) begin
-				    rx_re 	        <= 1'b1;
 				    store_val[FIFO_DATA_WIDTH*2-1:FIFO_DATA_WIDTH] <= rx_fifo_to_mem;
 				    instruction_half    <= '0;
 				end else begin
-				    rx_re 		<= 1'b1;
 				    store_val[FIFO_DATA_WIDTH-1:0] <= rx_fifo_to_mem;
 				    instruction_half    <= 1'b1;
-				end	
+				end
 			    end
 			    fetch_bot <= 1'b1;
 			end
-		    end
-		endcase
+		    endcase
+		end else if (~rx_pending && ~rx_we && ~rx_empty) begin
+		    rx_re <= 1'b1;
+		    rx_pending <= 1'b1;
+		end
 	    end
 	    DECODE_STATE: begin
 		rx_re <= '0;
+		instr_ready <= 1'b0;
 		case (opcode)
 		    STORE_OP: begin	
 			address_indicator <= (instruction[4]) ? 1'b1 : 1'b0;
@@ -445,12 +456,14 @@ module top #(
 
     // UART communication happens at the same time as everything else
     always_ff @(posedge clk) begin
-	// Rx Control
-	if (~rx_re && rx_valid) begin 
-	    rx_we <= 1'b1;
+	// Rx Control (latch data, then write next cycle)
+	if (~rx_re && rx_valid) begin
+	    rx_data_buf <= rx_to_fifo;
+	    rx_we_d     <= 1'b1;
 	end else begin
-	    rx_we <= 1'b0;
-	end 
+	    rx_we_d <= 1'b0;
+	end
+
 	//Tx Control
 	if (~tx_we && ~tx_empty) begin
 	    tx_re <= 1'b1;
@@ -458,6 +471,8 @@ module top #(
 	    tx_re <= 1'b0;
 	end
     end
+
+    assign rx_we = rx_we_d;
 
 
 

@@ -1,0 +1,104 @@
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved. Copyright 2022-2024 Advanced Micro Devices, Inc. All Rights Reserved.
+---------------------------------------------------------------------------------------------------------------------------------------------
+| Tool Version : Vivado v.2024.1 (lin64) Build 5076996 Wed May 22 18:36:09 MDT 2024
+| Date         : Sat Jan 17 20:02:32 2026
+| Host         : arch running 64-bit unknown
+| Command      : report_utilization -hierarchical -file /home/sportsman/coding/systemverilog/uTPU/top_utilization_hier.rpt
+| Design       : top
+| Device       : xc7a100tcsg324-1
+| Speed File   : -1
+| Design State : Synthesized
+---------------------------------------------------------------------------------------------------------------------------------------------
+
+Utilization Design Information
+
+Table of Contents
+-----------------
+1. Utilization by Hierarchy
+
+1. Utilization by Hierarchy
+---------------------------
+
++------------------------------------+------------------+------------+------------+---------+------+-------+--------+--------+------------+
+|              Instance              |      Module      | Total LUTs | Logic LUTs | LUTRAMs | SRLs |  FFs  | RAMB36 | RAMB18 | DSP Blocks |
++------------------------------------+------------------+------------+------------+---------+------+-------+--------+--------+------------+
+| top                                |            (top) |       7441 |       7441 |       0 |    0 | 10248 |      0 |      2 |         64 |
+|   (top)                            |            (top) |        217 |        217 |       0 |    0 |  1176 |      0 |      0 |          0 |
+|   fifo_in                          |          fifo_rx |        402 |        402 |       0 |    0 |    21 |      0 |      1 |          0 |
+|   fifo_out                         |          fifo_tx |         32 |         32 |       0 |    0 |    10 |      0 |      1 |          0 |
+|   u_pe_array                       |    pe_controller |        100 |        100 |       0 |    0 |   457 |      0 |      0 |         64 |
+|     (u_pe_array)                   |    pe_controller |         23 |         23 |       0 |    0 |   297 |      0 |      0 |          0 |
+|     u_pe_array                     |         pe_array |         77 |         77 |       0 |    0 |   160 |      0 |      0 |         64 |
+|       gen_rows[0].gen_cols[0].u_pe |               pe |         10 |         10 |       0 |    0 |     4 |      0 |      0 |          1 |
+|       gen_rows[0].gen_cols[1].u_pe |             pe_0 |          0 |          0 |       0 |    0 |     4 |      0 |      0 |          1 |
+|       gen_rows[0].gen_cols[2].u_pe |             pe_1 |          0 |          0 |       0 |    0 |     4 |      0 |      0 |          1 |
+|       gen_rows[0].gen_cols[3].u_pe |             pe_2 |          0 |          0 |       0 |    0 |     4 |      0 |      0 |          1 |
+|       gen_rows[0].gen_cols[4].u_pe |             pe_3 |          0 |          0 |       0 |    0 |     4 |      0 |      0 |          1 |
+|       gen_rows[0].gen_cols[5].u_pe |             pe_4 |          0 |          0 |       0 |    0 |     0 |      0 |      0 |          1 |
+|       gen_rows[0].gen_cols[6].u_pe |             pe_5 |          0 |          0 |       0 |    0 |     0 |      0 |      0 |          1 |
+|       gen_rows[0].gen_cols[7].u_pe |             pe_6 |          0 |          0 |       0 |    0 |     0 |      0 |      0 |          1 |
+|       gen_rows[1].gen_cols[0].u_pe |             pe_7 |         10 |         10 |       0 |    0 |     4 |      0 |      0 |          1 |
+|       gen_rows[1].gen_cols[1].u_pe |             pe_8 |          0 |          0 |       0 |    0 |     4 |      0 |      0 |          1 |
+|       gen_rows[1].gen_cols[2].u_pe |             pe_9 |          0 |          0 |       0 |    0 |     4 |      0 |      0 |          1 |
+|       gen_rows[1].gen_cols[3].u_pe |            pe_10 |          0 |          0 |       0 |    0 |     4 |      0 |      0 |          1 |
+|       gen_rows[1].gen_cols[4].u_pe |            pe_11 |          0 |          0 |       0 |    0 |     4 |      0 |      0 |          1 |
+|       gen_rows[1].gen_cols[5].u_pe |            pe_12 |          0 |          0 |       0 |    0 |     0 |      0 |      0 |          1 |
+|       gen_rows[1].gen_cols[6].u_pe |            pe_13 |          0 |          0 |       0 |    0 |     0 |      0 |      0 |          1 |
+|       gen_rows[1].gen_cols[7].u_pe |            pe_14 |          0 |          0 |       0 |    0 |     0 |      0 |      0 |          1 |
+|       gen_rows[2].gen_cols[0].u_pe |            pe_15 |          9 |          9 |       0 |    0 |     4 |      0 |      0 |          1 |
+|       gen_rows[2].gen_cols[1].u_pe |            pe_16 |          0 |          0 |       0 |    0 |     4 |      0 |      0 |          1 |
+|       gen_rows[2].gen_cols[2].u_pe |            pe_17 |          0 |          0 |       0 |    0 |     4 |      0 |      0 |          1 |
+|       gen_rows[2].gen_cols[3].u_pe |            pe_18 |          0 |          0 |       0 |    0 |     4 |      0 |      0 |          1 |
+|       gen_rows[2].gen_cols[4].u_pe |            pe_19 |          0 |          0 |       0 |    0 |     4 |      0 |      0 |          1 |
+|       gen_rows[2].gen_cols[5].u_pe |            pe_20 |          0 |          0 |       0 |    0 |     0 |      0 |      0 |          1 |
+|       gen_rows[2].gen_cols[6].u_pe |            pe_21 |          0 |          0 |       0 |    0 |     0 |      0 |      0 |          1 |
+|       gen_rows[2].gen_cols[7].u_pe |            pe_22 |          0 |          0 |       0 |    0 |     0 |      0 |      0 |          1 |
+|       gen_rows[3].gen_cols[0].u_pe |            pe_23 |         10 |         10 |       0 |    0 |     4 |      0 |      0 |          1 |
+|       gen_rows[3].gen_cols[1].u_pe |            pe_24 |          0 |          0 |       0 |    0 |     4 |      0 |      0 |          1 |
+|       gen_rows[3].gen_cols[2].u_pe |            pe_25 |          0 |          0 |       0 |    0 |     4 |      0 |      0 |          1 |
+|       gen_rows[3].gen_cols[3].u_pe |            pe_26 |          0 |          0 |       0 |    0 |     4 |      0 |      0 |          1 |
+|       gen_rows[3].gen_cols[4].u_pe |            pe_27 |          0 |          0 |       0 |    0 |     4 |      0 |      0 |          1 |
+|       gen_rows[3].gen_cols[5].u_pe |            pe_28 |          0 |          0 |       0 |    0 |     0 |      0 |      0 |          1 |
+|       gen_rows[3].gen_cols[6].u_pe |            pe_29 |          0 |          0 |       0 |    0 |     0 |      0 |      0 |          1 |
+|       gen_rows[3].gen_cols[7].u_pe |            pe_30 |          0 |          0 |       0 |    0 |     0 |      0 |      0 |          1 |
+|       gen_rows[4].gen_cols[0].u_pe |            pe_31 |          9 |          9 |       0 |    0 |     4 |      0 |      0 |          1 |
+|       gen_rows[4].gen_cols[1].u_pe |            pe_32 |          0 |          0 |       0 |    0 |     4 |      0 |      0 |          1 |
+|       gen_rows[4].gen_cols[2].u_pe |            pe_33 |          0 |          0 |       0 |    0 |     4 |      0 |      0 |          1 |
+|       gen_rows[4].gen_cols[3].u_pe |            pe_34 |          0 |          0 |       0 |    0 |     4 |      0 |      0 |          1 |
+|       gen_rows[4].gen_cols[4].u_pe |            pe_35 |          0 |          0 |       0 |    0 |     4 |      0 |      0 |          1 |
+|       gen_rows[4].gen_cols[5].u_pe |            pe_36 |          0 |          0 |       0 |    0 |     0 |      0 |      0 |          1 |
+|       gen_rows[4].gen_cols[6].u_pe |            pe_37 |          0 |          0 |       0 |    0 |     0 |      0 |      0 |          1 |
+|       gen_rows[4].gen_cols[7].u_pe |            pe_38 |          0 |          0 |       0 |    0 |     0 |      0 |      0 |          1 |
+|       gen_rows[5].gen_cols[0].u_pe |            pe_39 |          9 |          9 |       0 |    0 |     4 |      0 |      0 |          1 |
+|       gen_rows[5].gen_cols[1].u_pe |            pe_40 |          0 |          0 |       0 |    0 |     4 |      0 |      0 |          1 |
+|       gen_rows[5].gen_cols[2].u_pe |            pe_41 |          0 |          0 |       0 |    0 |     4 |      0 |      0 |          1 |
+|       gen_rows[5].gen_cols[3].u_pe |            pe_42 |          0 |          0 |       0 |    0 |     4 |      0 |      0 |          1 |
+|       gen_rows[5].gen_cols[4].u_pe |            pe_43 |          0 |          0 |       0 |    0 |     4 |      0 |      0 |          1 |
+|       gen_rows[5].gen_cols[5].u_pe |            pe_44 |          0 |          0 |       0 |    0 |     0 |      0 |      0 |          1 |
+|       gen_rows[5].gen_cols[6].u_pe |            pe_45 |          0 |          0 |       0 |    0 |     0 |      0 |      0 |          1 |
+|       gen_rows[5].gen_cols[7].u_pe |            pe_46 |          0 |          0 |       0 |    0 |     0 |      0 |      0 |          1 |
+|       gen_rows[6].gen_cols[0].u_pe |            pe_47 |         10 |         10 |       0 |    0 |     4 |      0 |      0 |          1 |
+|       gen_rows[6].gen_cols[1].u_pe |            pe_48 |          0 |          0 |       0 |    0 |     4 |      0 |      0 |          1 |
+|       gen_rows[6].gen_cols[2].u_pe |            pe_49 |          0 |          0 |       0 |    0 |     4 |      0 |      0 |          1 |
+|       gen_rows[6].gen_cols[3].u_pe |            pe_50 |          0 |          0 |       0 |    0 |     4 |      0 |      0 |          1 |
+|       gen_rows[6].gen_cols[4].u_pe |            pe_51 |          0 |          0 |       0 |    0 |     4 |      0 |      0 |          1 |
+|       gen_rows[6].gen_cols[5].u_pe |            pe_52 |          0 |          0 |       0 |    0 |     0 |      0 |      0 |          1 |
+|       gen_rows[6].gen_cols[6].u_pe |            pe_53 |          0 |          0 |       0 |    0 |     0 |      0 |      0 |          1 |
+|       gen_rows[6].gen_cols[7].u_pe |            pe_54 |          0 |          0 |       0 |    0 |     0 |      0 |      0 |          1 |
+|       gen_rows[7].gen_cols[0].u_pe |            pe_55 |          9 |          9 |       0 |    0 |     4 |      0 |      0 |          1 |
+|       gen_rows[7].gen_cols[1].u_pe |            pe_56 |          0 |          0 |       0 |    0 |     4 |      0 |      0 |          1 |
+|       gen_rows[7].gen_cols[2].u_pe |            pe_57 |          0 |          0 |       0 |    0 |     4 |      0 |      0 |          1 |
+|       gen_rows[7].gen_cols[3].u_pe |            pe_58 |          0 |          0 |       0 |    0 |     4 |      0 |      0 |          1 |
+|       gen_rows[7].gen_cols[4].u_pe |            pe_59 |          0 |          0 |       0 |    0 |     4 |      0 |      0 |          1 |
+|       gen_rows[7].gen_cols[5].u_pe |            pe_60 |          0 |          0 |       0 |    0 |     0 |      0 |      0 |          1 |
+|       gen_rows[7].gen_cols[6].u_pe |            pe_61 |          0 |          0 |       0 |    0 |     0 |      0 |      0 |          1 |
+|       gen_rows[7].gen_cols[7].u_pe |            pe_62 |          1 |          1 |       0 |    0 |     0 |      0 |      0 |          1 |
+|   u_uart                           |             uart |         84 |         84 |       0 |    0 |   111 |      0 |      0 |          0 |
+|     (u_uart)                       |             uart |          4 |          4 |       0 |    0 |    21 |      0 |      0 |          0 |
+|     u_clk_divider                  |      clk_divider |         10 |         10 |       0 |    0 |    11 |      0 |      0 |          0 |
+|     u_uart_receiver                |    uart_receiver |         50 |         50 |       0 |    0 |    42 |      0 |      0 |          0 |
+|     u_uart_transmitter             | uart_transmitter |         20 |         20 |       0 |    0 |    37 |      0 |      0 |          0 |
+|   u_unified_buffer                 |   unified_buffer |       6606 |       6606 |       0 |    0 |  8473 |      0 |      0 |          0 |
++------------------------------------+------------------+------------+------------+---------+------+-------+--------+--------+------------+
+
+

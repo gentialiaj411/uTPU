@@ -13,6 +13,12 @@ module uart #(
     );
 
     logic uart_clk;
+    logic rx_valid_uart;
+    logic [UART_BITS_TRANSFERED-1:0] rx_result_uart;
+    logic rx_toggle_uart;
+    logic [UART_BITS_TRANSFERED-1:0] rx_data_hold;
+    logic rx_toggle_sync1, rx_toggle_sync2;
+    logic rx_pending_valid;
 
     clk_divider #(
 	.INPUT_CLK(INPUT_CLK),
@@ -29,8 +35,8 @@ module uart #(
 	.clk(uart_clk),
 	.rst(rst),
 	.rx(rx),
-	.valid(rx_valid),
-	.result(rx_result)
+	.valid(rx_valid_uart),
+	.result(rx_result_uart)
     );
 
     uart_transmitter #(
@@ -42,5 +48,37 @@ module uart #(
 	.tx(tx),
 	.message(tx_message)
     );
+
+    // Capture RX data in uart_clk domain and signal via toggle.
+    always_ff @(posedge uart_clk or posedge rst) begin
+	if (rst) begin
+	    rx_toggle_uart <= 1'b0;
+	    rx_data_hold   <= '0;
+	end else if (rx_valid_uart) begin
+	    rx_data_hold   <= rx_result_uart;
+	    rx_toggle_uart <= ~rx_toggle_uart;
+	end
+    end
+
+    // Sync toggle into clk domain and generate a 1-cycle pulse.
+    always_ff @(posedge clk or posedge rst) begin
+	if (rst) begin
+	    rx_toggle_sync1 <= 1'b0;
+	    rx_toggle_sync2 <= 1'b0;
+	    rx_valid        <= 1'b0;
+	    rx_result       <= '0;
+	    rx_pending_valid <= 1'b0;
+	end else begin
+	    rx_toggle_sync1 <= rx_toggle_uart;
+	    rx_toggle_sync2 <= rx_toggle_sync1;
+	    if (rx_toggle_sync1 ^ rx_toggle_sync2) begin
+		rx_result <= rx_data_hold;
+		rx_pending_valid <= 1'b1;
+	    end else if (rx_pending_valid) begin
+		rx_pending_valid <= 1'b0;
+	    end
+	    rx_valid <= rx_pending_valid;
+	end
+    end
 
 endmodule: uart

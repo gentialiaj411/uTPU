@@ -27,6 +27,14 @@ module pe #(
     );
 
     logic signed [COMPUTE_DATA_WIDTH-1:0] weight;
+    // Encourage DSP inference for MAC to reduce LUT usage.
+    (* use_dsp = "yes" *) logic signed [ACCUMULATOR_DATA_WIDTH-1:0] prod;
+    (* use_dsp = "yes" *) logic signed [ACCUMULATOR_DATA_WIDTH-1:0] mac;
+
+    always_comb begin
+        prod = $signed(data_in) * $signed(weight);
+        mac  = partial_sum_in + prod;
+    end
 
     always_ff @(posedge clk) begin
         if (rst) begin
@@ -38,9 +46,7 @@ module pe #(
 	    if (load_en) 
 		weight <= weight_in;
 	    else if (compute) 
-		partial_sum_out <= partial_sum_in + 
-		               $signed((ACCUMULATOR_DATA_WIDTH)'($signed(data_in) * $signed(weight)));
+		partial_sum_out <= mac;
         end
     end
 endmodule: pe
-
