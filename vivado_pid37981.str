@@ -1,0 +1,172 @@
+/*
+
+AMD Vivado v2024.1 (64-bit) [Major: 2024, Minor: 1]
+SW Build: 5076996 on Wed May 22 18:36:09 MDT 2024
+IP Build: 5075265 on Wed May 22 21:45:21 MDT 2024
+IP Build: 5075265 on Wed May 22 21:45:21 MDT 2024
+
+Process ID (PID): 37981
+License: Customer
+Mode: GUI Mode
+
+Current time: 	Sat Jan 17 22:36:02 EST 2026
+Time zone: 	Eastern Standard Time (America/Toronto)
+
+OS: Linux
+OS Version: 6.18.5-arch1-1
+OS Architecture: amd64
+Available processors (cores): 20
+
+Display: 0
+Screen size: 2560x1600
+Local screen bounds: x = 0, y = 0, width = 2560, height = 1600
+Screen resolution (DPI): 100
+Available screens: 1
+Default font: family=Dialog,name=Dialog,style=plain,size=12
+Scale size: 12
+OS font scaling: 100%
+Anti-Alias Enabled: true
+
+Java version: 	21.0.1 64-bit
+JavaFX version: 21.0.1
+Java home: 	/opt/Xilinx/Vivado/2024.1/tps/lnx64/jre21.0.1_12
+Java executable: 	/opt/Xilinx/Vivado/2024.1/tps/lnx64/jre21.0.1_12/bin/java
+Java arguments: 	[-Dsun.java2d.pmoffscreen=false, -Dhttps.protocols=TLSv1,TLSv1.1,TLSv1.2, -Dsun.java2d.xrender=false, -Dsun.java2d.uiScale.enabled=false, -Dswing.aatext=true, -XX:-UsePerfData, -Djdk.map.althashing.threshold=512, -XX:StringTableSize=4072, -XX:+UseStringDeduplication, -XX:MaxGCPauseMillis=200, -XX:+ParallelRefProcEnabled, --add-opens=java.desktop/javax.swing.plaf.synth=ALL-UNNAMED, --add-opens=java.base/java.nio=ALL-UNNAMED, --add-opens=java.desktop/sun.swing=ALL-UNNAMED, --add-opens=java.desktop/javax.swing=ALL-UNNAMED, --add-opens=java.desktop/javax.swing.tree=ALL-UNNAMED, --add-opens=java.desktop/javax.swing.plaf.basic=ALL-UNNAMED, --add-opens=java.desktop/javax.swing.plaf.synth=ALL-UNNAMED, --add-opens=java.desktop/javax.swing.plaf.basic=ALL-UNNAMED, --add-opens=java.desktop/javax.swing=ALL-UNNAMED, --add-opens=java.desktop/javax.swing.tree=ALL-UNNAMED, --add-opens=java.desktop/java.awt.event=ALL-UNNAMED, --add-exports=java.desktop/javax.swing.plaf.synth=ALL-UNNAMED, --add-exports=java.base/java.nio=ALL-UNNAMED, --add-exports=java.desktop/sun.swing=ALL-UNNAMED, --add-exports=java.desktop/javax.swing=ALL-UNNAMED, --add-exports=java.desktop/javax.swing.tree=ALL-UNNAMED, --add-exports=java.desktop/javax.swing.plaf.basic=ALL-UNNAMED, --add-exports=java.desktop/sun.swing=ALL-UNNAMED, --add-exports=java.desktop/sun.swing.table=ALL-UNNAMED, --add-exports=java.desktop/sun.swing.plaf.synth=ALL-UNNAMED, --add-exports=java.desktop/sun.awt.shell=ALL-UNNAMED, --add-exports=java.base/sun.security.action=ALL-UNNAMED, --add-exports=java.desktop/sun.font=ALL-UNNAMED, --add-opens=java.desktop/sun.awt.X11=ALL-UNNAMED, -XX:NewSize=80m, -XX:MaxNewSize=80m, -Xms512m, -Xmx4072m, -Xss10m, -Xrs]
+Java initial memory (-Xms): 	512 MB
+Java maximum memory (-Xmx):	 3 GB
+
+User name: 	sportsman
+User home directory: /home/sportsman
+User working directory: /home/sportsman/coding/systemverilog/uTPU
+User country: 	US
+User language: 	en
+User locale: 	en_US
+
+RDI_BASEROOT: /opt/Xilinx/Vivado
+HDI_APPROOT: /opt/Xilinx/Vivado/2024.1
+RDI_DATADIR: /opt/Xilinx/Vivado/2024.1/data
+RDI_BINDIR: /opt/Xilinx/Vivado/2024.1/bin
+
+Vivado preferences file: /home/sportsman/.Xilinx/Vivado/2024.1/vivado.xml
+Vivado preferences directory: /home/sportsman/.Xilinx/Vivado/2024.1/
+Vivado layouts directory: /home/sportsman/.Xilinx/Vivado/2024.1/data/layouts
+PlanAhead jar file: 	/opt/Xilinx/Vivado/2024.1/lib/classes/planAhead.jar
+Vivado log file: 	
+Vivado journal file: 	
+Engine tmp dir: 	./.Xil/Vivado-37981-arch
+Non-Default Parameters:	[]
+
+Xilinx & AMD Environment Variables
+--------------------------------------------------------------------------------------------
+RDI_APPROOT: /opt/Xilinx/Vivado/2024.1
+RDI_BASEROOT: /opt/Xilinx/Vivado
+RDI_BINROOT: /opt/Xilinx/Vivado/2024.1/bin
+RDI_BUILD: yes
+RDI_DATADIR: /opt/Xilinx/Vivado/2024.1/data
+RDI_INSTALLROOT: /opt/Xilinx
+RDI_INSTALLVER: 2024.1
+RDI_JAVA_PLATFORM: 
+RDI_JAVA_VERSION: 21.0.1_12
+RDI_LIBDIR: /opt/Xilinx/Vivado/2024.1/lib/lnx64.o/Default:/opt/Xilinx/Vivado/2024.1/lib/lnx64.o
+RDI_OPT_EXT: .o
+RDI_PATCHROOT: 
+RDI_PLATFORM: lnx64
+RDI_PREPEND_PATH: /opt/Xilinx/Vivado/2024.1/ids_lite/ISE/bin/lin64
+RDI_PROG: /opt/Xilinx/Vivado/2024.1/bin/unwrapped/lnx64.o/vivado
+RDI_SESSION_INFO: /home/sportsman/coding/systemverilog/uTPU:arch_1768707352_37942
+RDI_SHARED_DATA: /opt/Xilinx/SharedData/2024.1/data
+RDI_TPS_ROOT: /opt/Xilinx/Vivado/2024.1/tps/lnx64
+RDI_USE_JDK21: True
+SHELL: /usr/bin/bash
+XILINX: /opt/Xilinx/Vivado/2024.1/ids_lite/ISE
+XILINX_DSP: /opt/Xilinx/Vivado/2024.1/ids_lite/ISE
+XILINX_HLS: /opt/Xilinx/Vitis_HLS/2024.1
+XILINX_PLANAHEAD: /opt/Xilinx/Vivado/2024.1
+XILINX_VIVADO: /opt/Xilinx/Vivado/2024.1
+XILINX_VIVADO_HLS: /opt/Xilinx/Vivado/2024.1
+XTERM_SHELL: /usr/bin/bash
+
+
+GUI allocated memory:	512 MB
+GUI max memory:		4,072 MB
+Engine allocated memory: 1,622 MB
+
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+Copyright 2022-2024 Advanced Micro Devices, Inc. All Rights Reserved.
+
+*/
+
+// TclEventType: START_GUI
+// TclEventType: START_PROGRESS_DIALOG
+// Tcl Message: start_gui 
+// TclEventType: START_PROGRESS_DIALOG
+// TclEventType: DEBUG_PROBE_SET_CHANGE
+// TclEventType: FLOW_ADDED
+// Tcl Message: source program_arty_a7_revE.tcl 
+// Tcl Message: # set script_dir [file normalize [file dirname [info script]]] # set proj_dir   [file join $script_dir build vivado_arty_a7] # set proj_name  uTPU_arty_a7 # set part_name  xc7a100tcsg324-1 # set top_name   top # create_project -force $proj_name $proj_dir -part $part_name 
+selectButton(RDIResource.ProgressDialog_BACKGROUND, "Background", "Sourcing Tcl script 'program_arty_a7_revE.tcl'"); // a (RDIResource.ProgressDialog_BACKGROUND)
+closeMainWindow("Vivado 2024.1"); // F (MainFrame)
+selectButton(RDIResource.BaseDialog_OK, "OK", "Exit Vivado"); // a (RDIResource.BaseDialog_OK)
+// HOptionPane Warning: 'A background task is running. Please wait until it completes and try again. (Background Task)'
+// TclEventType: FILE_SET_NEW
+// TclEventType: RUN_ADD
+// TclEventType: RUN_CURRENT
+// TclEventType: PROJECT_DASHBOARD_NEW
+// TclEventType: PROJECT_DASHBOARD_GADGET_NEW
+// TclEventType: PROJECT_DASHBOARD_GADGET_CHANGE
+// TclEventType: PROJECT_DASHBOARD_GADGET_NEW
+// TclEventType: PROJECT_DASHBOARD_GADGET_CHANGE
+// TclEventType: PROJECT_DASHBOARD_GADGET_NEW
+// TclEventType: PROJECT_DASHBOARD_GADGET_CHANGE
+// TclEventType: PROJECT_DASHBOARD_GADGET_NEW
+// TclEventType: PROJECT_DASHBOARD_GADGET_CHANGE
+// TclEventType: PROJECT_DASHBOARD_GADGET_NEW
+// TclEventType: PROJECT_DASHBOARD_GADGET_CHANGE
+// TclEventType: PROJECT_DASHBOARD_GADGET_NEW
+// TclEventType: PROJECT_DASHBOARD_GADGET_CHANGE
+// TclEventType: PROJECT_NEW
+selectButton("OptionPane.button", "OK", "Background Task"); // JButton (OptionPane.button)
+// [GUI Memory]: 138 MB (+141869kb) [00:00:08]
+// [Engine Memory]: 1,751 MB (+1684417kb) [00:00:08]
+// TclEventType: FILE_SET_OPTIONS_CHANGE
+// HMemoryUtils.trashcanNow. Engine heap size: 1,836 MB. GUI used memory: 70 MB. Current time: 1/17/26, 10:36:04 PM EST
+// Tcl Message: INFO: [IP_Flow 19-234] Refreshing IP repositories INFO: [IP_Flow 19-1704] No user IP repositories specified INFO: [IP_Flow 19-2313] Loaded Vivado IP repository '/opt/Xilinx/Vivado/2024.1/data/ip'. 
+selectButton(RDIResource.BaseDialog_OK, "OK", "Exit Vivado"); // a (RDIResource.BaseDialog_OK)
+// HOptionPane Warning: 'A background task is running. Please wait until it completes and try again. (Background Task)'
+// TclEventType: FILE_SET_OPTIONS_CHANGE
+// TclEventType: FILE_SET_CHANGE
+// TclEventType: FILE_SET_OPTIONS_CHANGE
+// Tcl Message: create_project: Time (s): cpu = 00:00:15 ; elapsed = 00:00:06 . Memory (MB): peak = 7850.906 ; gain = 388.703 ; free physical = 26560 ; free virtual = 45593 
+// Tcl Message: # set rtl_files [concat \ #     [glob -nocomplain -directory $script_dir rtl/**/*.sv] \ #     [glob -nocomplain -directory $script_dir generated/**/*.sv] \ # ] # read_verilog -sv $rtl_files # set xdc_file [file join $script_dir arty_a7_revE_usb_uart.xdc] # read_xdc $xdc_file # set_property top $top_name [current_fileset] # launch_runs synth_1 -jobs 4 
+selectButton("OptionPane.button", "OK", "Background Task"); // JButton (OptionPane.button)
+// TclEventType: DG_GRAPH_STALE
+// TclEventType: FILE_SET_CHANGE
+selectButton(RDIResource.BaseDialog_OK, "OK", "Exit Vivado"); // a (RDIResource.BaseDialog_OK)
+// HOptionPane Warning: 'A background task is running. Please wait until it completes and try again. (Background Task)'
+// TclEventType: RUN_LAUNCH
+// TclEventType: RUN_MODIFY
+// TclEventType: RUN_STATUS_CHANGE
+// Tcl Message: [Sat Jan 17 22:36:06 2026] Launched synth_1... Run output will be captured here: /home/sportsman/coding/systemverilog/uTPU/build/vivado_arty_a7/uTPU_arty_a7.runs/synth_1/runme.log 
+// Tcl Message: # wait_on_run synth_1 
+// Tcl Message: [Sat Jan 17 22:36:06 2026] Waiting for synth_1 to finish... 
+selectButton("OptionPane.button", "OK", "Background Task"); // JButton (OptionPane.button)
+// TclEventType: RUN_STATUS_CHANGE
+selectButton(RDIResource.BaseDialog_OK, "OK", "Exit Vivado"); // a (RDIResource.BaseDialog_OK)
+// HOptionPane Warning: 'A background task is running. Please wait until it completes and try again. (Background Task)'
+selectButton("OptionPane.button", "OK", "Background Task"); // JButton (OptionPane.button)
+selectButton(RDIResource.BaseDialog_CANCEL, "Cancel", "Exit Vivado"); // a (RDIResource.BaseDialog_CANCEL)
+dismissDialog("Exit Vivado"); // t (dialog0)
+closeMainWindow("uTPU_arty_a7 - [/home/sportsman/coding/systemverilog/uTPU/build/vivado_arty_a7/uTPU_arty_a7.xpr] - Vivado 2024.1"); // F (MainFrame)
+// HOptionPane Warning: 'A background task is running. Please wait until it completes to exit Vivado. If you choose to abort background task and exit immediately, you will lose all unsaved changes to project. (Background Task)'
+selectButton("OptionPane.button", "Wait", "Background Task"); // JButton (OptionPane.button)
+// Tcl Message: [Sat Jan 17 22:36:11 2026] Waiting for synth_1 to finish... 
+// [Engine Memory]: 2,377 MB (+564874kb) [00:00:17]
+closeMainWindow("uTPU_arty_a7 - [/home/sportsman/coding/systemverilog/uTPU/build/vivado_arty_a7/uTPU_arty_a7.xpr] - Vivado 2024.1"); // F (MainFrame)
+// HOptionPane Warning: 'A background task is running. Please wait until it completes to exit Vivado. If you choose to abort background task and exit immediately, you will lose all unsaved changes to project. (Background Task)'
+selectButton("OptionPane.button", "Wait", "Background Task"); // JButton (OptionPane.button)
+// Tcl Message: [Sat Jan 17 22:36:16 2026] Waiting for synth_1 to finish... 
+selectButton("HStatusBar_ProgressStatusItem_Cancel", "Cancel"); // NullButton (HStatusBar_ProgressStatusItem_Cancel)
+// Tcl Message: INFO: [Common 17-41] Interrupt caught. Command should exit soon. 
+closeMainWindow("uTPU_arty_a7 - [/home/sportsman/coding/systemverilog/uTPU/build/vivado_arty_a7/uTPU_arty_a7.xpr] - Vivado 2024.1"); // F (MainFrame)
+// HOptionPane Warning: 'A background task is running. Please wait until it completes to exit Vivado. If you choose to abort background task and exit immediately, you will lose all unsaved changes to project. (Background Task)'
+// TclEventType: STOP_PROGRESS_DIALOG

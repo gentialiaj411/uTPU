@@ -22,7 +22,8 @@ module top #(
     ) (
 	input  logic clk, rst, start,
 	input  logic rx,
-	output logic tx
+	output logic tx,
+	output logic led_rst
     );
 
     // Controller registers
@@ -77,6 +78,7 @@ module top #(
     logic signed [COMPUTE_DATA_WIDTH-1:0] compute_to_buffer [NUM_COMPUTE_LANES-1:0];
     logic [STORE_DATA_WIDTH-1:0]   controller_to_buffer;
     logic [STORE_DATA_WIDTH-1:0]   buffer_to_controller;
+    logic [23:0] rst_blink;
 
 
     uart #(
@@ -497,6 +499,14 @@ module top #(
     end
 
     assign rx_we = rx_we_d;
+    assign led_rst = ~rst & rst_blink[23];
+
+    always_ff @(posedge clk) begin
+	if (~rst)
+	    rst_blink <= rst_blink + 1'b1;
+	else
+	    rst_blink <= '0;
+    end
 
 
 

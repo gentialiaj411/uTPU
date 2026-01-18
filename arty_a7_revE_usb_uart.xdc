@@ -2,6 +2,8 @@
 ## Ports assumed: clk, rx, tx
 ## Reset pin
 set_property -dict { PACKAGE_PIN C2 IOSTANDARD LVCMOS33 } [get_ports { rst }];
+## Reset indicator LED
+set_property -dict { PACKAGE_PIN H5 IOSTANDARD LVCMOS33 } [get_ports { led_rst }];
 
 ## Configuration bank voltage
 set_property CFGBVS VCCO [current_design]
