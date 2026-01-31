@@ -40,6 +40,7 @@ module top #(
     logic [BUFFER_WORD_SIZE-1:0] store_val;    
     logic [ADDRESS_SIZE-1:0]     store_src_addr;
     logic [ADDRESS_SIZE-1:0]     store_dest_addr;
+    logic [ADDRESS_SIZE-1:0]     compute_result_addr; // NEW: Where to store compute results
     logic                        store_ready;
     logic                        store_half;
     logic [1:0]                  store_word_idx;
@@ -236,6 +237,7 @@ module top #(
 	FETCH_BUFFER_STATE,
 	LOAD_STATE,
 	COMPUTE_STATE,
+	COMPUTE_WRITEBACK_STATE, // NEW: Write compute results back to buffer
 	STORE_STATE,
 	HALT_STATE
     } state_e;
@@ -325,8 +327,11 @@ module top #(
 	    LOAD_STATE:
 		if (buffer_done_d)
 		    next_state = FETCH_FIFO_STATE;
-	    COMPUTE_STATE: // THIS MIGHT WORK as it just waits for stored final value
+	    COMPUTE_STATE: // Wait for systolic array to complete
 		if (compute_done)
+		    next_state = COMPUTE_WRITEBACK_STATE;
+	    COMPUTE_WRITEBACK_STATE: // Write results back to buffer
+		if (buffer_done)
 		    next_state = FETCH_FIFO_STATE;
 	    STORE_STATE:
 		if (buffer_done)
@@ -357,9 +362,10 @@ module top #(
 		tx_echo_pending <= 1'b0;
 		tx_echo_data    <= '0;
 		rx_led          <= 1'b0;
-		store_src_addr  <= '0;
-		store_dest_addr <= '0;
-		store_half      <= 1'b0;
+		store_src_addr      <= '0;
+		store_dest_addr     <= '0;
+		compute_result_addr <= '0;
+		store_half          <= 1'b0;
 		store_word_idx  <= 2'b0;
 		store_byte_lo   <= '0;
 		store_word2     <= '0;
@@ -464,6 +470,7 @@ module top #(
 			quantizer_en <= (instruction[4]) ? 1'b1 : 1'b0;
 			relu_en      <= (instruction[5]) ? 1'b1 : 1'b0;
 			address      <= instruction[BUFFER_WORD_SIZE-1:BUFFER_WORD_SIZE-ADDRESS_SIZE];
+			compute_result_addr <= instruction[BUFFER_WORD_SIZE-1:BUFFER_WORD_SIZE-ADDRESS_SIZE]; // Save result address
 		    end
 		    LOAD_OP: begin
 			compute_load_en <= (instruction[3]) ? 1'b1 : 1'b0;
@@ -547,6 +554,21 @@ module top #(
 
 		if (compute_done)
 		    compute_start <= '0;
+	    end
+	    COMPUTE_WRITEBACK_STATE: begin
+		// Write compute_to_buffer back to unified buffer at result address
+		buffer_we         <= 1'b1;
+		buffer_re         <= 1'b0;
+		buffer_fifo_en    <= 1'b0;
+		buffer_compute_en <= 1'b1;  // Use compute interface for parallel write
+		buffer_store_en   <= 1'b0;
+		address           <= compute_result_addr;
+		if (buffer_done) begin
+		    buffer_we         <= 1'b0;
+		    buffer_compute_en <= 1'b0;
+		    fetch_mode        <= FETCH_INSTRUCTION;
+		    instruction_half  <= 1'b0;
+		end
 	    end
 	    STORE_STATE: begin
 		buffer_we         <= 1'b1;

@@ -27,19 +27,21 @@ module fifo_tx #(
     assign read_ok  = re && !empty;
 
     always_ff @(posedge clk) begin
-	start <= 1'b0;
 	if (rst) begin
 	    w_ptr   <= 0;
 	    r_ptr   <= 0;
 	    r_data  <= 0;
-	end else begin 
+	    start   <= 1'b0;
+	end else begin
+	    // Default: deassert start (one-cycle pulse per read)
+	    start <= 1'b0;
 	    if (write_ok) begin
 		mem[w_ptr[POINTER_WIDTH-1:0]] <= w_data;
 		w_ptr <= w_ptr + 1'b1;
 	    end
 	    if (read_ok) begin
 		r_data <= mem[r_ptr[POINTER_WIDTH-1:0]];
-		start <= 1'b1;
+		start <= 1'b1;  // One-cycle pulse to trigger UART TX
 		r_ptr  <= r_ptr + 1'b1;
 	    end
 	end

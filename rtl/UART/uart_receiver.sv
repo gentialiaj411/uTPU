@@ -16,8 +16,9 @@ module uart_receiver #(
 
     // Use explicit widths for synthesis (integers can cause 32-bit inferences)
     localparam int BIT_CNT_W = $clog2(UART_BITS_TRANSFERED) + 1;
-    // Need extra bits for initial count of 3*OVERSAMPLE/2 - 2 when entering DATA state
-    localparam int SAMPLE_CNT_W = $clog2(3*OVERSAMPLE/2) + 1;
+    // Need extra bits for initial count when entering DATA state
+    // Maximum count is OVERSAMPLE + OVERSAMPLE/2 = 24 for 16x oversampling
+    localparam int SAMPLE_CNT_W = $clog2(OVERSAMPLE + OVERSAMPLE/2 + 1) + 1;
 
     logic [BIT_CNT_W-1:0] received_bit;
     logic [SAMPLE_CNT_W-1:0] sample_count;
@@ -65,7 +66,8 @@ module uart_receiver #(
                     IDLE: begin
                         // Use latched falling edge (detected at full clock rate)
                         if (rx_falling_edge) begin
-                            sample_count <= OVERSAMPLE / 2; // sample in the middle of start bit
+                            // Wait half a bit period to reach start bit center
+                            sample_count <= OVERSAMPLE / 2 - 1;
                             current_state <= START;
                         end
                     end
@@ -73,9 +75,18 @@ module uart_receiver #(
                         if (sample_count == 0) begin
                             if (~rx_sync) begin
                                 received_bit <= 0;
-                                // Wait 1.5 bit periods from start bit center to data bit 0 center
-                                // This aligns sampling with the middle of each data bit
-                                sample_count <= OVERSAMPLE + OVERSAMPLE/2 - 2;
+                                // From start bit CENTER to data bit 0 CENTER is exactly 1 bit period.
+                                // We sample when sample_count == OVERSAMPLE/2, so we need to count
+                                // down from (OVERSAMPLE + OVERSAMPLE/2 - 1) to hit the center of D0.
+                                // Timing: START center → END of start = 0.5 bit = 8 ticks
+                                //         START of D0 → CENTER of D0 = 0.5 bit = 8 ticks
+                                //         Total = 16 ticks from START center to D0 center
+                                // Since we sample at sample_count == OVERSAMPLE/2 = 8, and we
+                                // decrement first, we need sample_count = 16 + 8 - 1 = 23.
+                                // But we also spend 1 tick in this transition, so 22 is close.
+                                // CORRECTED: We need exactly OVERSAMPLE ticks to next bit center,
+                                // then we sample at mid-count. Set to OVERSAMPLE - 1 and sample at 0.
+                                sample_count <= OVERSAMPLE - 1;
                                 current_state <= DATA;
                             end else begin
                                 current_state <= IDLE; // false start
@@ -85,14 +96,12 @@ module uart_receiver #(
                         end
                     end
                     DATA: begin
-                        // Sample slightly before center to compensate for baud rate being ~0.5% fast
-                        if (sample_count == OVERSAMPLE/2 + 1) begin
-                            result[received_bit] <= rx_sync;
-                        end
+                        // Sample at the center of each bit (when sample_count reaches 0)
                         if (sample_count == 0) begin
+                            result[received_bit] <= rx_sync;
                             received_bit <= received_bit + 1;
                             sample_count <= OVERSAMPLE - 1;
-                            if (received_bit == UART_BITS_TRANSFERED-1) begin
+                            if (received_bit == UART_BITS_TRANSFERED - 1) begin
                                 current_state <= STOP;
                             end
                         end else begin
@@ -100,7 +109,7 @@ module uart_receiver #(
                         end
                     end
                     STOP: begin
-                        // Single sample at stop bit center
+                        // Wait for stop bit center, then signal valid
                         if (sample_count == 0) begin
                             valid <= 1'b1;  // Always accept if we got this far
                             current_state <= IDLE;

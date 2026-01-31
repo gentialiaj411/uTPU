@@ -19,7 +19,6 @@ module fifo_rx #(
 
     logic write_ok, read_ok;
     logic [POINTER_WIDTH:0] w_ptr, r_ptr; // Read and write pointers with extra MSB (Cummings 2002)
-    logic read_ok_d;
 
     
     assign empty = (w_ptr == r_ptr);
@@ -34,10 +33,10 @@ module fifo_rx #(
 	    r_ptr   <= 0;
 	    r_data  <= 0;
 	    r_valid <= 1'b0;
-	    read_ok_d <= 1'b0;
 	end else begin 
-	    read_ok_d <= read_ok;
-	    r_valid <= read_ok_d;
+	    // BRAM has 1-cycle read latency: r_data is valid on the cycle AFTER read_ok.
+	    // r_valid should go high exactly when r_data becomes valid (1 cycle after read_ok).
+	    r_valid <= read_ok;  // Delay by 1 cycle to match r_data timing
 	    if (write_ok) begin
 		mem[w_ptr[POINTER_WIDTH-1:0]] <= w_data;
 		w_ptr <= w_ptr + 1'b1;

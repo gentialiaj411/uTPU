@@ -4,10 +4,10 @@
 module system_tb;
 
   logic clk = 0;
-  logic rst = 1;
-  logic start = 0;
+  logic rst = 0;  // Start in reset (active-low external, rst_int = ~rst = 1 = active high internal)
   logic rx = 1'b1;
   wire  tx;
+  wire  led_rst;
 
   localparam time CLK_PERIOD = 10ns;
   localparam int  UART_BITS = 8;
@@ -17,16 +17,17 @@ module system_tb;
   top dut (
     .clk(clk),
     .rst(rst),
-    .start(start),
     .rx(rx),
-    .tx(tx)
+    .tx(tx),
+    .led_rst(led_rst)
   );
 
   // -------------------------
   // UART BFM (simplified)
   // -------------------------
   task automatic wait_uart_tick();
-    @(posedge dut.u_uart.u_clk_divider.uart_clk);
+    // Wait for the baud_tick signal from the clock divider
+    @(posedge dut.u_uart.u_clk_divider.baud_tick);
   endtask
 
   task automatic uart_send_byte(input logic [UART_BITS-1:0] b);
@@ -283,13 +284,15 @@ module system_tb;
   endtask
 
   initial begin
-    // reset
-    repeat (5) @(posedge clk);
-    rst <= 0;
-    @(posedge clk);
-    start <= 1;
-    @(posedge clk);
-    start <= 0;
+    // Reset polarity: top.sv has `assign rst_int = ~rst`
+    // So external rst=0 → rst_int=1 → IN RESET (active high internally)
+    //    external rst=1 → rst_int=0 → NOT in reset
+    // The reset button on Arty A7 is active-low, hence the inversion.
+    
+    rst <= 0;  // Start IN reset (rst_int = 1)
+    repeat (10) @(posedge clk);
+    rst <= 1;  // Release reset (rst_int = 0)
+    repeat (10) @(posedge clk);
 
     test_quantizer();
     test_leaky_relu();
