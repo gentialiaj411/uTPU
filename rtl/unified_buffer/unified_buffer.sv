@@ -30,8 +30,20 @@ module unified_buffer #(
     localparam int BANK_ADDR_W   = $clog2(BANK_DEPTH);
 
     // Banked BRAM to provide enough read/write bandwidth for compute lanes.
-    (* ram_style = "block" *) logic [BUFFER_WORD_SIZE-1:0] mem [BANKS-1:0][BANK_DEPTH-1:0];
+    // Each bank is an explicit Xilinx block RAM primitive so implementation does
+    // not fall back to LUT/FF memory heuristics.
     logic [BUFFER_WORD_SIZE-1:0] compute_word [BANKS-1:0];
+    logic [BUFFER_WORD_SIZE-1:0] bank_dout    [BANKS-1:0];
+    logic [BUFFER_WORD_SIZE-1:0] bank_din     [BANKS-1:0];
+    logic [BANK_ADDR_W-1:0]      bank_waddr   [BANKS-1:0];
+    logic [BANK_ADDR_W-1:0]      bank_raddr   [BANKS-1:0];
+    logic [1:0]                  bank_we      [BANKS-1:0];
+    logic                        bank_re      [BANKS-1:0];
+    logic [BANK_BITS-1:0]        read_bank_sel_d;
+    logic                        read_section_d;
+    logic                        read_fifo_d;
+    logic                        read_store_d;
+    logic                        read_compute_d;
     logic [BANK_BITS-1:0]        base_bank;
     logic [BANK_ADDR_W-1:0]      base_row;
 
@@ -61,42 +73,118 @@ module unified_buffer #(
         end
     endgenerate
 
-    always_ff @(posedge clk) begin
-        done <= we | re;
+    always_comb begin
+        for (int i = 0; i < BANKS; i++) begin
+            bank_waddr[i] = row_for_bank(i, base_row, base_bank);
+            bank_raddr[i] = row_for_bank(i, base_row, base_bank);
+            bank_din[i]   = compute_word[i];
+            bank_we[i]    = 2'b00;
+            bank_re[i]    = 1'b0;
+        end
 
         if (we) begin
             if (compute_en) begin
-                // write compute_in lanes into banked memory words starting at address
                 for (int i = 0; i < BANKS; i++) begin
-                    mem[i][row_for_bank(i, base_row, base_bank)] <= compute_word[i];
+                    bank_we[i] = 2'b11;
+                    bank_din[i] = compute_word[i];
                 end
             end else if (fifo_en) begin
-                case (section)
-                    1'b0: mem[base_bank][base_row][0 +: FIFO_DATA_WIDTH] <= fifo_in;                // low byte
-                    1'b1: mem[base_bank][base_row][FIFO_DATA_WIDTH +: FIFO_DATA_WIDTH] <= fifo_in;  // high byte
-                endcase
-	    end else if (store_en) begin 
-		mem[base_bank][base_row][STORE_DATA_WIDTH-1:0] <= store_in;
-	    end
-
-        end else if (re) begin
-            if (compute_en) begin
-                // read banked memory words into compute_out lanes (1-cycle read latency)
-                for (int i = 0; i < BANKS; i++) begin
-                    for (int j = 0; j < ITEMS_IN_SLOT; j++) begin
-                        compute_out[j + i*ITEMS_IN_SLOT]
-                            <= mem[i][row_for_bank(i, base_row, base_bank)][(COMPUTE_DATA_WIDTH*j) +: COMPUTE_DATA_WIDTH];
-                    end
-                end
-            end else if (fifo_en) begin
-                case (section)
-                    1'b0: fifo_out <= mem[base_bank][base_row][0 +: FIFO_DATA_WIDTH];
-                    1'b1: fifo_out <= mem[base_bank][base_row][FIFO_DATA_WIDTH +: FIFO_DATA_WIDTH];
-                endcase
-	    end else if (store_en) begin
-		store_out <= mem[base_bank][base_row][STORE_DATA_WIDTH-1:0];
-	    end
+                bank_we[base_bank] = section ? 2'b10 : 2'b01;
+                bank_din[base_bank] = section
+                    ? {fifo_in, 8'h00}
+                    : {8'h00, fifo_in};
+            end else if (store_en) begin
+                bank_we[base_bank] = 2'b11;
+                bank_din[base_bank] = store_in;
+            end
         end
+
+        if (re) begin
+            if (compute_en) begin
+                for (int i = 0; i < BANKS; i++) begin
+                    bank_re[i] = 1'b1;
+                end
+            end else begin
+                bank_re[base_bank] = fifo_en | store_en;
+            end
+        end
+    end
+
+    genvar bi;
+    generate
+        for (bi = 0; bi < BANKS; bi++) begin: gen_bram
+            xpm_memory_sdpram #(
+                .ADDR_WIDTH_A(BANK_ADDR_W),
+                .ADDR_WIDTH_B(BANK_ADDR_W),
+                .AUTO_SLEEP_TIME(0),
+                .BYTE_WRITE_WIDTH_A(8),
+                .CASCADE_HEIGHT(0),
+                .CLOCKING_MODE("common_clock"),
+                .ECC_MODE("no_ecc"),
+                .MEMORY_INIT_FILE("none"),
+                .MEMORY_INIT_PARAM("0"),
+                .MEMORY_OPTIMIZATION("true"),
+                .MEMORY_PRIMITIVE("block"),
+                .MEMORY_SIZE(BANK_DEPTH*BUFFER_WORD_SIZE),
+                .MESSAGE_CONTROL(0),
+                .READ_DATA_WIDTH_B(BUFFER_WORD_SIZE),
+                .READ_LATENCY_B(1),
+                .READ_RESET_VALUE_B("0"),
+                .RST_MODE_A("SYNC"),
+                .RST_MODE_B("SYNC"),
+                .SIM_ASSERT_CHK(0),
+                .USE_EMBEDDED_CONSTRAINT(0),
+                .USE_MEM_INIT(1),
+                .WAKEUP_TIME("disable_sleep"),
+                .WRITE_DATA_WIDTH_A(BUFFER_WORD_SIZE),
+                .WRITE_MODE_B("no_change")
+            ) u_bank_bram (
+                .clka(clk),
+                .clkb(clk),
+                .ena(1'b1),
+                .enb(bank_re[bi]),
+                .addra(bank_waddr[bi]),
+                .addrb(bank_raddr[bi]),
+                .dina(bank_din[bi]),
+                .wea(bank_we[bi]),
+                .doutb(bank_dout[bi]),
+                .injectdbiterra(1'b0),
+                .injectsbiterra(1'b0),
+                .regceb(1'b1),
+                .rstb(1'b0),
+                .sleep(1'b0)
+            );
+        end
+    endgenerate
+
+    always_ff @(posedge clk) begin
+        done <= we | re;
+
+        read_bank_sel_d <= base_bank;
+        read_section_d <= section;
+        read_fifo_d <= re && fifo_en;
+        read_store_d <= re && store_en;
+        read_compute_d <= re && compute_en;
+
+        if (read_compute_d) begin
+            for (int i = 0; i < BANKS; i++) begin
+                for (int j = 0; j < ITEMS_IN_SLOT; j++) begin
+                    compute_out[j + i*ITEMS_IN_SLOT]
+                        <= bank_dout[i][(COMPUTE_DATA_WIDTH*j) +: COMPUTE_DATA_WIDTH];
+                end
+            end
+        end
+
+        if (read_fifo_d) begin
+            fifo_out <= read_section_d
+                ? bank_dout[read_bank_sel_d][FIFO_DATA_WIDTH +: FIFO_DATA_WIDTH]
+                : bank_dout[read_bank_sel_d][0 +: FIFO_DATA_WIDTH];
+        end
+
+        if (read_store_d) begin
+            store_out <= bank_dout[read_bank_sel_d][STORE_DATA_WIDTH-1:0];
+        end
+
     end
 
 endmodule: unified_buffer
