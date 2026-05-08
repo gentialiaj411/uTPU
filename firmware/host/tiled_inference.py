@@ -1,7 +1,12 @@
 import numpy as np
-import torch
+try:
+    import torch
+except ImportError:
+    torch = None
 import sys
 import os
+import re
+import math
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../software/model'))
 
@@ -10,9 +15,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../software/model
 #models hardware int32 accumulator behavior exactly
 class TiledInferenceEngine:
 
-    def __init__(self, weights_dir, model_path, verbose=False, tile_runner=None):
+    def __init__(self, weights_dir, model_path, verbose=False, tile_runner=None,
+                 tiling_mode="legacy_2x2", array_size=None):
         self.verbose = verbose
         self.tile_runner = tile_runner
+        self.tiling_mode = tiling_mode
+        self.array_size, self.array_size_source = self._resolve_array_size(array_size)
+        self.last_run_stats = {}
 
         weights_dir = os.path.abspath(weights_dir)
         model_path = os.path.abspath(model_path)
@@ -58,14 +67,64 @@ class TiledInferenceEngine:
 
         self._log(f"FC1: weight {self.fc1_weight.shape}, scale {self.fc1_scale:.6f}")
         self._log(f"FC2: weight {self.fc2_weight.shape}, scale {self.fc2_scale:.6f}")
+        self._log(f"Tiling mode: {self.tiling_mode}")
+        self._log(f"Array size: {self.array_size} (source={self.array_size_source})")
         self._log("Initialization complete")
 
     def _log(self, msg):
         if self.verbose:
             print(f"[TiledInference] {msg}")
 
+    def _resolve_array_size(self, explicit_array_size):
+        if explicit_array_size is not None:
+            return int(explicit_array_size), "explicit_arg"
+
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        repo_root = os.path.abspath(os.path.join(script_dir, "..", ".."))
+
+        top_sv_path = os.path.join(repo_root, "rtl", "top", "top.sv")
+        try:
+            with open(top_sv_path, "r", encoding="utf-8") as f:
+                txt = f.read()
+            m = re.search(r"parameter\s+ARRAY_SIZE\s*=\s*(\d+)", txt)
+            if m:
+                return int(m.group(1)), "rtl/top/top.sv"
+        except OSError:
+            pass
+
+        gen_path = os.path.join(repo_root, "generated", "generated_params.sv")
+        try:
+            with open(gen_path, "r", encoding="utf-8") as f:
+                txt = f.read()
+            m = re.search(r"ARRAY_SIZE\s*=\s*(\d+)", txt)
+            if m:
+                return int(m.group(1)), "generated/generated_params.sv"
+        except OSError:
+            pass
+
+        toml_path = os.path.join(repo_root, "configs", "utpu.toml")
+        try:
+            with open(toml_path, "r", encoding="utf-8") as f:
+                txt = f.read()
+            in_array_section = False
+            for line in txt.splitlines():
+                s = line.strip()
+                if s.startswith("[") and s.endswith("]"):
+                    in_array_section = (s == "[array]")
+                    continue
+                if in_array_section and s.startswith("size"):
+                    m = re.search(r"size\s*=\s*(\d+)", s)
+                    if m:
+                        return int(m.group(1)), "configs/utpu.toml"
+        except OSError:
+            pass
+
+        return 16, "default_fallback"
+
     #load state dict from pth file
     def _load_state_dict(self, model_path):
+        if torch is None:
+            raise RuntimeError("torch is required for _load_state_dict but is not installed")
         state_dict = torch.load(model_path, map_location='cpu')
 
         #handle nested state dict formats
@@ -109,6 +168,12 @@ class TiledInferenceEngine:
             raise RuntimeError("Tile runner did not return 2 values")
         return result
 
+    def _matmul_block_int32(self, weight_block, input_block):
+        # Software model of ARRAY_SIZE x ARRAY_SIZE block compute with int32 accumulation.
+        w = weight_block.astype(np.int32)
+        x = input_block.astype(np.int32)
+        return (w @ x).astype(np.int32)
+
     #matrix-vector multiply using 2x2 tiles with int32 accumulator
     def tiled_matmul_int32(self, weights, inputs):
         out_dim, in_dim = weights.shape
@@ -138,6 +203,40 @@ class TiledInferenceEngine:
 
         return accum[:out_dim]
 
+    def array_block_matmul_int32(self, weights, inputs):
+        out_dim, in_dim = weights.shape
+        block = self.array_size
+        if block <= 0:
+            raise ValueError(f"Invalid array_size={block}")
+
+        out_blocks = math.ceil(out_dim / block)
+        in_blocks = math.ceil(in_dim / block)
+
+        out_padded = out_blocks * block
+        in_padded = in_blocks * block
+
+        weights_pad = np.zeros((out_padded, in_padded), dtype=np.int8)
+        weights_pad[:out_dim, :in_dim] = weights
+
+        inputs_pad = np.zeros(in_padded, dtype=np.int8)
+        inputs_pad[:in_dim] = inputs
+
+        accum = np.zeros(out_padded, dtype=np.int32)
+        block_runs = 0
+
+        for ob in range(out_blocks):
+            o0 = ob * block
+            o1 = o0 + block
+            for ib in range(in_blocks):
+                i0 = ib * block
+                i1 = i0 + block
+                weight_block = weights_pad[o0:o1, i0:i1]
+                input_block = inputs_pad[i0:i1]
+                accum[o0:o1] += self._matmul_block_int32(weight_block, input_block)
+                block_runs += 1
+
+        return accum[:out_dim], block_runs, out_blocks, in_blocks
+
     #quantize to int4 range [-8, 7]
     def quantize_int4(self, x):
         return np.clip(np.round(x), -8, 7).astype(np.float32)
@@ -153,8 +252,18 @@ class TiledInferenceEngine:
         #ensure inputs are int8
         inputs_int = np.clip(np.round(inputs), -8, 7).astype(np.int8)
 
-        #step 1: integer tiled matmul (hardware behavior)
-        accum = self.tiled_matmul_int32(weights, inputs_int)
+        out_dim, in_dim = weights.shape
+        legacy_tile_runs = ((out_dim + (out_dim % 2)) // 2) * ((in_dim + (in_dim % 2)) // 2)
+
+        if self.tiling_mode == "legacy_2x2":
+            accum = self.tiled_matmul_int32(weights, inputs_int)
+            runs = legacy_tile_runs
+            run_kind = "tile_2x2_runs"
+        elif self.tiling_mode == "array_block":
+            accum, runs, out_blocks, in_blocks = self.array_block_matmul_int32(weights, inputs_int)
+            run_kind = "array_block_runs"
+        else:
+            raise ValueError(f"Unknown tiling mode: {self.tiling_mode}")
 
         #step 2: scale (software/float) - NO BIAS
         output = accum.astype(np.float32) * scale
@@ -163,7 +272,18 @@ class TiledInferenceEngine:
         if apply_relu:
             output = self.leaky_relu_int4(output)
 
-        return output
+        stats = {
+            "out_dim": out_dim,
+            "in_dim": in_dim,
+            "legacy_2x2_runs": int(legacy_tile_runs),
+            run_kind: int(runs),
+        }
+        if self.tiling_mode == "array_block":
+            stats["array_size"] = int(self.array_size)
+            stats["out_blocks"] = int(out_blocks)
+            stats["in_blocks"] = int(in_blocks)
+            stats["estimated_run_reduction_vs_legacy"] = float(legacy_tile_runs / runs) if runs else 0.0
+        return output, stats
 
     #preprocess 14x14 image to int4
     def preprocess_image(self, image):
@@ -180,14 +300,35 @@ class TiledInferenceEngine:
         self._log(f"Preprocessed: shape={x.shape}, range=[{x.min()}, {x.max()}]")
 
         #fc1 + relu + quantize
-        x = self.fc_layer(x, self.fc1_weight, self.fc1_scale, apply_relu=True)
+        x, fc1_stats = self.fc_layer(x, self.fc1_weight, self.fc1_scale, apply_relu=True)
         self._log(f"After FC1: shape={x.shape}, range=[{x.min()}, {x.max()}]")
 
         #fc2 (no relu on output layer)
-        x = self.fc_layer(x, self.fc2_weight, self.fc2_scale, apply_relu=False)
+        x, fc2_stats = self.fc_layer(x, self.fc2_weight, self.fc2_scale, apply_relu=False)
         self._log(f"After FC2: shape={x.shape}, range=[{x.min():.2f}, {x.max():.2f}]")
 
+        self.last_run_stats = {
+            "tiling_mode": self.tiling_mode,
+            "array_size": int(self.array_size),
+            "array_size_source": self.array_size_source,
+            "fc1": fc1_stats,
+            "fc2": fc2_stats,
+        }
+        self.last_run_stats["totals"] = {
+            "legacy_2x2_runs": int(fc1_stats["legacy_2x2_runs"] + fc2_stats["legacy_2x2_runs"]),
+        }
+        if self.tiling_mode == "array_block":
+            total_block_runs = int(fc1_stats["array_block_runs"] + fc2_stats["array_block_runs"])
+            self.last_run_stats["totals"]["array_block_runs"] = total_block_runs
+            self.last_run_stats["totals"]["estimated_run_reduction_vs_legacy"] = (
+                float(self.last_run_stats["totals"]["legacy_2x2_runs"] / total_block_runs)
+                if total_block_runs else 0.0
+            )
+
         return x
+
+    def get_last_run_stats(self):
+        return dict(self.last_run_stats)
 
     #predict digit class for an image
     def predict(self, image):
@@ -229,6 +370,7 @@ def get_default_paths():
 
 def main():
     import argparse
+    import json
 
     weights_dir, model_path, data_dir = get_default_paths()
 
@@ -240,6 +382,8 @@ def main():
     parser.add_argument('--sample', type=int, default=None)
     parser.add_argument('--num-samples', type=int, default=None)
     parser.add_argument('--verbose', '-v', action='store_true')
+    parser.add_argument('--tiling-mode', choices=['legacy_2x2', 'array_block'], default='legacy_2x2')
+    parser.add_argument('--array-size', type=int, default=None)
 
     args = parser.parse_args()
 
@@ -249,7 +393,13 @@ def main():
 
     #initialize engine
     try:
-        engine = TiledInferenceEngine(args.weights, args.model, verbose=args.verbose)
+        engine = TiledInferenceEngine(
+            args.weights,
+            args.model,
+            verbose=args.verbose,
+            tiling_mode=args.tiling_mode,
+            array_size=args.array_size
+        )
     except FileNotFoundError as e:
         print(f"Error: {e}")
         print("\nMake sure you have trained and exported:")
@@ -280,6 +430,8 @@ def main():
         print(f"  Predicted: {pred}")
         print(f"  Actual:    {actual}")
         print(f"  Result:    {'CORRECT' if pred == actual else 'WRONG'}")
+        print("  Run stats:")
+        print(json.dumps(engine.get_last_run_stats(), indent=2))
 
     elif args.eval:
         #full evaluation

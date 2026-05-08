@@ -8,6 +8,7 @@ OPCODE_RUN = 0b010 #2 - execute
 OPCODE_LOAD = 0b011 #3 - load data into PE array
 OPCODE_HALT = 0b100 #4 - stop execution
 OPCODE_NOP = 0b101 #7 - no operation
+OPCODE_BSTORE = 0b110 #6 - burst store sequential 16-bit words to buffer
 
 INSTRUCTION_WIDTH = 16
 ADDRESS_WIDTH = 9
@@ -19,7 +20,7 @@ def int4To16(values: List[int]) -> int:
 
     result = 0
     for i, val in enumerate(values):
-        nibble = val & 0xF
+        nibble = int(val) & 0xF
         result |= (nibble << (i*4))
     return result
 
@@ -79,14 +80,20 @@ def encodeLoadWeights(addr: int) -> bytes:
 def encodeLoadInputs(addr: int) -> bytes:
     return encodeLoad(addr, is_weights=False)
 
-def encodeRun(result_addr: int, compute_en: bool = True,  quantize_en: bool = True, relu_en: bool = True) -> bytes:
+def encodeRun(
+    result_addr: int,
+    compute_en: bool = True,
+    quantize_en: bool = True,
+    relu_en: bool = True,
+    acc_clear_en: bool = False
+) -> bytes:
 
     """
     bits 0-2: OPCODO
     bit 3: compute_en
     bit 4: quantize_en 
     bit 5: relu_en
-    bit 6: not used
+    bit 6: acc_clear_en (used in accumulate mode)
     bits 7-15: result address
     """
     result_addr = encodeAddress(result_addr)
@@ -94,6 +101,7 @@ def encodeRun(result_addr: int, compute_en: bool = True,  quantize_en: bool = Tr
     instruction |= (1 if compute_en else 0) << 3 #bit 3
     instruction |= (1 if quantize_en else 0) << 4 #bit 4
     instruction |= (1 if relu_en else 0) << 5 #bit 5
+    instruction |= (1 if acc_clear_en else 0) << 6 #bit 6
     instruction |= (result_addr << 7) #bits 7-15
     return instructionToBytes(instruction)
 
@@ -126,6 +134,18 @@ def encodeNop() -> bytes:
     instruction = OPCODE_NOP
     return instructionToBytes(instruction)
 
+def encodeBurstStore(addr: int, words: List[int]) -> bytes:
+    addr = encodeAddress(addr)
+    if len(words) == 0:
+        raise ValueError("BURST_STORE requires at least one word")
+    if len(words) > 0xFFFF:
+        raise ValueError("BURST_STORE count exceeds 16-bit field")
+    header = OPCODE_BSTORE | (addr << 7)
+    payload = [instructionToBytes(header), instructionToBytes(len(words))]
+    for w in words:
+        payload.append(instructionToBytes(int(w) & 0xFFFF))
+    return b"".join(payload)
+
 #encoder class that tracks instructions
 class ISAEncoder:
     def __init__(self):
@@ -148,8 +168,15 @@ class ISAEncoder:
 
     
     #add RUN instruction
-    def run(self, result_addr: int, compute: bool=True, quantize: bool=True, relu: bool=True) -> "ISAEncoder":
-        self.instructions.append(encodeRun(result_addr, compute, quantize, relu))
+    def run(
+        self,
+        result_addr: int,
+        compute: bool = True,
+        quantize: bool = True,
+        relu: bool = True,
+        acc_clear: bool = False
+    ) -> "ISAEncoder":
+        self.instructions.append(encodeRun(result_addr, compute, quantize, relu, acc_clear))
         return self
     
     #add FETCH instruction
@@ -165,6 +192,11 @@ class ISAEncoder:
     #add NOP instruction
     def nop(self) -> "ISAEncoder":
         self.instructions.append(encodeNop())
+        return self
+
+    # add BURST_STORE instruction sequence
+    def burst_store(self, addr: int, words: List[int]) -> "ISAEncoder":
+        self.instructions.append(encodeBurstStore(addr, words))
         return self
     
     #get program as bytes

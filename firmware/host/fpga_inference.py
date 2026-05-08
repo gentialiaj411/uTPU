@@ -10,9 +10,10 @@ from tiled_inference import TiledInferenceEngine, get_default_paths
 #uses simulation when hardware not connected
 class FPGAInference:
 
-    def __init__(self, port=None, verbose=False):
+    def __init__(self, port=None, verbose=False, execution_mode="blocked"):
         self.verbose = verbose
         self.simulation_mode = port is None
+        self.execution_mode = execution_mode
 
         weights_dir, model_path, _ = get_default_paths()
 
@@ -36,9 +37,12 @@ class FPGAInference:
         if self.simulation_mode:
             self._log("Running in SIMULATION mode")
         else:
-            self.engine.tile_runner = self.run_tile_on_hardware
-            self._log("Running in HARDWARE tile mode (2x2 tiles via UART)")
-            print("NOTE: Hardware tile mode uses per-tile quantized outputs; accuracy may differ from software.")
+            if self.execution_mode == "tile_rpc":
+                self.engine.tile_runner = self.run_tile_on_hardware
+                self._log("Running in HARDWARE tile-RPC mode (2x2 tiles via UART)")
+                print("NOTE: tile-RPC mode is host-heavy and kept for legacy debugging.")
+            else:
+                self._log("Running in HARDWARE blocked mode (autonomous layer programs via UART)")
 
     def _log(self, msg):
         if self.verbose:
@@ -81,7 +85,49 @@ class FPGAInference:
 
     #predict digit for image
     def predict(self, image):
+        if not self.simulation_mode and self.execution_mode == "blocked":
+            return self.predict_blocked_hardware(image)
         return self.engine.predict(image)
+
+    def predict_blocked_hardware(self, image):
+        # End-to-end blocked execution on current runtime path:
+        # FC1 segmented blocked run -> FC2 segmented blocked run.
+        x = self.engine.preprocess_image(image).astype(np.int8)
+        a = self.engine.array_size
+
+        fc1_res = self.loader.execute_fc_layer_blocked(
+            self.engine.fc1_weight,
+            x,
+            out_features=self.engine.fc1_weight.shape[0],
+            in_features=self.engine.fc1_weight.shape[1],
+            array_size=a,
+            apply_relu=True,
+            apply_quant=True,
+            allow_segmentation=True,
+            max_words_per_segment=1024,
+            timeout=0.04,
+        )
+        if not fc1_res.get("executed", False):
+            raise RuntimeError(f"FC1 blocked execution failed: {fc1_res.get('reason', 'unknown')}")
+        fc1_out = np.array(fc1_res.get("output_int4_padded", [0] * a), dtype=np.int8)[:self.engine.fc1_weight.shape[0]]
+
+        fc2_res = self.loader.execute_fc_layer_blocked(
+            self.engine.fc2_weight,
+            fc1_out,
+            out_features=self.engine.fc2_weight.shape[0],
+            in_features=self.engine.fc2_weight.shape[1],
+            array_size=a,
+            apply_relu=False,
+            apply_quant=True,
+            allow_segmentation=True,
+            max_words_per_segment=1024,
+            timeout=0.04,
+        )
+        if not fc2_res.get("executed", False):
+            raise RuntimeError(f"FC2 blocked execution failed: {fc2_res.get('reason', 'unknown')}")
+        logits = np.array(fc2_res.get("output_int4_padded", [0] * a), dtype=np.float32)[:self.engine.fc2_weight.shape[0]]
+        pred = int(np.argmax(logits))
+        return pred, logits
 
     #evaluate accuracy
     def evaluate(self, images, labels, max_samples=None):
@@ -106,6 +152,12 @@ def main():
     parser.add_argument('--sample', type=int, default=None)
     parser.add_argument('--interactive', '-i', action='store_true')
     parser.add_argument('--verbose', '-v', action='store_true')
+    parser.add_argument(
+        '--mode',
+        choices=['blocked', 'tile_rpc'],
+        default='blocked',
+        help='Execution mode. blocked=autonomous layer programs; tile_rpc=legacy 2x2 RPC.'
+    )
 
     args = parser.parse_args()
 
@@ -114,7 +166,7 @@ def main():
     print("=" * 60)
 
     #initialize
-    fpga = FPGAInference(port=args.port, verbose=args.verbose)
+    fpga = FPGAInference(port=args.port, verbose=args.verbose, execution_mode=args.mode)
 
     #load test data
     test_images = np.load(os.path.join(data_dir, 'mnist_14x14_test.npy'))

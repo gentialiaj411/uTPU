@@ -46,6 +46,7 @@ module unified_buffer #(
     logic                        read_compute_d;
     logic [BANK_BITS-1:0]        base_bank;
     logic [BANK_ADDR_W-1:0]      base_row;
+    logic [NUM_COMPUTE_LANES*COMPUTE_DATA_WIDTH-1:0] compute_out_flat;
 
     function automatic [BANK_ADDR_W-1:0] row_for_bank(
         input int bank_idx,
@@ -59,11 +60,35 @@ module unified_buffer #(
     endfunction
 
     always_comb begin
+`ifdef ICARUS
+        base_bank = address % BANKS;
+        base_row  = address / BANKS;
+`else
         base_bank = address[BANK_BITS-1:0];
         base_row  = address[ADDRESS_SIZE-1:BANK_BITS];
+`endif
+    end
+
+    integer init_i;
+    initial begin
+        done = 1'b0;
+        fifo_out = '0;
+        store_out = '0;
+        read_bank_sel_d = '0;
+        read_section_d = 1'b0;
+        read_fifo_d = 1'b0;
+        read_store_d = 1'b0;
+        read_compute_d = 1'b0;
+        compute_out_flat = '0;
     end
 
     genvar gi, gj;
+    generate
+        for (gi = 0; gi < NUM_COMPUTE_LANES; gi++) begin: gen_unpack_compute_out
+            assign compute_out[gi] = compute_out_flat[(COMPUTE_DATA_WIDTH*gi) +: COMPUTE_DATA_WIDTH];
+        end
+    endgenerate
+
     generate
         for (gi = 0; gi < BANKS; gi++) begin: gen_pack
             for (gj = 0; gj < ITEMS_IN_SLOT; gj++) begin: gen_pack_lanes
@@ -110,6 +135,31 @@ module unified_buffer #(
         end
     end
 
+`ifdef ICARUS
+    // Icarus behavioral replacement for XPM SDP RAM.
+    logic [BUFFER_WORD_SIZE-1:0] bank_mem [BANKS-1:0][BANK_DEPTH-1:0];
+    integer bmi, bmr;
+    initial begin
+        for (bmi = 0; bmi < BANKS; bmi = bmi + 1) begin
+            for (bmr = 0; bmr < BANK_DEPTH; bmr = bmr + 1)
+                bank_mem[bmi][bmr] = '0;
+            bank_dout[bmi] = '0;
+        end
+    end
+
+    always_ff @(posedge clk) begin
+        for (int bi = 0; bi < BANKS; bi++) begin
+            // Byte write semantics compatible with XPM BYTE_WRITE_WIDTH_A=8.
+            if (bank_we[bi][0])
+                bank_mem[bi][bank_waddr[bi]][7:0] <= bank_din[bi][7:0];
+            if (bank_we[bi][1])
+                bank_mem[bi][bank_waddr[bi]][15:8] <= bank_din[bi][15:8];
+            // 1-cycle read latency
+            if (bank_re[bi])
+                bank_dout[bi] <= bank_mem[bi][bank_raddr[bi]];
+        end
+    end
+`else
     genvar bi;
     generate
         for (bi = 0; bi < BANKS; bi++) begin: gen_bram
@@ -156,6 +206,7 @@ module unified_buffer #(
             );
         end
     endgenerate
+`endif
 
     always_ff @(posedge clk) begin
         done <= we | re;
@@ -167,12 +218,30 @@ module unified_buffer #(
         read_compute_d <= re && compute_en;
 
         if (read_compute_d) begin
+`ifdef ICARUS
+            if (ITEMS_IN_SLOT == 4 && COMPUTE_DATA_WIDTH == 4) begin
+                for (int i = 0; i < BANKS; i++) begin
+                    compute_out_flat[(COMPUTE_DATA_WIDTH*((i*4)+0)) +: COMPUTE_DATA_WIDTH] <= bank_dout[i][3:0];
+                    compute_out_flat[(COMPUTE_DATA_WIDTH*((i*4)+1)) +: COMPUTE_DATA_WIDTH] <= bank_dout[i][7:4];
+                    compute_out_flat[(COMPUTE_DATA_WIDTH*((i*4)+2)) +: COMPUTE_DATA_WIDTH] <= bank_dout[i][11:8];
+                    compute_out_flat[(COMPUTE_DATA_WIDTH*((i*4)+3)) +: COMPUTE_DATA_WIDTH] <= bank_dout[i][15:12];
+                end
+            end else begin
+                for (int i = 0; i < BANKS; i++) begin
+                    for (int j = 0; j < ITEMS_IN_SLOT; j++) begin
+                        compute_out_flat[(COMPUTE_DATA_WIDTH*(j + i*ITEMS_IN_SLOT)) +: COMPUTE_DATA_WIDTH]
+                            <= bank_dout[i][(COMPUTE_DATA_WIDTH*j) +: COMPUTE_DATA_WIDTH];
+                    end
+                end
+            end
+`else
             for (int i = 0; i < BANKS; i++) begin
                 for (int j = 0; j < ITEMS_IN_SLOT; j++) begin
-                    compute_out[j + i*ITEMS_IN_SLOT]
+                    compute_out_flat[(COMPUTE_DATA_WIDTH*(j + i*ITEMS_IN_SLOT)) +: COMPUTE_DATA_WIDTH]
                         <= bank_dout[i][(COMPUTE_DATA_WIDTH*j) +: COMPUTE_DATA_WIDTH];
                 end
             end
+`endif
         end
 
         if (read_fifo_d) begin

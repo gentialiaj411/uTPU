@@ -22,6 +22,7 @@ module pe_controller #(
     logic signed [ACCUMULATOR_DATA_WIDTH-1:0] results  [ARRAY_SIZE-1:0];
    
     int i;
+    logic [$clog2(CYCLE_LENGTH+1)-1:0] capture_cycle;
 
     always_ff @(posedge clk) begin
 	done <= '0;
@@ -29,28 +30,37 @@ module pe_controller #(
 	    cycle_count <= '0;
 	    for (i=0; i < ARRAY_SIZE; i++)
 		datas_in[i] <= '0;
+            for (i=0; i < ARRAY_SIZE*ARRAY_SIZE; i++)
+                results_arr[i] <= '0;
 	end else begin
-	    if (cycle_count == CYCLE_LENGTH) 
-		cycle_count <= '0;
-	    else 
-		cycle_count <= cycle_count + 1'b1;
+            if (compute) begin
+	        capture_cycle = cycle_count + 1'b1;
+	        if (cycle_count == CYCLE_LENGTH) 
+		    cycle_count <= '0;
+	        else 
+		    cycle_count <= cycle_count + 1'b1;
 
-	    for (i=0; i < ARRAY_SIZE; i++) begin
-		if ((cycle_count < ARRAY_SIZE + i) && (cycle_count >= i)) 
-		    datas_in[i] <= datas_arr[ARRAY_SIZE*(cycle_count - i) + i];
-		else 
-		    datas_in[i] <= '0;
-	    end
+	        for (i=0; i < ARRAY_SIZE; i++) begin
+		    if ((cycle_count < ARRAY_SIZE + i) && (cycle_count >= i)) 
+		        datas_in[i] <= datas_arr[ARRAY_SIZE*(cycle_count - i) + i];
+		    else 
+		        datas_in[i] <= '0;
+	        end
 	
-	   // TODO: You have to write some connection from the result output
-	   // to reuslts_arr 
-	    for (i=0; i < ARRAY_SIZE*ARRAY_SIZE; i++) begin
-		if (ARRAY_SIZE + 1 + (i % ARRAY_SIZE) + (i / ARRAY_SIZE) == cycle_count) begin
-		    results_arr[i] <= results[i % ARRAY_SIZE];
-		    if (i == ARRAY_SIZE*ARRAY_SIZE-1) 
-			done <= 1'b1;
-		end
-	    end
+	        // TODO: You have to write some connection from the result output
+	        // to reuslts_arr 
+	        for (i=0; i < ARRAY_SIZE*ARRAY_SIZE; i++) begin
+		    if (ARRAY_SIZE + 1 + (i % ARRAY_SIZE) + (i / ARRAY_SIZE) == capture_cycle) begin
+		        results_arr[i] <= results[i % ARRAY_SIZE];
+		        if (i == ARRAY_SIZE*ARRAY_SIZE-1) 
+			    done <= 1'b1;
+		    end
+	        end
+            end else begin
+                cycle_count <= '0;
+                for (i=0; i < ARRAY_SIZE; i++)
+                    datas_in[i] <= '0;
+            end
 	end
     end
 

@@ -10,7 +10,10 @@ def extract_int4_weights(model):
     for name, layer in [("fc1", model.fc1), ("fc2", model.fc2)]:
 
         #learned scale factor
-        scale = layer.scale.item() #float
+        if hasattr(layer, "get_scale"):
+            scale = layer.get_scale().item()
+        else:
+            scale = layer.scale.item() # float (legacy checkpoints)
         #weight_matrix
         w = layer.weight.data.clone()
 

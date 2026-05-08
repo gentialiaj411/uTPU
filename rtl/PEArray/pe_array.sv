@@ -45,20 +45,37 @@ module pe_array #(
 
 	for (i = 0; i < ARRAY_SIZE; i++) begin: gen_rows
 	    for (j = 0; j < ARRAY_SIZE; j++) begin: gen_cols
-		pe #(
-		    COMPUTE_DATA_WIDTH,
-		    ACCUMULATOR_DATA_WIDTH
-		) u_pe (
-		    .clk(clk),
-		    .rst(rst),
-		    .compute(compute),
-		    .load_en(load_en),
-		    .data_in(activations[i][j]),
-		    .weight_in(weights_in[i*ARRAY_SIZE+j]),
-		    .partial_sum_in((i==0) ? '0 : accumulators[i-1][j]),
-		    .data_out(activations[i][j+1]),
-		    .partial_sum_out(accumulators[i][j])
-		);
+                if (i == 0) begin: gen_top_row
+		    pe #(
+		        COMPUTE_DATA_WIDTH,
+		        ACCUMULATOR_DATA_WIDTH
+		    ) u_pe (
+		        .clk(clk),
+		        .rst(rst),
+		        .compute(compute),
+		        .load_en(load_en),
+		        .data_in(activations[i][j]),
+		        .weight_in(weights_in[i*ARRAY_SIZE+j]),
+		        .partial_sum_in({ACCUMULATOR_DATA_WIDTH{1'b0}}),
+		        .data_out(activations[i][j+1]),
+		        .partial_sum_out(accumulators[i][j])
+		    );
+                end else begin: gen_non_top_row
+		    pe #(
+		        COMPUTE_DATA_WIDTH,
+		        ACCUMULATOR_DATA_WIDTH
+		    ) u_pe (
+		        .clk(clk),
+		        .rst(rst),
+		        .compute(compute),
+		        .load_en(load_en),
+		        .data_in(activations[i][j]),
+		        .weight_in(weights_in[i*ARRAY_SIZE+j]),
+		        .partial_sum_in(accumulators[i-1][j]),
+		        .data_out(activations[i][j+1]),
+		        .partial_sum_out(accumulators[i][j])
+		    );
+                end
 	    end
 	end
     endgenerate

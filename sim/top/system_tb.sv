@@ -157,7 +157,7 @@ module system_tb;
     pack_nibbles = {n3, n2, n1, n0};
   endfunction
 
-  localparam int LANES = 64;
+  localparam int LANES = 256;
   task automatic check_array_no_x_4(input logic [3:0] arr [LANES-1:0], input string label);
     int i;
     for (i = 0; i < LANES; i++) begin
@@ -243,7 +243,10 @@ module system_tb;
     logic [15:0] word;
     wait_for_fetch_ready(2000);
     word = 16'hA55A;
-    dut.u_unified_buffer.mem[9'h000] = word;
+    uart_send_word16(enc_store(1'b1));
+    uart_send_word16(word);
+    uart_send_word16(16'h0000);
+    wait_for_buffer_done(2000);
     uart_send_word16(enc_fetch(1'b0, 9'h000));
     wait_for_buffer_done(2000);
     if (dut.mem_to_tx_fifo !== word[7:0]) begin
@@ -253,10 +256,12 @@ module system_tb;
 
   task automatic test_load_buffer_to_compute();
     int i;
+    int words_needed;
     logic [3:0] expected [LANES-1:0];
     logic [3:0] n0, n1, n2, n3;
     wait_for_fetch_ready(2000);
-    for (i = 0; i < 16; i++) begin
+    words_needed = LANES / 4;
+    for (i = 0; i < words_needed; i++) begin
       n0 = (i*4 + 0) & 4'hF;
       n1 = (i*4 + 1) & 4'hF;
       n2 = (i*4 + 2) & 4'hF;
@@ -265,7 +270,10 @@ module system_tb;
       expected[i*4 + 1] = n1;
       expected[i*4 + 2] = n2;
       expected[i*4 + 3] = n3;
-      dut.u_unified_buffer.mem[9'h010 + i] = pack_nibbles(n0, n1, n2, n3);
+      uart_send_word16(enc_store(1'b1));
+      uart_send_word16(pack_nibbles(n0, n1, n2, n3));
+      uart_send_word16(16'h0010 + i);
+      wait_for_buffer_done(2000);
     end
     uart_send_word16(enc_load(1'b1, 9'h010));
     wait_for_buffer_done(4000);

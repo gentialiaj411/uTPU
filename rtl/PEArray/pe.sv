@@ -32,8 +32,19 @@ module pe #(
     (* use_dsp = "yes" *) logic signed [ACCUMULATOR_DATA_WIDTH-1:0] mac;
 
     always_comb begin
+`ifdef ICARUS
+        logic signed [COMPUTE_DATA_WIDTH-1:0] data_safe;
+        logic signed [COMPUTE_DATA_WIDTH-1:0] weight_safe;
+        logic signed [ACCUMULATOR_DATA_WIDTH-1:0] psum_safe;
+        data_safe = (^data_in === 1'bx) ? '0 : data_in;
+        weight_safe = (^weight === 1'bx) ? '0 : weight;
+        psum_safe = (^partial_sum_in === 1'bx) ? '0 : partial_sum_in;
+        prod = $signed(data_safe) * $signed(weight_safe);
+        mac  = psum_safe + prod;
+`else
         prod = $signed(data_in) * $signed(weight);
         mac  = partial_sum_in + prod;
+`endif
     end
 
     always_ff @(posedge clk) begin
@@ -43,8 +54,12 @@ module pe #(
             partial_sum_out <= '0;
 	end else begin
             data_out <= data_in;
-	    if (load_en) 
+	    if (load_en)
+`ifdef ICARUS
+                weight <= (^weight_in === 1'bx) ? '0 : weight_in;
+`else
 		weight <= weight_in;
+`endif
 	    else if (compute) 
 		partial_sum_out <= mac;
         end
