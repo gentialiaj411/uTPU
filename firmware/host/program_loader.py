@@ -19,6 +19,11 @@ from isa_encoder import (
     encodeHalt,
     int4To16
 )
+from compiler_abstractions import (
+    BlockedFCProblem,
+    build_blocked_fc_schedule,
+    utpu_target_desc,
+)
 
 # Upload protocol magic bytes (must match rtl/top/top.sv)
 MAGIC_UPLOAD = 0xA1   # begin program upload
@@ -280,10 +285,14 @@ class ProgramLoader:
         Returns program bytes plus metadata and executability status.
         """
         a = array_size or self.default_array_size
-        if out_features <= 0 or in_features <= 0:
-            raise ValueError("out_features and in_features must be positive")
-        if a % 4 != 0:
-            raise ValueError("array_size must be divisible by 4 for int4 packing")
+        schedule = build_blocked_fc_schedule(
+            problem=BlockedFCProblem(
+                out_features=out_features,
+                in_features=in_features,
+                array_size=a,
+            ),
+            target=utpu_target_desc(array_size=a),
+        )
 
         w = np.asarray(weights_int4, dtype=np.int8)
         x = np.asarray(activations_int4, dtype=np.int8).flatten()
@@ -292,10 +301,10 @@ class ProgramLoader:
         if x.shape[0] != in_features:
             raise ValueError(f"activation length mismatch: expected {in_features}, got {x.shape[0]}")
 
-        out_blocks = math.ceil(out_features / a)
-        in_blocks = math.ceil(in_features / a)
-        out_padded = out_blocks * a
-        in_padded = in_blocks * a
+        out_blocks = schedule.out_blocks
+        in_blocks = schedule.in_blocks
+        out_padded = schedule.out_padded
+        in_padded = schedule.in_padded
 
         w_pad = np.zeros((out_padded, in_padded), dtype=np.int8)
         w_pad[:out_features, :in_features] = w
