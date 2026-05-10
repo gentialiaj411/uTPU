@@ -68,16 +68,17 @@ Source reports:
 - RTL case1 expected/actual bytes: [17, 245] / [17, 245]
 - RTL case2 expected/actual bytes: [117, 119] / [117, 119]
 - CUDA backend local test status: pass (`test_cuda_backend.py`)
-- CUDA GPU execution status in this workspace: blocked (no `cuda-python` package / no validated GPU runtime available)
+- CUDA GPU execution status in this workspace: working
 - CUDA performance metrics vs cuBLAS: unknown in this workspace
 - CUDA kernel launch latency: unknown in this workspace
 - CUDA host-device copy overhead percentage: unknown in this workspace
 
 Metric source note: Accuracy/equivalence metrics above are from `build/reports/block_runtime_metrics.json` generated on 2026-05-10 in this workspace run.
-CUDA unknown-metric measurement steps:
-1. Install runtime dependency: `python -m pip install cuda-python`.
-2. Run `python firmware/host/test_cuda_backend.py` on an NVIDIA GPU system with driver installed.
-3. Add benchmark script (next planned step) to compare blocked-FC kernel throughput against cuBLAS for fixed FC shapes and collect launch/copy timing breakdown.
+CUDA status and unknown-metric measurement steps:
+1. Install runtime dependency: `python -m pip install cuda-python` (done in this workspace on 2026-05-10).
+2. Ensure CUDA Toolkit NVRTC DLL path is visible to the process (`C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.2\bin\x64` in PATH).
+3. Run `python firmware/host/test_cuda_backend.py` on an NVIDIA GPU system with driver installed (now passes in this workspace).
+4. Add benchmark script (next planned step) to compare blocked-FC kernel throughput against cuBLAS for fixed FC shapes and collect launch/copy timing breakdown.
 
 ## Validation Commands (Current)
 Run from repo root:
@@ -118,6 +119,7 @@ python firmware/host/run_rtl_fused_sim.py --output-json build/reports/rtl_fused_
 ## Open Risks / Remaining Blockers
 - No physical FPGA/UART validation yet.
 - No CUDA runtime dependency installed in this workspace (`cuda-python` missing), so CUDA kernel compile/launch path cannot be validated here.
+- CUDA compile/launch now works in this workspace after fixing `cuda-python` import-layout compatibility and exposing CUDA NVRTC DLL path.
 - Quantization-scale fidelity vs full training/deployment path should continue to be audited when changing arithmetic.
 - Any ISA/RTL semantic change must preserve legacy 2x2 path unless intentionally deprecated.
 
@@ -175,3 +177,26 @@ When changing code/RTL/tests/reports, update this file in the same commit:
   - `python firmware/host/test_fused_full_inference_program.py` -> fused words 1017, `fits_1024=true`, words saved 53.
   - `python firmware/host/run_rtl_fused_sim.py --output-json build/reports/rtl_fused_sim_metrics.json --output-md build/reports/rtl_fused_sim_report.md` -> `rtl_sim_passed=true`.
   - Inline smoke check: `ProgramLoader(backend='cuda').execute_fc_layer_blocked(...)` returns structured blocked status in this environment (`executed=False`, reason present) due to missing CUDA runtime deps.
+- 2026-05-10: Installed CUDA Python dependency in workspace:
+  - `python -m pip install --upgrade pip`
+  - `python -m pip install cuda-python`
+  - Post-install detection: `CUDAEnvironmentStatus(cuda_python_available=True, runtime_available=False, reason='CUDA runtime/NVRTC unavailable: ... nvrtc*.dll ...')`.
+  - Updated CUDA backend detection to support both `cuda` and `cuda.bindings` import layouts and to fail gracefully with explicit blocked reason if NVRTC DLLs are missing.
+  - Post-fix tests:
+    - `python firmware/host/test_cuda_backend.py` -> `test_cuda_backend: PASS`
+    - `python firmware/host/test_compiler_abstractions.py` -> `test_compiler_abstractions: PASS`
+    - `python firmware/host/block_runtime_analysis.py --num-samples 100 --output-json build/reports/block_runtime_metrics.json --output-md build/reports/block_runtime_report.md` -> unchanged metrics (legacy 90.0%, array_block 90.0%, max_abs_logit_diff 0.0).
+- 2026-05-10: Resolved CUDA runtime path issue and validated real execution:
+  - Confirmed NVIDIA driver/GPU availability via `nvidia-smi` (Driver 596.21, CUDA 13.2, RTX 5070 Laptop GPU).
+  - Located NVRTC DLLs at:
+    - `C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.2\bin\x64\nvrtc64_130_0.dll`
+    - `C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v13.2\bin\x64\nvrtc-builtins64_132.dll`
+  - Added CUDA bin path to User PATH and current session PATH.
+  - Fixed CUDA Driver API call signature compatibility (`cuCtxCreate(None, 0, dev)`) for current `cuda.bindings` API.
+  - Verified environment/runtime:
+    - `detect_cuda_environment()` -> `cuda_python_available=True`, `runtime_available=True`
+  - Verified CUDA execution path:
+    - `CUDABlockedFCExecutor.execute(...)` -> `executed=True`, `bit_exact_match_vs_numpy_reference=True`, `max_abs_diff_vs_numpy_reference=0`.
+  - Regression after CUDA fixes:
+    - `python firmware/host/test_compiler_abstractions.py` -> `test_compiler_abstractions: PASS`
+    - `python firmware/host/block_runtime_analysis.py --num-samples 100 --output-json build/reports/block_runtime_metrics.json --output-md build/reports/block_runtime_report.md` -> unchanged key metrics (legacy 90.0%, array_block 90.0%, max_abs_logit_diff 0.0).
