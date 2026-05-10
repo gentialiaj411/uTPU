@@ -14,6 +14,8 @@ If code, RTL semantics, metrics, or validation status changes, this file must be
   - explicit `MemoryScope` (`REGISTER/SHARED/GLOBAL`)
   - `TargetDesc` abstraction
   - target-agnostic blocked-FC schedule builder
+- Backend interface now supports `utpu` and `cuda` blocked-FC lowering paths.
+- CUDA blocked-FC backend is implemented with NVRTC + CUDA Driver API execution path (when CUDA runtime dependencies are installed).
 - Segmented blocked execution is implemented to handle BRAM limits.
 - Compressed + fused full-inference program generation is implemented.
 - Fused compressed full-inference fits instruction BRAM (1017 words <= 1024).
@@ -65,13 +67,24 @@ Source reports:
 - RTL fused sim pass: true
 - RTL case1 expected/actual bytes: [17, 245] / [17, 245]
 - RTL case2 expected/actual bytes: [117, 119] / [117, 119]
+- CUDA backend local test status: pass (`test_cuda_backend.py`)
+- CUDA GPU execution status in this workspace: blocked (no `cuda-python` package / no validated GPU runtime available)
+- CUDA performance metrics vs cuBLAS: unknown in this workspace
+- CUDA kernel launch latency: unknown in this workspace
+- CUDA host-device copy overhead percentage: unknown in this workspace
 
 Metric source note: Accuracy/equivalence metrics above are from `build/reports/block_runtime_metrics.json` generated on 2026-05-10 in this workspace run.
+CUDA unknown-metric measurement steps:
+1. Install runtime dependency: `python -m pip install cuda-python`.
+2. Run `python firmware/host/test_cuda_backend.py` on an NVIDIA GPU system with driver installed.
+3. Add benchmark script (next planned step) to compare blocked-FC kernel throughput against cuBLAS for fixed FC shapes and collect launch/copy timing breakdown.
 
 ## Validation Commands (Current)
 Run from repo root:
 
 ```powershell
+python firmware/host/test_compiler_abstractions.py
+python firmware/host/test_cuda_backend.py
 python firmware/host/block_runtime_analysis.py --num-samples 100 --output-json build/reports/block_runtime_metrics.json --output-md build/reports/block_runtime_report.md
 python firmware/host/test_compressed_block_program.py
 python firmware/host/test_fused_full_inference_program.py
@@ -80,7 +93,13 @@ python firmware/host/run_rtl_fused_sim.py --output-json build/reports/rtl_fused_
 
 ## Key Files (Current)
 - Host/compiler/runtime:
+  - `firmware/host/backend_lowering.py`
   - `firmware/host/compiler_abstractions.py`
+  - `firmware/host/cuda_blocked_fc_backend.py`
+  - `firmware/host/lowering_blocked_fc_utpu.py`
+  - `firmware/host/lowering_types.py`
+  - `firmware/host/test_compiler_abstractions.py`
+  - `firmware/host/test_cuda_backend.py`
   - `firmware/host/program_loader.py`
   - `firmware/host/isa_encoder.py`
   - `firmware/host/tiled_inference.py`
@@ -98,6 +117,7 @@ python firmware/host/run_rtl_fused_sim.py --output-json build/reports/rtl_fused_
 
 ## Open Risks / Remaining Blockers
 - No physical FPGA/UART validation yet.
+- No CUDA runtime dependency installed in this workspace (`cuda-python` missing), so CUDA kernel compile/launch path cannot be validated here.
 - Quantization-scale fidelity vs full training/deployment path should continue to be audited when changing arithmetic.
 - Any ISA/RTL semantic change must preserve legacy 2x2 path unless intentionally deprecated.
 
@@ -117,3 +137,41 @@ When changing code/RTL/tests/reports, update this file in the same commit:
   - `python firmware/host/test_compressed_block_program.py` completed successfully; JSON output reports `decode_semantics_match=true`, FC1 compressed words=985, FC2 compressed words=85.
   - `python firmware/host/test_fused_full_inference_program.py` completed successfully; JSON output reports fused words=1017 (`fits_1024=true`), words saved vs separate compressed=53.
   - `python firmware/host/run_rtl_fused_sim.py --output-json build/reports/rtl_fused_sim_metrics.json --output-md build/reports/rtl_fused_sim_report.md` completed successfully with `rtl_sim_passed=true`.
+- 2026-05-10: Added `firmware/host/test_compiler_abstractions.py` to validate new retargetable scaffold behavior:
+  - uTPU blocked schedule for FC(9x196) at ARRAY_SIZE=16
+  - target mismatch failure path
+  - CUDA target descriptor shape
+  - command `python firmware/host/test_compiler_abstractions.py` output: `test_compiler_abstractions: PASS`.
+- 2026-05-10: Extracted blocked-FC uTPU lowering into `firmware/host/lowering_blocked_fc_utpu.py` and routed `ProgramLoader.build_fc_layer_block_program()` through this lowerer (refactor-only change; no intended semantic differences).
+- 2026-05-10: Post-refactor validation run results (all successful):
+  - `python firmware/host/test_compiler_abstractions.py` -> `test_compiler_abstractions: PASS`
+  - `python firmware/host/block_runtime_analysis.py --num-samples 100 --output-json build/reports/block_runtime_metrics.json --output-md build/reports/block_runtime_report.md` -> unchanged key metrics: legacy 90.0%, array_block 90.0%, max_abs_logit_diff 0.0, FC1 words 2701, FC2 words 217.
+  - `python firmware/host/test_compressed_block_program.py` -> `decode_semantics_match=true`, FC1 compressed words 985, FC2 compressed words 85.
+  - `python firmware/host/test_fused_full_inference_program.py` -> fused words 1017, `fits_1024=true`, words_saved 53.
+- 2026-05-10: Added backend interface layer in `firmware/host/backend_lowering.py`:
+  - `BlockedFCLoweringRequest` request object
+  - `BackendLowerer` protocol
+  - `UTPUBackendLowerer` implementation routing to current uTPU blocked lowerer
+  - `ProgramLoader` now calls backend interface for blocked FC lowering.
+- 2026-05-10: Post-backend-interface validation run results (all successful, unchanged metrics):
+  - `python firmware/host/test_compiler_abstractions.py` -> `test_compiler_abstractions: PASS`
+  - `python firmware/host/block_runtime_analysis.py --num-samples 100 --output-json build/reports/block_runtime_metrics.json --output-md build/reports/block_runtime_report.md` -> legacy 90.0%, array_block 90.0%, max_abs_logit_diff 0.0.
+  - `python firmware/host/test_compressed_block_program.py` -> `decode_semantics_match=true`.
+  - `python firmware/host/test_fused_full_inference_program.py` -> fused words 1017 (`fits_1024=true`), words_saved 53.
+- 2026-05-10: Implemented CUDA blocked-FC backend path:
+  - Added `firmware/host/cuda_blocked_fc_backend.py` with:
+    - schedule-aware CUDA lowering metadata
+    - NVRTC PTX compile + CUDA Driver API launch path
+    - deterministic NumPy reference fallback and parity comparison
+  - Added shared request type in `firmware/host/lowering_types.py` (removed circular imports).
+  - Updated `firmware/host/backend_lowering.py` with backend factory (`utpu`, `cuda`).
+  - Updated `firmware/host/program_loader.py` to select backend and execute CUDA blocked-FC path when `backend='cuda'`.
+  - Added `firmware/host/test_cuda_backend.py` (passes in this workspace; verifies lowering + fallback execution behavior).
+- 2026-05-10: Validation after CUDA integration:
+  - `python firmware/host/test_cuda_backend.py` -> `test_cuda_backend: PASS`
+  - `python firmware/host/test_compiler_abstractions.py` -> `test_compiler_abstractions: PASS`
+  - `python firmware/host/block_runtime_analysis.py --num-samples 100 --output-json build/reports/block_runtime_metrics.json --output-md build/reports/block_runtime_report.md` -> unchanged key metrics (legacy 90.0%, array_block 90.0%, max_abs_logit_diff 0.0; FC1 words 2701; FC2 words 217).
+  - `python firmware/host/test_compressed_block_program.py` -> `decode_semantics_match=true`.
+  - `python firmware/host/test_fused_full_inference_program.py` -> fused words 1017, `fits_1024=true`, words saved 53.
+  - `python firmware/host/run_rtl_fused_sim.py --output-json build/reports/rtl_fused_sim_metrics.json --output-md build/reports/rtl_fused_sim_report.md` -> `rtl_sim_passed=true`.
+  - Inline smoke check: `ProgramLoader(backend='cuda').execute_fc_layer_blocked(...)` returns structured blocked status in this environment (`executed=False`, reason present) due to missing CUDA runtime deps.

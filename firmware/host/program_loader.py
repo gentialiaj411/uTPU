@@ -19,11 +19,9 @@ from isa_encoder import (
     encodeHalt,
     int4To16
 )
-from compiler_abstractions import (
-    BlockedFCProblem,
-    build_blocked_fc_schedule,
-    utpu_target_desc,
-)
+from lowering_types import BlockedFCLoweringRequest
+from backend_lowering import create_backend_lowerer
+from cuda_blocked_fc_backend import CUDABlockedFCExecutor
 
 # Upload protocol magic bytes (must match rtl/top/top.sv)
 MAGIC_UPLOAD = 0xA1   # begin program upload
@@ -37,11 +35,14 @@ class ProgramLoader:
     BUFFER_SECTION_C = 0x100  # 0x100-0x17F
     BUFFER_SECTION_D = 0x180  # 0x180-0x1FF
 
-    def __init__(self, uart, verbose):
+    def __init__(self, uart, verbose, backend: str = "utpu"):
         self.uart = uart
         self.verbose = verbose
         self.encoder = ISAEncoder()
         self.default_array_size = self._resolve_array_size()
+        self.backend_name = backend
+        self.backend_lowerer = create_backend_lowerer(backend)
+        self.cuda_executor = CUDABlockedFCExecutor(verbose=verbose) if backend.strip().lower() == "cuda" else None
 
     def _log(self, message):
         if self.verbose:
@@ -285,99 +286,20 @@ class ProgramLoader:
         Returns program bytes plus metadata and executability status.
         """
         a = array_size or self.default_array_size
-        schedule = build_blocked_fc_schedule(
-            problem=BlockedFCProblem(
+        return self.backend_lowerer.lower_blocked_fc(
+            BlockedFCLoweringRequest(
+                weights_int4=weights_int4,
+                activations_int4=activations_int4,
                 out_features=out_features,
                 in_features=in_features,
                 array_size=a,
-            ),
-            target=utpu_target_desc(array_size=a),
+                apply_relu=apply_relu,
+                apply_quant=apply_quant,
+                weight_addr=weight_addr,
+                input_addr=input_addr,
+                result_addr=result_addr,
+            )
         )
-
-        w = np.asarray(weights_int4, dtype=np.int8)
-        x = np.asarray(activations_int4, dtype=np.int8).flatten()
-        if w.shape != (out_features, in_features):
-            raise ValueError(f"weights shape mismatch: expected {(out_features, in_features)}, got {w.shape}")
-        if x.shape[0] != in_features:
-            raise ValueError(f"activation length mismatch: expected {in_features}, got {x.shape[0]}")
-
-        out_blocks = schedule.out_blocks
-        in_blocks = schedule.in_blocks
-        out_padded = schedule.out_padded
-        in_padded = schedule.in_padded
-
-        w_pad = np.zeros((out_padded, in_padded), dtype=np.int8)
-        w_pad[:out_features, :in_features] = w
-        x_pad = np.zeros(in_padded, dtype=np.int8)
-        x_pad[:in_features] = x
-
-        self.encoder.clear()
-        block_ops = 0
-        for ob in range(out_blocks):
-            out_base_addr = result_addr + ob * (a // 4)
-            o0 = ob * a
-            o1 = o0 + a
-            for ib in range(in_blocks):
-                i0 = ib * a
-                i1 = i0 + a
-                weight_block = w_pad[o0:o1, i0:i1]
-                input_block = x_pad[i0:i1]
-
-                # Load block tensors into fixed buffer windows.
-                self.loadInt4ArrayToBuffer(weight_addr, weight_block)
-                self.encoder.loadWeights(weight_addr)
-                self.loadInt4ArrayToBuffer(input_addr, input_block)
-                self.encoder.loadInputs(input_addr)
-                # Accumulate one K-block into on-chip partial-sum registers.
-                self.encoder.run(
-                    out_base_addr,
-                    compute=True,
-                    quantize=False,
-                    relu=False,
-                    acc_clear=(ib == 0)
-                )
-                block_ops += 1
-
-            # Finalize this output block after all K-blocks:
-            # quantize (and optionally ReLU) accumulated sums, then fetch results.
-            self.encoder.run(
-                out_base_addr,
-                compute=False,
-                quantize=apply_quant,
-                relu=apply_relu,
-                acc_clear=False
-            )
-            for widx in range(a // 4):
-                addr = out_base_addr + widx
-                self.encoder.fetch(addr, top_half=False)
-                self.encoder.fetch(addr, top_half=True)
-
-        self.encoder.halt()
-        program = self.encoder.getProgram()
-        words = len(program) // 2
-
-        executable = True
-        blockers = []
-        if not apply_quant:
-            executable = False
-            blockers.append(
-                "Current blocked-FC runtime finalizes through quantized int4 buffer output; "
-                "raw int32 host-visible output path is not yet exposed."
-            )
-
-        return {
-            "program": program,
-            "program_instruction_words": int(words),
-            "fits_instruction_bram": bool(words <= 1024),
-            "array_size": int(a),
-            "out_blocks": int(out_blocks),
-            "in_blocks": int(in_blocks),
-            "block_ops": int(block_ops),
-            "executable_on_current_fpga_path": bool(executable),
-            "int32_accumulation_supported": True,
-            "quantize_after_accumulation_supported": True,
-            "blockers": blockers,
-        }
 
     def _encode_accumulate_op(self, weight_block, input_block, out_base_addr: int, acc_clear: bool) -> bytes:
         e = ISAEncoder()
@@ -626,6 +548,26 @@ class ProgramLoader:
             apply_relu=apply_relu,
             apply_quant=apply_quant,
         )
+        if self.backend_name.strip().lower() == "cuda":
+            req_array_size = array_size or self.default_array_size
+            exec_result = self.cuda_executor.execute(
+                BlockedFCLoweringRequest(
+                    weights_int4=weights_int4,
+                    activations_int4=activations_int4,
+                    out_features=out_features,
+                    in_features=in_features,
+                    array_size=req_array_size,
+                    apply_relu=apply_relu,
+                    apply_quant=apply_quant,
+                    weight_addr=self.BUFFER_SECTION_B,
+                    input_addr=self.BUFFER_SECTION_A,
+                    result_addr=self.BUFFER_SECTION_C,
+                )
+            )
+            return {
+                **build,
+                **exec_result,
+            }
         if allow_segmentation and not build["fits_instruction_bram"]:
             return self.execute_fc_layer_blocked_segmented(
                 weights_int4=weights_int4,
