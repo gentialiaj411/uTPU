@@ -1,6 +1,6 @@
 ﻿# uTPU Retargetable ML Compiler (uTPU + CUDA)
 
-This project is a retargetable blocked-FC compiler/runtime that drives both a custom uTPU ISA path and a CUDA path from shared compiler structure. The same front-end tensor shapes flow through shared problem modeling, blocked scheduling, and request typing, then diverge in target-specific lowering/codegen and runtime execution. The result is one compiler surface that can emit instruction programs for uTPU and launch blocked kernels on CUDA while preserving equivalent model behavior.
+This project is a retargetable blocked-FC compiler/runtime that drives both a custom uTPU ISA path and a CUDA path from shared compiler structure. The same front-end tensor shapes flow through shared problem modeling, blocked scheduling, and request typing, then diverge in target-specific lowering/codegen and runtime execution. Today the backend dispatch is explicit in both `backend_lowering.py` and one loader-level runtime branch in `ProgramLoader` (`firmware/host/program_loader.py`), so the boundary is mostly centralized but not fully abstracted yet.
 
 ## Architecture
 

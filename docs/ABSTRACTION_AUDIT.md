@@ -63,4 +63,4 @@ Everything below is outside those files.
 
 ## Summary
 
-Abstraction boundaries are mostly clean with one meaningful leakage to fix (`ProgramLoader` runtime branch on `cuda`). The remaining target mentions are either the explicit factory seam or metadata/comment-level coupling with limited behavioral risk.
+Abstraction boundaries are mostly clean with one meaningful leakage to fix: the loader-level runtime backend branch (`firmware/host/program_loader.py:551`). The remaining target mentions are either the explicit factory seam or metadata/comment-level coupling with limited behavioral risk.
