@@ -1,0 +1,4 @@
+﻿# Benchmark/repro environment used for locked numbers in benchmarks/summary.json
+numpy==2.4.4
+cupy-cuda13x==14.0.1
+cuda-python==13.2.0

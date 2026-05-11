@@ -80,6 +80,15 @@ Source: `benchmarks/summary.json` and raw JSON in `benchmarks/run_01..run_05/`.
 
 ## Reproduce
 
+- Reproducibility prerequisites (exact benchmark environment):
+  - Python: `3.14.4`
+  - CUDA Toolkit (`nvcc --version`): `13.2` (`V13.2.78`)
+  - CuPy: `14.0.1` (`cupy-cuda13x`)
+  - Icarus Verilog: `12.0 (devel) (s20150603-1539-g2693dd32b)`
+  - GPU: `NVIDIA GeForce RTX 5070 Laptop GPU` (driver `596.21`)
+  - CPU: `Intel(R) Core(TM) Ultra 9 275HX`
+  - These exact values are also embedded in `benchmarks/summary.json` top-level `provenance` and per-run `runs_metadata`.
+
 - Full lock pass (all results above, 5 runs each):
   - `make bench`
   - Equivalent: `python firmware/host/lock_benchmarks.py --runs 5`
