@@ -45,6 +45,11 @@ Source reports:
 - `build/reports/fused_full_inference_metrics.json`
 - `build/reports/rtl_fused_sim_metrics.json`
 - `build/reports/software_metrics.json`
+- `build/reports/cuda_blocked_fc_benchmark.json`
+- `build/reports/cuda_blocked_fc_benchmark_fc1_like.json`
+- `build/reports/cuda_blocked_fc_benchmark_fc2_like.json`
+- `build/reports/cuda_blocked_fc_benchmark_stress_64x256.json`
+- `build/reports/cuda_blocked_fc_benchmark_summary.json`
 
 ### Runtime/Compilation Metrics
 - `array_size`: 16
@@ -58,6 +63,19 @@ Source reports:
 - Full compressed separate words: 1070
 - Full fused words: 1017 (fits 1024)
 - Words saved by fusion vs separate compressed: 53
+- CUDA blocked-FC benchmark shape: M=10, N=1, K=9 (30 iters, 5 warmup)
+- CUDA kernel avg latency (ms): 0.07402333333175193
+- CUDA H2D avg latency (ms): 0.5547866666574919
+- CUDA D2H avg latency (ms): 0.08737000002080701
+- CUDA transfer overhead (% of E2E): 89.66414402374919
+- CUDA E2E avg latency (ms): 0.7161800000100508
+- cuBLAS baseline avg latency (ms): 0.03237000000050708
+- CUDA kernel speed vs cuBLAS (%): 43.72945467807262
+- Latest single-run benchmark refresh (M=10, N=1, K=9): kernel=0.07621000000502438 ms, transfer_overhead=89.40370033865204%, kernel_vs_cuBLAS=54.96216594281213% (see `build/reports/cuda_blocked_fc_benchmark.json`)
+- Multi-shape cuBLAS comparison (40 iters, 8 warmup):
+  - FC1-like (M=9, N=1, K=196): kernel vs cuBLAS = 104.36312233162461%
+  - FC2-like (M=10, N=1, K=9): kernel vs cuBLAS = 50.35210058258962%
+  - Stress (M=64, N=1, K=256): kernel vs cuBLAS = 64.14334009767711%
 
 ### Accuracy/Correctness Metrics
 - PyTorch accuracy (%): 90.0
@@ -86,6 +104,7 @@ Run from repo root:
 ```powershell
 python firmware/host/test_compiler_abstractions.py
 python firmware/host/test_cuda_backend.py
+python firmware/host/benchmark_cuda_blocked_fc.py --m 10 --k 9 --iters 30 --warmup 5 --output-json build/reports/cuda_blocked_fc_benchmark.json
 python firmware/host/block_runtime_analysis.py --num-samples 100 --output-json build/reports/block_runtime_metrics.json --output-md build/reports/block_runtime_report.md
 python firmware/host/test_compressed_block_program.py
 python firmware/host/test_fused_full_inference_program.py
@@ -97,6 +116,7 @@ python firmware/host/run_rtl_fused_sim.py --output-json build/reports/rtl_fused_
   - `firmware/host/backend_lowering.py`
   - `firmware/host/compiler_abstractions.py`
   - `firmware/host/cuda_blocked_fc_backend.py`
+  - `firmware/host/benchmark_cuda_blocked_fc.py`
   - `firmware/host/lowering_blocked_fc_utpu.py`
   - `firmware/host/lowering_types.py`
   - `firmware/host/test_compiler_abstractions.py`
@@ -120,6 +140,8 @@ python firmware/host/run_rtl_fused_sim.py --output-json build/reports/rtl_fused_
 - No physical FPGA/UART validation yet.
 - No CUDA runtime dependency installed in this workspace (`cuda-python` missing), so CUDA kernel compile/launch path cannot be validated here.
 - CUDA compile/launch now works in this workspace after fixing `cuda-python` import-layout compatibility and exposing CUDA NVRTC DLL path.
+- cuBLAS-comparative metric is still blocked by missing CuPy (or equivalent cuBLAS benchmark harness) in this workspace.
+- cuBLAS comparative baseline is now available in this workspace via CuPy.
 - Quantization-scale fidelity vs full training/deployment path should continue to be audited when changing arithmetic.
 - Any ISA/RTL semantic change must preserve legacy 2x2 path unless intentionally deprecated.
 
@@ -200,3 +222,70 @@ When changing code/RTL/tests/reports, update this file in the same commit:
   - Regression after CUDA fixes:
     - `python firmware/host/test_compiler_abstractions.py` -> `test_compiler_abstractions: PASS`
     - `python firmware/host/block_runtime_analysis.py --num-samples 100 --output-json build/reports/block_runtime_metrics.json --output-md build/reports/block_runtime_report.md` -> unchanged key metrics (legacy 90.0%, array_block 90.0%, max_abs_logit_diff 0.0).
+- 2026-05-10: Added CUDA benchmark script `firmware/host/benchmark_cuda_blocked_fc.py` and generated report `build/reports/cuda_blocked_fc_benchmark.json`.
+  - Command:
+    - `python firmware/host/benchmark_cuda_blocked_fc.py --m 10 --k 9 --iters 30 --warmup 5 --output-json build/reports/cuda_blocked_fc_benchmark.json`
+  - Measured results:
+    - kernel_avg_ms = 0.07084666666704227
+    - h2d_avg_ms = 0.5424600000007255
+    - d2h_avg_ms = 0.09284000000396493
+    - transfer_overhead_pct_of_e2e = 89.96714563548639
+    - end_to_end_avg_ms = 0.7061466666717328
+  - cuBLAS baseline status:
+    - initially unavailable (`cupy` not installed), so `% of cuBLAS throughput` remained unknown pending baseline setup.
+- 2026-05-10: Installed CuPy and re-ran CUDA benchmark:
+  - Install command:
+    - `python -m pip install cupy-cuda12x`
+  - Initial rerun failed in baseline phase due to cuBLAS backend load error:
+    - `ImportError: DLL load failed while importing cublas: The specified module could not be found.`
+  - Updated `firmware/host/benchmark_cuda_blocked_fc.py` to treat cuBLAS baseline failures as non-fatal and continue reporting kernel/transfer metrics.
+  - Rerun command:
+    - `python firmware/host/benchmark_cuda_blocked_fc.py --m 10 --k 9 --iters 30 --warmup 5 --output-json build/reports/cuda_blocked_fc_benchmark.json`
+  - Latest measured results:
+    - kernel_avg_ms = 0.05775666666067991
+    - h2d_avg_ms = 0.46537000000625994
+    - d2h_avg_ms = 0.0732899999889014
+    - transfer_overhead_pct_of_e2e = 90.31605421348695
+    - end_to_end_avg_ms = 0.5964166666558413
+  - Intermediate issue observed and resolved:
+    - `cupy-cuda13x` initially appeared installed but `cupy` module was not importable; forced reinstall fixed module availability.
+    - command used: `python -m pip install --force-reinstall --no-cache-dir cupy-cuda13x==14.0.1`
+  - Final rerun after repair:
+    - `python firmware/host/benchmark_cuda_blocked_fc.py --m 10 --k 9 --iters 30 --warmup 5 --output-json build/reports/cuda_blocked_fc_benchmark.json`
+    - kernel_avg_ms = 0.07402333333175193
+    - h2d_avg_ms = 0.5547866666574919
+    - d2h_avg_ms = 0.08737000002080701
+    - transfer_overhead_pct_of_e2e = 89.66414402374919
+    - end_to_end_avg_ms = 0.7161800000100508
+    - cuBLAS avg_ms = 0.03237000000050708
+    - kernel_speed_vs_cublas_pct = 43.72945467807262
+  - Post-fix CUDA regression:
+    - `python firmware/host/test_cuda_backend.py` -> `test_cuda_backend: PASS`.
+- 2026-05-10: Ran multi-shape CUDA benchmark sweep and wrote summary report:
+  - Driver command (Python subprocess sweep):
+    - runs `firmware/host/benchmark_cuda_blocked_fc.py` for shapes:
+      - FC1-like: M=9, K=196
+      - FC2-like: M=10, K=9
+      - stress: M=64, K=256
+    - each with `--iters 40 --warmup 8`
+    - outputs:
+      - `build/reports/cuda_blocked_fc_benchmark_fc1_like.json`
+      - `build/reports/cuda_blocked_fc_benchmark_fc2_like.json`
+      - `build/reports/cuda_blocked_fc_benchmark_stress_64x256.json`
+      - `build/reports/cuda_blocked_fc_benchmark_summary.json`
+  - Summary metrics:
+    - FC1-like: kernel_avg_ms=0.07958750001648696, transfer_overhead_pct=89.59245988434678, kernel_speed_vs_cublas_pct=104.36312233162461
+    - FC2-like: kernel_avg_ms=0.07277749999730077, transfer_overhead_pct=90.22126524652363, kernel_speed_vs_cublas_pct=50.35210058258962
+    - stress_64x256: kernel_avg_ms=0.09243750000109685, transfer_overhead_pct=88.82103067165454, kernel_speed_vs_cublas_pct=64.14334009767711
+  - Regression checks after sweep:
+    - `python firmware/host/test_cuda_backend.py` -> `test_cuda_backend: PASS`
+    - `python firmware/host/test_compiler_abstractions.py` -> `test_compiler_abstractions: PASS`
+    - `python firmware/host/block_runtime_analysis.py --num-samples 100 --output-json build/reports/block_runtime_metrics.json --output-md build/reports/block_runtime_report.md` -> unchanged key correctness metrics.
+- 2026-05-10: Full verification pass completed after CUDA and benchmark integration:
+  - `python firmware/host/test_compiler_abstractions.py` -> `test_compiler_abstractions: PASS`
+  - `python firmware/host/test_cuda_backend.py` -> `test_cuda_backend: PASS`
+  - `python firmware/host/test_compressed_block_program.py` -> `decode_semantics_match=true`, FC1 compressed words 985, FC2 compressed words 85
+  - `python firmware/host/test_fused_full_inference_program.py` -> fused words 1017, `fits_1024=true`, words_saved 53
+  - `python firmware/host/block_runtime_analysis.py --num-samples 100 --output-json build/reports/block_runtime_metrics.json --output-md build/reports/block_runtime_report.md` -> legacy 90.0%, array_block 90.0%, max_abs_logit_diff 0.0
+  - `python firmware/host/benchmark_cuda_blocked_fc.py --m 10 --k 9 --iters 30 --warmup 5 --output-json build/reports/cuda_blocked_fc_benchmark.json` -> kernel_avg_ms 0.07621000000502438, transfer_overhead_pct_of_e2e 89.40370033865204, kernel_speed_vs_cublas_pct 54.96216594281213
+  - `python firmware/host/run_rtl_fused_sim.py --output-json build/reports/rtl_fused_sim_metrics.json --output-md build/reports/rtl_fused_sim_report.md` -> `rtl_sim_passed=true`

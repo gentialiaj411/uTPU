@@ -245,8 +245,10 @@ class CUDABlockedFCExecutor:
                 err, d_out = cuda.cuMemAlloc(out_nbytes)
                 _check_cuda(err, "cuMemAlloc(d_out)")
                 try:
+                    t_h2d0 = time.perf_counter()
                     _check_cuda(cuda.cuMemcpyHtoD(d_w, w_pad.tobytes(), w_nbytes)[0], "cuMemcpyHtoD(d_w)")
                     _check_cuda(cuda.cuMemcpyHtoD(d_x, x_pad.tobytes(), x_nbytes)[0], "cuMemcpyHtoD(d_x)")
+                    t_h2d1 = time.perf_counter()
 
                     in_padded_i32 = np.int32(schedule.in_padded)
                     out_i32 = np.zeros(out_elems, dtype=np.int32)
@@ -280,7 +282,9 @@ class CUDABlockedFCExecutor:
                     t1 = time.perf_counter()
                     kernel_ms = (t1 - t0) * 1000.0
 
+                    t_d2h0 = time.perf_counter()
                     _check_cuda(cuda.cuMemcpyDtoH(out_i32.ctypes.data, d_out, out_nbytes)[0], "cuMemcpyDtoH(d_out)")
+                    t_d2h1 = time.perf_counter()
                 finally:
                     cuda.cuMemFree(d_w)
                     cuda.cuMemFree(d_x)
@@ -299,6 +303,10 @@ class CUDABlockedFCExecutor:
                 "backend": "cuda",
                 "kernel_name": "blocked_fc_int4_kernel",
                 "kernel_time_ms": float(kernel_ms),
+                "h2d_time_ms": float((t_h2d1 - t_h2d0) * 1000.0),
+                "d2h_time_ms": float((t_d2h1 - t_d2h0) * 1000.0),
+                "transfer_time_ms": float(((t_h2d1 - t_h2d0) + (t_d2h1 - t_d2h0)) * 1000.0),
+                "end_to_end_time_ms": float(((t_h2d1 - t_h2d0) + (t1 - t0) + (t_d2h1 - t_d2h0)) * 1000.0),
                 "output_padded": out_quant.tolist(),
                 "output_unpadded": out_quant[:request.out_features].tolist(),
                 "numpy_reference_output": ref["output_unpadded"].tolist(),
