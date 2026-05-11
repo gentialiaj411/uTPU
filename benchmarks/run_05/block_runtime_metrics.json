@@ -1,0 +1,76 @@
+{
+  "array_size": 16,
+  "equivalence": {
+    "num_samples": 100,
+    "legacy_accuracy_pct": 90.0,
+    "array_block_accuracy_pct": 90.0,
+    "accuracy_delta_pct": 0.0,
+    "max_abs_logit_diff": 0.0
+  },
+  "fc1": {
+    "shape": [
+      9,
+      196
+    ],
+    "block_count": 13,
+    "generated_instruction_words": 2701,
+    "fits_instruction_bram": false,
+    "legacy_instruction_words": 5880,
+    "segmented": {
+      "segment_count": 4,
+      "instruction_words_per_segment": [
+        829,
+        829,
+        829,
+        217
+      ],
+      "fits_each_segment": true,
+      "first_segment_has_acc_clear": true,
+      "later_segments_have_acc_clear": false,
+      "final_segment_has_finalize_fetch": true,
+      "earlier_segments_have_finalize_fetch": false,
+      "accumulator_persistence_required": true
+    }
+  },
+  "fc2": {
+    "shape": [
+      10,
+      9
+    ],
+    "block_count": 1,
+    "generated_instruction_words": 217,
+    "fits_instruction_bram": true,
+    "legacy_instruction_words": 300,
+    "segmented": {
+      "segment_count": 1,
+      "instruction_words_per_segment": [
+        217
+      ],
+      "fits_each_segment": true
+    }
+  },
+  "totals": {
+    "block_count": 14,
+    "legacy_instruction_words": 6180,
+    "block_program_instruction_words": 2918,
+    "theoretical_full_layer_instruction_words": 51,
+    "instruction_bram_words": 1024,
+    "full_block_program_fits_instruction_bram": false,
+    "legacy_tile_rpc_count": 515,
+    "array_block_rpc_count": 14,
+    "estimated_uart_transactions_avoided_vs_legacy": 501,
+    "segmented_upload_start_phases_fc1": 4,
+    "segmented_upload_start_phases_fc2": 1,
+    "segmented_upload_start_phases_total": 5,
+    "legacy_upload_start_phases_total": 515,
+    "segmented_phase_reduction_vs_legacy": 510
+  },
+  "fpga_support": {
+    "int32_accumulation_supported": true,
+    "quantize_after_accumulation_supported": true,
+    "execute_fc_layer_blocked_hardware_supported": true,
+    "executable_on_current_fpga_path": true,
+    "fc1_blockers": [],
+    "fc2_blockers": []
+  }
+}

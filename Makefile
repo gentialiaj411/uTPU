@@ -59,7 +59,7 @@ RTL_ALL := \
 ALL_TB   := $(CURDIR)/sim/top/system_tb.sv
 TOP_ALL  ?= system_tb
 
-.PHONY: sim-units sim-all clean-sim
+.PHONY: sim-units sim-all clean-sim bench
 
 sim-units:
 	mkdir -p "$(SIM_OUT)"
@@ -79,3 +79,6 @@ sim-all:
 
 clean-sim:
 	rm -rf "$(SIM_OUT)"
+
+bench:
+	python firmware/host/lock_benchmarks.py --runs 5

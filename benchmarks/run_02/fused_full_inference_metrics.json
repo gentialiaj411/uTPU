@@ -1,0 +1,49 @@
+{
+  "array_size": 16,
+  "old_full_compressed_words": 1070,
+  "new_fused_full_inference_words": 1017,
+  "words_saved": 53,
+  "fits_1024": true,
+  "fc1_standalone_words": 985,
+  "fc2_standalone_words": 85,
+  "compression_ratio_vs_2918": 2.8692232055063913,
+  "phase_counts": {
+    "legacy_2x2_rpc": 515,
+    "segmented_blocked": 5,
+    "compressed_separate_fc1_fc2": 2,
+    "fused_full_inference": 1
+  },
+  "old_word_breakdown": {
+    "fc1_weight_bstore_words": 858,
+    "fc1_activation_bstore_words": 78,
+    "fc1_load_words": 26,
+    "fc1_run_words": 14,
+    "fc1_fetch_words": 8,
+    "fc1_halt_words": 1,
+    "fc2_weight_bstore_words": 66,
+    "fc2_activation_bstore_words": 6,
+    "fc2_load_words": 2,
+    "fc2_run_words": 2,
+    "fc2_fetch_words": 8,
+    "final_halt_words": 1
+  },
+  "fused_word_breakdown": {
+    "fc1_weight_bstore_words": 846,
+    "fc1_activation_bstore_words": 54,
+    "fc1_load_words": 26,
+    "fc1_run_words": 14,
+    "fc1_fetch_words": 0,
+    "fc1_halt_words": 0,
+    "fc2_weight_bstore_words": 66,
+    "fc2_activation_bstore_words": 0,
+    "fc2_load_words": 2,
+    "fc2_run_words": 2,
+    "fc2_fetch_words": 6,
+    "final_halt_words": 1
+  },
+  "fused_program_decode_ok": true,
+  "fused_semantics_match_software": null,
+  "final_output_max_abs_diff_vs_array_block": null,
+  "semantic_validation_note": "No independent fused-output checker is executed here. This report validates program sizing/composition only.",
+  "software_accuracy_pct_100": 90.0
+}

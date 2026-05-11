@@ -1,0 +1,74 @@
+{
+  "array_size": 16,
+  "case_count": 2,
+  "program_words": {
+    "case1": 149,
+    "case2": 220
+  },
+  "bstore_count": {
+    "case1": 3,
+    "case2": 3
+  },
+  "load_count": {
+    "case1": 4,
+    "case2": 6
+  },
+  "run_count": {
+    "case1": 4,
+    "case2": 5
+  },
+  "fetch_count": {
+    "case1": 2,
+    "case2": 2
+  },
+  "halt_count": {
+    "case1": 1,
+    "case2": 1
+  },
+  "expected_outputs": {
+    "case1": [
+      1,
+      1,
+      5,
+      -1
+    ],
+    "case2": [
+      5,
+      7,
+      7,
+      7
+    ]
+  },
+  "expected_fetch_bytes": {
+    "case1": [
+      17,
+      245
+    ],
+    "case2": [
+      117,
+      119
+    ]
+  },
+  "actual_fetch_bytes": {
+    "case1": [
+      17,
+      245
+    ],
+    "case2": [
+      117,
+      119
+    ]
+  },
+  "case1_passed": true,
+  "case2_passed": true,
+  "first_failure_stage": 0,
+  "first_failure_cycle": -1,
+  "first_failure_instruction": "0000",
+  "total_cycles": 44018,
+  "trace_log_path": "build/reports/rtl_fused_trace.log",
+  "actual_outputs": null,
+  "simulator_used": "iverilog",
+  "rtl_sim_executed": true,
+  "rtl_sim_passed": true,
+  "fused_compressed_path_rtl_validated": true
+}

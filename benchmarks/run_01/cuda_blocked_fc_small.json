@@ -1,0 +1,30 @@
+{
+  "status": "ok",
+  "shape": {
+    "m": 10,
+    "n": 1,
+    "k": 9
+  },
+  "iters": 40,
+  "warmup": 8,
+  "timing_ms": {
+    "kernel_avg": 0.08933750002597662,
+    "h2d_avg": 0.826619999986633,
+    "d2h_avg": 0.07242750003229048,
+    "transfer_avg": 0.8990475000189235,
+    "end_to_end_avg": 0.9883850000449002
+  },
+  "transfer_overhead_pct_of_e2e": 90.96126509185002,
+  "kernel_tops": 2.0148313972034307e-06,
+  "cublas_baseline": {
+    "available": true,
+    "avg_ms": 0.03085999999825617,
+    "tops": 5.832793260212943e-06,
+    "note": "CuPy matmul int32 path (cuBLAS-backed)."
+  },
+  "kernel_speed_vs_cublas_pct": 34.54316495232464,
+  "notes": [
+    "kernel_speed_vs_cublas_pct is computed only when cuBLAS baseline is available.",
+    "Current backend computes one output vector (n=1) for FC inference shape."
+  ]
+}

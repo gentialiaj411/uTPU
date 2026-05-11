@@ -271,6 +271,7 @@ module tb_fused_compressed_program;
         $display("FIRST_FAILURE_STAGE=%0d", first_failure_stage);
         $display("FIRST_FAILURE_CYCLE=%0d", first_failure_cycle);
         $display("FIRST_FAILURE_INSTRUCTION=%04h", first_failure_instruction);
+        $display("TOTAL_CYCLES=%0d", cycle_ctr);
         $display("TRACE_LOG_PATH=build/reports/rtl_fused_trace.log");
 
         $display("=================================================");

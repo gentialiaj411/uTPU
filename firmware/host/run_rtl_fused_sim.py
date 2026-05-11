@@ -103,6 +103,7 @@ def _build_metrics(vectors: Dict[str, Any]) -> Dict[str, Any]:
         "first_failure_stage": None,
         "first_failure_cycle": None,
         "first_failure_instruction": None,
+        "total_cycles": None,
         "trace_log_path": "build/reports/rtl_fused_trace.log",
         "actual_outputs": None,
         "simulator_used": None,
@@ -142,6 +143,9 @@ def _parse_sim_markers(sim_log: str, metrics: Dict[str, Any]) -> None:
     m = re.search(r"FIRST_FAILURE_INSTRUCTION=([0-9a-fA-F]{4})", sim_log)
     if m:
         metrics["first_failure_instruction"] = m.group(1)
+    m = re.search(r"TOTAL_CYCLES=(\d+)", sim_log)
+    if m:
+        metrics["total_cycles"] = int(m.group(1))
 
 
 def main() -> int:
@@ -190,6 +194,7 @@ def main() -> int:
         f"- first_failure_stage: {metrics['first_failure_stage']}",
         f"- first_failure_cycle: {metrics['first_failure_cycle']}",
         f"- first_failure_instruction: {metrics['first_failure_instruction']}",
+        f"- total_cycles: {metrics['total_cycles']}",
         f"- expected_fetch_bytes.case1: {metrics['expected_fetch_bytes']['case1']}",
         f"- actual_fetch_bytes.case1: {metrics['actual_fetch_bytes']['case1']}",
         f"- expected_fetch_bytes.case2: {metrics['expected_fetch_bytes']['case2']}",

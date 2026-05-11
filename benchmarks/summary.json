@@ -1,0 +1,83 @@
+{
+  "generated_at_utc": "2026-05-11T01:01:26.106053+00:00",
+  "runs": 5,
+  "block_runtime_correctness": {
+    "array_block_accuracy_pct": {
+      "min": 90.0,
+      "median": 90.0,
+      "max": 90.0
+    },
+    "max_abs_logit_diff": {
+      "min": 0.0,
+      "median": 0.0,
+      "max": 0.0
+    }
+  },
+  "cuda_blocked_fc": {
+    "small": {
+      "kernel_avg_ms": {
+        "min": 0.0690349999956652,
+        "median": 0.0827599999809081,
+        "max": 0.08933750002597662
+      },
+      "transfer_overhead_pct": {
+        "min": 87.75880491533859,
+        "median": 89.29874200865572,
+        "max": 90.96126509185002
+      },
+      "kernel_vs_cublas_pct": {
+        "min": 24.14056964058545,
+        "median": 34.54316495232464,
+        "max": 73.41565872876558
+      }
+    },
+    "medium": {
+      "kernel_avg_ms": {
+        "min": 0.07755500000143911,
+        "median": 0.09734000001344612,
+        "max": 0.1070975000004637
+      },
+      "transfer_overhead_pct": {
+        "min": 86.17436057333204,
+        "median": 88.09809576151541,
+        "max": 90.04848550321671
+      },
+      "kernel_vs_cublas_pct": {
+        "min": 37.62925362144706,
+        "median": 41.5117115214727,
+        "max": 74.52130746245554
+      }
+    },
+    "representative_mlp": {
+      "kernel_avg_ms": {
+        "min": 0.08368750000613545,
+        "median": 0.10193249999588261,
+        "max": 0.13751250000382242
+      },
+      "transfer_overhead_pct": {
+        "min": 84.89279029476322,
+        "median": 88.92026741988902,
+        "max": 94.16845021190557
+      },
+      "kernel_vs_cublas_pct": {
+        "min": 41.71802563274819,
+        "median": 86.19268110245851,
+        "max": 106.22858217467078
+      }
+    }
+  },
+  "fused_inference_program_bram_words": {
+    "min": 1017.0,
+    "median": 1017.0,
+    "max": 1017.0
+  },
+  "rtl_fused_sim": {
+    "all_runs_passed": true,
+    "pass_count": 5,
+    "cycle_counts": {
+      "min": 44018.0,
+      "median": 44018.0,
+      "max": 44018.0
+    }
+  }
+}
