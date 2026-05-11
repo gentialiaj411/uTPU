@@ -1,6 +1,137 @@
 {
-  "generated_at_utc": "2026-05-11T01:01:26.106053+00:00",
+  "generated_at_utc": "2026-05-11T01:16:27.487362+00:00",
+  "provenance": {
+    "git_commit_sha": "5366c30876d0856817937618ed3c842a2a2937f8",
+    "timestamp_utc": "2026-05-11T01:12:55.240814+00:00",
+    "python_version": "3.14.4",
+    "python_full_version": "3.14.4 (tags/v3.14.4:23116f9, Apr  7 2026, 14:10:54) [MSC v.1944 64 bit (AMD64)]",
+    "cuda_toolkit_version": "13.2",
+    "cupy_version": "14.0.1",
+    "iverilog_version": "Icarus Verilog version 12.0 (devel) (s20150603-1539-g2693dd32b)",
+    "gpu_model": "NVIDIA GeForce RTX 5070 Laptop GPU",
+    "gpu_driver_version": "596.21",
+    "gpu_query_raw": "NVIDIA GeForce RTX 5070 Laptop GPU, 596.21",
+    "cpu_model": "Intel(R) Core(TM) Ultra 9 275HX",
+    "invoked_command_line": "firmware/host/lock_benchmarks.py --runs 5"
+  },
   "runs": 5,
+  "runs_metadata": [
+    {
+      "git_commit_sha": "5366c30876d0856817937618ed3c842a2a2937f8",
+      "timestamp_utc": "2026-05-11T01:13:38.263091+00:00",
+      "python_version": "3.14.4",
+      "python_full_version": "3.14.4 (tags/v3.14.4:23116f9, Apr  7 2026, 14:10:54) [MSC v.1944 64 bit (AMD64)]",
+      "cuda_toolkit_version": "13.2",
+      "cupy_version": "14.0.1",
+      "iverilog_version": "Icarus Verilog version 12.0 (devel) (s20150603-1539-g2693dd32b)",
+      "gpu_model": "NVIDIA GeForce RTX 5070 Laptop GPU",
+      "gpu_driver_version": "596.21",
+      "gpu_query_raw": "NVIDIA GeForce RTX 5070 Laptop GPU, 596.21",
+      "cpu_model": "Intel(R) Core(TM) Ultra 9 275HX",
+      "invoked_command_line": "firmware/host/lock_benchmarks.py --runs 5",
+      "run_index": 1,
+      "executed_commands": [
+        "C:\\Users\\bhask\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe firmware/host/block_runtime_analysis.py --num-samples 100 --output-json build/reports/block_runtime_metrics.json --output-md build/reports/block_runtime_report.md",
+        "C:\\Users\\bhask\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe firmware/host/benchmark_cuda_blocked_fc.py --m 10 --k 9 --iters 40 --warmup 8 --output-json build/reports/cuda_blocked_fc_benchmark.json",
+        "C:\\Users\\bhask\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe firmware/host/benchmark_cuda_blocked_fc.py --m 9 --k 196 --iters 40 --warmup 8 --output-json build/reports/cuda_blocked_fc_benchmark.json",
+        "C:\\Users\\bhask\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe firmware/host/benchmark_cuda_blocked_fc.py --m 64 --k 256 --iters 40 --warmup 8 --output-json build/reports/cuda_blocked_fc_benchmark.json",
+        "C:\\Users\\bhask\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe firmware/host/test_fused_full_inference_program.py",
+        "C:\\Users\\bhask\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe firmware/host/run_rtl_fused_sim.py --output-json build/reports/rtl_fused_sim_metrics.json --output-md build/reports/rtl_fused_sim_report.md"
+      ]
+    },
+    {
+      "git_commit_sha": "5366c30876d0856817937618ed3c842a2a2937f8",
+      "timestamp_utc": "2026-05-11T01:14:17.600725+00:00",
+      "python_version": "3.14.4",
+      "python_full_version": "3.14.4 (tags/v3.14.4:23116f9, Apr  7 2026, 14:10:54) [MSC v.1944 64 bit (AMD64)]",
+      "cuda_toolkit_version": "13.2",
+      "cupy_version": "14.0.1",
+      "iverilog_version": "Icarus Verilog version 12.0 (devel) (s20150603-1539-g2693dd32b)",
+      "gpu_model": "NVIDIA GeForce RTX 5070 Laptop GPU",
+      "gpu_driver_version": "596.21",
+      "gpu_query_raw": "NVIDIA GeForce RTX 5070 Laptop GPU, 596.21",
+      "cpu_model": "Intel(R) Core(TM) Ultra 9 275HX",
+      "invoked_command_line": "firmware/host/lock_benchmarks.py --runs 5",
+      "run_index": 2,
+      "executed_commands": [
+        "C:\\Users\\bhask\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe firmware/host/block_runtime_analysis.py --num-samples 100 --output-json build/reports/block_runtime_metrics.json --output-md build/reports/block_runtime_report.md",
+        "C:\\Users\\bhask\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe firmware/host/benchmark_cuda_blocked_fc.py --m 10 --k 9 --iters 40 --warmup 8 --output-json build/reports/cuda_blocked_fc_benchmark.json",
+        "C:\\Users\\bhask\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe firmware/host/benchmark_cuda_blocked_fc.py --m 9 --k 196 --iters 40 --warmup 8 --output-json build/reports/cuda_blocked_fc_benchmark.json",
+        "C:\\Users\\bhask\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe firmware/host/benchmark_cuda_blocked_fc.py --m 64 --k 256 --iters 40 --warmup 8 --output-json build/reports/cuda_blocked_fc_benchmark.json",
+        "C:\\Users\\bhask\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe firmware/host/test_fused_full_inference_program.py",
+        "C:\\Users\\bhask\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe firmware/host/run_rtl_fused_sim.py --output-json build/reports/rtl_fused_sim_metrics.json --output-md build/reports/rtl_fused_sim_report.md"
+      ]
+    },
+    {
+      "git_commit_sha": "5366c30876d0856817937618ed3c842a2a2937f8",
+      "timestamp_utc": "2026-05-11T01:14:59.588339+00:00",
+      "python_version": "3.14.4",
+      "python_full_version": "3.14.4 (tags/v3.14.4:23116f9, Apr  7 2026, 14:10:54) [MSC v.1944 64 bit (AMD64)]",
+      "cuda_toolkit_version": "13.2",
+      "cupy_version": "14.0.1",
+      "iverilog_version": "Icarus Verilog version 12.0 (devel) (s20150603-1539-g2693dd32b)",
+      "gpu_model": "NVIDIA GeForce RTX 5070 Laptop GPU",
+      "gpu_driver_version": "596.21",
+      "gpu_query_raw": "NVIDIA GeForce RTX 5070 Laptop GPU, 596.21",
+      "cpu_model": "Intel(R) Core(TM) Ultra 9 275HX",
+      "invoked_command_line": "firmware/host/lock_benchmarks.py --runs 5",
+      "run_index": 3,
+      "executed_commands": [
+        "C:\\Users\\bhask\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe firmware/host/block_runtime_analysis.py --num-samples 100 --output-json build/reports/block_runtime_metrics.json --output-md build/reports/block_runtime_report.md",
+        "C:\\Users\\bhask\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe firmware/host/benchmark_cuda_blocked_fc.py --m 10 --k 9 --iters 40 --warmup 8 --output-json build/reports/cuda_blocked_fc_benchmark.json",
+        "C:\\Users\\bhask\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe firmware/host/benchmark_cuda_blocked_fc.py --m 9 --k 196 --iters 40 --warmup 8 --output-json build/reports/cuda_blocked_fc_benchmark.json",
+        "C:\\Users\\bhask\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe firmware/host/benchmark_cuda_blocked_fc.py --m 64 --k 256 --iters 40 --warmup 8 --output-json build/reports/cuda_blocked_fc_benchmark.json",
+        "C:\\Users\\bhask\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe firmware/host/test_fused_full_inference_program.py",
+        "C:\\Users\\bhask\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe firmware/host/run_rtl_fused_sim.py --output-json build/reports/rtl_fused_sim_metrics.json --output-md build/reports/rtl_fused_sim_report.md"
+      ]
+    },
+    {
+      "git_commit_sha": "5366c30876d0856817937618ed3c842a2a2937f8",
+      "timestamp_utc": "2026-05-11T01:15:41.624367+00:00",
+      "python_version": "3.14.4",
+      "python_full_version": "3.14.4 (tags/v3.14.4:23116f9, Apr  7 2026, 14:10:54) [MSC v.1944 64 bit (AMD64)]",
+      "cuda_toolkit_version": "13.2",
+      "cupy_version": "14.0.1",
+      "iverilog_version": "Icarus Verilog version 12.0 (devel) (s20150603-1539-g2693dd32b)",
+      "gpu_model": "NVIDIA GeForce RTX 5070 Laptop GPU",
+      "gpu_driver_version": "596.21",
+      "gpu_query_raw": "NVIDIA GeForce RTX 5070 Laptop GPU, 596.21",
+      "cpu_model": "Intel(R) Core(TM) Ultra 9 275HX",
+      "invoked_command_line": "firmware/host/lock_benchmarks.py --runs 5",
+      "run_index": 4,
+      "executed_commands": [
+        "C:\\Users\\bhask\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe firmware/host/block_runtime_analysis.py --num-samples 100 --output-json build/reports/block_runtime_metrics.json --output-md build/reports/block_runtime_report.md",
+        "C:\\Users\\bhask\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe firmware/host/benchmark_cuda_blocked_fc.py --m 10 --k 9 --iters 40 --warmup 8 --output-json build/reports/cuda_blocked_fc_benchmark.json",
+        "C:\\Users\\bhask\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe firmware/host/benchmark_cuda_blocked_fc.py --m 9 --k 196 --iters 40 --warmup 8 --output-json build/reports/cuda_blocked_fc_benchmark.json",
+        "C:\\Users\\bhask\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe firmware/host/benchmark_cuda_blocked_fc.py --m 64 --k 256 --iters 40 --warmup 8 --output-json build/reports/cuda_blocked_fc_benchmark.json",
+        "C:\\Users\\bhask\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe firmware/host/test_fused_full_inference_program.py",
+        "C:\\Users\\bhask\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe firmware/host/run_rtl_fused_sim.py --output-json build/reports/rtl_fused_sim_metrics.json --output-md build/reports/rtl_fused_sim_report.md"
+      ]
+    },
+    {
+      "git_commit_sha": "5366c30876d0856817937618ed3c842a2a2937f8",
+      "timestamp_utc": "2026-05-11T01:16:25.163726+00:00",
+      "python_version": "3.14.4",
+      "python_full_version": "3.14.4 (tags/v3.14.4:23116f9, Apr  7 2026, 14:10:54) [MSC v.1944 64 bit (AMD64)]",
+      "cuda_toolkit_version": "13.2",
+      "cupy_version": "14.0.1",
+      "iverilog_version": "Icarus Verilog version 12.0 (devel) (s20150603-1539-g2693dd32b)",
+      "gpu_model": "NVIDIA GeForce RTX 5070 Laptop GPU",
+      "gpu_driver_version": "596.21",
+      "gpu_query_raw": "NVIDIA GeForce RTX 5070 Laptop GPU, 596.21",
+      "cpu_model": "Intel(R) Core(TM) Ultra 9 275HX",
+      "invoked_command_line": "firmware/host/lock_benchmarks.py --runs 5",
+      "run_index": 5,
+      "executed_commands": [
+        "C:\\Users\\bhask\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe firmware/host/block_runtime_analysis.py --num-samples 100 --output-json build/reports/block_runtime_metrics.json --output-md build/reports/block_runtime_report.md",
+        "C:\\Users\\bhask\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe firmware/host/benchmark_cuda_blocked_fc.py --m 10 --k 9 --iters 40 --warmup 8 --output-json build/reports/cuda_blocked_fc_benchmark.json",
+        "C:\\Users\\bhask\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe firmware/host/benchmark_cuda_blocked_fc.py --m 9 --k 196 --iters 40 --warmup 8 --output-json build/reports/cuda_blocked_fc_benchmark.json",
+        "C:\\Users\\bhask\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe firmware/host/benchmark_cuda_blocked_fc.py --m 64 --k 256 --iters 40 --warmup 8 --output-json build/reports/cuda_blocked_fc_benchmark.json",
+        "C:\\Users\\bhask\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe firmware/host/test_fused_full_inference_program.py",
+        "C:\\Users\\bhask\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe firmware/host/run_rtl_fused_sim.py --output-json build/reports/rtl_fused_sim_metrics.json --output-md build/reports/rtl_fused_sim_report.md"
+      ]
+    }
+  ],
   "block_runtime_correctness": {
     "array_block_accuracy_pct": {
       "min": 90.0,
@@ -16,53 +147,53 @@
   "cuda_blocked_fc": {
     "small": {
       "kernel_avg_ms": {
-        "min": 0.0690349999956652,
-        "median": 0.0827599999809081,
-        "max": 0.08933750002597662
+        "min": 0.06665749997409876,
+        "median": 0.08458499999051128,
+        "max": 0.11063500002137516
       },
       "transfer_overhead_pct": {
-        "min": 87.75880491533859,
-        "median": 89.29874200865572,
-        "max": 90.96126509185002
+        "min": 88.38462446776802,
+        "median": 90.89398271706366,
+        "max": 91.81999691301289
       },
       "kernel_vs_cublas_pct": {
-        "min": 24.14056964058545,
-        "median": 34.54316495232464,
-        "max": 73.41565872876558
+        "min": 26.794258361485973,
+        "median": 45.31786543206229,
+        "max": 50.50444438198085
       }
     },
     "medium": {
       "kernel_avg_ms": {
-        "min": 0.07755500000143911,
-        "median": 0.09734000001344612,
-        "max": 0.1070975000004637
+        "min": 0.0965574999781893,
+        "median": 0.12052250001488574,
+        "max": 0.15018250001048727
       },
       "transfer_overhead_pct": {
-        "min": 86.17436057333204,
-        "median": 88.09809576151541,
-        "max": 90.04848550321671
+        "min": 84.76445301004382,
+        "median": 88.41903727660988,
+        "max": 89.56439742115762
       },
       "kernel_vs_cublas_pct": {
-        "min": 37.62925362144706,
-        "median": 41.5117115214727,
-        "max": 74.52130746245554
+        "min": 34.00817274855544,
+        "median": 45.869601836514434,
+        "max": 55.74550962460001
       }
     },
     "representative_mlp": {
       "kernel_avg_ms": {
-        "min": 0.08368750000613545,
-        "median": 0.10193249999588261,
-        "max": 0.13751250000382242
+        "min": 0.09556000001111897,
+        "median": 0.13593499999160485,
+        "max": 0.6945474999611179
       },
       "transfer_overhead_pct": {
-        "min": 84.89279029476322,
-        "median": 88.92026741988902,
-        "max": 94.16845021190557
+        "min": 54.64897804155166,
+        "median": 86.24858387226037,
+        "max": 89.58457086373204
       },
       "kernel_vs_cublas_pct": {
-        "min": 41.71802563274819,
-        "median": 86.19268110245851,
-        "max": 106.22858217467078
+        "min": 9.761751356551898,
+        "median": 51.069166273082836,
+        "max": 74.48723314080894
       }
     }
   },

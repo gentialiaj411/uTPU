@@ -1,5 +1,7 @@
 ﻿import argparse
 import json
+import platform
+import re
 import statistics
 import subprocess
 import sys
@@ -16,6 +18,22 @@ def _run(cmd: List[str]) -> None:
     p = subprocess.run(cmd, cwd=REPO_ROOT)
     if p.returncode != 0:
         raise RuntimeError(f"Command failed ({p.returncode}): {' '.join(cmd)}")
+
+
+def _capture(cmd: List[str]) -> str:
+    try:
+        p = subprocess.run(cmd, cwd=REPO_ROOT, capture_output=True, text=True)
+    except FileNotFoundError:
+        return ""
+    if p.returncode != 0:
+        return ""
+    return (p.stdout or "").strip()
+
+
+def _first_line(text: str) -> str:
+    if not text:
+        return "unknown"
+    return text.splitlines()[0].strip()
 
 
 def _read_json(path: Path) -> Dict[str, Any]:
@@ -50,6 +68,72 @@ def _copy_report_to_run(report: Path, run_dir: Path, dst_name: str) -> None:
     (run_dir / dst_name).write_text(report.read_text(encoding="utf-8"), encoding="utf-8")
 
 
+def _detect_iverilog_version() -> str:
+    candidates = [
+        ["iverilog", "-V"],
+        [r"C:\iverilog\bin\iverilog.exe", "-V"],
+        [r"C:\Program Files\Icarus Verilog\bin\iverilog.exe", "-V"],
+    ]
+    for cmd in candidates:
+        out = _capture(cmd)
+        if out:
+            return _first_line(out)
+    return "unknown"
+
+
+def _detect_cuda_toolkit_version() -> str:
+    nvcc = _capture(["nvcc", "--version"])
+    if nvcc:
+        m = re.search(r"release\s+([0-9]+\.[0-9]+)", nvcc)
+        if m:
+            return m.group(1)
+    return "unknown"
+
+
+def _detect_cupy_version() -> str:
+    out = _capture([sys.executable, "-c", "import cupy as cp; print(cp.__version__)"])
+    return _first_line(out)
+
+
+def _detect_gpu_model() -> Dict[str, str]:
+    out = _capture(["nvidia-smi", "--query-gpu=name,driver_version", "--format=csv,noheader"])
+    line = _first_line(out)
+    if line == "unknown":
+        return {"name": "unknown", "driver_version": "unknown", "query_raw": "unknown"}
+    parts = [p.strip() for p in line.split(",")]
+    name = parts[0] if parts else "unknown"
+    drv = parts[1] if len(parts) > 1 else "unknown"
+    return {"name": name, "driver_version": drv, "query_raw": line}
+
+
+def _detect_cpu_model() -> str:
+    out = _capture([
+        "powershell",
+        "-NoProfile",
+        "-Command",
+        "Get-CimInstance Win32_Processor | Select-Object -ExpandProperty Name",
+    ])
+    return _first_line(out)
+
+
+def _env_metadata(git_sha: str, invoked_cmd: str) -> Dict[str, Any]:
+    gpu = _detect_gpu_model()
+    return {
+        "git_commit_sha": git_sha,
+        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "python_version": platform.python_version(),
+        "python_full_version": sys.version,
+        "cuda_toolkit_version": _detect_cuda_toolkit_version(),
+        "cupy_version": _detect_cupy_version(),
+        "iverilog_version": _detect_iverilog_version(),
+        "gpu_model": gpu["name"],
+        "gpu_driver_version": gpu["driver_version"],
+        "gpu_query_raw": gpu["query_raw"],
+        "cpu_model": _detect_cpu_model(),
+        "invoked_command_line": invoked_cmd,
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run and lock uTPU benchmark suite.")
     parser.add_argument("--runs", type=int, default=5)
@@ -59,6 +143,9 @@ def main() -> int:
         raise ValueError("--runs must be >= 1")
 
     _ensure_dirs(args.runs)
+    git_sha = _first_line(_capture(["git", "rev-parse", "HEAD"]))
+    invoked_cmd = subprocess.list2cmdline(sys.argv)
+    top_env = _env_metadata(git_sha=git_sha, invoked_cmd=invoked_cmd)
 
     # Canonical shapes for CUDA blocked FC benchmarking.
     shapes = [
@@ -67,10 +154,12 @@ def main() -> int:
         ("representative_mlp", 64, 256),
     ]
 
+    per_run_meta: List[Dict[str, Any]] = []
     for i in range(1, args.runs + 1):
         run_dir = BENCH_ROOT / f"run_{i:02d}"
+        run_commands: List[str] = []
 
-        _run([
+        cmd = [
             sys.executable,
             "firmware/host/block_runtime_analysis.py",
             "--num-samples",
@@ -79,7 +168,9 @@ def main() -> int:
             "build/reports/block_runtime_metrics.json",
             "--output-md",
             "build/reports/block_runtime_report.md",
-        ])
+        ]
+        run_commands.append(subprocess.list2cmdline(cmd))
+        _run(cmd)
         _copy_report_to_run(
             REPO_ROOT / "build/reports/block_runtime_metrics.json",
             run_dir,
@@ -87,7 +178,7 @@ def main() -> int:
         )
 
         for shape_name, m, k in shapes:
-            _run([
+            cmd = [
                 sys.executable,
                 "firmware/host/benchmark_cuda_blocked_fc.py",
                 "--m",
@@ -100,33 +191,44 @@ def main() -> int:
                 "8",
                 "--output-json",
                 "build/reports/cuda_blocked_fc_benchmark.json",
-            ])
+            ]
+            run_commands.append(subprocess.list2cmdline(cmd))
+            _run(cmd)
             _copy_report_to_run(
                 REPO_ROOT / "build/reports/cuda_blocked_fc_benchmark.json",
                 run_dir,
                 f"cuda_blocked_fc_{shape_name}.json",
             )
 
-        _run([sys.executable, "firmware/host/test_fused_full_inference_program.py"])
+        cmd = [sys.executable, "firmware/host/test_fused_full_inference_program.py"]
+        run_commands.append(subprocess.list2cmdline(cmd))
+        _run(cmd)
         _copy_report_to_run(
             REPO_ROOT / "build/reports/fused_full_inference_metrics.json",
             run_dir,
             "fused_full_inference_metrics.json",
         )
 
-        _run([
+        cmd = [
             sys.executable,
             "firmware/host/run_rtl_fused_sim.py",
             "--output-json",
             "build/reports/rtl_fused_sim_metrics.json",
             "--output-md",
             "build/reports/rtl_fused_sim_report.md",
-        ])
+        ]
+        run_commands.append(subprocess.list2cmdline(cmd))
+        _run(cmd)
         _copy_report_to_run(
             REPO_ROOT / "build/reports/rtl_fused_sim_metrics.json",
             run_dir,
             "rtl_fused_sim_metrics.json",
         )
+
+        run_meta = _env_metadata(git_sha=git_sha, invoked_cmd=invoked_cmd)
+        run_meta["run_index"] = i
+        run_meta["executed_commands"] = run_commands
+        per_run_meta.append(run_meta)
 
     # Summaries from raw outputs
     block_acc = []
@@ -164,7 +266,9 @@ def main() -> int:
 
     summary = {
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "provenance": top_env,
         "runs": args.runs,
+        "runs_metadata": per_run_meta,
         "block_runtime_correctness": {
             "array_block_accuracy_pct": _stats(block_acc),
             "max_abs_logit_diff": _stats(block_diff),

@@ -8,21 +8,21 @@
   "iters": 40,
   "warmup": 8,
   "timing_ms": {
-    "kernel_avg": 0.0827599999809081,
-    "h2d_avg": 0.5481324999891513,
-    "d2h_avg": 0.11502250000035019,
-    "transfer_avg": 0.6631549999895014,
-    "end_to_end_avg": 0.7459149999704096
+    "kernel_avg": 0.06665749997409876,
+    "h2d_avg": 0.6388349999383536,
+    "d2h_avg": 0.06530250000196247,
+    "transfer_avg": 0.704137499940316,
+    "end_to_end_avg": 0.7707949999144148
   },
-  "transfer_overhead_pct_of_e2e": 88.90490203519286,
-  "kernel_tops": 2.1749637511058984e-06,
+  "transfer_overhead_pct_of_e2e": 91.35211048573225,
+  "kernel_tops": 2.700371302103184e-06,
   "cublas_baseline": {
     "available": true,
-    "avg_ms": 0.04771249999748761,
-    "tops": 3.7725962799995436e-06,
+    "avg_ms": 0.03366500000083761,
+    "tops": 5.346799346369269e-06,
     "note": "CuPy matmul int32 path (cuBLAS-backed)."
   },
-  "kernel_speed_vs_cublas_pct": 57.6516433162088,
+  "kernel_speed_vs_cublas_pct": 50.50444438198085,
   "notes": [
     "kernel_speed_vs_cublas_pct is computed only when cuBLAS baseline is available.",
     "Current backend computes one output vector (n=1) for FC inference shape."
