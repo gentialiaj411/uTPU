@@ -3,6 +3,7 @@
 *.jou
 *.log
 *.pb
+*.out
 *.wdb
 *.dbg
 *.mem
@@ -12,9 +13,18 @@
 *.rlx
 
 build/
+.Xil/
 xsim.dir/
 
 todo.md
+.agents/
+.codex/
+.env
+.env.*
+
+# Local agent / handoff docs
+docs/TPU_PROJECT_STATE.md
+docs/PROJECT_DEEP_STATE_UPGRADES_AND_LLM_PROMPT.md
 
 __pycache__/
 *.pyc
@@ -23,6 +33,13 @@ software/data/
 software/preprocesses/mnist_raw/
 
 software/model/weights/
+mnist_raw/
+weights/
 
 *.npy
 *.bin
+*.pth
+
+# Root-level compiled experiments
+/a.out
+/assembler
