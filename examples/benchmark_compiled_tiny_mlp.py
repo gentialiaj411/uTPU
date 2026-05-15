@@ -51,6 +51,8 @@ def main():
     print(f"h2d_time_ms={bench['h2d_time_ms']:.4f}")
     print(f"kernel_time_ms={bench['kernel_time_ms']:.4f}")
     print(f"d2h_time_ms={bench['d2h_time_ms']:.4f}")
+    print(f"h2d_count={bench.get('h2d_count')}")
+    print(f"d2h_count={bench.get('d2h_count')}")
     print(f"adapter_time_ms={bench['adapter_time_ms']:.4f}")
     print(f"backend_linear_ops_executed={bench['backend_linear_ops_executed']}")
     print(f"backend_elementwise_ops_executed={bench['backend_elementwise_ops_executed']}")

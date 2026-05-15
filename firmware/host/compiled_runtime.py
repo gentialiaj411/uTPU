@@ -41,6 +41,8 @@ class RuntimeExecutionStats:
     h2d_time_ms: float = 0.0
     kernel_time_ms: float = 0.0
     d2h_time_ms: float = 0.0
+    h2d_count: int = 0
+    d2h_count: int = 0
     adapter_time_ms: float = 0.0
     wall_time_ms: float = 0.0
 
@@ -60,6 +62,8 @@ class RuntimeExecutionStats:
             "h2d_time_ms": self.h2d_time_ms,
             "kernel_time_ms": self.kernel_time_ms,
             "d2h_time_ms": self.d2h_time_ms,
+            "h2d_count": self.h2d_count,
+            "d2h_count": self.d2h_count,
             "adapter_time_ms": self.adapter_time_ms,
             "wall_time_ms": self.wall_time_ms,
             "op_traces": [
@@ -83,6 +87,15 @@ def _as_float_array(data: Any) -> np.ndarray:
     if hasattr(data, "detach"):
         return data.detach().cpu().numpy().astype(np.float32)
     return np.asarray(data, dtype=np.float32)
+
+
+def _quantize_int4(data: Any) -> np.ndarray:
+    return np.clip(np.rint(np.asarray(data, dtype=np.float32)), -8, 7).astype(np.int8)
+
+
+def _quantized_linear_output(x_int4: np.ndarray, w_int4: np.ndarray) -> np.ndarray:
+    accum = w_int4.astype(np.int32) @ x_int4.astype(np.int32).reshape(-1)
+    return np.clip(accum, -8, 7).astype(np.int8)
 
 
 class CompiledMLPRuntime:
@@ -210,6 +223,108 @@ class CompiledMLPRuntime:
             )
         return np.asarray(result["output"], dtype=np.float32).reshape(1, -1), result
 
+    def quantized_reference(self, *args) -> np.ndarray:
+        args = self._normalize_args(args)
+        buffers: Dict[str, np.ndarray] = {}
+        for name, value in zip(self.graph.inputs, args):
+            buffers[name] = _quantize_int4(_as_float_array(value)).reshape(-1)
+
+        for op in self.runtime_plan.ops:
+            if op.op != "linear":
+                raise CompiledRuntimeError(f"Runtime op '{op.op}' is not supported by quantized reference")
+            w = _quantize_int4(self.params[op.weight_buffer])
+            y = _quantized_linear_output(buffers[op.inputs[0]], w)
+            if op.bias_buffer is not None:
+                y = np.clip(y.astype(np.int32) + _quantize_int4(self.params[op.bias_buffer]).astype(np.int32), -8, 7).astype(np.int8)
+            if op.apply_relu:
+                y = np.where(y >= 0, y, 0).astype(np.int8)
+            buffers[op.output] = y.reshape(-1)
+
+        outputs = [buffers[name] for name in self.graph.outputs]
+        out = outputs[0] if len(outputs) == 1 else tuple(outputs)
+        return out.reshape(1, -1) if not isinstance(out, tuple) else tuple(v.reshape(1, -1) for v in out)
+
+    def _schedule_params_for_weight(self, w: np.ndarray) -> Optional[Dict[str, int]]:
+        if not self.use_tuned_schedule:
+            return None
+        return lookup_best_schedule(
+            out_features=int(w.shape[0]),
+            in_features=int(w.shape[1]),
+            array_size=self.array_size,
+            path=self.autotune_cache_path,
+        )
+
+    def _execute_compiled_resident(self, args) -> Any:
+        call_t0 = time.perf_counter()
+        if self.cuda_executor is None:
+            raise CompiledRuntimeError("CUDA backend executor is not available for this runtime")
+
+        input_name = self.graph.inputs[0]
+        input_int4 = _as_int4_array(args[0])
+        graph_ops = []
+        for op in self.runtime_plan.ops:
+            if op.op != "linear":
+                raise CompiledRuntimeError(f"Runtime op '{op.op}' is not executable in compiled mode")
+            w = _as_int4_array(self.params[op.weight_buffer])
+            bias = _as_int4_array(self.params[op.bias_buffer]) if op.bias_buffer is not None else None
+            graph_ops.append(
+                {
+                    "name": op.graph_op,
+                    "weights_int4": w,
+                    "bias_int4": bias,
+                    "apply_relu": bool(op.apply_relu),
+                    "schedule_params": self._schedule_params_for_weight(w),
+                }
+            )
+
+        result = self.cuda_executor.execute_graph_resident_int4(
+            ops=graph_ops,
+            input_int4=input_int4,
+            array_size=self.array_size,
+        )
+        if not result.get("executed", False):
+            raise CompiledRuntimeError(
+                f"CUDA resident graph execution failed: {result.get('reason', 'unknown reason')}"
+            )
+
+        stats = self._new_stats(mode="compiled")
+        stats.backend_linear_ops_executed = int(result.get("backend_linear_ops_executed", 0))
+        stats.backend_elementwise_ops_executed = int(result.get("backend_elementwise_ops_executed", 0))
+        stats.compile_time_ms = float(result.get("compile_time_ms", 0.0) or 0.0)
+        stats.setup_time_ms = float(result.get("setup_time_ms", 0.0) or 0.0)
+        stats.h2d_time_ms = float(result.get("h2d_time_ms", 0.0) or 0.0)
+        stats.kernel_time_ms = float(result.get("kernel_time_ms", 0.0) or 0.0)
+        stats.d2h_time_ms = float(result.get("d2h_time_ms", 0.0) or 0.0)
+        stats.h2d_count = int(result.get("h2d_count", 0) or 0)
+        stats.d2h_count = int(result.get("d2h_count", 0) or 0)
+        for op_result in result.get("op_results", []):
+            op_name = str(op_result.get("name"))
+            is_elementwise = op_result.get("op") == "bias_relu"
+            engine = "nvrtc_cuda_elementwise"
+            if not is_elementwise:
+                engine = "nvrtc_cuda_blocked_fc_tuned" if self.use_tuned_schedule else "nvrtc_cuda_blocked_fc"
+            stats.op_traces.append(
+                RuntimeOpTrace(
+                    graph_op=op_name,
+                    op=str(op_result.get("op")),
+                    engine=engine,
+                    latency_ms=float(op_result.get("kernel_time_ms", 0.0)),
+                    notes=[
+                        "resident_graph_execution",
+                        f"kernel_time_ms={op_result.get('kernel_time_ms')}",
+                        f"compile_time_ms={op_result.get('compile_time_ms')}",
+                        f"setup_time_ms={op_result.get('setup_time_ms')}",
+                        f"kernel_cache_hit={op_result.get('kernel_cache_hit')}",
+                        f"schedule_params={op_result.get('schedule_params')}",
+                    ],
+                )
+            )
+
+        stats.wall_time_ms = (time.perf_counter() - call_t0) * 1000.0
+        self.last_stats = stats
+        out = np.asarray(result["output_unpadded"], dtype=np.float32).reshape(1, -1)
+        return self._to_torch_output(out, args[0])
+
     def _execute_compiled(self, args) -> Any:
         call_t0 = time.perf_counter()
         if self.target != "cuda":
@@ -221,6 +336,10 @@ class CompiledMLPRuntime:
             raise CompiledRuntimeError(
                 "Compiled graph is not executable: " + "; ".join(self.runtime_plan.unsupported_ops)
             )
+
+        stats = self._new_stats(mode="compiled")
+        if self.target == "cuda":
+            return self._execute_compiled_resident(args)
 
         stats = self._new_stats(mode="compiled")
         buffers: Dict[str, np.ndarray] = {}
@@ -408,6 +527,8 @@ class CompiledMLPRuntime:
             "h2d_time_ms": avg("h2d_time_ms"),
             "kernel_time_ms": avg("kernel_time_ms"),
             "d2h_time_ms": avg("d2h_time_ms"),
+            "h2d_count": int(round(avg("h2d_count"))),
+            "d2h_count": int(round(avg("d2h_count"))),
             "adapter_time_ms": avg("adapter_time_ms"),
             "backend_linear_ops_executed": int(reports[-1]["backend_linear_ops_executed"]),
             "backend_elementwise_ops_executed": int(reports[-1]["backend_elementwise_ops_executed"]),

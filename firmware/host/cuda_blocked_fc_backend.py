@@ -78,6 +78,50 @@ void blocked_fc_int4_kernel(
 """
 
 
+def _cuda_quantized_kernel_source(schedule_params: Optional[Dict[str, Any]] = None) -> str:
+    params = normalize_cuda_schedule_params(schedule_params)
+    unroll = params["unroll_factor"]
+    if unroll == 1:
+        loop_body = """
+    for (int k = 0; k < in_padded; ++k) {
+        acc += (int)wrow[k] * (int)x[k];
+    }
+"""
+    else:
+        terms = "\n".join(
+            f"        acc += (int)wrow[k + {i}] * (int)x[k + {i}];"
+            for i in range(unroll)
+        )
+        loop_body = f"""
+    int k = 0;
+    for (; k + {unroll - 1} < in_padded; k += {unroll}) {{
+{terms}
+    }}
+    for (; k < in_padded; ++k) {{
+        acc += (int)wrow[k] * (int)x[k];
+    }}
+"""
+    return r"""
+extern "C" __global__
+void blocked_fc_int4_quant_kernel(
+    const signed char* __restrict__ w,
+    const signed char* __restrict__ x,
+    signed char* __restrict__ y,
+    int in_padded,
+    int out_elems
+) {
+    int row = blockIdx.x * blockDim.x + threadIdx.x;
+    if (row >= out_elems) return;
+    int acc = 0;
+    const signed char* wrow = w + row * in_padded;
+""" + loop_body + r"""
+    if (acc > 7) acc = 7;
+    if (acc < -8) acc = -8;
+    y[row] = (signed char)acc;
+}
+"""
+
+
 def _elementwise_kernel_source() -> str:
     return r"""
 extern "C" __global__
@@ -228,6 +272,7 @@ class CUDABlockedFCExecutor:
         self._ctx = None
         self._kernel_cache = {}
         self._buffer_cache = {}
+        self._constant_upload_cache = set()
 
     def _log(self, msg: str) -> None:
         if self.verbose:
@@ -267,6 +312,8 @@ class CUDABlockedFCExecutor:
     def _ensure_context(self) -> float:
         cuda, _ = self._load_cuda_bindings()
         if self._ctx is not None:
+            if hasattr(cuda, "cuCtxSetCurrent"):
+                self._check_cuda(cuda.cuCtxSetCurrent(self._ctx)[0], "cuCtxSetCurrent")
             return 0.0
         t0 = time.perf_counter()
         err, = cuda.cuInit(0)
@@ -374,6 +421,61 @@ class CUDABlockedFCExecutor:
         self._kernel_cache[key] = {"module": mod, "fn": fn}
         return fn, compile_ms, setup_ms, False
 
+    def _get_quantized_kernel(
+        self,
+        request: BlockedFCLoweringRequest,
+        schedule,
+        schedule_params: Optional[Dict[str, Any]] = None,
+    ) -> tuple[Any, float, float, bool]:
+        cuda, nvrtc = self._load_cuda_bindings()
+        setup_ms = self._ensure_context()
+        params = normalize_cuda_schedule_params(schedule_params)
+        key = (
+            "blocked_fc_int4_quant_kernel",
+            int(request.out_features),
+            int(request.in_features),
+            int(schedule.in_padded),
+            int(schedule.out_padded),
+            int(params["threads_per_block"]),
+            int(params["unroll_factor"]),
+            "int4_i8",
+            "cuda",
+        )
+        if key in self._kernel_cache:
+            return self._kernel_cache[key]["fn"], 0.0, setup_ms, True
+
+        src = _cuda_quantized_kernel_source(params).encode("utf-8")
+        t_compile0 = time.perf_counter()
+        err, prog = nvrtc.nvrtcCreateProgram(src, b"blocked_fc_quant.cu", 0, [], [])
+        self._check_nvrtc(err, "nvrtcCreateProgram(quant)")
+        opts = [b"--std=c++11"]
+        err, = nvrtc.nvrtcCompileProgram(prog, len(opts), opts)
+        if err != nvrtc.nvrtcResult.NVRTC_SUCCESS:
+            _, log_size = nvrtc.nvrtcGetProgramLogSize(prog)
+            log = b""
+            if log_size > 1:
+                log_buf = bytearray(log_size)
+                nvrtc.nvrtcGetProgramLog(prog, log_buf)
+                log = bytes(log_buf)
+            raise RuntimeError(f"nvrtcCompileProgram(quant) failed: {log.decode('utf-8', errors='replace')}")
+        err, ptx_size = nvrtc.nvrtcGetPTXSize(prog)
+        self._check_nvrtc(err, "nvrtcGetPTXSize(quant)")
+        ptx = bytearray(ptx_size)
+        err, = nvrtc.nvrtcGetPTX(prog, ptx)
+        self._check_nvrtc(err, "nvrtcGetPTX(quant)")
+        nvrtc.nvrtcDestroyProgram(prog)
+        compile_ms = (time.perf_counter() - t_compile0) * 1000.0
+
+        t_setup0 = time.perf_counter()
+        err, mod = cuda.cuModuleLoadData(bytes(ptx))
+        self._check_cuda(err, "cuModuleLoadData(quant)")
+        err, fn = cuda.cuModuleGetFunction(mod, b"blocked_fc_int4_quant_kernel")
+        self._check_cuda(err, "cuModuleGetFunction(quant)")
+        setup_ms += (time.perf_counter() - t_setup0) * 1000.0
+
+        self._kernel_cache[key] = {"module": mod, "fn": fn}
+        return fn, compile_ms, setup_ms, False
+
     def _get_buffer(self, name: str, nbytes: int) -> tuple[Any, float, bool]:
         cuda, _ = self._load_cuda_bindings()
         existing = self._buffer_cache.get(name)
@@ -387,6 +489,18 @@ class CUDABlockedFCExecutor:
         alloc_ms = (time.perf_counter() - t0) * 1000.0
         self._buffer_cache[name] = {"ptr": ptr, "nbytes": nbytes}
         return ptr, alloc_ms, False
+
+    def _upload_constant_once(self, name: str, data: np.ndarray) -> tuple[Any, float, bool]:
+        cuda, _ = self._load_cuda_bindings()
+        arr = np.ascontiguousarray(data)
+        ptr, setup_ms, reused = self._get_buffer(name, int(arr.nbytes))
+        if name in self._constant_upload_cache:
+            return ptr, setup_ms, True
+        t0 = time.perf_counter()
+        self._check_cuda(cuda.cuMemcpyHtoD(ptr, arr.tobytes(), int(arr.nbytes))[0], f"cuMemcpyHtoD({name})")
+        upload_ms = (time.perf_counter() - t0) * 1000.0
+        self._constant_upload_cache.add(name)
+        return ptr, setup_ms + upload_ms, reused
 
     def execute(
         self,
@@ -511,6 +625,217 @@ class CUDABlockedFCExecutor:
                 "reason": str(e),
                 "numpy_reference_output": ref["output_unpadded"].tolist(),
                 "numpy_reference_accum_int32": ref["accum_int32_padded"][:request.out_features].tolist(),
+            }
+
+    def execute_graph_resident_int4(
+        self,
+        ops: list[Dict[str, Any]],
+        input_int4,
+        array_size: int = 16,
+    ) -> Dict[str, Any]:
+        env = detect_cuda_environment()
+        if not env.runtime_available:
+            return {
+                "executed": False,
+                "backend": "cuda",
+                "reason": env.reason,
+            }
+        if not ops:
+            raise ValueError("execute_graph_resident_int4 requires at least one op")
+
+        try:
+            cuda, _ = self._load_cuda_bindings()
+            setup_ms = self._ensure_context()
+            input_arr = np.asarray(input_int4, dtype=np.int8).reshape(-1)
+            compile_ms = 0.0
+            h2d_ms = 0.0
+            d2h_ms = 0.0
+            kernel_ms = 0.0
+            h2d_count = 0
+            d2h_count = 0
+            linear_count = 0
+            elementwise_count = 0
+            op_results = []
+
+            first_w = np.asarray(ops[0]["weights_int4"], dtype=np.int8)
+            first_problem = BlockedFCProblem(
+                out_features=int(first_w.shape[0]),
+                in_features=int(first_w.shape[1]),
+                array_size=int(array_size),
+            )
+            first_schedule = build_blocked_fc_schedule(
+                problem=first_problem,
+                target=cuda_target_desc(array_size=int(array_size)),
+            )
+            input_padded = np.zeros(first_schedule.in_padded, dtype=np.int8)
+            input_padded[: input_arr.size] = input_arr[: first_problem.in_features]
+            d_input, alloc_ms, _ = self._get_buffer("graph_input", int(input_padded.nbytes))
+            setup_ms += alloc_ms
+            t_h2d0 = time.perf_counter()
+            self._check_cuda(cuda.cuMemcpyHtoD(d_input, input_padded.tobytes(), int(input_padded.nbytes))[0], "cuMemcpyHtoD(graph_input)")
+            h2d_ms += (time.perf_counter() - t_h2d0) * 1000.0
+            h2d_count += 1
+            d_x = d_input
+
+            last_out_features = None
+            for idx, op in enumerate(ops):
+                name = str(op.get("name", f"op{idx}"))
+                w = np.asarray(op["weights_int4"], dtype=np.int8)
+                out_features = int(w.shape[0])
+                in_features = int(w.shape[1])
+                request = BlockedFCLoweringRequest(
+                    weights_int4=w,
+                    activations_int4=np.zeros(in_features, dtype=np.int8),
+                    out_features=out_features,
+                    in_features=in_features,
+                    array_size=int(array_size),
+                    apply_relu=False,
+                    apply_quant=True,
+                    weight_addr=0,
+                    input_addr=0,
+                    result_addr=0,
+                )
+                ref = _numpy_blocked_fc_reference(
+                    w,
+                    np.zeros(in_features, dtype=np.int8),
+                    out_features,
+                    in_features,
+                    int(array_size),
+                    apply_relu=False,
+                    apply_quant=True,
+                )
+                schedule = ref["schedule"]
+                params = normalize_cuda_schedule_params(op.get("schedule_params"))
+                fn, c_ms, s_ms, kernel_cache_hit = self._get_quantized_kernel(request, schedule, params)
+                compile_ms += c_ms
+                setup_ms += s_ms
+
+                d_w, s_ms, _ = self._upload_constant_once(f"graph_{name}_weights", ref["weights_padded"])
+                setup_ms += s_ms
+                out_nbytes = int(schedule.out_padded)
+                d_y, alloc_ms, output_reused = self._get_buffer(f"graph_{name}_output", out_nbytes)
+                setup_ms += alloc_ms
+
+                arg_w = ctypes.c_void_p(int(d_w))
+                arg_x = ctypes.c_void_p(int(d_x))
+                arg_y = ctypes.c_void_p(int(d_y))
+                arg_in = ctypes.c_int32(int(schedule.in_padded))
+                arg_out_elems = ctypes.c_int32(int(schedule.out_padded))
+                kernel_args = (ctypes.c_void_p * 5)(
+                    ctypes.cast(ctypes.pointer(arg_w), ctypes.c_void_p),
+                    ctypes.cast(ctypes.pointer(arg_x), ctypes.c_void_p),
+                    ctypes.cast(ctypes.pointer(arg_y), ctypes.c_void_p),
+                    ctypes.cast(ctypes.pointer(arg_in), ctypes.c_void_p),
+                    ctypes.cast(ctypes.pointer(arg_out_elems), ctypes.c_void_p),
+                )
+
+                threads = int(params["threads_per_block"])
+                blocks = int(math.ceil(schedule.out_padded / threads))
+                t0 = time.perf_counter()
+                err, = cuda.cuLaunchKernel(fn, blocks, 1, 1, threads, 1, 1, 0, 0, kernel_args, 0)
+                self._check_cuda(err, f"cuLaunchKernel({name})")
+                self._check_cuda(cuda.cuCtxSynchronize()[0], f"cuCtxSynchronize({name})")
+                linear_kernel_ms = (time.perf_counter() - t0) * 1000.0
+                kernel_ms += linear_kernel_ms
+                linear_count += 1
+                op_results.append(
+                    {
+                        "name": name,
+                        "op": "linear",
+                        "kernel_time_ms": float(linear_kernel_ms),
+                        "compile_time_ms": float(c_ms),
+                        "setup_time_ms": float(s_ms + alloc_ms),
+                        "kernel_cache_hit": bool(kernel_cache_hit),
+                        "schedule_params": dict(params),
+                        "output_buffer_reused": bool(output_reused),
+                    }
+                )
+
+                bias = op.get("bias_int4")
+                apply_relu = bool(op.get("apply_relu", False))
+                if bias is not None or apply_relu:
+                    elem_fn, c_ms, s_ms, elem_cache_hit = self._get_elementwise_kernel()
+                    compile_ms += c_ms
+                    setup_ms += s_ms
+                    bias_ptr = 0
+                    if bias is not None:
+                        bias_pad = np.zeros(schedule.out_padded, dtype=np.int8)
+                        bias_arr = np.asarray(bias, dtype=np.int8).reshape(-1)
+                        bias_pad[: bias_arr.size] = bias_arr
+                        d_bias, s_ms, _ = self._upload_constant_once(f"graph_{name}_bias", bias_pad)
+                        setup_ms += s_ms
+                        bias_ptr = int(d_bias)
+
+                    arg_x2 = ctypes.c_void_p(int(d_y))
+                    arg_bias = ctypes.c_void_p(bias_ptr)
+                    arg_y2 = ctypes.c_void_p(int(d_y))
+                    arg_n = ctypes.c_int32(int(schedule.out_padded))
+                    arg_has_bias = ctypes.c_int32(1 if bias is not None else 0)
+                    arg_relu = ctypes.c_int32(1 if apply_relu else 0)
+                    elem_args = (ctypes.c_void_p * 6)(
+                        ctypes.cast(ctypes.pointer(arg_x2), ctypes.c_void_p),
+                        ctypes.cast(ctypes.pointer(arg_bias), ctypes.c_void_p),
+                        ctypes.cast(ctypes.pointer(arg_y2), ctypes.c_void_p),
+                        ctypes.cast(ctypes.pointer(arg_n), ctypes.c_void_p),
+                        ctypes.cast(ctypes.pointer(arg_has_bias), ctypes.c_void_p),
+                        ctypes.cast(ctypes.pointer(arg_relu), ctypes.c_void_p),
+                    )
+                    elem_threads = 128
+                    elem_blocks = int(math.ceil(schedule.out_padded / elem_threads))
+                    t0 = time.perf_counter()
+                    err, = cuda.cuLaunchKernel(elem_fn, elem_blocks, 1, 1, elem_threads, 1, 1, 0, 0, elem_args, 0)
+                    self._check_cuda(err, f"cuLaunchKernel({name}.elementwise)")
+                    self._check_cuda(cuda.cuCtxSynchronize()[0], f"cuCtxSynchronize({name}.elementwise)")
+                    elem_kernel_ms = (time.perf_counter() - t0) * 1000.0
+                    kernel_ms += elem_kernel_ms
+                    elementwise_count += 1
+                    op_results.append(
+                        {
+                            "name": f"{name}.elementwise",
+                            "op": "bias_relu",
+                            "kernel_time_ms": float(elem_kernel_ms),
+                            "compile_time_ms": float(c_ms),
+                            "setup_time_ms": float(s_ms),
+                            "kernel_cache_hit": bool(elem_cache_hit),
+                        }
+                    )
+
+                d_x = d_y
+                last_out_features = out_features
+
+            if last_out_features is None:
+                raise RuntimeError("No output produced by resident graph execution")
+            out = np.zeros(last_out_features, dtype=np.int8)
+            t_d2h0 = time.perf_counter()
+            self._check_cuda(cuda.cuMemcpyDtoH(out.ctypes.data, d_x, int(out.nbytes))[0], "cuMemcpyDtoH(graph_output)")
+            d2h_ms += (time.perf_counter() - t_d2h0) * 1000.0
+            d2h_count += 1
+
+            return {
+                "executed": True,
+                "backend": "cuda",
+                "mode": "graph_resident_int4",
+                "output_unpadded": out.tolist(),
+                "compile_time_ms": float(compile_ms),
+                "setup_time_ms": float(setup_ms),
+                "h2d_time_ms": float(h2d_ms),
+                "d2h_time_ms": float(d2h_ms),
+                "kernel_time_ms": float(kernel_ms),
+                "transfer_time_ms": float(h2d_ms + d2h_ms),
+                "end_to_end_time_ms": float(h2d_ms + kernel_ms + d2h_ms),
+                "h2d_count": int(h2d_count),
+                "d2h_count": int(d2h_count),
+                "backend_linear_ops_executed": int(linear_count),
+                "backend_elementwise_ops_executed": int(elementwise_count),
+                "op_results": op_results,
+                "cache_stats": self.cache_stats(),
+            }
+        except Exception as e:
+            return {
+                "executed": False,
+                "backend": "cuda",
+                "mode": "graph_resident_int4",
+                "reason": str(e),
             }
 
     def execute_elementwise_int4(

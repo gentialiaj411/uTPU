@@ -28,8 +28,8 @@ New files:
 - `firmware/host/graph_lowering.py` - graph planning layer that identifies Linear/ReLU patterns and creates `BlockedFCLoweringRequest` objects for blocked-FC lowering.
 - `firmware/host/pytorch_compiler.py` - user-facing PyTorch compiler entrypoint that traces a model with FX, imports Graph IR, builds a blocked-FC compile plan, and routes supported Linear ops through the uTPU/CUDA backend lowerers.
 - `firmware/host/graph_runtime_plan.py` - graph-level runtime buffer/op plan for supported MLP execution, including inputs, weights, biases, intermediates, outputs, and execution order.
-- `firmware/host/compiled_runtime.py` - callable compiled MLP runtime for CUDA-targeted Linear/ReLU/Linear graphs. Supported Linear ops execute through the NVRTC CUDA blocked-FC backend in `mode="compiled"`; supported bias/ReLU post-ops execute through an NVRTC CUDA elementwise kernel; `mode="reference"` is the explicit PyTorch comparison path.
-- `firmware/host/cuda_blocked_fc_backend.py` - CUDA blocked-FC executor now separates NVRTC compile/context/module/buffer setup timing from H2D, kernel, and D2H timing, caches CUDA context, compiled modules/functions, and reusable device buffers, includes a small NVRTC elementwise int4 kernel for bias/ReLU, and accepts explicit CUDA blocked-FC schedule parameters.
+- `firmware/host/compiled_runtime.py` - callable compiled MLP runtime for CUDA-targeted Linear/ReLU/Linear graphs. Supported Linear ops execute through a GPU-resident NVRTC CUDA blocked-FC graph path in `mode="compiled"`; supported bias/ReLU post-ops execute through an NVRTC CUDA elementwise kernel; `mode="reference"` is the explicit PyTorch comparison path. The runtime also exposes a software quantized int4 graph reference for benchmark correctness reporting.
+- `firmware/host/cuda_blocked_fc_backend.py` - CUDA blocked-FC executor now separates NVRTC compile/context/module/buffer setup timing from H2D, kernel, and D2H timing, caches CUDA context, compiled modules/functions, and reusable device buffers, includes NVRTC int4 elementwise and quantized blocked-FC kernels for GPU-resident graph execution, restores the executor CUDA context before cached launches, and accepts explicit CUDA blocked-FC schedule parameters.
 - `firmware/host/cuda_autotuner.py` - small CUDA blocked-FC schedule tuner with a typed search space, repeated timing, correctness checks against the NumPy reference, and JSON cache/report persistence keyed by M/N/K, dtype mode, array size, and CUDA backend.
 - `firmware/host/test_fx_importer.py` - FX import tests for simple MLPs, ReLU, add, and clear unsupported-op failures.
 - `firmware/host/test_graph_lowering.py` - graph planning tests for Linear/ReLU routing into blocked-FC request structures.
@@ -48,32 +48,35 @@ Important limitation: this frontend imports, plans, and executes simple MLP grap
 
 Latest tiny MLP backend benchmark observed during validation (`examples/benchmark_compiled_tiny_mlp.py`, one run on the local CUDA environment):
 
-- first-call wall time: `111.5053 ms`
-- steady-state wall time: `0.4770 ms`
-- compile time: `48.9265 ms`
-- setup time: `60.5284 ms`
-- steady-state H2D time: `0.1232 ms`
-- steady-state kernel time across 2 Linear ops + 1 elementwise op: `0.0440 ms`
-- steady-state D2H time: `0.0441 ms`
+- first-call wall time: `185.5469 ms`
+- steady-state wall time: `1.3364 ms`
+- compile time: `93.5132 ms`
+- setup time: `89.3727 ms`
+- steady-state H2D time: `0.0392 ms`
+- steady-state kernel time across 2 Linear ops + 1 elementwise op: `0.7501 ms`
+- steady-state D2H time: `0.0516 ms`
 - adapter time: `0.0000 ms`
 - backend Linear ops executed: `2`
 - backend elementwise ops executed: `1`
 - fallback/adapter ops: `[]`
 - max absolute error vs PyTorch: `0.00000000`
+- transfer structure: GPU-resident graph execution performs one activation H2D copy and one final D2H copy per compiled invocation. The prior per-op compiled path copied intermediate outputs back to host between graph ops.
 
 Latest baseline comparison observed during validation (`examples/benchmark_mlp_baselines.py`, one run on the local CUDA environment):
 
-- `tiny_mlp`: PyTorch eager `0.0390 ms`, torch matmul/cuBLAS-style `0.0322 ms`, compiled steady state `0.5003 ms`, compiled kernel `0.0453 ms`, max absolute error `0.0`, fallback ops `[]`; compiled steady state lost to both measured baselines. `torch.compile` was skipped because Triton was unavailable.
-- `fc1_like_small`: PyTorch eager `0.0396 ms`, torch matmul/cuBLAS-style `0.0589 ms`, compiled steady state `1.0216 ms`, compiled kernel `0.1373 ms`, max absolute error `506.0`, fallback ops `[]`; compiled steady state lost to both measured baselines.
-- `fc2_like_small`: PyTorch eager `0.0379 ms`, torch matmul/cuBLAS-style `0.0597 ms`, compiled steady state `1.0214 ms`, compiled kernel `0.1585 ms`, max absolute error `366.0`, fallback ops `[]`; compiled steady state lost to both measured baselines.
-- `stress_256_256_128`: PyTorch eager `0.0437 ms`, torch matmul/cuBLAS-style `0.0370 ms`, compiled steady state `0.9494 ms`, compiled kernel `0.1422 ms`, max absolute error `1400.0`, fallback ops `[]`; compiled steady state lost to both measured baselines.
+- `tiny_mlp`: PyTorch eager `0.5959 ms`, torch matmul/cuBLAS-style `0.5457 ms`, compiled steady state `1.4703 ms`, compiled kernel `1.0739 ms`, H2D/D2H counts `1/1`, compiled-vs-quantized-reference error `0.0`, quantized-reference-vs-float-PyTorch error `0.0`, fallback ops `[]`; compiled steady state lost to both measured baselines. `torch.compile` was skipped because Triton was unavailable.
+- `fc1_like_small`: PyTorch eager `0.5823 ms`, torch matmul/cuBLAS-style `0.5836 ms`, compiled steady state `1.6335 ms`, compiled kernel `1.2180 ms`, H2D/D2H counts `1/1`, compiled-vs-quantized-reference error `0.0`, quantized-reference-vs-float-PyTorch error `310.0`, fallback ops `[]`; compiled steady state lost to both measured baselines.
+- `fc2_like_small`: PyTorch eager `0.5908 ms`, torch matmul/cuBLAS-style `0.5708 ms`, compiled steady state `1.6944 ms`, compiled kernel `1.2937 ms`, H2D/D2H counts `1/1`, compiled-vs-quantized-reference error `0.0`, quantized-reference-vs-float-PyTorch error `599.0`, fallback ops `[]`; compiled steady state lost to both measured baselines.
+- `stress_256_256_128`: PyTorch eager `0.5910 ms`, torch matmul/cuBLAS-style `0.5282 ms`, compiled steady state `1.4576 ms`, compiled kernel `0.9319 ms`, H2D/D2H counts `1/1`, compiled-vs-quantized-reference error `0.0`, quantized-reference-vs-float-PyTorch error `1417.0`, fallback ops `[]`; compiled steady state lost to both measured baselines.
+
+The formerly large non-tiny `max_abs_error` values were not CUDA padding/layout failures in this validation run. They came from comparing saturated int4 compiled outputs directly against unconstrained float PyTorch outputs. The reports now split backend correctness (`compiled_vs_quantized_reference_max_error`) from quantization drift (`quantized_reference_vs_float_pytorch_max_error`).
 
 Latest CUDA blocked-FC autotune report observed during validation (`examples/autotune_cuda_blocked_fc.py`, one run on the local CUDA environment):
 
 - Search space: `threads_per_block in [32, 64, 128, 256]`, `unroll_factor in [1, 2, 4, 8]`.
-- Best per-op kernel medians found: `tiny_fc1` `0.0138 ms` with `{threads_per_block: 256, unroll_factor: 1}`; `tiny_fc2` `0.0139 ms` with `{threads_per_block: 256, unroll_factor: 4}`; `fc1_like_small_fc1` `0.0165 ms` with `{threads_per_block: 256, unroll_factor: 8}`; `shared_64x128_linear` `0.0199 ms` with `{threads_per_block: 256, unroll_factor: 1}`; `fc2_like_small_fc2` `0.0149 ms` with `{threads_per_block: 128, unroll_factor: 2}`; `stress_linear` `0.0212 ms` with `{threads_per_block: 32, unroll_factor: 4}`.
+- Best per-op kernel medians found: `tiny_fc1` `0.0251 ms` with `{threads_per_block: 256, unroll_factor: 8}`; `tiny_fc2` `0.4187 ms` with `{threads_per_block: 256, unroll_factor: 2}`; `fc1_like_small_fc1` `0.5046 ms` with `{threads_per_block: 32, unroll_factor: 2}`; `shared_64x128_linear` `0.2777 ms` with `{threads_per_block: 32, unroll_factor: 2}`; `fc2_like_small_fc2` `0.0297 ms` with `{threads_per_block: 256, unroll_factor: 2}`; `stress_linear` `0.0319 ms` with `{threads_per_block: 32, unroll_factor: 8}`.
 - Tuner correctness error vs the NumPy blocked-FC reference was `0` for all tuned Linear shapes.
-- The opt-in tuned compiled MLP benchmark improved summed kernel time but did not improve steady-state wall time in this run: `tiny_mlp` fixed kernel `0.1431 ms` vs tuned `0.0591 ms`, fixed steady `0.9722 ms` vs tuned `1.4924 ms`; `fc1_like_small` fixed kernel `0.1534 ms` vs tuned `0.0752 ms`, fixed steady `1.0551 ms` vs tuned `1.8158 ms`; `fc2_like_small` fixed kernel `0.0836 ms` vs tuned `0.0821 ms`, fixed steady `0.8269 ms` vs tuned `1.8072 ms`. Fixed schedule remains available and is still the default.
+- The opt-in tuned compiled MLP benchmark did not improve steady-state wall time in this run: `tiny_mlp` fixed kernel `1.1455 ms` vs tuned `1.2017 ms`, fixed steady `1.5168 ms` vs tuned `2.5510 ms`; `fc1_like_small` fixed kernel `1.4799 ms` vs tuned `1.1166 ms`, fixed steady `1.9713 ms` vs tuned `2.5305 ms`; `fc2_like_small` fixed kernel `1.1793 ms` vs tuned `1.5524 ms`, fixed steady `1.5999 ms` vs tuned `2.9293 ms`. Fixed schedule remains available and is still the default.
 
 Generated reports:
 
@@ -114,3 +117,4 @@ Note: `test_fx_importer.py` and the FX-specific path in `test_graph_lowering.py`
 - 2026-05-15: Added CUDA backend caching and benchmark reporting. The runtime now separates one-time compile/setup costs from steady-state execution, caches CUDA context/modules/functions/device buffers, and exposes `compiled.benchmark(...)` for first-call vs warmed latency reporting.
 - 2026-05-15: Removed adapter fallback from the supported Linear/ReLU/Linear compiled path by adding a cached NVRTC CUDA elementwise int4 kernel for bias/ReLU. Supported MLP benchmark now reports `fallback_ops=[]` and `adapter_time_ms=0.0000`.
 - 2026-05-15: Added baseline benchmarking and a small CUDA blocked-FC autotuner. Baselines currently show the compiled runtime losing to PyTorch eager and torch matmul/cuBLAS-style execution for the measured tiny/small batch-1 MLPs. The tuner finds faster isolated Linear kernel schedules for several shapes, persists them by shape/dtype/backend, and can be enabled in the compiled runtime, but the latest full MLP tuned benchmark regressed kernel and steady-state time versus fixed schedule.
+- 2026-05-15: Split benchmark correctness into compiled-vs-quantized-reference and quantized-reference-vs-float-PyTorch errors. The large non-tiny errors are quantization/saturation drift relative to float PyTorch, while compiled CUDA output is bit-exact against the software int4 graph reference for the measured shapes. The compiled CUDA runtime now uses a GPU-resident graph path with one activation H2D transfer and one final D2H transfer per invocation, avoiding host round trips between Linear/ReLU/Linear ops. Current resident kernels reduce transfer count but do not yet beat PyTorch/cuBLAS end-to-end.
