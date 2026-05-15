@@ -14,7 +14,51 @@ from compiler_abstractions import (
 )
 
 
-def _cuda_kernel_source() -> str:
+DEFAULT_CUDA_SCHEDULE_PARAMS = {
+    "threads_per_block": 128,
+    "unroll_factor": 1,
+}
+
+
+def normalize_cuda_schedule_params(schedule_params: Optional[Dict[str, Any]] = None) -> Dict[str, int]:
+    params = dict(DEFAULT_CUDA_SCHEDULE_PARAMS)
+    if schedule_params:
+        params.update(schedule_params)
+    threads = int(params.get("threads_per_block", 128))
+    unroll = int(params.get("unroll_factor", 1))
+    if threads <= 0 or threads > 1024:
+        raise ValueError(f"threads_per_block must be in 1..1024, got {threads}")
+    if unroll not in (1, 2, 4, 8):
+        raise ValueError(f"unroll_factor must be one of 1, 2, 4, 8, got {unroll}")
+    return {
+        "threads_per_block": threads,
+        "unroll_factor": unroll,
+    }
+
+
+def _cuda_kernel_source(schedule_params: Optional[Dict[str, Any]] = None) -> str:
+    params = normalize_cuda_schedule_params(schedule_params)
+    unroll = params["unroll_factor"]
+    if unroll == 1:
+        loop_body = """
+    for (int k = 0; k < in_padded; ++k) {
+        acc += (int)wrow[k] * (int)x[k];
+    }
+"""
+    else:
+        terms = "\n".join(
+            f"        acc += (int)wrow[k + {i}] * (int)x[k + {i}];"
+            for i in range(unroll)
+        )
+        loop_body = f"""
+    int k = 0;
+    for (; k + {unroll - 1} < in_padded; k += {unroll}) {{
+{terms}
+    }}
+    for (; k < in_padded; ++k) {{
+        acc += (int)wrow[k] * (int)x[k];
+    }}
+"""
     return r"""
 extern "C" __global__
 void blocked_fc_int4_kernel(
@@ -28,10 +72,35 @@ void blocked_fc_int4_kernel(
     if (row >= out_elems) return;
     int acc = 0;
     const signed char* wrow = w + row * in_padded;
-    for (int k = 0; k < in_padded; ++k) {
-        acc += (int)wrow[k] * (int)x[k];
-    }
+""" + loop_body + r"""
     accum[row] = acc;
+}
+"""
+
+
+def _elementwise_kernel_source() -> str:
+    return r"""
+extern "C" __global__
+void elementwise_int4_kernel(
+    const signed char* __restrict__ x,
+    const signed char* __restrict__ bias,
+    signed char* __restrict__ y,
+    int n,
+    int has_bias,
+    int apply_relu
+) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= n) return;
+    int v = (int)x[i];
+    if (has_bias) {
+        v += (int)bias[i];
+    }
+    if (apply_relu && v < 0) {
+        v = 0;
+    }
+    if (v > 7) v = 7;
+    if (v < -8) v = -8;
+    y[i] = (signed char)v;
 }
 """
 
@@ -154,12 +223,176 @@ class CUDABackendLowerer:
 class CUDABlockedFCExecutor:
     def __init__(self, verbose: bool = False):
         self.verbose = verbose
+        self._cuda = None
+        self._nvrtc = None
+        self._ctx = None
+        self._kernel_cache = {}
+        self._buffer_cache = {}
 
     def _log(self, msg: str) -> None:
         if self.verbose:
             print(f"[CUDABlockedFCExecutor] {msg}")
 
-    def execute(self, request: BlockedFCLoweringRequest) -> Dict[str, Any]:
+    def cache_stats(self) -> Dict[str, Any]:
+        return {
+            "context_initialized": self._ctx is not None,
+            "kernel_cache_entries": len(self._kernel_cache),
+            "buffer_cache_entries": len(self._buffer_cache),
+        }
+
+    def _load_cuda_bindings(self):
+        if self._cuda is not None and self._nvrtc is not None:
+            return self._cuda, self._nvrtc
+        try:
+            from cuda import cuda, nvrtc
+        except Exception:
+            from cuda.bindings import driver as cuda
+            from cuda.bindings import nvrtc
+        self._cuda = cuda
+        self._nvrtc = nvrtc
+        return cuda, nvrtc
+
+    def _check_nvrtc(self, err, ctx: str):
+        nvrtc = self._nvrtc
+        if err != nvrtc.nvrtcResult.NVRTC_SUCCESS:
+            raise RuntimeError(f"{ctx} failed: {nvrtc.nvrtcGetErrorString(err)[1].decode('utf-8')}")
+
+    def _check_cuda(self, err, ctx: str):
+        cuda = self._cuda
+        if err != cuda.CUresult.CUDA_SUCCESS:
+            name = cuda.cuGetErrorName(err)[1].decode("utf-8")
+            desc = cuda.cuGetErrorString(err)[1].decode("utf-8")
+            raise RuntimeError(f"{ctx} failed: {name} ({desc})")
+
+    def _ensure_context(self) -> float:
+        cuda, _ = self._load_cuda_bindings()
+        if self._ctx is not None:
+            return 0.0
+        t0 = time.perf_counter()
+        err, = cuda.cuInit(0)
+        self._check_cuda(err, "cuInit")
+        err, dev = cuda.cuDeviceGet(0)
+        self._check_cuda(err, "cuDeviceGet")
+        err, self._ctx = cuda.cuCtxCreate(None, 0, dev)
+        self._check_cuda(err, "cuCtxCreate")
+        return (time.perf_counter() - t0) * 1000.0
+
+    def _kernel_key(self, request: BlockedFCLoweringRequest, schedule, schedule_params: Dict[str, int]) -> tuple:
+        return (
+            "blocked_fc_int4_kernel",
+            int(request.out_features),
+            int(request.in_features),
+            int(schedule.in_padded),
+            int(schedule.out_padded),
+            int(schedule_params["threads_per_block"]),
+            int(schedule_params["unroll_factor"]),
+            "int4_i32",
+            "cuda",
+        )
+
+    def _get_kernel(
+        self,
+        request: BlockedFCLoweringRequest,
+        schedule,
+        schedule_params: Optional[Dict[str, Any]] = None,
+    ) -> tuple[Any, float, float, bool]:
+        cuda, nvrtc = self._load_cuda_bindings()
+        setup_ms = self._ensure_context()
+        params = normalize_cuda_schedule_params(schedule_params)
+        key = self._kernel_key(request, schedule, params)
+        if key in self._kernel_cache:
+            return self._kernel_cache[key]["fn"], 0.0, setup_ms, True
+
+        src = _cuda_kernel_source(params).encode("utf-8")
+        t_compile0 = time.perf_counter()
+        err, prog = nvrtc.nvrtcCreateProgram(src, b"blocked_fc.cu", 0, [], [])
+        self._check_nvrtc(err, "nvrtcCreateProgram")
+        opts = [b"--std=c++11"]
+        err, = nvrtc.nvrtcCompileProgram(prog, len(opts), opts)
+        if err != nvrtc.nvrtcResult.NVRTC_SUCCESS:
+            _, log_size = nvrtc.nvrtcGetProgramLogSize(prog)
+            log = b""
+            if log_size > 1:
+                log_buf = bytearray(log_size)
+                nvrtc.nvrtcGetProgramLog(prog, log_buf)
+                log = bytes(log_buf)
+            raise RuntimeError(f"nvrtcCompileProgram failed: {log.decode('utf-8', errors='replace')}")
+        err, ptx_size = nvrtc.nvrtcGetPTXSize(prog)
+        self._check_nvrtc(err, "nvrtcGetPTXSize")
+        ptx = bytearray(ptx_size)
+        err, = nvrtc.nvrtcGetPTX(prog, ptx)
+        self._check_nvrtc(err, "nvrtcGetPTX")
+        nvrtc.nvrtcDestroyProgram(prog)
+        compile_ms = (time.perf_counter() - t_compile0) * 1000.0
+
+        t_setup0 = time.perf_counter()
+        err, mod = cuda.cuModuleLoadData(bytes(ptx))
+        self._check_cuda(err, "cuModuleLoadData")
+        err, fn = cuda.cuModuleGetFunction(mod, b"blocked_fc_int4_kernel")
+        self._check_cuda(err, "cuModuleGetFunction")
+        setup_ms += (time.perf_counter() - t_setup0) * 1000.0
+
+        self._kernel_cache[key] = {"module": mod, "fn": fn}
+        return fn, compile_ms, setup_ms, False
+
+    def _get_elementwise_kernel(self) -> tuple[Any, float, float, bool]:
+        cuda, nvrtc = self._load_cuda_bindings()
+        setup_ms = self._ensure_context()
+        key = ("elementwise_int4_kernel", "int4", "bias_relu", "cuda")
+        if key in self._kernel_cache:
+            return self._kernel_cache[key]["fn"], 0.0, setup_ms, True
+
+        src = _elementwise_kernel_source().encode("utf-8")
+        t_compile0 = time.perf_counter()
+        err, prog = nvrtc.nvrtcCreateProgram(src, b"elementwise_int4.cu", 0, [], [])
+        self._check_nvrtc(err, "nvrtcCreateProgram(elementwise)")
+        opts = [b"--std=c++11"]
+        err, = nvrtc.nvrtcCompileProgram(prog, len(opts), opts)
+        if err != nvrtc.nvrtcResult.NVRTC_SUCCESS:
+            _, log_size = nvrtc.nvrtcGetProgramLogSize(prog)
+            log = b""
+            if log_size > 1:
+                log_buf = bytearray(log_size)
+                nvrtc.nvrtcGetProgramLog(prog, log_buf)
+                log = bytes(log_buf)
+            raise RuntimeError(f"nvrtcCompileProgram(elementwise) failed: {log.decode('utf-8', errors='replace')}")
+        err, ptx_size = nvrtc.nvrtcGetPTXSize(prog)
+        self._check_nvrtc(err, "nvrtcGetPTXSize(elementwise)")
+        ptx = bytearray(ptx_size)
+        err, = nvrtc.nvrtcGetPTX(prog, ptx)
+        self._check_nvrtc(err, "nvrtcGetPTX(elementwise)")
+        nvrtc.nvrtcDestroyProgram(prog)
+        compile_ms = (time.perf_counter() - t_compile0) * 1000.0
+
+        t_setup0 = time.perf_counter()
+        err, mod = cuda.cuModuleLoadData(bytes(ptx))
+        self._check_cuda(err, "cuModuleLoadData(elementwise)")
+        err, fn = cuda.cuModuleGetFunction(mod, b"elementwise_int4_kernel")
+        self._check_cuda(err, "cuModuleGetFunction(elementwise)")
+        setup_ms += (time.perf_counter() - t_setup0) * 1000.0
+
+        self._kernel_cache[key] = {"module": mod, "fn": fn}
+        return fn, compile_ms, setup_ms, False
+
+    def _get_buffer(self, name: str, nbytes: int) -> tuple[Any, float, bool]:
+        cuda, _ = self._load_cuda_bindings()
+        existing = self._buffer_cache.get(name)
+        if existing is not None and existing["nbytes"] >= nbytes:
+            return existing["ptr"], 0.0, True
+        if existing is not None:
+            cuda.cuMemFree(existing["ptr"])
+        t0 = time.perf_counter()
+        err, ptr = cuda.cuMemAlloc(nbytes)
+        self._check_cuda(err, f"cuMemAlloc({name})")
+        alloc_ms = (time.perf_counter() - t0) * 1000.0
+        self._buffer_cache[name] = {"ptr": ptr, "nbytes": nbytes}
+        return ptr, alloc_ms, False
+
+    def execute(
+        self,
+        request: BlockedFCLoweringRequest,
+        schedule_params: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         # Always produce a deterministic reference path for parity/debug.
         ref = _numpy_blocked_fc_reference(
             request.weights_int4,
@@ -181,116 +414,64 @@ class CUDABlockedFCExecutor:
                 "numpy_reference_accum_int32": ref["accum_int32_padded"][:request.out_features].tolist(),
             }
         try:
-            try:
-                from cuda import cuda, nvrtc
-            except Exception:
-                from cuda.bindings import driver as cuda
-                from cuda.bindings import nvrtc
-
-            def _check_nvrtc(err, ctx: str):
-                if err != nvrtc.nvrtcResult.NVRTC_SUCCESS:
-                    raise RuntimeError(f"{ctx} failed: {nvrtc.nvrtcGetErrorString(err)[1].decode('utf-8')}")
-
-            def _check_cuda(err, ctx: str):
-                if err != cuda.CUresult.CUDA_SUCCESS:
-                    name = cuda.cuGetErrorName(err)[1].decode("utf-8")
-                    desc = cuda.cuGetErrorString(err)[1].decode("utf-8")
-                    raise RuntimeError(f"{ctx} failed: {name} ({desc})")
+            cuda, _ = self._load_cuda_bindings()
 
             schedule = ref["schedule"]
+            params = normalize_cuda_schedule_params(schedule_params)
             w_pad = ref["weights_padded"]
             x_pad = ref["inputs_padded"]
             out_elems = schedule.out_padded
+            fn, compile_ms, setup_ms, kernel_cache_hit = self._get_kernel(request, schedule, params)
 
-            src = _cuda_kernel_source().encode("utf-8")
-            err, prog = nvrtc.nvrtcCreateProgram(src, b"blocked_fc.cu", 0, [], [])
-            _check_nvrtc(err, "nvrtcCreateProgram")
-            opts = [b"--std=c++11"]
-            err, = nvrtc.nvrtcCompileProgram(prog, len(opts), opts)
-            if err != nvrtc.nvrtcResult.NVRTC_SUCCESS:
-                _, log_size = nvrtc.nvrtcGetProgramLogSize(prog)
-                log = b""
-                if log_size > 1:
-                    log_buf = bytearray(log_size)
-                    nvrtc.nvrtcGetProgramLog(prog, log_buf)
-                    log = bytes(log_buf)
-                raise RuntimeError(f"nvrtcCompileProgram failed: {log.decode('utf-8', errors='replace')}")
-            err, ptx_size = nvrtc.nvrtcGetPTXSize(prog)
-            _check_nvrtc(err, "nvrtcGetPTXSize")
-            ptx = bytearray(ptx_size)
-            err, = nvrtc.nvrtcGetPTX(prog, ptx)
-            _check_nvrtc(err, "nvrtcGetPTX")
-            nvrtc.nvrtcDestroyProgram(prog)
+            w_nbytes = int(w_pad.size)
+            x_nbytes = int(x_pad.size)
+            out_nbytes = int(out_elems * np.dtype(np.int32).itemsize)
 
-            err, = cuda.cuInit(0)
-            _check_cuda(err, "cuInit")
-            err, dev = cuda.cuDeviceGet(0)
-            _check_cuda(err, "cuDeviceGet")
-            err, ctx = cuda.cuCtxCreate(None, 0, dev)
-            _check_cuda(err, "cuCtxCreate")
-            try:
-                err, mod = cuda.cuModuleLoadData(bytes(ptx))
-                _check_cuda(err, "cuModuleLoadData")
-                err, fn = cuda.cuModuleGetFunction(mod, b"blocked_fc_int4_kernel")
-                _check_cuda(err, "cuModuleGetFunction")
+            d_w, alloc_w_ms, w_buffer_reused = self._get_buffer("weights", w_nbytes)
+            d_x, alloc_x_ms, x_buffer_reused = self._get_buffer("inputs", x_nbytes)
+            d_out, alloc_out_ms, out_buffer_reused = self._get_buffer("outputs", out_nbytes)
+            setup_ms += alloc_w_ms + alloc_x_ms + alloc_out_ms
 
-                w_nbytes = int(w_pad.size)
-                x_nbytes = int(x_pad.size)
-                out_nbytes = int(out_elems * np.dtype(np.int32).itemsize)
+            t_h2d0 = time.perf_counter()
+            self._check_cuda(cuda.cuMemcpyHtoD(d_w, w_pad.tobytes(), w_nbytes)[0], "cuMemcpyHtoD(d_w)")
+            self._check_cuda(cuda.cuMemcpyHtoD(d_x, x_pad.tobytes(), x_nbytes)[0], "cuMemcpyHtoD(d_x)")
+            t_h2d1 = time.perf_counter()
 
-                err, d_w = cuda.cuMemAlloc(w_nbytes)
-                _check_cuda(err, "cuMemAlloc(d_w)")
-                err, d_x = cuda.cuMemAlloc(x_nbytes)
-                _check_cuda(err, "cuMemAlloc(d_x)")
-                err, d_out = cuda.cuMemAlloc(out_nbytes)
-                _check_cuda(err, "cuMemAlloc(d_out)")
-                try:
-                    t_h2d0 = time.perf_counter()
-                    _check_cuda(cuda.cuMemcpyHtoD(d_w, w_pad.tobytes(), w_nbytes)[0], "cuMemcpyHtoD(d_w)")
-                    _check_cuda(cuda.cuMemcpyHtoD(d_x, x_pad.tobytes(), x_nbytes)[0], "cuMemcpyHtoD(d_x)")
-                    t_h2d1 = time.perf_counter()
+            in_padded_i32 = np.int32(schedule.in_padded)
+            out_i32 = np.zeros(out_elems, dtype=np.int32)
+            arg_w = ctypes.c_void_p(int(d_w))
+            arg_x = ctypes.c_void_p(int(d_x))
+            arg_out = ctypes.c_void_p(int(d_out))
+            arg_in = ctypes.c_int32(int(in_padded_i32))
+            arg_out_elems = ctypes.c_int32(int(out_elems))
+            kernel_args = (ctypes.c_void_p * 5)(
+                ctypes.cast(ctypes.pointer(arg_w), ctypes.c_void_p),
+                ctypes.cast(ctypes.pointer(arg_x), ctypes.c_void_p),
+                ctypes.cast(ctypes.pointer(arg_out), ctypes.c_void_p),
+                ctypes.cast(ctypes.pointer(arg_in), ctypes.c_void_p),
+                ctypes.cast(ctypes.pointer(arg_out_elems), ctypes.c_void_p),
+            )
 
-                    in_padded_i32 = np.int32(schedule.in_padded)
-                    out_i32 = np.zeros(out_elems, dtype=np.int32)
-                    arg_w = ctypes.c_void_p(int(d_w))
-                    arg_x = ctypes.c_void_p(int(d_x))
-                    arg_out = ctypes.c_void_p(int(d_out))
-                    arg_in = ctypes.c_int32(int(in_padded_i32))
-                    arg_out_elems = ctypes.c_int32(int(out_elems))
-                    kernel_args = (ctypes.c_void_p * 5)(
-                        ctypes.cast(ctypes.pointer(arg_w), ctypes.c_void_p),
-                        ctypes.cast(ctypes.pointer(arg_x), ctypes.c_void_p),
-                        ctypes.cast(ctypes.pointer(arg_out), ctypes.c_void_p),
-                        ctypes.cast(ctypes.pointer(arg_in), ctypes.c_void_p),
-                        ctypes.cast(ctypes.pointer(arg_out_elems), ctypes.c_void_p),
-                    )
+            threads = int(params["threads_per_block"])
+            blocks = int(math.ceil(out_elems / threads))
+            t0 = time.perf_counter()
+            err, = cuda.cuLaunchKernel(
+                fn,
+                blocks, 1, 1,
+                threads, 1, 1,
+                0,
+                0,
+                kernel_args,
+                0,
+            )
+            self._check_cuda(err, "cuLaunchKernel")
+            self._check_cuda(cuda.cuCtxSynchronize()[0], "cuCtxSynchronize")
+            t1 = time.perf_counter()
+            kernel_ms = (t1 - t0) * 1000.0
 
-                    threads = 128
-                    blocks = int(math.ceil(out_elems / threads))
-                    t0 = time.perf_counter()
-                    err, = cuda.cuLaunchKernel(
-                        fn,
-                        blocks, 1, 1,
-                        threads, 1, 1,
-                        0,
-                        0,
-                        kernel_args,
-                        0,
-                    )
-                    _check_cuda(err, "cuLaunchKernel")
-                    _check_cuda(cuda.cuCtxSynchronize()[0], "cuCtxSynchronize")
-                    t1 = time.perf_counter()
-                    kernel_ms = (t1 - t0) * 1000.0
-
-                    t_d2h0 = time.perf_counter()
-                    _check_cuda(cuda.cuMemcpyDtoH(out_i32.ctypes.data, d_out, out_nbytes)[0], "cuMemcpyDtoH(d_out)")
-                    t_d2h1 = time.perf_counter()
-                finally:
-                    cuda.cuMemFree(d_w)
-                    cuda.cuMemFree(d_x)
-                    cuda.cuMemFree(d_out)
-            finally:
-                cuda.cuCtxDestroy(ctx)
+            t_d2h0 = time.perf_counter()
+            self._check_cuda(cuda.cuMemcpyDtoH(out_i32.ctypes.data, d_out, out_nbytes)[0], "cuMemcpyDtoH(d_out)")
+            t_d2h1 = time.perf_counter()
 
             out_quant = out_i32.copy()
             if request.apply_quant:
@@ -302,6 +483,9 @@ class CUDABlockedFCExecutor:
                 "executed": True,
                 "backend": "cuda",
                 "kernel_name": "blocked_fc_int4_kernel",
+                "schedule_params": dict(params),
+                "compile_time_ms": float(compile_ms),
+                "setup_time_ms": float(setup_ms),
                 "kernel_time_ms": float(kernel_ms),
                 "h2d_time_ms": float((t_h2d1 - t_h2d0) * 1000.0),
                 "d2h_time_ms": float((t_d2h1 - t_d2h0) * 1000.0),
@@ -312,6 +496,13 @@ class CUDABlockedFCExecutor:
                 "numpy_reference_output": ref["output_unpadded"].tolist(),
                 "max_abs_diff_vs_numpy_reference": max_abs_diff,
                 "bit_exact_match_vs_numpy_reference": bool(max_abs_diff == 0),
+                "kernel_cache_hit": bool(kernel_cache_hit),
+                "buffer_reuse": {
+                    "weights": bool(w_buffer_reused),
+                    "inputs": bool(x_buffer_reused),
+                    "outputs": bool(out_buffer_reused),
+                },
+                "cache_stats": self.cache_stats(),
             }
         except Exception as e:
             return {
@@ -320,4 +511,94 @@ class CUDABlockedFCExecutor:
                 "reason": str(e),
                 "numpy_reference_output": ref["output_unpadded"].tolist(),
                 "numpy_reference_accum_int32": ref["accum_int32_padded"][:request.out_features].tolist(),
+            }
+
+    def execute_elementwise_int4(
+        self,
+        values_int4,
+        bias_int4=None,
+        apply_relu: bool = False,
+    ) -> Dict[str, Any]:
+        env = detect_cuda_environment()
+        x = np.asarray(values_int4, dtype=np.int8).reshape(-1)
+        bias = None if bias_int4 is None else np.asarray(bias_int4, dtype=np.int8).reshape(-1)
+        if bias is not None and bias.shape[0] != x.shape[0]:
+            raise ValueError(f"bias length mismatch: expected {x.shape[0]}, got {bias.shape[0]}")
+        if not env.runtime_available:
+            return {
+                "executed": False,
+                "backend": "cuda",
+                "reason": env.reason,
+            }
+        try:
+            cuda, _ = self._load_cuda_bindings()
+            fn, compile_ms, setup_ms, kernel_cache_hit = self._get_elementwise_kernel()
+
+            nbytes = int(x.size)
+            d_x, alloc_x_ms, x_buffer_reused = self._get_buffer("elem_input", nbytes)
+            d_y, alloc_y_ms, y_buffer_reused = self._get_buffer("elem_output", nbytes)
+            d_bias = None
+            bias_buffer_reused = True
+            if bias is not None:
+                d_bias, alloc_bias_ms, bias_buffer_reused = self._get_buffer("elem_bias", nbytes)
+                setup_ms += alloc_bias_ms
+            setup_ms += alloc_x_ms + alloc_y_ms
+
+            t_h2d0 = time.perf_counter()
+            self._check_cuda(cuda.cuMemcpyHtoD(d_x, x.tobytes(), nbytes)[0], "cuMemcpyHtoD(elem_x)")
+            if bias is not None:
+                self._check_cuda(cuda.cuMemcpyHtoD(d_bias, bias.tobytes(), nbytes)[0], "cuMemcpyHtoD(elem_bias)")
+            t_h2d1 = time.perf_counter()
+
+            out = np.zeros(x.size, dtype=np.int8)
+            arg_x = ctypes.c_void_p(int(d_x))
+            arg_bias = ctypes.c_void_p(int(d_bias) if d_bias is not None else 0)
+            arg_y = ctypes.c_void_p(int(d_y))
+            arg_n = ctypes.c_int32(int(x.size))
+            arg_has_bias = ctypes.c_int32(1 if bias is not None else 0)
+            arg_relu = ctypes.c_int32(1 if apply_relu else 0)
+            kernel_args = (ctypes.c_void_p * 6)(
+                ctypes.cast(ctypes.pointer(arg_x), ctypes.c_void_p),
+                ctypes.cast(ctypes.pointer(arg_bias), ctypes.c_void_p),
+                ctypes.cast(ctypes.pointer(arg_y), ctypes.c_void_p),
+                ctypes.cast(ctypes.pointer(arg_n), ctypes.c_void_p),
+                ctypes.cast(ctypes.pointer(arg_has_bias), ctypes.c_void_p),
+                ctypes.cast(ctypes.pointer(arg_relu), ctypes.c_void_p),
+            )
+
+            threads = 128
+            blocks = int(math.ceil(x.size / threads))
+            t0 = time.perf_counter()
+            err, = cuda.cuLaunchKernel(fn, blocks, 1, 1, threads, 1, 1, 0, 0, kernel_args, 0)
+            self._check_cuda(err, "cuLaunchKernel(elementwise)")
+            self._check_cuda(cuda.cuCtxSynchronize()[0], "cuCtxSynchronize(elementwise)")
+            t1 = time.perf_counter()
+
+            t_d2h0 = time.perf_counter()
+            self._check_cuda(cuda.cuMemcpyDtoH(out.ctypes.data, d_y, nbytes)[0], "cuMemcpyDtoH(elem_y)")
+            t_d2h1 = time.perf_counter()
+
+            return {
+                "executed": True,
+                "backend": "cuda",
+                "kernel_name": "elementwise_int4_kernel",
+                "compile_time_ms": float(compile_ms),
+                "setup_time_ms": float(setup_ms),
+                "kernel_time_ms": float((t1 - t0) * 1000.0),
+                "h2d_time_ms": float((t_h2d1 - t_h2d0) * 1000.0),
+                "d2h_time_ms": float((t_d2h1 - t_d2h0) * 1000.0),
+                "output": out.tolist(),
+                "kernel_cache_hit": bool(kernel_cache_hit),
+                "buffer_reuse": {
+                    "input": bool(x_buffer_reused),
+                    "bias": bool(bias_buffer_reused),
+                    "output": bool(y_buffer_reused),
+                },
+                "cache_stats": self.cache_stats(),
+            }
+        except Exception as e:
+            return {
+                "executed": False,
+                "backend": "cuda",
+                "reason": str(e),
             }
