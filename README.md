@@ -2,18 +2,55 @@
 
 This project is a retargetable blocked-FC compiler/runtime that drives both a custom uTPU ISA path and a CUDA path from shared compiler structure. The same front-end tensor shapes flow through shared problem modeling, blocked scheduling, and request typing, then diverge in target-specific lowering/codegen and runtime execution. Today the backend dispatch is explicit in both `backend_lowering.py` and one loader-level runtime branch in `ProgramLoader` (`firmware/host/program_loader.py`), so the boundary is mostly centralized but not fully abstracted yet.
 
+## Honest Scope
+
+This repo is best read as a scoped ML compiler/backend project, not as an attempt to replace PyTorch.
+
+Implemented:
+
+- PyTorch `torch.fx` import for a small MLP subset.
+- A custom tensor Graph IR with explicit values, ops, shapes, producers, and consumers.
+- Linear/ReLU graph planning into int4 blocked fully connected work.
+- A shared blocked-FC problem/schedule/request layer used by both CUDA and uTPU paths.
+- CUDA execution through generated NVRTC kernels for the supported compiled path.
+- uTPU ISA program emission for the custom RTL instruction machine.
+- Benchmark reports that separate compile/setup, H2D, kernel, D2H, steady-state wall time, fallback ops, and int4-reference correctness.
+
+Not claimed:
+
+- arbitrary PyTorch model support;
+- transformer support;
+- a production `torch.compile` backend;
+- end-to-end speedup over PyTorch/cuBLAS on the current tiny/small benchmarks;
+- physical board validation from Graph IR-generated programs.
+
+## Why CUDA?
+
+CUDA is a second executable backend and a validation/performance sandbox. It is not a substitute for the uTPU hardware story.
+
+The CUDA path is useful because it makes the compiler boundary testable without a board: the same FX import, Graph IR, blocked schedule, and lowering request can feed generated CUDA kernels. The CUDA runtime also exposes real performance accounting, cache behavior, transfer costs, and correctness against a software int4 graph reference.
+
+The uTPU path remains the custom ISA/RTL target: it emits instruction words for the accelerator, tracks BRAM fit, and has RTL simulation coverage for the fused compressed program path. Board execution is intentionally not claimed here unless separately validated.
+
 ## Architecture
 
 ```text
-Frontend tensors/weights
+PyTorch model
         |
         v
-Blocked FC problem model
+torch.fx symbolic trace
+        |
+        v
+Custom Graph IR
+(graph_ir.py, fx_importer.py)
+        |
+        v
+Graph lowering / runtime plan
+(graph_lowering.py, graph_runtime_plan.py)
+        |
+        v
+Blocked FC problem + schedule
 (compiler_abstractions.py, lowering_types.py)
-        |
-        v
-Tiling / schedule construction
-(build_blocked_fc_schedule)
         |
         v
 Backend dispatch (backend_lowering.py)
@@ -29,9 +66,37 @@ ISA program emission              NVRTC PTX + CUDA launch
 (program_loader.py, isa_encoder.py)    (CUDABlockedFCExecutor)
         |                               |
         v                               v
-Host runtime / execution          Host runtime / execution
-(UART upload/start/fetch)         (timed kernel + transfer path)
+ISA/runtime/simulation hooks      NVRTC CUDA runtime
+(program_loader.py, RTL)          (compiled_runtime.py)
 ```
+
+## One-Command Compiler Inspection
+
+To inspect the whole supported compiler pipeline without relying on performance claims:
+
+```bash
+python examples/inspect_compiler_pipeline.py
+```
+
+This prints and writes `build/reports/compiler_introspection_tiny_mlp.json` with:
+
+- FX graph nodes;
+- custom Graph IR values and ops;
+- blocked-FC schedules and padded dimensions;
+- CUDA backend metadata;
+- fallback/unsupported op lists;
+- uTPU instruction words and BRAM-fit status.
+
+Example summary for the tiny MLP:
+
+| Stage | Evidence |
+|---|---|
+| FX graph | `placeholder -> fc1 -> relu -> fc2 -> output` |
+| Graph IR ops | `linear, relu, linear` |
+| Lowered ops | `2` blocked-FC ops |
+| Fallback ops | `[]` |
+| CUDA backend | generated `blocked_fc_int4_kernel` metadata |
+| uTPU footprint | `434` total instruction words for the two single-layer lowerings |
 
 ## What's Actually Retargetable
 
@@ -52,6 +117,7 @@ Host runtime / execution          Host runtime / execution
   - `rtl/**` (hardware implementation)
 - CUDA-specific:
   - `firmware/host/cuda_blocked_fc_backend.py` (NVRTC PTX generation, CUDA driver launch, timing)
+  - `firmware/host/cuda_autotuner.py` (small schedule-parameter search and cache)
 
 ### Controlled divergence point
 - `firmware/host/backend_lowering.py`
@@ -100,11 +166,18 @@ Source: `benchmarks/summary.json` and raw JSON in `benchmarks/run_01..run_05/`.
   - `python firmware/host/test_fused_full_inference_program.py`
 - RTL fused simulation (pass/fail + cycle count):
   - `python firmware/host/run_rtl_fused_sim.py --output-json build/reports/rtl_fused_sim_metrics.json --output-md build/reports/rtl_fused_sim_report.md`
+- Compiler pipeline inspection:
+  - `python examples/inspect_compiler_pipeline.py`
+- MLP baseline comparison:
+  - `python examples/benchmark_mlp_baselines.py`
+- CUDA schedule autotune:
+  - `python examples/autotune_cuda_blocked_fc.py`
 
 ## Limitations
 
-- Transfer overhead dominates end-to-end CUDA latency on tested shapes (mid/high-80s to low-90s %).
-- No autotuning of tile/schedule parameters.
+- The compiled CUDA path is bit-exact against the software int4 graph reference for measured shapes, but int4 saturation can drift far from unconstrained float PyTorch on non-tiny random weights.
+- The current compiled runtime still loses to PyTorch/cuBLAS end-to-end on the tiny/small benchmark reports.
+- The CUDA autotuner can improve isolated kernel measurements on some shapes, but the latest full MLP tuned benchmark does not improve steady-state wall time.
 - Operator scope is MLP-style blocked FC flow; broader operator coverage is not implemented.
 - cuBLAS-relative numbers vary run-to-run on tiny workloads; lock file captures variability explicitly.
 - Board execution is intentionally out of scope in this artifact pass; this repo state focuses on simulation/software-backed validation.

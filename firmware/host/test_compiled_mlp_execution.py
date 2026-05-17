@@ -224,6 +224,45 @@ def test_benchmark_reports_steady_state_latency():
     assert bench["max_abs_error_vs_pytorch"] == 0.0
 
 
+def test_resident_runtime_reports_single_transfer_pair():
+    model = TinyIntegerMLP().eval()
+    x = torch.tensor([[1.0, 2.0, 0.0, 0.0]])
+    compiled = compile_mlp_model(model, x, target="cuda")
+
+    compiled(x, mode="compiled")
+    report = compiled.execution_report()
+
+    assert report["h2d_count"] == 1
+    assert report["d2h_count"] == 1
+    assert all("resident_graph_execution" in trace["notes"] for trace in report["op_traces"])
+
+
+def test_quantized_reference_separates_backend_correctness_from_float_drift():
+    model = nn.Sequential(
+        nn.Linear(64, 32, bias=False),
+        nn.ReLU(),
+        nn.Linear(32, 16, bias=False),
+    ).eval()
+    generator = torch.Generator(device="cpu")
+    generator.manual_seed(123)
+    with torch.no_grad():
+        model[0].weight.copy_(torch.randint(-2, 3, model[0].weight.shape, generator=generator, dtype=torch.float32))
+        model[2].weight.copy_(torch.randint(-2, 3, model[2].weight.shape, generator=generator, dtype=torch.float32))
+    x = torch.randint(-2, 3, (1, 64), generator=generator, dtype=torch.float32)
+    compiled = compile_mlp_model(model, x, target="cuda")
+
+    with torch.no_grad():
+        y_compiled = compiled(x, mode="compiled")
+        y_quant_ref = torch.as_tensor(compiled.runtime.quantized_reference(x), dtype=torch.float32)
+        y_float_ref = model(x)
+
+    compiled_vs_quant = float(torch.max(torch.abs(y_compiled.cpu() - y_quant_ref)).item())
+    quant_vs_float = float(torch.max(torch.abs(y_quant_ref - y_float_ref.cpu())).item())
+
+    assert compiled_vs_quant == 0.0
+    assert quant_vs_float > 0.0
+
+
 def test_reference_mode_still_available():
     model = TinyIntegerMLP().eval()
     x = torch.tensor([[1.0, 2.0, 0.0, 0.0]])
@@ -299,6 +338,8 @@ def run_all():
     test_executor_cache_reused_across_calls()
     test_second_call_avoids_recompile()
     test_benchmark_reports_steady_state_latency()
+    test_resident_runtime_reports_single_transfer_pair()
+    test_quantized_reference_separates_backend_correctness_from_float_drift()
     test_reference_mode_still_available()
     test_relu_activation_is_applied_between_linear_layers()
     test_unsupported_ops_fail_clearly()
