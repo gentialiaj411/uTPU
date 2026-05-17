@@ -45,6 +45,14 @@ Custom Graph IR
 (graph_ir.py, fx_importer.py)
         |
         v
+Explicit pass pipeline
+(graph_passes.py)
+  - shape_inference
+  - linear_relu_fusion
+  - dead_code_elimination
+  - backend_legality
+        |
+        v
 Graph lowering / runtime plan
 (graph_lowering.py, graph_runtime_plan.py)
         |
@@ -92,11 +100,17 @@ Example summary for the tiny MLP:
 | Stage | Evidence |
 |---|---|
 | FX graph | `placeholder -> fc1 -> relu -> fc2 -> output` |
-| Graph IR ops | `linear, relu, linear` |
+| Graph IR ops after pass pipeline | `linear_relu, linear` |
 | Lowered ops | `2` blocked-FC ops |
 | Fallback ops | `[]` |
 | CUDA backend | generated `blocked_fc_int4_kernel` metadata |
 | uTPU footprint | `434` total instruction words for the two single-layer lowerings |
+
+The compile entrypoint can also emit a pass-by-pass IR snapshot:
+
+```bash
+python -c "import sys; sys.path.append('firmware/host'); import torch, torch.nn as nn; from pytorch_compiler import compile_mlp_model; m=nn.Sequential(nn.Linear(4,3), nn.ReLU(), nn.Linear(3,2)).eval(); compile_mlp_model(m, torch.randn(1,4), pass_pipeline_dump_path='build/reports/pass_pipeline_dump.json')"
+```
 
 ## What's Actually Retargetable
 

@@ -7,6 +7,7 @@ from backend_lowering import create_backend_lowerer
 from compiled_runtime import CompiledMLPRuntime
 from fx_importer import FXImportError, import_fx_graph_module
 from graph_passes import BackendLegalityError, GraphPassManager, PassRecord, write_pass_pipeline_dump
+from graph_reference_interpreter import execute_graph_reference
 from graph_ir import GraphIR
 from graph_lowering import GraphCompilePlan, PlannedOp, plan_blocked_fc_graph
 from graph_runtime_plan import GraphRuntimePlan, build_graph_runtime_plan
@@ -83,6 +84,11 @@ class PyTorchCompileResult:
                 f"Compiled model for target '{self.target}' does not have an executable runtime"
             )
         return self.runtime.benchmark(*args, warmup=warmup, iters=iters)
+
+    def reference_interpreter(self, *args) -> Any:
+        if self.graph_ir is None:
+            raise PyTorchCompileError("Compiled model does not have a Graph IR for reference execution")
+        return execute_graph_reference(self.graph_ir, *args)
 
     def summary(self) -> Dict[str, Any]:
         fallback_ops = self.plan.fallback_ops if self.plan is not None else []
