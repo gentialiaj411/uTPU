@@ -64,21 +64,22 @@ def build_graph_runtime_plan(graph: GraphIR, target: str) -> GraphRuntimePlan:
         if op.name in consumed_relu:
             continue
 
-        if op.op != OpKind.LINEAR:
+        if op.op not in {OpKind.LINEAR, OpKind.LINEAR_RELU}:
             plan.unsupported_ops.append(
                 f"Runtime only supports Linear ops with optional fused ReLU; op '{op.name}' is '{op.op}'"
             )
             continue
 
         output_name = op.outputs[0]
-        apply_relu = False
-        output_value = graph.values.get(output_name)
-        if output_value is not None and len(output_value.consumers) == 1:
-            consumer = op_by_name.get(output_value.consumers[0])
-            if consumer is not None and consumer.op == OpKind.RELU:
-                apply_relu = True
-                consumed_relu.add(consumer.name)
-                output_name = consumer.outputs[0]
+        apply_relu = op.op == OpKind.LINEAR_RELU
+        if not apply_relu:
+            output_value = graph.values.get(output_name)
+            if output_value is not None and len(output_value.consumers) == 1:
+                consumer = op_by_name.get(output_value.consumers[0])
+                if consumer is not None and consumer.op == OpKind.RELU:
+                    apply_relu = True
+                    consumed_relu.add(consumer.name)
+                    output_name = consumer.outputs[0]
 
         weight_name = f"{op.name}.weight"
         bias_name = f"{op.name}.bias"
@@ -105,7 +106,7 @@ def build_graph_runtime_plan(graph: GraphIR, target: str) -> GraphRuntimePlan:
         plan.ops.append(
             RuntimeOpPlan(
                 graph_op=op.name,
-                op=op.op,
+                op=OpKind.LINEAR,
                 inputs=list(op.inputs),
                 output=output_name,
                 weight_buffer=weight_name,

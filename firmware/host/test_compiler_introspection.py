@@ -39,7 +39,7 @@ def test_introspection_reports_pipeline_boundaries():
     assert report["cuda_summary"]["ok"] is True
     assert report["cuda_summary"]["fallback_ops"] == []
     assert report["cuda_summary"]["unsupported_ops"] == []
-    assert [op["op"] for op in report["graph_ir"]["ops"]] == ["linear", "relu", "linear"]
+    assert [op["op"] for op in report["graph_ir"]["ops"]] == ["linear_relu", "linear"]
     assert len(report["compile_plan"]["lowered_ops"]) == 2
     assert report["compile_plan"]["lowered_ops"][0]["fused_activation"] == "relu"
     assert len(report["cuda_backend_ops"]) == 2

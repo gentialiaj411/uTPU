@@ -21,7 +21,7 @@ def test_compile_two_layer_mlp_end_to_end_import_and_lowering():
 
     assert result.import_error is None
     assert result.graph_ir is not None
-    assert [op.op for op in result.graph_ir.ops] == ["linear", "relu", "linear"]
+    assert [op.op for op in result.graph_ir.ops] == ["linear_relu", "linear"]
     assert result.plan is not None
     assert len(result.plan.lowered_ops) == 2
     assert result.plan.lowered_ops[0].fused_activation == "relu"

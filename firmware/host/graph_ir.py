@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 class OpKind:
     LINEAR = "linear"
+    LINEAR_RELU = "linear_relu"
     RELU = "relu"
     ADD = "add"
     VIEW = "view"

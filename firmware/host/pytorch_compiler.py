@@ -6,6 +6,7 @@ import numpy as np
 from backend_lowering import create_backend_lowerer
 from compiled_runtime import CompiledMLPRuntime
 from fx_importer import FXImportError, import_fx_graph_module
+from graph_passes import BackendLegalityError, GraphPassManager, PassRecord, write_pass_pipeline_dump
 from graph_ir import GraphIR
 from graph_lowering import GraphCompilePlan, PlannedOp, plan_blocked_fc_graph
 from graph_runtime_plan import GraphRuntimePlan, build_graph_runtime_plan
@@ -33,9 +34,11 @@ class PyTorchCompileResult:
     graph_ir: Optional[GraphIR] = None
     plan: Optional[GraphCompilePlan] = None
     runtime_plan: Optional[GraphRuntimePlan] = None
+    pass_records: List[PassRecord] = field(default_factory=list)
     backend_ops: List[BackendLoweredOp] = field(default_factory=list)
     runtime: Optional[CompiledMLPRuntime] = None
     import_error: Optional[str] = None
+    legality_error: Optional[Dict[str, Any]] = None
 
     @property
     def ok(self) -> bool:
@@ -95,10 +98,12 @@ class PyTorchCompileResult:
             "graph_op_count": len(graph_ops),
             "backend_lowered_op_count": len(self.backend_ops),
             "runtime_op_count": len(self.runtime_plan.ops) if self.runtime_plan is not None else 0,
+            "pass_count": len(self.pass_records),
             "fallback_ops": [op.graph_op for op in fallback_ops],
             "unsupported_ops": [op.graph_op for op in unsupported_ops],
             "runtime_unsupported": runtime_unsupported,
             "import_error": self.import_error,
+            "legality_error": self.legality_error,
         }
 
 
@@ -163,6 +168,7 @@ def compile_mlp_model(
     strict: bool = False,
     use_tuned_schedule: bool = False,
     autotune_cache_path: Optional[str] = None,
+    pass_pipeline_dump_path: Optional[str] = None,
 ) -> PyTorchCompileResult:
     """
     Compile a small PyTorch MLP-style model into Graph IR plus blocked-FC backend lowering plans.
@@ -188,6 +194,23 @@ def compile_mlp_model(
             target=target_name,
             import_error=str(e),
         )
+    pass_manager = GraphPassManager(target_backend=target_name)
+    try:
+        pass_result = pass_manager.run(graph)
+    except BackendLegalityError as e:
+        if strict:
+            raise PyTorchCompileError(str(e)) from e
+        return PyTorchCompileResult(
+            model_name=model_name,
+            target=target_name,
+            fx_graph=fx_graph,
+            graph_ir=graph,
+            import_error=str(e),
+            legality_error=e.to_dict(),
+        )
+    graph = pass_result.graph
+    if pass_pipeline_dump_path is not None:
+        write_pass_pipeline_dump(pass_result, pass_pipeline_dump_path)
 
     plan = plan_blocked_fc_graph(
         graph,
@@ -204,6 +227,7 @@ def compile_mlp_model(
         graph_ir=graph,
         plan=plan,
         runtime_plan=runtime_plan,
+        pass_records=pass_result.records,
         backend_ops=backend_ops,
     )
     result.runtime = CompiledMLPRuntime(

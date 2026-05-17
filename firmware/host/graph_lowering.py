@@ -80,8 +80,9 @@ def plan_blocked_fc_graph(
         if op.name in consumed_as_fused_relu:
             continue
 
-        if op.op == OpKind.LINEAR:
+        if op.op in {OpKind.LINEAR, OpKind.LINEAR_RELU}:
             relu = _only_relu_consumer(op, graph, op_by_name)
+            apply_relu = op.op == OpKind.LINEAR_RELU or relu is not None
             activations, placeholder_activation = _activation_for(op, graph, activation_values)
             request = BlockedFCLoweringRequest(
                 weights_int4=_as_int4_array(op.attrs["weight"]),
@@ -89,7 +90,7 @@ def plan_blocked_fc_graph(
                 out_features=int(op.attrs["out_features"]),
                 in_features=int(op.attrs["in_features"]),
                 array_size=int(array_size),
-                apply_relu=relu is not None,
+                apply_relu=apply_relu,
                 apply_quant=bool(apply_quant),
                 weight_addr=int(weight_addr),
                 input_addr=int(input_addr),
@@ -105,7 +106,7 @@ def plan_blocked_fc_graph(
                 op=op.op,
                 status="lowered",
                 request=request,
-                fused_activation=relu.name if relu is not None else None,
+                fused_activation=(relu.name if relu is not None else ("relu" if apply_relu else None)),
                 notes=notes,
             )
             plan.lowered_ops.append(planned)
