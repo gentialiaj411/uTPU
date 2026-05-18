@@ -9,6 +9,7 @@ from graph_passes import (
     backend_legality_pass,
     dead_code_elimination_pass,
     linear_relu_fusion_pass,
+    memory_planning_pass,
     shape_inference_pass,
 )
 
@@ -92,6 +93,27 @@ def test_backend_legality_pass_reports_offending_ops():
         assert payload["offending_ops"][0]["op"] == OpKind.ADD
 
 
+def test_memory_planning_pass_reuses_non_overlapping_buffers():
+    graph = GraphIR(name="memory_reuse")
+    graph.inputs = ["x"]
+    graph.outputs = ["b", "c"]
+    graph.add_value("x", shape=(1, 4), dtype="torch.float32")
+    graph.add_op(_linear("fc1", "x", "a", 4, 4))
+    graph.add_op(_linear("fc2", "a", "b", 4, 4))
+    graph.add_op(_linear("fc3", "x", "c", 4, 4))
+
+    inferred = shape_inference_pass(graph)
+    planned = memory_planning_pass(inferred)
+    memory_plan = planned.metadata["memory_plan"]
+
+    assert memory_plan["logical_value_count"] == 3
+    assert memory_plan["physical_buffer_count"] == 2
+    assert memory_plan["planned_peak_bytes"] < memory_plan["naive_persistent_bytes"]
+    values = {item["value"]: item for item in memory_plan["values"]}
+    assert values["a"]["buffer"] == values["c"]["buffer"]
+    assert values["b"]["buffer"] != values["a"]["buffer"]
+
+
 def test_full_pass_pipeline_on_sample_mlp():
     if importlib.util.find_spec("torch") is None:
         return
@@ -114,8 +136,10 @@ def test_full_pass_pipeline_on_sample_mlp():
         "shape_inference",
         "linear_relu_fusion",
         "dead_code_elimination",
+        "memory_planning",
         "backend_legality",
     ]
     assert any(op.op == OpKind.LINEAR_RELU for op in final_graph.ops)
     assert all(op.op != OpKind.RELU for op in final_graph.ops)
     assert "dead" not in final_graph.values
+    assert "memory_plan" in final_graph.metadata

@@ -35,6 +35,7 @@ class GraphIR:
     outputs: List[str] = field(default_factory=list)
     values: Dict[str, TensorValue] = field(default_factory=dict)
     ops: List[OpNode] = field(default_factory=list)
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
     def add_value(
         self,

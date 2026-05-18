@@ -34,7 +34,7 @@ def _require_torch():
 def _build_deterministic_mlp(config: _CaseModelConfig):
     torch, nn = _require_torch()
 
-    def _make_sparse_signed_weight(shape: Tuple[int, int], generator: Any) -> Any:
+    def _make_sparse_signed_weight(shape: Tuple[int, int], generator: Any, jitter_scale: float = 1e-7) -> Any:
         rows, cols = shape
         weight = torch.zeros(shape, dtype=torch.float32)
         per_row = 2 if cols >= 2 else 1
@@ -49,6 +49,8 @@ def _build_deterministic_mlp(config: _CaseModelConfig):
             )
             values = torch.where(signs == 0, -1.0, 1.0).to(torch.float32)
             weight[r, chosen] = values
+        # Tiny deterministic jitter keeps int4 rounding stable while preventing exact float equality.
+        weight += (torch.rand(shape, generator=generator, dtype=torch.float32) - 0.5) * float(jitter_scale)
         return weight
 
     class DeterministicMLP(nn.Module):
@@ -77,9 +79,13 @@ def _build_deterministic_mlp(config: _CaseModelConfig):
 
 def _deterministic_input(in_features: int):
     torch, _ = _require_torch()
+    generator = torch.Generator(device="cpu")
+    generator.manual_seed(2000 + int(in_features))
     pattern = [-1.0, 0.0, 1.0, 1.0, -1.0]
     data = [pattern[i % len(pattern)] for i in range(in_features)]
-    return torch.tensor([data], dtype=torch.float32)
+    x = torch.tensor([data], dtype=torch.float32)
+    x += (torch.rand(x.shape, generator=generator, dtype=torch.float32) - 0.5) * 1e-7
+    return x
 
 
 def _to_numpy(value: Any) -> np.ndarray:
@@ -178,6 +184,11 @@ def run_differential_harness(
             "numpy_version": np.__version__,
             "torch_version": torch.__version__,
             "cuda_available": bool(torch.cuda.is_available()),
+        },
+        "fixture": {
+            "weights": "seeded sparse signed weights with tiny deterministic jitter",
+            "inputs": "seeded signed pattern inputs with tiny deterministic jitter",
+            "purpose": "avoid identity passthrough and avoid exact-zero floating-point diffs while preserving int4 rounding",
         },
         "shapes": [],
     }

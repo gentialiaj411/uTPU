@@ -34,6 +34,7 @@ class GraphRuntimePlan:
     output_buffers: List[BufferPlan] = field(default_factory=list)
     ops: List[RuntimeOpPlan] = field(default_factory=list)
     unsupported_ops: List[str] = field(default_factory=list)
+    memory_plan: Dict[str, Any] = field(default_factory=dict)
 
     @property
     def executable(self) -> bool:
@@ -53,6 +54,7 @@ def _buffer_for_value(graph: GraphIR, name: str, kind: str, source: Optional[str
 
 def build_graph_runtime_plan(graph: GraphIR, target: str) -> GraphRuntimePlan:
     plan = GraphRuntimePlan(graph_name=graph.name, target=(target or "cuda").strip().lower())
+    plan.memory_plan = dict(graph.metadata.get("memory_plan", {}))
     op_by_name: Dict[str, OpNode] = {op.name: op for op in graph.ops}
     consumed_relu = set()
 

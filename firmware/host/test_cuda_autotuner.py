@@ -9,6 +9,8 @@ from cuda_autotuner import (
     CUDATuningSearchSpace,
     load_schedule_cache,
     make_cache_key,
+    rank_candidates_by_cost_model,
+    select_pruned_candidates,
     save_schedule_cache,
     tune_blocked_fc_shape,
 )
@@ -106,6 +108,27 @@ def test_best_schedule_cache_roundtrip():
     assert loaded["results"][key]["best_schedule"]["threads_per_block"] == 64
 
 
+def test_cost_model_pruning_selects_top_k_candidates():
+    candidates = [c.to_dict() for c in CUDATuningSearchSpace().candidates()]
+    target = {
+        "name": "cuda",
+        "cost_model_coefficients": {
+            "intercept_us": 5.0,
+            "memory_us_per_kib": 0.02,
+            "cta_memory_us_per_kib": 0.3,
+            "underoccupancy_penalty_us": 2.0,
+            "tile_tail_penalty_us": 0.5,
+        },
+    }
+    ranked = rank_candidates_by_cost_model(512, 512, 16, candidates, target=target)
+    selected, pruned = select_pruned_candidates(512, 512, 16, candidates, top_k=4, target=target)
+
+    assert len(selected) == 4
+    assert len(pruned) == len(candidates) - 4
+    assert selected == [item["schedule"] for item in ranked[:4]]
+    assert all("predicted_latency_us" in item for item in pruned)
+
+
 def test_compiled_runtime_can_use_tuned_schedule():
     path = _temp_cache_path()
     _write_tiny_cache(path)
@@ -142,6 +165,7 @@ def run_all():
     test_autotuner_runs_one_shape()
     test_autotuner_preserves_correctness()
     test_best_schedule_cache_roundtrip()
+    test_cost_model_pruning_selects_top_k_candidates()
     test_compiled_runtime_can_use_tuned_schedule()
     test_fixed_schedule_still_available()
     print("test_cuda_autotuner: PASS")

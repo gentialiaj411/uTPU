@@ -2,7 +2,7 @@ import copy
 import json
 import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import numpy as np
 
@@ -97,6 +97,7 @@ def _graph_to_dict(graph: GraphIR) -> Dict[str, Any]:
             }
             for name, value in graph.values.items()
         },
+        "metadata": clean_attr(graph.metadata),
         "ops": [
             {
                 "name": op.name,
@@ -122,6 +123,7 @@ def _rebuild_graph_with_ops(src: GraphIR, ops: List[OpNode]) -> GraphIR:
     dst = GraphIR(name=src.name)
     dst.inputs = list(src.inputs)
     dst.outputs = list(src.outputs)
+    dst.metadata = copy.deepcopy(src.metadata)
 
     for input_name in dst.inputs:
         _copy_value_metadata(src, dst, input_name)
@@ -264,6 +266,103 @@ def backend_legality_pass(graph: GraphIR, backend: str) -> GraphIR:
     return _clone_graph(graph)
 
 
+def _dtype_size_bytes(dtype: Optional[str]) -> int:
+    if dtype is None:
+        return 4
+    name = str(dtype).lower()
+    if "float64" in name or "int64" in name:
+        return 8
+    if "float16" in name or "bfloat16" in name or "int16" in name:
+        return 2
+    if "int8" in name or "uint8" in name or "bool" in name:
+        return 1
+    return 4
+
+
+def _shape_nbytes(shape: Optional[Tuple[int, ...]], dtype: Optional[str]) -> int:
+    if not shape:
+        return 0
+    count = 1
+    for dim in shape:
+        d = int(dim)
+        if d < 0:
+            return 0
+        count *= d
+    return int(count * _dtype_size_bytes(dtype))
+
+
+def memory_planning_pass(graph: GraphIR) -> GraphIR:
+    planned = _clone_graph(graph)
+    op_index = {op.name: idx for idx, op in enumerate(planned.ops)}
+    graph_end = len(planned.ops)
+    logical_values: List[Dict[str, Any]] = []
+
+    for name, value in planned.values.items():
+        if name in planned.inputs or value.producer is None:
+            continue
+        first_def = int(op_index.get(value.producer, 0))
+        consumer_indices = [op_index[c] for c in value.consumers if c in op_index]
+        last_use = max(consumer_indices) if consumer_indices else first_def
+        if name in planned.outputs:
+            last_use = max(last_use, graph_end)
+        size_bytes = _shape_nbytes(value.shape, value.dtype)
+        logical_values.append(
+            {
+                "value": name,
+                "producer": value.producer,
+                "consumers": list(value.consumers),
+                "shape": list(value.shape) if value.shape is not None else None,
+                "dtype": value.dtype,
+                "size_bytes": int(size_bytes),
+                "first_def": int(first_def),
+                "last_use": int(last_use),
+                "kind": "output" if name in planned.outputs else "intermediate",
+            }
+        )
+
+    buffers: List[Dict[str, Any]] = []
+    for logical in sorted(logical_values, key=lambda item: (item["first_def"], -item["size_bytes"], item["value"])):
+        reusable = [
+            buf for buf in buffers
+            if int(buf["last_use"]) < int(logical["first_def"]) and int(buf["size_bytes"]) >= int(logical["size_bytes"])
+        ]
+        if reusable:
+            chosen = min(reusable, key=lambda buf: (int(buf["size_bytes"]), str(buf["buffer"])))
+        else:
+            chosen = {
+                "buffer": f"act_{len(buffers)}",
+                "size_bytes": int(logical["size_bytes"]),
+                "values": [],
+                "first_def": int(logical["first_def"]),
+                "last_use": int(logical["last_use"]),
+            }
+            buffers.append(chosen)
+
+        chosen["size_bytes"] = max(int(chosen["size_bytes"]), int(logical["size_bytes"]))
+        chosen["first_def"] = min(int(chosen["first_def"]), int(logical["first_def"]))
+        chosen["last_use"] = max(int(chosen["last_use"]), int(logical["last_use"]))
+        chosen["values"].append(logical["value"])
+        logical["buffer"] = chosen["buffer"]
+
+    naive_persistent_bytes = int(sum(item["size_bytes"] for item in logical_values))
+    planned_bytes = int(sum(buf["size_bytes"] for buf in buffers))
+    reduction_pct = 0.0
+    if naive_persistent_bytes > 0:
+        reduction_pct = (1.0 - (float(planned_bytes) / float(naive_persistent_bytes))) * 100.0
+
+    planned.metadata["memory_plan"] = {
+        "method": "liveness_greedy_first_fit",
+        "logical_value_count": int(len(logical_values)),
+        "physical_buffer_count": int(len(buffers)),
+        "naive_persistent_bytes": naive_persistent_bytes,
+        "planned_peak_bytes": planned_bytes,
+        "peak_memory_reduction_pct": float(reduction_pct),
+        "values": logical_values,
+        "buffers": buffers,
+    }
+    return planned
+
+
 class GraphPassManager:
     def __init__(self, target_backend: str):
         self.target_backend = target_backend
@@ -275,6 +374,7 @@ class GraphPassManager:
             ("shape_inference", shape_inference_pass),
             ("linear_relu_fusion", linear_relu_fusion_pass),
             ("dead_code_elimination", dead_code_elimination_pass),
+            ("memory_planning", memory_planning_pass),
             ("backend_legality", lambda g: backend_legality_pass(g, backend=self.target_backend)),
         ]
 

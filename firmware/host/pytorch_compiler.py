@@ -95,6 +95,7 @@ class PyTorchCompileResult:
         unsupported_ops = self.plan.unsupported_ops if self.plan is not None else []
         graph_ops = self.graph_ir.ops if self.graph_ir is not None else []
         runtime_unsupported = self.runtime_plan.unsupported_ops if self.runtime_plan is not None else []
+        memory_plan = self.runtime_plan.memory_plan if self.runtime_plan is not None else {}
         return {
             "model_name": self.model_name,
             "target": self.target,
@@ -108,6 +109,7 @@ class PyTorchCompileResult:
             "fallback_ops": [op.graph_op for op in fallback_ops],
             "unsupported_ops": [op.graph_op for op in unsupported_ops],
             "runtime_unsupported": runtime_unsupported,
+            "memory_plan": memory_plan,
             "import_error": self.import_error,
             "legality_error": self.legality_error,
         }

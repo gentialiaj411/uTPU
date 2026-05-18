@@ -2,10 +2,12 @@ import json
 import os
 import statistics
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import numpy as np
 
+from cost_model import predict_latency_us
 from cuda_blocked_fc_backend import (
     CUDABlockedFCExecutor,
     DEFAULT_CUDA_SCHEDULE_PARAMS,
@@ -17,6 +19,9 @@ from lowering_types import BlockedFCLoweringRequest
 
 DEFAULT_CACHE_PATH = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..", "build", "reports", "cuda_autotune_results.json")
+)
+DEFAULT_COST_MODEL_PATH = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "build", "reports", "cost_model_calibration.json")
 )
 
 
@@ -75,6 +80,10 @@ class CUDATuningResult:
     improvement_pct: Optional[float]
     max_abs_error: int
     candidates: List[Dict[str, Any]] = field(default_factory=list)
+    pruned_candidates: List[Dict[str, Any]] = field(default_factory=list)
+    candidate_count: int = 0
+    profiled_candidate_count: int = 0
+    pruning: Optional[Dict[str, Any]] = None
     executed: bool = True
     reason: Optional[str] = None
 
@@ -92,6 +101,10 @@ class CUDATuningResult:
             "improvement_pct": self.improvement_pct,
             "max_abs_error": self.max_abs_error,
             "candidates": list(self.candidates),
+            "pruned_candidates": list(self.pruned_candidates),
+            "candidate_count": self.candidate_count,
+            "profiled_candidate_count": self.profiled_candidate_count,
+            "pruning": dict(self.pruning) if self.pruning is not None else None,
             "executed": self.executed,
             "reason": self.reason,
         }
@@ -148,6 +161,64 @@ def lookup_best_schedule(
     if not entry:
         return None
     return normalize_cuda_schedule_params(entry["best_schedule"])
+
+
+def load_cost_model_target(path: str = DEFAULT_COST_MODEL_PATH) -> Any:
+    if not path or not os.path.exists(path):
+        return "cuda"
+    with open(path, "r", encoding="utf-8") as f:
+        report = json.load(f)
+    coeffs = report.get("fitted_coefficients")
+    if not isinstance(coeffs, dict):
+        return "cuda"
+    return {"name": "cuda", "cost_model_coefficients": coeffs}
+
+
+def rank_candidates_by_cost_model(
+    out_features: int,
+    in_features: int,
+    array_size: int,
+    candidates: Iterable[Dict[str, int]],
+    target: Any = "cuda",
+) -> List[Dict[str, Any]]:
+    shape = {
+        "out_features": int(out_features),
+        "in_features": int(in_features),
+        "batch": 1,
+        "array_size": int(array_size),
+        "apply_quant": True,
+    }
+    ranked = []
+    for candidate in candidates:
+        schedule = normalize_cuda_schedule_params(candidate)
+        predicted_us = predict_latency_us(shape, schedule, target=target)
+        ranked.append(
+            {
+                "schedule": schedule,
+                "predicted_latency_us": float(predicted_us),
+            }
+        )
+    ranked.sort(key=lambda item: (float(item["predicted_latency_us"]), item["schedule"]["threads_per_block"], item["schedule"]["unroll_factor"]))
+    for rank, item in enumerate(ranked, start=1):
+        item["cost_model_rank"] = int(rank)
+    return ranked
+
+
+def select_pruned_candidates(
+    out_features: int,
+    in_features: int,
+    array_size: int,
+    candidates: Iterable[Dict[str, int]],
+    top_k: Optional[int],
+    target: Any = "cuda",
+) -> Tuple[List[Dict[str, int]], List[Dict[str, Any]]]:
+    normalized = [normalize_cuda_schedule_params(c) for c in candidates]
+    if top_k is None or int(top_k) <= 0 or int(top_k) >= len(normalized):
+        return normalized, []
+    ranked = rank_candidates_by_cost_model(out_features, in_features, array_size, normalized, target=target)
+    keep = ranked[: int(top_k)]
+    pruned = ranked[int(top_k) :]
+    return [dict(item["schedule"]) for item in keep], pruned
 
 
 def _target_id(executor: CUDABlockedFCExecutor) -> str:
@@ -238,6 +309,9 @@ def tune_blocked_fc_shape(
     cache_path: str = DEFAULT_CACHE_PATH,
     seed: int = 0,
     max_candidates: Optional[int] = None,
+    prune_top_k: Optional[int] = None,
+    cost_model_target: Any = None,
+    cost_model_path: str = DEFAULT_COST_MODEL_PATH,
 ) -> CUDATuningResult:
     env = detect_cuda_environment()
     fixed = normalize_cuda_schedule_params(DEFAULT_CUDA_SCHEDULE_PARAMS)
@@ -260,6 +334,8 @@ def tune_blocked_fc_shape(
             best_end_to_end_ms=None,
             improvement_pct=None,
             max_abs_error=0,
+            candidate_count=0,
+            profiled_candidate_count=0,
             executed=False,
             reason=env.reason,
         )
@@ -268,9 +344,28 @@ def tune_blocked_fc_shape(
     request = _make_request(out_features, in_features, array_size, seed=seed)
     target = _target_id(executor)
     space = search_space or default_search_space()
-    candidates = [c.to_dict() for c in space.candidates()]
+    all_candidates = [c.to_dict() for c in space.candidates()]
     if max_candidates is not None:
-        candidates = candidates[: int(max_candidates)]
+        all_candidates = all_candidates[: int(max_candidates)]
+    target_model = cost_model_target if cost_model_target is not None else load_cost_model_target(cost_model_path)
+    candidates, pruned_candidates = select_pruned_candidates(
+        out_features=out_features,
+        in_features=in_features,
+        array_size=array_size,
+        candidates=all_candidates,
+        top_k=prune_top_k,
+        target=target_model,
+    )
+    pruning = None
+    if pruned_candidates:
+        pruning = {
+            "method": "cost_model_top_k",
+            "top_k": int(prune_top_k),
+            "candidate_count": int(len(all_candidates)),
+            "profiled_candidate_count": int(len(candidates)),
+            "search_reduction_x": float(len(all_candidates) / max(1, len(candidates))),
+            "cost_model_path": cost_model_path,
+        }
 
     measured = []
     for params in candidates:
@@ -299,6 +394,10 @@ def tune_blocked_fc_shape(
             improvement_pct=None,
             max_abs_error=0,
             candidates=measured,
+            pruned_candidates=pruned_candidates,
+            candidate_count=len(all_candidates),
+            profiled_candidate_count=len(measured),
+            pruning=pruning,
             executed=False,
             reason=reason or "no correct tuning candidate found",
         )
@@ -323,6 +422,10 @@ def tune_blocked_fc_shape(
         improvement_pct=improvement,
         max_abs_error=int(best.get("max_abs_error", 0)),
         candidates=measured,
+        pruned_candidates=pruned_candidates,
+        candidate_count=len(all_candidates),
+        profiled_candidate_count=len(measured),
+        pruning=pruning,
         executed=True,
     )
 
@@ -340,6 +443,8 @@ def tune_many_shapes(
     iters: int = 5,
     cache_path: str = DEFAULT_CACHE_PATH,
     max_candidates: Optional[int] = None,
+    prune_top_k: Optional[int] = None,
+    cost_model_path: str = DEFAULT_COST_MODEL_PATH,
 ) -> Dict[str, Any]:
     space = default_search_space()
     results = []
@@ -354,6 +459,8 @@ def tune_many_shapes(
             cache_path=cache_path,
             seed=idx,
             max_candidates=max_candidates,
+            prune_top_k=prune_top_k,
+            cost_model_path=cost_model_path,
         )
         entry = tuned.to_dict()
         entry["shape_name"] = name
@@ -361,6 +468,9 @@ def tune_many_shapes(
     report = {
         "search_space": space.schema(),
         "cache_path": cache_path,
+        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "prune_top_k": prune_top_k,
+        "cost_model_path": cost_model_path if prune_top_k is not None else None,
         "results": results,
         "schedule_cache": {
             "version": 1,
