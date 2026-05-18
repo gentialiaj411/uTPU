@@ -1,6 +1,12 @@
 # NEXT_TASK.md
 
 ## Current Priority
+CI status:
+- GitHub Actions run `26059344232` failed because CI referenced removed `firmware/host/test_pipeline_artifact.py`.
+- `.github/workflows/ci.yml` now runs the current narrow host regression set instead.
+- Local validation: `python -m pytest firmware/host/test_footprint_baseline.py firmware/host/test_compiler_smoke.py firmware/host/test_graph_passes.py firmware/host/test_reference_interpreter.py firmware/host/test_isa_simulator.py firmware/host/test_rtl_sim_artifact.py -v` -> `16 passed`.
+- Next step: push the workflow fix and confirm the replacement CI run passes on GitHub Actions.
+
 Schedule-aware pruning follow-up:
 1. Pairwise ordering objective is implemented in `calibrate_cost_model.py` and verified with no-new-CUDA refit.
    - current objective uses schedule-median pairs touching the winner/near-winner set and skips measured pairs within `1%` of best.

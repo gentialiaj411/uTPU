@@ -245,3 +245,13 @@
     - policy run executed all four shapes
     - live per-shape winner identity is noisy for tiny kernels, so replay remains the primary quality claim.
   - Updated README/evidence/project-state docs to use current replay numbers and caveats.
+- CI workflow repair:
+  - GitHub Actions run `26059344232` failed because `.github/workflows/ci.yml` invoked removed `firmware/host/test_pipeline_artifact.py`.
+  - Updated CI's narrow host pytest command to run existing tests:
+    - `firmware/host/test_footprint_baseline.py`
+    - `firmware/host/test_compiler_smoke.py`
+    - `firmware/host/test_graph_passes.py`
+    - `firmware/host/test_reference_interpreter.py`
+    - `firmware/host/test_isa_simulator.py`
+    - `firmware/host/test_rtl_sim_artifact.py`
+  - Local validation: `python -m pytest firmware/host/test_footprint_baseline.py firmware/host/test_compiler_smoke.py firmware/host/test_graph_passes.py firmware/host/test_reference_interpreter.py firmware/host/test_isa_simulator.py firmware/host/test_rtl_sim_artifact.py -v` -> `16 passed`.
