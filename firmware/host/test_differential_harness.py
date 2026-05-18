@@ -15,12 +15,18 @@ def test_differential_harness_report_and_tolerances():
 
     nonzero_abs_errors = []
     for case in report["shapes"]:
+        assert {"shape", "backends"}.issubset(case.keys())
+        assert {"in_features", "hidden_features", "out_features"}.issubset(case["shape"].keys())
+        assert isinstance(case["backends"], list)
         backends = {entry["backend"]: entry for entry in case["backends"]}
         assert "cuda" in backends
         assert "utpu" in backends
         assert "torch_compile" in backends
 
         torch_compile_entry = backends["torch_compile"]
+        assert {"backend", "status", "within_tolerance", "max_abs_error", "max_rel_error"}.issubset(
+            torch_compile_entry.keys()
+        )
         if torch_compile_entry["status"] == "skipped":
             reason = (torch_compile_entry.get("reason") or "").lower()
             assert (
@@ -38,6 +44,7 @@ def test_differential_harness_report_and_tolerances():
             nonzero_abs_errors.append(torch_compile_entry["max_abs_error"])
 
         cuda_entry = backends["cuda"]
+        assert {"backend", "status", "within_tolerance", "max_abs_error", "max_rel_error"}.issubset(cuda_entry.keys())
         if cuda_entry["status"] == "skipped":
             reason = (cuda_entry.get("reason") or "").lower()
             assert "cuda" in reason or "nvrtc" in reason or "driver" in reason
@@ -48,6 +55,9 @@ def test_differential_harness_report_and_tolerances():
             nonzero_abs_errors.append(cuda_entry["max_abs_error"])
 
         utpu_entry = backends["utpu"]
+        assert {"backend", "status", "within_tolerance", "max_abs_error", "max_rel_error", "execution_mode"}.issubset(
+            utpu_entry.keys()
+        )
         assert utpu_entry["execution_mode"] == "quantized_reference_emulation"
         assert utpu_entry["status"] == "pass"
         assert utpu_entry["within_tolerance"] is True

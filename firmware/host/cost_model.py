@@ -8,6 +8,16 @@ _DEFAULT_COEFFICIENTS_CUDA: Dict[str, float] = {
     "cta_memory_us_per_kib": 0.2,
     "underoccupancy_penalty_us": 3.0,
     "tile_tail_penalty_us": 0.5,
+    "unroll_gain_us": 0.2,
+    "unroll_k_tail_penalty_us": 0.4,
+    "unroll_shape_interaction_us": 0.15,
+    "small_out_tpb_interaction_us": 0.25,
+    "small_out_unroll_interaction_us": 0.25,
+    "idle_thread_ratio_us": 0.2,
+    "wave_tpb_interaction_us": 0.1,
+    "small_out_idle_penalty_us": 0.3,
+    "large_k_unroll_gain_us": 0.25,
+    "small_out_unroll_penalty_us": 0.2,
 }
 
 
@@ -65,7 +75,7 @@ def _target_coefficients(target: Any) -> Dict[str, float]:
 def predict_latency_us(shape: Dict[str, Any], schedule: Dict[str, Any], target: Any = "cuda") -> float:
     """Analytical CUDA blocked-FC latency proxy calibrated for one-thread-per-output-row kernel geometry."""
     out_features, in_features, batch, array_size = _shape_dims(shape)
-    threads_per_block, _unroll_factor = _schedule_params(schedule)
+    threads_per_block, unroll_factor = _schedule_params(schedule)
     coeffs = _target_coefficients(target)
 
     out_padded = int(math.ceil(out_features / array_size) * array_size)
@@ -87,6 +97,25 @@ def predict_latency_us(shape: Dict[str, Any], schedule: Dict[str, Any], target: 
     out_tail = float(out_padded - out_features) / float(out_padded)
     in_tail = float(in_padded - in_features) / float(in_padded)
     tail_ratio = 0.5 * (out_tail + in_tail)
+    unroll_log2 = math.log2(float(unroll_factor))
+    max_unroll_log2 = math.log2(8.0)
+    unroll_norm = unroll_log2 / max_unroll_log2
+    unroll_gain = coeffs["unroll_gain_us"] * unroll_norm
+    # May be inactive on aligned padded-K grids where this remainder is always zero.
+    k_unroll_tail = float(in_padded % unroll_factor) / float(unroll_factor)
+    unroll_k_tail_penalty = coeffs["unroll_k_tail_penalty_us"] * k_unroll_tail
+    shape_compute_scale = math.log2(1.0 + (float(out_padded) * float(in_padded) / 1024.0))
+    unroll_shape_interaction = coeffs["unroll_shape_interaction_us"] * unroll_norm * shape_compute_scale
+    tpb_norm = math.log2(float(threads_per_block) / 32.0) / math.log2(8.0)
+    small_out_ratio = max(0.0, 64.0 - float(out_padded)) / 64.0
+    small_out_tpb_interaction = coeffs["small_out_tpb_interaction_us"] * small_out_ratio * tpb_norm
+    small_out_unroll_interaction = coeffs["small_out_unroll_interaction_us"] * small_out_ratio * unroll_norm
+    idle_thread_ratio = max(0.0, float(threads_per_block) - float(out_padded)) / float(threads_per_block)
+    waves = float(math.ceil(float(out_padded) / float(threads_per_block)))
+    wave_tpb_interaction = waves * tpb_norm
+    small_out_idle_penalty = small_out_ratio * idle_thread_ratio
+    large_k_unroll_gain = unroll_log2 * math.log2(1.0 + (float(in_padded) / 128.0))
+    small_out_unroll_penalty = small_out_ratio * unroll_log2
 
     memory_term = coeffs["memory_us_per_kib"] * memory_kib
     cta_memory_term = coeffs["cta_memory_us_per_kib"] * cta_memory_kib
@@ -96,5 +125,15 @@ def predict_latency_us(shape: Dict[str, Any], schedule: Dict[str, Any], target: 
         + memory_term
         + coeffs["underoccupancy_penalty_us"] * underoccupancy_penalty
         + coeffs["tile_tail_penalty_us"] * tail_ratio
+        - unroll_gain
+        + unroll_k_tail_penalty
+        - unroll_shape_interaction
+        + small_out_tpb_interaction
+        + small_out_unroll_interaction
+        + coeffs["idle_thread_ratio_us"] * idle_thread_ratio
+        + coeffs["wave_tpb_interaction_us"] * wave_tpb_interaction
+        + coeffs["small_out_idle_penalty_us"] * small_out_idle_penalty
+        - coeffs["large_k_unroll_gain_us"] * large_k_unroll_gain
+        + coeffs["small_out_unroll_penalty_us"] * small_out_unroll_penalty
     )
     return float(max(latency, 1e-6))

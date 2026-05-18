@@ -1,0 +1,247 @@
+# AUDIT_LOG.md
+
+## 2026-05-16
+- LLM scaffold created (`.claudeignore`, `AGENTS.md`, `PROJECT_STATE.md`, `CLAIMS_MATRIX.md`, `AUDIT_LOG.md`, `NEXT_TASK.md`).
+- Evidence source limited to top-level structure and `README.md`.
+- Next priorities: verify compiler-path and benchmark/sim claims with narrow checks.
+
+## 2026-05-17
+- Cleaned obvious bloat while preserving `PROJECT_CONTEXT.md` and keeping source code intact.
+- Removed stale duplicate handoff files under `AGENT_HANDOFF/`.
+- Removed redundant narrative/snapshot docs in `docs/`: `PROJECT_EXPLAINED_FROM_FIRST_PRINCIPLES.md`, `INTERVIEW_NOTES.md`, `RESUME_BULLETS.md`, `TPU_PROJECT_STATE.md`, `WRITEUP.md`, and the trivial `docs/README`.
+- Preserved potentially useful evidence docs such as `docs/ABSTRACTION_AUDIT.md` and `docs/uTPU.md` because they may still carry unique context.
+- Implemented Deliverable A pass-based Graph IR pipeline:
+  - added `graph_passes.py` with `shape_inference`, `linear_relu_fusion`, `dead_code_elimination`, `backend_legality`
+  - integrated pass manager into `compile_mlp_model`
+  - added fused IR op `linear_relu` and compatibility updates in lowering/runtime planning
+  - added `test_graph_passes.py` and updated impacted tests
+- Implemented Deliverable B deterministic NumPy reference interpreter:
+  - added `graph_reference_interpreter.py` (no PyTorch ops in interpreter execution)
+  - added `test_reference_interpreter.py` with hand-computed expected output and determinism check
+  - exposed interpreter through `PyTorchCompileResult.reference_interpreter(...)`
+- Updated context/handoff/project-state markdown files to reflect the new compiler architecture and evidence boundaries.
+- Implemented Deliverable C differential validation harness:
+  - added `differential_test_harness.py` for fixed-shape backend-vs-reference comparisons
+  - added `test_differential_harness.py` with report assertions and CUDA skip handling
+  - generated `build/reports/differential_test_report.json` including tolerance, environment, and per-shape backend error metrics
+  - uTPU backend entry currently uses `quantized_reference_emulation` and is marked as such in evidence docs
+- Updated `context/*`, `PROJECT_STATE.md`, `PROJECT_CONTEXT.md`, `CLAIMS_MATRIX.md`, `RESUME_CLAIMS.md`, `NEXT_TASK.md`, and `README.md` to include Deliverable C status and caveats.
+- Revised differential fixtures to remove identity passthrough setup:
+  - deterministic signed sparse integer weights instead of identity-diagonal weights
+  - signed deterministic inputs instead of positive-only inputs
+  - regenerated `build/reports/differential_test_report.json`
+- Full suite result:
+  - `python -m pytest firmware/host/ -v` fails collection on UART tests requiring missing `serial` package (`single_title_test.py`, `uart_link_test.py`).
+  - `python -m pytest firmware/host/ -v --ignore=firmware/host/single_title_test.py --ignore=firmware/host/uart_link_test.py` passes (`54 passed`).
+- Deliverable B execution refresh:
+  - re-validated deterministic NumPy Graph IR interpreter with `python -m pytest firmware/host/test_reference_interpreter.py -q`
+  - result: `2 passed` in current session
+- Deliverable C execution refresh:
+  - re-validated differential harness with `python -m pytest firmware/host/test_differential_harness.py -q`
+  - result: `1 passed` in current session
+  - refreshed artifact: `build/reports/differential_test_report.json` (`generated_at_utc`: `2026-05-18T00:51:16.718634+00:00`)
+
+## 2026-05-18
+- Reworked CUDA blocked-FC cost model after diagnosing TPB=32 overprediction:
+  - replaced dead serial-inner feature with CTA working-set memory feature derived from kernel geometry (`min(out_padded, threads_per_block) * in_padded`)
+  - model form is now `intercept + cta_memory_kib + total_memory_kib + underoccupancy + tile_tail`
+  - updated `firmware/host/cost_model.py` and `firmware/host/calibrate_cost_model.py`
+- Refit `build/reports/cost_model_calibration.json` from existing measured latencies only:
+  - source measurement timestamp: `2026-05-18T01:32:10.810297+00:00`
+  - no new CUDA timing was run for this artifact refresh
+  - log_R2 improved from `0.6663` to `0.9303`
+  - MAPE improved from `22.51%` to `10.74%`
+  - p95 abs relative error improved from `59.83%` to `26.32%`
+  - previous worst cluster `(in=512,out=512,tpb=32,u=1)` median error improved from about `+120%` to `+6.48%`
+- Validation:
+  - `python -m py_compile firmware/host/cost_model.py firmware/host/calibrate_cost_model.py`
+- Fresh CUDA timing run with CTA-working-set model:
+  - command: `python firmware/host/calibrate_cost_model.py --warmup 8 --iters 20 --repeat-launches-per-sample 32`
+  - refreshed `build/reports/cost_model_calibration.json` and `.md`
+  - timestamp: `2026-05-18T02:06:46.513410+00:00`
+  - log_R2 `0.9323`, MAPE `10.68%`, p95 abs relative error `25.41%`
+- Holdout validation artifact added:
+  - `build/reports/cost_model_holdout_validation.json`
+  - `build/reports/cost_model_holdout_validation.md`
+  - requested shape-triplet 80/20 split: train log_R2 `0.9326`, test log_R2 `0.9283`; train MAPE `11.00%`, test MAPE `10.11%`; train p95 `25.50%`, test p95 `23.42%`
+  - stricter actual-layer-shape 80/20 split: train MAPE `10.47%`, test MAPE `12.53%`; train p95 `22.92%`, test p95 `37.85%`
+  - strict-split residual risk remains concentrated at held-out `(in=64,out=512,tpb=256)` schedules.
+- Implemented cost-model-pruned autotuner path:
+  - added cost-model candidate ranking and `prune_top_k` support in `firmware/host/cuda_autotuner.py`
+  - added `firmware/host/evaluate_pruned_autotuner.py`
+  - generated `build/reports/pruned_autotuner_report.json` and `.md`
+  - top-4 pruning over 16 schedule candidates gives `4.00x` search reduction
+  - measured-data replay over 24 calibrated layer shapes shows mean regression `0.71%`, p95 `3.58%`, max `4.41%`, within-5%-regression fraction `1.00`
+- Hardened differential harness fixture:
+  - added tiny deterministic jitter to seeded signed sparse weights/inputs, preserving int4 rounding while avoiding exact-zero floating-point diffs
+  - regenerated `build/reports/differential_test_report.json`
+  - refreshed max_abs_error range: `1.19e-07` to `3.49e-07`, all backends pass tolerance
+- Added liveness-driven memory planning pass:
+  - added `GraphIR.metadata`
+  - added `memory_planning_pass` to `GraphPassManager` between DCE and backend legality
+  - runtime plans now carry `memory_plan`
+  - added `firmware/host/generate_memory_plan_report.py`
+  - generated `build/reports/memory_plan_report.json` and `.md`
+  - sample liveness report reuses `act_0` for non-overlapping values `a` and `c`, reducing naive persistent activation bytes from `48` to `32` (`33.33%`)
+- Focused validation:
+  - `python -m pytest firmware/host/test_graph_passes.py firmware/host/test_cuda_autotuner.py firmware/host/test_differential_harness.py -q` -> `14 passed`
+  - `python -m py_compile firmware/host/cuda_autotuner.py firmware/host/evaluate_pruned_autotuner.py firmware/host/differential_test_harness.py firmware/host/graph_ir.py firmware/host/graph_passes.py firmware/host/graph_runtime_plan.py firmware/host/pytorch_compiler.py firmware/host/generate_memory_plan_report.py`
+- Extended differential harness with TorchInductor oracle:
+  - added `torch.compile(..., backend="inductor", fullgraph=True)` backend entry in `firmware/host/differential_test_harness.py`
+  - updated `firmware/host/test_differential_harness.py` to require the oracle and accept explicit platform skips
+  - current Windows run records `torch_compile` skipped with `WinError 50`; CUDA and uTPU emulation still pass
+- Added Python uTPU ISA simulator and RTL bitmatch evidence:
+  - added `firmware/host/isa_simulator.py`
+  - added `firmware/host/run_isa_rtl_bitmatch.py`
+  - added `firmware/host/test_isa_simulator.py`
+  - generated `build/reports/isa_rtl_bitmatch_report.json` and `.md`
+  - Icarus RTL simulation executed and passed; Python ISA fetch bytes match RTL fetch bytes for `case1_single_k` (`[17,245]`) and `case2_multi_k` (`[117,119]`)
+- Rewrote GitHub front-page README:
+  - added scoped architecture/evidence-first README wording
+  - added tracked evidence summary at `docs/EVIDENCE.md`
+  - added terminal-preview SVG at `docs/inspect_compiler_pipeline_demo.svg`
+- Focused validation:
+  - `python -m pytest firmware/host/test_isa_simulator.py -q` -> `2 passed`
+  - `python firmware/host/run_isa_rtl_bitmatch.py --output-json build/reports/isa_rtl_bitmatch_report.json --output-md build/reports/isa_rtl_bitmatch_report.md` -> `all_isa_rtl_bitmatch=true`
+  - `python -m pytest firmware/host/test_differential_harness.py firmware/host/test_isa_simulator.py -q` -> `3 passed`
+  - `python -m py_compile firmware/host/isa_simulator.py firmware/host/run_isa_rtl_bitmatch.py firmware/host/differential_test_harness.py`
+- Improved schedule-awareness in CUDA cost model/autotuner with minimal-diff analytical extensions:
+  - `firmware/host/cost_model.py`: added explicit unroll-sensitive terms (`unroll_gain_us`, `unroll_k_tail_penalty_us`, `unroll_shape_interaction_us`) so latency ranking can distinguish schedule families beyond memory-size/occupancy terms.
+  - `firmware/host/cuda_autotuner.py`: pruning now uses bounded fallback for small search spaces, tie-margin retention for near-equal scores, and per-unroll-family diversity preservation.
+  - `firmware/host/evaluate_pruned_autotuner.py`: added ranking-quality metrics (`top1_winner_accuracy`, `topk_contains_winner_accuracy`, `within_1pct_fraction`) and per-shape winner-hit fields.
+- Added focused autotuner tests in `firmware/host/test_cuda_autotuner.py`:
+  - schedule-aware unroll ranking
+  - pruning family diversity retention
+  - small-search-space fallback
+- Validation:
+  - `python -m pytest firmware/host/test_cuda_autotuner.py -q` -> `10 passed`
+- Refreshed measurement artifacts after schedule-aware changes:
+  - `python firmware/host/calibrate_cost_model.py --warmup 8 --iters 20 --repeat-launches-per-sample 32`
+    - updated `build/reports/cost_model_calibration.json` at `2026-05-18T17:57:45.796149+00:00`
+    - aggregate metrics: log_R2 `0.9114`, MAPE `13.00%`, p95 abs relative error `32.55%`
+  - `python firmware/host/evaluate_pruned_autotuner.py --top-k 4`
+    - updated `build/reports/pruned_autotuner_report.json` at `2026-05-18T17:57:49.531443+00:00`
+    - replay summary: mean regression `3.13%`, p95 `21.52%`, max `27.09%`, within-5% `0.9167`
+    - ranking metrics: top-1 winner accuracy `0.0833`, top-k winner containment `0.5000`, within-1% `0.5000`
+- Important caveat from refresh:
+  - calibration artifact `model_form` remains the legacy 5-term form and fitted coefficients omit the new unroll-sensitive terms.
+  - this means the current refreshed replay does not yet validate a calibrated schedule-aware model; calibration path must be updated to emit/fit the extended feature set.
+- Implemented calibration-path fix for schedule-aware coefficients:
+  - updated `firmware/host/calibrate_cost_model.py` to include and fit unroll-aware features:
+    - `unroll_norm`
+    - `unroll_k_tail`
+    - `unroll_shape_interaction`
+  - extended emitted coefficients to include:
+    - `unroll_gain_us`
+    - `unroll_k_tail_penalty_us`
+    - `unroll_shape_interaction_us`
+  - added identifiability guard in fitter: zero-variance feature terms are auto-fixed to defaults and excluded from active optimization.
+- Added focused calibration loading test:
+  - `firmware/host/test_cuda_autotuner.py::test_load_cost_model_target_reads_schedule_aware_coefficients`
+  - validation: `python -m pytest firmware/host/test_cuda_autotuner.py -q` -> `11 passed`
+- Refreshed artifacts after calibration-path fix:
+  - `build/reports/cost_model_calibration.json` aggregate: log_R2 `0.9257`, MAPE `12.77%`, p95 `33.26%`
+  - `build/reports/pruned_autotuner_report.json` summary:
+    - mean regression `2.73%`, p95 `24.58%`, max `27.54%`
+    - top-1 winner accuracy `0.0833`
+    - top-k winner containment `0.7500`
+    - within-1% fraction `0.7917`
+- Aligned pruning replay with production semantics and improved ranking robustness:
+  - `firmware/host/evaluate_pruned_autotuner.py` now reuses `select_pruned_candidates()` and reports both strict top-k metrics and production-policy metrics.
+  - `firmware/host/cuda_autotuner.py` now applies deterministic prediction tie-bucketing and emits richer pruning metadata (`best_predicted_latency_us`, `tie_margin_kept_count`, actual selected count/reduction).
+  - `firmware/host/cost_model.py` + `firmware/host/calibrate_cost_model.py` now include minimal small-output interaction terms:
+    - `small_out_tpb_interaction_us`
+    - `small_out_unroll_interaction_us`
+  - kept `unroll_k_tail` term with explicit note that it may be inactive on aligned grids.
+- Focused validation:
+  - `python -m pytest firmware/host/test_cuda_autotuner.py -q` -> `15 passed`
+  - `python firmware/host/evaluate_pruned_autotuner.py --top-k 4` replay summary:
+    - policy profiled candidates: `5.83` avg (vs strict `4`)
+    - policy search reduction: `2.74x` (vs strict `4.00x`)
+    - policy winner containment: `0.8333` (vs strict `0.7083`)
+    - policy max regression: `2.80%` (vs strict `6.79%`)
+- Added per-shape ranking diagnostics and regime-aware analytic features for within-shape schedule ranking:
+  - `firmware/host/calibrate_cost_model.py` now reports ranking diagnostics:
+    - `top1_winner_accuracy`
+    - `topk_contains_winner_accuracy`
+    - mean per-shape Spearman rho
+    - mean per-shape pairwise ordering accuracy
+    - per-shape ranking details
+  - `firmware/host/cost_model.py` and `firmware/host/calibrate_cost_model.py` now include additional inspectable terms:
+    - `idle_thread_ratio`
+    - `wave_tpb_interaction`
+    - `small_out_idle_penalty`
+    - `large_k_unroll_gain`
+    - `small_out_unroll_penalty`
+  - kept `unroll_k_tail` term with existing caveat that it can be inactive on aligned grids.
+- Focused validation:
+  - `python -m pytest firmware/host/test_cuda_autotuner.py -q` -> `16 passed`
+  - `python firmware/host/evaluate_pruned_autotuner.py --top-k 4` summary:
+    - policy profiled candidates: `4.375` avg (vs strict `4`)
+    - policy search reduction: `3.66x` (vs strict `4.00x`)
+    - policy containment: `0.75` (strict `0.75`)
+    - policy max regression: `4.52%` (strict `7.02%`)
+- Added cheap refit path (no new CUDA timing):
+  - `firmware/host/calibrate_cost_model.py` now supports:
+    - `--refit-from-existing-json <path>`
+  - mode recomputes current feature basis from existing `per_point` shape/schedule rows, refits coefficients, and regenerates metrics/artifacts.
+- Refit + replay run:
+  - `python firmware/host/calibrate_cost_model.py --refit-from-existing-json build/reports/cost_model_calibration.json --output-json build/reports/cost_model_calibration.json --output-md build/reports/cost_model_calibration.md`
+  - refit aggregate: log_R2 `0.9261`, MAPE `12.71%`, p95 `33.47%`
+  - refit ranking diagnostics: top1 `0.0000`, topk_contains `0.0833`, mean_spearman `0.3760`, mean_pairwise `0.6007`
+  - `python firmware/host/evaluate_pruned_autotuner.py --top-k 4`:
+    - policy containment `0.8333` (previous `0.75`)
+    - policy max regression `2.80%` (previous `4.52%`)
+    - policy avg profiled candidates `5.54` (previous `4.375`)
+- Added objective-level pairwise ordering term to the cost-model coefficient fit:
+  - `firmware/host/calibrate_cost_model.py` now optimizes normalized log-latency residuals plus a bounded within-shape pairwise ordering penalty.
+  - pairwise config is recorded in calibration artifacts as `fit_objective=mean_log_latency_mse_plus_pairwise_ordering` with lambda `0.2`, scale `20.0`, and measured-pair tie epsilon derived from median latency.
+  - focused test added in `firmware/host/test_cuda_autotuner.py`.
+- Pairwise-objective refit + replay:
+  - `python -m pytest firmware/host/test_cuda_autotuner.py -q` -> `17 passed`
+  - `python firmware/host/calibrate_cost_model.py --refit-from-existing-json build/reports/cost_model_calibration.json --output-json build/reports/cost_model_calibration.json --output-md build/reports/cost_model_calibration.md`
+    - aggregate: log_R2 `0.9066`, MAPE `13.86%`, p95 `36.69%`
+    - calibration ranking diagnostics: top1 `0.0000`, topk_contains `0.0833`, mean_spearman `0.3760`, mean_pairwise `0.6122`
+  - `python firmware/host/evaluate_pruned_autotuner.py --top-k 4`
+    - policy containment `0.9583` (strict `0.75`)
+    - policy max regression `2.80%` (strict `5.90%`)
+    - policy avg profiled candidates `7.50`
+    - policy search reduction `2.13x`
+  - Interpretation: replay pruning quality improved materially, but aggregate latency fit worsened and top-1 ranking remains weak; this is a conservative pruning improvement, not a single-winner predictor.
+- Tightened pairwise objective and pruning safety valve:
+  - Pairwise objective now uses schedule-median pairs within each shape, only comparing pairs that touch the winner/near-winner set, and skips measured pairs within `1%` of the shape winner.
+  - Pairwise lambda reduced to `0.1`; pair filter metadata is emitted in calibration JSON/Markdown.
+  - `select_pruned_candidates()` now also keeps thread-block family diversity for small-dimension cases when the selected set has not already expanded beyond requested top-k.
+- Final focused validation:
+  - `python -m pytest firmware/host/test_cuda_autotuner.py -q` -> `18 passed`
+  - `python firmware/host/calibrate_cost_model.py --refit-from-existing-json build/reports/cost_model_calibration.json --output-json build/reports/cost_model_calibration.json --output-md build/reports/cost_model_calibration.md`
+    - aggregate: log_R2 `0.9204`, MAPE `12.85%`, p95 `35.09%`
+  - `python firmware/host/evaluate_pruned_autotuner.py --top-k 4`
+    - policy containment `0.8333` (strict `0.7917`)
+    - policy max regression `0.49%` (strict `5.90%`)
+    - policy avg profiled candidates `7.46`
+    - policy search reduction `2.15x`
+  - Interpretation: final patch prioritizes bounded quality loss over exact winner containment; all policy-selected schedules are within `1%` of exhaustive best in replay, but candidate reduction is modest.
+- Tightened pruning policy after replay analysis:
+  - tie-margin retention reduced from `3%` to `1%`.
+  - thread-block family diversity now only fires when selected count has not expanded beyond requested top-k and `min(in_features, out_features) <= 16`.
+  - This targets the observed small-dimension miss pattern without forcing thread-block diversity across every 32/64-dimension shape.
+- Final replay after policy tightening:
+  - `python -m pytest firmware/host/test_cuda_autotuner.py -q` -> `18 passed`
+  - `python firmware/host/evaluate_pruned_autotuner.py --top-k 4`
+    - policy avg profiled candidates `4.92` of 16
+    - policy search reduction `3.25x`
+    - policy containment `0.8333` (strict `0.7917`)
+    - policy max regression `0.49%` (strict `5.90%`)
+    - policy within-1% fraction `1.0000`
+  - Interpretation: final policy gives near-strict-top-4 search cost with much lower worst-case replay regression.
+- Evidence hardening pass:
+  - Added schema-lock assertions for differential harness report entries in `firmware/host/test_differential_harness.py`.
+  - Added schema-lock assertions for pruned autotuner replay and calibration refit reports in `firmware/host/test_cuda_autotuner.py`.
+  - Focused validation: `python -m pytest firmware/host/test_cuda_autotuner.py firmware/host/test_differential_harness.py -q` -> `20 passed`.
+  - Ran small live CUDA autotuner smoke comparison on four shapes and wrote `build/reports/live_autotuner_comparison.json`:
+    - exhaustive elapsed `3.50s`
+    - policy top-4 elapsed `1.58s`
+    - policy run executed all four shapes
+    - live per-shape winner identity is noisy for tiny kernels, so replay remains the primary quality claim.
+  - Updated README/evidence/project-state docs to use current replay numbers and caveats.

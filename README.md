@@ -1,216 +1,93 @@
-﻿# uTPU Retargetable ML Compiler (uTPU + CUDA)
+﻿# uTPU: Scoped ML Compiler + CUDA/uTPU Backend Lab
 
-This project is a retargetable blocked-FC compiler/runtime that drives both a custom uTPU ISA path and a CUDA path from shared compiler structure. The same front-end tensor shapes flow through shared problem modeling, blocked scheduling, and request typing, then diverge in target-specific lowering/codegen and runtime execution. Today the backend dispatch is explicit in both `backend_lowering.py` and one loader-level runtime branch in `ProgramLoader` (`firmware/host/program_loader.py`), so the boundary is mostly centralized but not fully abstracted yet.
+![Compiler pipeline terminal preview](docs/inspect_compiler_pipeline_demo.svg)
 
-## Honest Scope
+`uTPU` is a focused ML systems project: a small PyTorch MLP subset lowers into a custom Graph IR, then into either a generated CUDA blocked-FC kernel or a custom uTPU ISA/RTL path. The point is not broad framework coverage. The point is compiler passes, backend lowering, measurement discipline, autotuning, and hardware-style verification on one narrow workload family.
 
-This repo is best read as a scoped ML compiler/backend project, not as an attempt to replace PyTorch.
+## Scope
 
-Implemented:
+Supported:
 
-- PyTorch `torch.fx` import for a small MLP subset.
-- A custom tensor Graph IR with explicit values, ops, shapes, producers, and consumers.
-- Linear/ReLU graph planning into int4 blocked fully connected work.
-- A shared blocked-FC problem/schedule/request layer used by both CUDA and uTPU paths.
-- CUDA execution through generated NVRTC kernels for the supported compiled path.
-- uTPU ISA program emission for the custom RTL instruction machine.
-- Benchmark reports that separate compile/setup, H2D, kernel, D2H, steady-state wall time, fallback ops, and int4-reference correctness.
+- Batch-1 MLP-style `Linear -> ReLU -> Linear` flows.
+- Pass-based Graph IR: shape inference, Linear+ReLU fusion, dead-code elimination, liveness memory planning, backend legality.
+- INT4 blocked fully connected lowering for CUDA and uTPU program emission.
+- CUDA runtime execution through generated NVRTC kernels.
+- uTPU ISA generation plus Python ISA simulation and Verilog RTL simulation evidence.
 
 Not claimed:
 
-- arbitrary PyTorch model support;
-- transformer support;
-- a production `torch.compile` backend;
-- end-to-end speedup over PyTorch/cuBLAS on the current tiny/small benchmarks;
-- physical board validation from Graph IR-generated programs.
+- General PyTorch compiler support.
+- Transformer support.
+- Production `torch.compile` backend.
+- Physical board validation for Graph IR-generated programs.
+- End-to-end speedup over PyTorch/cuBLAS on tiny benchmarks.
 
-## Why CUDA?
+## Evidence-Backed Claims
 
-CUDA is a second executable backend and a validation/performance sandbox. It is not a substitute for the uTPU hardware story.
+- Compiler correctness: differential harness compares the NumPy Graph IR interpreter, CUDA compiled backend, uTPU quantized emulation, and a TorchInductor oracle when the local platform supports it. Evidence: [docs/EVIDENCE.md#differential-testing](docs/EVIDENCE.md#differential-testing), [firmware/host/differential_test_harness.py](firmware/host/differential_test_harness.py).
 
-The CUDA path is useful because it makes the compiler boundary testable without a board: the same FX import, Graph IR, blocked schedule, and lowering request can feed generated CUDA kernels. The CUDA runtime also exposes real performance accounting, cache behavior, transfer costs, and correctness against a software int4 graph reference.
+- CUDA performance engineering: calibrated CUDA-event data backs a schedule-aware analytical cost model and pruning policy for blocked-FC autotuning. The current measured-data replay profiles `4.92` of 16 schedules on average (`3.25x` search reduction), keeps every selected schedule within `1%` of exhaustive best, and lowers max replay regression from strict top-k's `5.90%` to `0.49%`. A small live CUDA smoke check also exercises exhaustive vs pruned tuning, but replay remains the primary quality claim. Evidence: [docs/EVIDENCE.md#cost-model-and-pruned-autotuner](docs/EVIDENCE.md#cost-model-and-pruned-autotuner), [firmware/host/cost_model.py](firmware/host/cost_model.py), [firmware/host/cuda_autotuner.py](firmware/host/cuda_autotuner.py).
 
-The uTPU path remains the custom ISA/RTL target: it emits instruction words for the accelerator, tracks BRAM fit, and has RTL simulation coverage for the fused compressed program path. Board execution is intentionally not claimed here unless separately validated.
+- Hardware verification: Python ISA simulator and Verilog RTL produce bit-identical fetch bytes on two compiled fused MLP programs. Evidence: [docs/EVIDENCE.md#python-isa-simulator--rtl-bitmatch](docs/EVIDENCE.md#python-isa-simulator--rtl-bitmatch), [firmware/host/isa_simulator.py](firmware/host/isa_simulator.py), [rtl/tb/tb_fused_compressed_program.sv](rtl/tb/tb_fused_compressed_program.sv).
 
 ## Architecture
 
 ```text
-PyTorch model
-        |
-        v
-torch.fx symbolic trace
-        |
-        v
-Custom Graph IR
-(graph_ir.py, fx_importer.py)
-        |
-        v
-Explicit pass pipeline
-(graph_passes.py)
-  - shape_inference
-  - linear_relu_fusion
-  - dead_code_elimination
-  - backend_legality
-        |
-        v
-Graph lowering / runtime plan
-(graph_lowering.py, graph_runtime_plan.py)
-        |
-        v
-Blocked FC problem + schedule
-(compiler_abstractions.py, lowering_types.py)
-        |
-        v
-Backend dispatch (backend_lowering.py)
-        |
-        +-------------------------------+
-        |                               |
-        v                               v
-uTPU lowering/codegen            CUDA lowering/codegen
-(lowering_blocked_fc_utpu.py)    (cuda_blocked_fc_backend.py)
-        |                               |
-        v                               v
-ISA program emission              NVRTC PTX + CUDA launch
-(program_loader.py, isa_encoder.py)    (CUDABlockedFCExecutor)
-        |                               |
-        v                               v
-ISA/runtime/simulation hooks      NVRTC CUDA runtime
-(program_loader.py, RTL)          (compiled_runtime.py)
+PyTorch module
+  -> torch.fx trace
+  -> custom Graph IR
+  -> pass pipeline
+       shape inference
+       Linear+ReLU fusion
+       dead-code elimination
+       liveness memory planning
+       backend legality
+  -> blocked-FC schedule/request layer
+  -> backend lowering
+       CUDA: NVRTC kernel + schedule autotuner + cost model
+       uTPU: ISA program words + Python ISA sim + Verilog RTL sim
 ```
 
-## One-Command Compiler Inspection
-
-To inspect the whole supported compiler pipeline without relying on performance claims:
+## Fast Demo
 
 ```bash
 python examples/inspect_compiler_pipeline.py
 ```
 
-This prints and writes `build/reports/compiler_introspection_tiny_mlp.json` with:
+This prints the FX graph, post-pass Graph IR, blocked-FC schedule, CUDA kernel metadata, uTPU instruction footprint, fallback lists, and writes `build/reports/compiler_introspection_tiny_mlp.json`.
 
-- FX graph nodes;
-- custom Graph IR values and ops;
-- blocked-FC schedules and padded dimensions;
-- CUDA backend metadata;
-- fallback/unsupported op lists;
-- uTPU instruction words and BRAM-fit status.
+Expected summary:
 
-Example summary for the tiny MLP:
-
-| Stage | Evidence |
-|---|---|
-| FX graph | `placeholder -> fc1 -> relu -> fc2 -> output` |
-| Graph IR ops after pass pipeline | `linear_relu, linear` |
-| Lowered ops | `2` blocked-FC ops |
-| Fallback ops | `[]` |
-| CUDA backend | generated `blocked_fc_int4_kernel` metadata |
-| uTPU footprint | `434` total instruction words for the two single-layer lowerings |
-
-The compile entrypoint can also emit a pass-by-pass IR snapshot:
-
-```bash
-python -c "import sys; sys.path.append('firmware/host'); import torch, torch.nn as nn; from pytorch_compiler import compile_mlp_model; m=nn.Sequential(nn.Linear(4,3), nn.ReLU(), nn.Linear(3,2)).eval(); compile_mlp_model(m, torch.randn(1,4), pass_pipeline_dump_path='build/reports/pass_pipeline_dump.json')"
+```text
+FX graph: x -> fc1 -> relu -> fc2 -> output
+Graph IR ops: linear_relu, linear
+fallback_ops=[]
+CUDA backend: blocked_fc_int4_kernel executable=True
+uTPU ISA footprint: total_utpu_instruction_words=434
 ```
 
-## Differential Validation Harness
+## Reproduce The Key Evidence
 
-The repo includes an automated backend-vs-oracle differential harness:
+```bash
+python -m pytest firmware/host/test_differential_harness.py -q
+python -m pytest firmware/host/test_isa_simulator.py -q
+python firmware/host/run_isa_rtl_bitmatch.py --output-json build/reports/isa_rtl_bitmatch_report.json --output-md build/reports/isa_rtl_bitmatch_report.md
+python firmware/host/evaluate_pruned_autotuner.py --top-k 4 --output-json build/reports/pruned_autotuner_report.json
+python examples/inspect_compiler_pipeline.py
+```
 
-- script/module: `firmware/host/differential_test_harness.py`
-- test gate: `firmware/host/test_differential_harness.py`
-- report artifact: `build/reports/differential_test_report.json`
+For CUDA calibration and holdout validation, use the calibration scripts under `firmware/host/`; these generate local reports under `build/reports/`.
 
-Current shape set:
-- `(4,8,4)`
-- `(8,16,8)`
-- `(16,32,16)`
+## Resume-Safe Wording
 
-Current semantics:
-- reference: NumPy Graph IR interpreter
-- CUDA backend: compiled runtime execution (or explicit skip when CUDA unavailable)
-- uTPU backend: `quantized_reference_emulation` (software path, not board execution)
-- fixtures: non-identity signed sparse integer weights + signed deterministic inputs
+- Built a pass-based Graph IR compiler for a scoped MLP subset with shape inference, Linear+ReLU fusion, liveness memory planning, backend legality checks, and differential testing against reference/backend oracles.
 
-## What's Actually Retargetable
+- Built a cost-model-guided CUDA blocked-FC autotuner that prunes a 16-candidate schedule space to `4.92` measured candidates on calibrated replay (`3.25x` reduction), with all selected schedules within `1%` of exhaustive best and max replay regression under `0.5%`.
 
-### Target-agnostic passes and abstractions
-- `firmware/host/compiler_abstractions.py`
-  - `BlockedFCProblem`
-  - `BlockedFCSchedule`
-  - `build_blocked_fc_schedule(...)`
-  - `MemoryScope` and generic `TargetDesc` fields used for schedule metadata.
-- `firmware/host/lowering_types.py`
-  - `BlockedFCLoweringRequest` shared request schema for backend lowerers.
+- Verified bit-accurate agreement between a Python uTPU ISA simulator and Verilog RTL on compiled fused MLP programs.
 
-### Target-specific logic
-- uTPU-specific:
-  - `firmware/host/lowering_blocked_fc_utpu.py` (ISA-oriented blocked lowering)
-  - `firmware/host/isa_encoder.py` (instruction encoding)
-  - `firmware/host/program_loader.py` (UART upload/start/fetch runtime path)
-  - `rtl/**` (hardware implementation)
-- CUDA-specific:
-  - `firmware/host/cuda_blocked_fc_backend.py` (NVRTC PTX generation, CUDA driver launch, timing)
-  - `firmware/host/cuda_autotuner.py` (small schedule-parameter search and cache)
+## Important Caveats
 
-### Controlled divergence point
-- `firmware/host/backend_lowering.py`
-  - `create_backend_lowerer(name)` is the explicit backend switch.
+- The TorchInductor oracle is wired into the differential harness, but the current Windows artifact records a platform skip (`WinError 50`). Rerun on a supported Linux/WSL TorchInductor stack before claiming TorchInductor pass coverage.
 
-## Locked Benchmark Numbers (5 runs, min/median/max)
-
-Source: `benchmarks/summary.json` and raw JSON in `benchmarks/run_01..run_05/`.
-
-| Metric | Min | Median | Max |
-|---|---:|---:|---:|
-| Block runtime correctness: array_block accuracy (%) | 90.0 | 90.0 | 90.0 |
-| Block runtime correctness: max abs logit diff | 0.0 | 0.0 | 0.0 |
-| CUDA small (M=10,K=9): kernel avg ms | 0.0690 | 0.0828 | 0.0893 |
-| CUDA small: transfer overhead % | 87.7588 | 89.2987 | 90.9613 |
-| CUDA small: kernel-vs-cuBLAS % | 24.1406 | 34.5432 | 73.4157 |
-| CUDA medium (M=9,K=196): kernel avg ms | 0.0776 | 0.0973 | 0.1071 |
-| CUDA medium: transfer overhead % | 86.1744 | 88.0981 | 90.0485 |
-| CUDA medium: kernel-vs-cuBLAS % | 37.6293 | 41.5117 | 74.5213 |
-| CUDA representative-MLP (M=64,K=256): kernel avg ms | 0.0837 | 0.1019 | 0.1375 |
-| CUDA representative-MLP: transfer overhead % | 84.8928 | 88.9203 | 94.1685 |
-| CUDA representative-MLP: kernel-vs-cuBLAS % | 41.7180 | 86.1927 | 106.2286 |
-| Fused inference program size (BRAM words) | 1017 | 1017 | 1017 |
-| RTL fused sim pass count (out of 5) | 5 | 5 | 5 |
-| RTL fused sim cycle count | 44018 | 44018 | 44018 |
-
-## Reproduce
-
-- Reproducibility prerequisites (exact benchmark environment):
-  - Python: `3.14.4`
-  - CUDA Toolkit (`nvcc --version`): `13.2` (`V13.2.78`)
-  - CuPy: `14.0.1` (`cupy-cuda13x`)
-  - Icarus Verilog: `12.0 (devel) (s20150603-1539-g2693dd32b)`
-  - GPU: `NVIDIA GeForce RTX 5070 Laptop GPU` (driver `596.21`)
-  - CPU: `Intel(R) Core(TM) Ultra 9 275HX`
-  - These exact values are also embedded in `benchmarks/summary.json` top-level `provenance` and per-run `runs_metadata`.
-
-- Full lock pass (all results above, 5 runs each):
-  - `make bench`
-  - Equivalent: `python firmware/host/lock_benchmarks.py --runs 5`
-- Block runtime correctness only:
-  - `python firmware/host/block_runtime_analysis.py --num-samples 100 --output-json build/reports/block_runtime_metrics.json --output-md build/reports/block_runtime_report.md`
-- CUDA blocked FC (single shape run):
-  - `python firmware/host/benchmark_cuda_blocked_fc.py --m 10 --k 9 --iters 40 --warmup 8 --output-json build/reports/cuda_blocked_fc_benchmark.json`
-- Fused inference program size:
-  - `python firmware/host/test_fused_full_inference_program.py`
-- RTL fused simulation (pass/fail + cycle count):
-  - `python firmware/host/run_rtl_fused_sim.py --output-json build/reports/rtl_fused_sim_metrics.json --output-md build/reports/rtl_fused_sim_report.md`
-- Compiler pipeline inspection:
-  - `python examples/inspect_compiler_pipeline.py`
-- MLP baseline comparison:
-  - `python examples/benchmark_mlp_baselines.py`
-- CUDA schedule autotune:
-  - `python examples/autotune_cuda_blocked_fc.py`
-
-## Limitations
-
-- The compiled CUDA path is bit-exact against the software int4 graph reference for measured shapes, but int4 saturation can drift far from unconstrained float PyTorch on non-tiny random weights.
-- The current compiled runtime still loses to PyTorch/cuBLAS end-to-end on the tiny/small benchmark reports.
-- The CUDA autotuner can improve isolated kernel measurements on some shapes, but the latest full MLP tuned benchmark does not improve steady-state wall time.
-- Operator scope is MLP-style blocked FC flow; broader operator coverage is not implemented.
-- cuBLAS-relative numbers vary run-to-run on tiny workloads; lock file captures variability explicitly.
-- Board execution is intentionally out of scope in this artifact pass; this repo state focuses on simulation/software-backed validation.
+- The uTPU differential backend in the compiler harness is software emulation. The separate ISA/RTL bitmatch claim is simulation-based, not board execution.

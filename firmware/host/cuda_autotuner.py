@@ -23,6 +23,8 @@ DEFAULT_CACHE_PATH = os.path.abspath(
 DEFAULT_COST_MODEL_PATH = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..", "build", "reports", "cost_model_calibration.json")
 )
+_RANK_TIE_REL_EPS = 1e-3
+_RANK_TIE_ABS_EPS_US = 1e-3
 
 
 @dataclass(frozen=True)
@@ -188,7 +190,7 @@ def rank_candidates_by_cost_model(
         "array_size": int(array_size),
         "apply_quant": True,
     }
-    ranked = []
+    ranked: List[Dict[str, Any]] = []
     for candidate in candidates:
         schedule = normalize_cuda_schedule_params(candidate)
         predicted_us = predict_latency_us(shape, schedule, target=target)
@@ -198,7 +200,23 @@ def rank_candidates_by_cost_model(
                 "predicted_latency_us": float(predicted_us),
             }
         )
-    ranked.sort(key=lambda item: (float(item["predicted_latency_us"]), item["schedule"]["threads_per_block"], item["schedule"]["unroll_factor"]))
+    if ranked:
+        best_us = min(float(item["predicted_latency_us"]) for item in ranked)
+        tie_eps_us = max(_RANK_TIE_ABS_EPS_US, best_us * _RANK_TIE_REL_EPS)
+    else:
+        best_us = 0.0
+        tie_eps_us = _RANK_TIE_ABS_EPS_US
+    for item in ranked:
+        predicted_us = float(item["predicted_latency_us"])
+        item["tie_bucket"] = int((predicted_us - best_us) / tie_eps_us) if ranked else 0
+    ranked.sort(
+        key=lambda item: (
+            int(item["tie_bucket"]),
+            item["schedule"]["threads_per_block"],
+            item["schedule"]["unroll_factor"],
+            float(item["predicted_latency_us"]),
+        )
+    )
     for rank, item in enumerate(ranked, start=1):
         item["cost_model_rank"] = int(rank)
     return ranked
@@ -211,14 +229,81 @@ def select_pruned_candidates(
     candidates: Iterable[Dict[str, int]],
     top_k: Optional[int],
     target: Any = "cuda",
-) -> Tuple[List[Dict[str, int]], List[Dict[str, Any]]]:
+) -> Tuple[List[Dict[str, int]], List[Dict[str, Any]], Dict[str, Any]]:
     normalized = [normalize_cuda_schedule_params(c) for c in candidates]
+    policy_meta = {
+        "requested_top_k": int(top_k) if top_k is not None else None,
+        "tie_margin_fraction": 0.01,
+        "small_space_threshold": None,
+        "best_predicted_latency_us": None,
+        "tie_margin_kept_count": 0,
+        "unroll_family_kept_count": 0,
+        "thread_block_family_kept_count": 0,
+        "thread_block_family_condition": "selected_count_le_top_k_and_min_shape_dim_le_16",
+        "selected_candidate_count": len(normalized),
+        "search_reduction_x": 1.0,
+        "used_policy": False,
+    }
     if top_k is None or int(top_k) <= 0 or int(top_k) >= len(normalized):
-        return normalized, []
+        return normalized, [], policy_meta
+    small_space_threshold = max(6, int(top_k))
+    policy_meta["small_space_threshold"] = int(small_space_threshold)
+    if len(normalized) <= small_space_threshold:
+        return normalized, [], policy_meta
     ranked = rank_candidates_by_cost_model(out_features, in_features, array_size, normalized, target=target)
-    keep = ranked[: int(top_k)]
-    pruned = ranked[int(top_k) :]
-    return [dict(item["schedule"]) for item in keep], pruned
+    k = int(top_k)
+    keep = ranked[:k]
+    margin_threshold = 0.01
+    policy_meta["used_policy"] = True
+    tie_kept = 0
+    if ranked:
+        best_us = float(ranked[0]["predicted_latency_us"])
+        policy_meta["best_predicted_latency_us"] = float(best_us)
+        if best_us > 0.0:
+            for item in ranked[k:]:
+                delta = (float(item["predicted_latency_us"]) - best_us) / best_us
+                if delta <= margin_threshold:
+                    keep.append(item)
+                    tie_kept += 1
+                else:
+                    break
+    seen_unroll = {int(item["schedule"]["unroll_factor"]) for item in keep}
+    unroll_family_kept = 0
+    for item in ranked:
+        unroll = int(item["schedule"]["unroll_factor"])
+        if unroll not in seen_unroll:
+            keep.append(item)
+            seen_unroll.add(unroll)
+            unroll_family_kept += 1
+    thread_family_kept = 0
+    keep_thread_diversity = len(keep) <= k and min(int(out_features), int(in_features)) <= 16
+    if keep_thread_diversity:
+        seen_threads = {int(item["schedule"]["threads_per_block"]) for item in keep}
+        for item in ranked:
+            threads = int(item["schedule"]["threads_per_block"])
+            if threads not in seen_threads:
+                keep.append(item)
+                seen_threads.add(threads)
+                thread_family_kept += 1
+    keep_schedules = []
+    seen_schedule = set()
+    for item in keep:
+        key = (int(item["schedule"]["threads_per_block"]), int(item["schedule"]["unroll_factor"]))
+        if key in seen_schedule:
+            continue
+        seen_schedule.add(key)
+        keep_schedules.append(dict(item["schedule"]))
+    pruned = [
+        item
+        for item in ranked
+        if (int(item["schedule"]["threads_per_block"]), int(item["schedule"]["unroll_factor"])) not in seen_schedule
+    ]
+    policy_meta["tie_margin_kept_count"] = int(tie_kept)
+    policy_meta["unroll_family_kept_count"] = int(unroll_family_kept)
+    policy_meta["thread_block_family_kept_count"] = int(thread_family_kept)
+    policy_meta["selected_candidate_count"] = int(len(keep_schedules))
+    policy_meta["search_reduction_x"] = float(len(normalized) / max(1, len(keep_schedules)))
+    return keep_schedules, pruned, policy_meta
 
 
 def _target_id(executor: CUDABlockedFCExecutor) -> str:
@@ -348,7 +433,7 @@ def tune_blocked_fc_shape(
     if max_candidates is not None:
         all_candidates = all_candidates[: int(max_candidates)]
     target_model = cost_model_target if cost_model_target is not None else load_cost_model_target(cost_model_path)
-    candidates, pruned_candidates = select_pruned_candidates(
+    candidates, pruned_candidates, policy_meta = select_pruned_candidates(
         out_features=out_features,
         in_features=in_features,
         array_size=array_size,
@@ -359,12 +444,21 @@ def tune_blocked_fc_shape(
     pruning = None
     if pruned_candidates:
         pruning = {
-            "method": "cost_model_top_k",
+            "method": "cost_model_top_k_margin_diversity",
             "top_k": int(prune_top_k),
             "candidate_count": int(len(all_candidates)),
             "profiled_candidate_count": int(len(candidates)),
             "search_reduction_x": float(len(all_candidates) / max(1, len(candidates))),
             "cost_model_path": cost_model_path,
+            "fallback_small_space_threshold": int(max(6, int(prune_top_k))),
+            "tie_margin_fraction": 0.01,
+            "family_diversity": "keep_best_per_unroll_factor_and_threads_per_block",
+            "best_predicted_latency_us": policy_meta.get("best_predicted_latency_us"),
+            "tie_margin_kept_count": int(policy_meta.get("tie_margin_kept_count", 0)),
+            "unroll_family_kept_count": int(policy_meta.get("unroll_family_kept_count", 0)),
+            "thread_block_family_kept_count": int(policy_meta.get("thread_block_family_kept_count", 0)),
+            "selected_candidate_count": int(policy_meta.get("selected_candidate_count", len(candidates))),
+            "actual_search_reduction_x": float(policy_meta.get("search_reduction_x", float(len(all_candidates) / max(1, len(candidates))))),
         }
 
     measured = []

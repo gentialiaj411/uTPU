@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Tuple
 
 from cost_model import predict_latency_us
-from cuda_autotuner import CUDATuningSearchSpace, load_cost_model_target
+from cuda_autotuner import CUDATuningSearchSpace, load_cost_model_target, select_pruned_candidates
 
 
 REPORT_JSON_PATH = Path("build/reports/pruned_autotuner_report.json")
@@ -78,6 +78,13 @@ def evaluate_pruned_search(
 
     per_shape = []
     regressions = []
+    strict_regressions = []
+    top1_hits = 0
+    topk_contains_winner = 0
+    strict_topk_contains_winner = 0
+    within_1pct_hits = 0
+    strict_within_1pct_hits = 0
+    policy_profiled_counts: List[int] = []
     for (in_features, out_features), candidates in sorted(by_shape.items()):
         if (in_features, out_features) in excluded:
             continue
@@ -97,42 +104,99 @@ def evaluate_pruned_search(
             predicted = predict_latency_us(shape, schedule, target=target)
             ranked.append((float(predicted), key, candidate))
         ranked.sort(key=lambda item: (item[0], item[1]))
-        top = [item[2] for item in ranked[: int(top_k)]]
+        strict_top = [item[2] for item in ranked[: int(top_k)]]
+        policy_selected_schedules, _policy_pruned, policy_meta = select_pruned_candidates(
+            out_features=out_features,
+            in_features=in_features,
+            array_size=shape["array_size"],
+            candidates=[c["schedule"] for c in candidates],
+            top_k=top_k,
+            target=target,
+        )
+        selected_keys = {(int(s["threads_per_block"]), int(s["unroll_factor"])) for s in policy_selected_schedules}
+        policy_top = [c for c in candidates if (int(c["schedule"]["threads_per_block"]), int(c["schedule"]["unroll_factor"])) in selected_keys]
         exhaustive_best = min(candidates, key=lambda item: float(item["measured_latency_us"]))
-        pruned_best = min(top, key=lambda item: float(item["measured_latency_us"]))
+        pruned_best = min(policy_top, key=lambda item: float(item["measured_latency_us"]))
+        strict_best = min(strict_top, key=lambda item: float(item["measured_latency_us"]))
+        top1 = strict_top[0]
+        winner_in_topk = any(item["schedule"] == exhaustive_best["schedule"] for item in policy_top)
+        winner_in_strict_topk = any(item["schedule"] == exhaustive_best["schedule"] for item in strict_top)
+        if top1["schedule"] == exhaustive_best["schedule"]:
+            top1_hits += 1
+        if winner_in_topk:
+            topk_contains_winner += 1
+        if winner_in_strict_topk:
+            strict_topk_contains_winner += 1
         regression = (
             (float(pruned_best["measured_latency_us"]) - float(exhaustive_best["measured_latency_us"]))
             / max(float(exhaustive_best["measured_latency_us"]), 1e-9)
             * 100.0
         )
+        strict_regression = (
+            (float(strict_best["measured_latency_us"]) - float(exhaustive_best["measured_latency_us"]))
+            / max(float(exhaustive_best["measured_latency_us"]), 1e-9)
+            * 100.0
+        )
+        if regression <= 1.0:
+            within_1pct_hits += 1
+        if strict_regression <= 1.0:
+            strict_within_1pct_hits += 1
         regressions.append(float(regression))
+        strict_regressions.append(float(strict_regression))
+        policy_profiled_counts.append(int(len(policy_top)))
         per_shape.append(
             {
                 "shape": {"in_features": int(in_features), "out_features": int(out_features)},
                 "full_candidate_count": int(len(candidates)),
-                "profiled_candidate_count": int(top_k),
-                "search_reduction_x": float(len(candidates) / max(1, int(top_k))),
+                "profiled_candidate_count": int(len(policy_top)),
+                "search_reduction_x": float(len(candidates) / max(1, int(len(policy_top)))),
+                "strict_top_k_profiled_candidate_count": int(top_k),
+                "strict_top_k_search_reduction_x": float(len(candidates) / max(1, int(top_k))),
                 "exhaustive_best_schedule": dict(exhaustive_best["schedule"]),
                 "exhaustive_best_latency_us": float(exhaustive_best["measured_latency_us"]),
                 "pruned_best_schedule": dict(pruned_best["schedule"]),
                 "pruned_best_latency_us": float(pruned_best["measured_latency_us"]),
                 "quality_regression_pct": float(regression),
-                "top_k_schedules": [dict(item["schedule"]) for item in top],
+                "strict_top_k_best_schedule": dict(strict_best["schedule"]),
+                "strict_top_k_best_latency_us": float(strict_best["measured_latency_us"]),
+                "strict_top_k_quality_regression_pct": float(strict_regression),
+                "top1_schedule": dict(top1["schedule"]),
+                "top1_matches_winner": bool(top1["schedule"] == exhaustive_best["schedule"]),
+                "winner_in_top_k": bool(winner_in_topk),
+                "winner_in_strict_top_k": bool(winner_in_strict_topk),
+                "top_k_schedules": [dict(item["schedule"]) for item in policy_top],
+                "strict_top_k_schedules": [dict(item["schedule"]) for item in strict_top],
+                "pruning_policy": policy_meta,
             }
         )
 
     regressions_sorted = sorted(regressions)
+    strict_regressions_sorted = sorted(strict_regressions)
     p95 = regressions_sorted[int(round(0.95 * (len(regressions_sorted) - 1)))] if regressions_sorted else None
+    strict_p95 = strict_regressions_sorted[int(round(0.95 * (len(strict_regressions_sorted) - 1)))] if strict_regressions_sorted else None
+    avg_profiled = float(statistics.fmean(policy_profiled_counts)) if policy_profiled_counts else float(top_k)
     summary = {
         "shape_count": int(len(per_shape)),
         "full_candidate_count": int(full_candidate_count),
-        "profiled_candidate_count": int(top_k),
-        "search_reduction_x": float(full_candidate_count / max(1, int(top_k))),
+        "profiled_candidate_count": float(avg_profiled),
+        "search_reduction_x": float(full_candidate_count / max(1.0, avg_profiled)),
+        "strict_top_k_profiled_candidate_count": int(top_k),
+        "strict_top_k_search_reduction_x": float(full_candidate_count / max(1, int(top_k))),
         "mean_quality_regression_pct": float(statistics.fmean(regressions)) if regressions else None,
         "median_quality_regression_pct": float(statistics.median(regressions)) if regressions else None,
         "p95_quality_regression_pct": float(p95) if p95 is not None else None,
         "max_quality_regression_pct": float(max(regressions)) if regressions else None,
+        "strict_top_k_mean_quality_regression_pct": float(statistics.fmean(strict_regressions)) if strict_regressions else None,
+        "strict_top_k_median_quality_regression_pct": float(statistics.median(strict_regressions)) if strict_regressions else None,
+        "strict_top_k_p95_quality_regression_pct": float(strict_p95) if strict_p95 is not None else None,
+        "strict_top_k_max_quality_regression_pct": float(max(strict_regressions)) if strict_regressions else None,
         "within_5pct_fraction": float(sum(r <= 5.0 for r in regressions) / len(regressions)) if regressions else None,
+        "within_1pct_fraction": float(within_1pct_hits / len(regressions)) if regressions else None,
+        "strict_top_k_within_1pct_fraction": float(strict_within_1pct_hits / len(strict_regressions)) if strict_regressions else None,
+        "top1_winner_accuracy": float(top1_hits / len(per_shape)) if per_shape else None,
+        "topk_contains_winner_accuracy": float(topk_contains_winner / len(per_shape)) if per_shape else None,
+        "strict_topk_contains_winner_accuracy": float(strict_topk_contains_winner / len(per_shape)) if per_shape else None,
+        "policy_contains_winner_accuracy": float(topk_contains_winner / len(per_shape)) if per_shape else None,
     }
     report = {
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
