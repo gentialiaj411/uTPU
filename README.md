@@ -112,6 +112,25 @@ The compile entrypoint can also emit a pass-by-pass IR snapshot:
 python -c "import sys; sys.path.append('firmware/host'); import torch, torch.nn as nn; from pytorch_compiler import compile_mlp_model; m=nn.Sequential(nn.Linear(4,3), nn.ReLU(), nn.Linear(3,2)).eval(); compile_mlp_model(m, torch.randn(1,4), pass_pipeline_dump_path='build/reports/pass_pipeline_dump.json')"
 ```
 
+## Differential Validation Harness
+
+The repo includes an automated backend-vs-oracle differential harness:
+
+- script/module: `firmware/host/differential_test_harness.py`
+- test gate: `firmware/host/test_differential_harness.py`
+- report artifact: `build/reports/differential_test_report.json`
+
+Current shape set:
+- `(4,8,4)`
+- `(8,16,8)`
+- `(16,32,16)`
+
+Current semantics:
+- reference: NumPy Graph IR interpreter
+- CUDA backend: compiled runtime execution (or explicit skip when CUDA unavailable)
+- uTPU backend: `quantized_reference_emulation` (software path, not board execution)
+- fixtures: non-identity signed sparse integer weights + signed deterministic inputs
+
 ## What's Actually Retargetable
 
 ### Target-agnostic passes and abstractions
