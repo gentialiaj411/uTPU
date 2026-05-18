@@ -10,6 +10,7 @@ def test_differential_harness_report_and_tolerances():
     assert report["tolerance"]["rtol"] == 1e-5
     assert len(report["shapes"]) >= 3
     assert "jitter" in report["fixture"]["weights"]
+    assert "torch.compile_inductor" in report["oracles"]
     assert os.path.exists("build/reports/differential_test_report.json")
 
     nonzero_abs_errors = []
@@ -17,6 +18,24 @@ def test_differential_harness_report_and_tolerances():
         backends = {entry["backend"]: entry for entry in case["backends"]}
         assert "cuda" in backends
         assert "utpu" in backends
+        assert "torch_compile" in backends
+
+        torch_compile_entry = backends["torch_compile"]
+        if torch_compile_entry["status"] == "skipped":
+            reason = (torch_compile_entry.get("reason") or "").lower()
+            assert (
+                "compile" in reason
+                or "inductor" in reason
+                or "triton" in reason
+                or "backend" in reason
+                or "winerror" in reason
+                or "not supported" in reason
+            )
+        else:
+            assert torch_compile_entry["status"] == "pass"
+            assert torch_compile_entry["within_tolerance"] is True
+            assert torch_compile_entry["max_abs_error"] <= report["tolerance"]["atol"]
+            nonzero_abs_errors.append(torch_compile_entry["max_abs_error"])
 
         cuda_entry = backends["cuda"]
         if cuda_entry["status"] == "skipped":

@@ -133,6 +133,45 @@ def _run_cuda_backend(model: Any, x: Any, reference: np.ndarray, atol: float, rt
     }
 
 
+def _run_torch_compile_backend(model: Any, x: Any, reference: np.ndarray, atol: float, rtol: float) -> Dict[str, Any]:
+    torch, _ = _require_torch()
+    if not hasattr(torch, "compile"):
+        return {
+            "backend": "torch_compile",
+            "status": "skipped",
+            "reason": "torch.compile unavailable",
+            "max_abs_error": None,
+            "max_rel_error": None,
+            "within_tolerance": None,
+            "execution_mode": "torch.compile_inductor",
+        }
+    try:
+        compiled = torch.compile(model, backend="inductor", fullgraph=True)
+        with torch.no_grad():
+            output = _to_numpy(compiled(x))
+    except Exception as e:
+        return {
+            "backend": "torch_compile",
+            "status": "skipped",
+            "reason": str(e),
+            "max_abs_error": None,
+            "max_rel_error": None,
+            "within_tolerance": None,
+            "execution_mode": "torch.compile_inductor",
+        }
+
+    metrics = _error_metrics(reference, output, atol=atol, rtol=rtol)
+    return {
+        "backend": "torch_compile",
+        "status": "pass" if metrics["within_tolerance"] else "fail",
+        "reason": None,
+        "max_abs_error": metrics["max_abs_error"],
+        "max_rel_error": metrics["max_rel_error"],
+        "within_tolerance": metrics["within_tolerance"],
+        "execution_mode": "torch.compile_inductor",
+    }
+
+
 def _run_utpu_backend(model: Any, x: Any, reference: np.ndarray, atol: float, rtol: float) -> Dict[str, Any]:
     compiled = compile_mlp_model(model, x, target="utpu")
     if compiled.runtime is None:
@@ -190,6 +229,12 @@ def run_differential_harness(
             "inputs": "seeded signed pattern inputs with tiny deterministic jitter",
             "purpose": "avoid identity passthrough and avoid exact-zero floating-point diffs while preserving int4 rounding",
         },
+        "oracles": [
+            "numpy_reference_interpreter",
+            "torch.compile_inductor",
+            "cuda_backend",
+            "utpu_quantized_reference_emulation",
+        ],
         "shapes": [],
     }
 
@@ -206,6 +251,7 @@ def run_differential_harness(
         reference = _to_numpy(compiled_for_ref.reference_interpreter(x))
 
         backends = [
+            _run_torch_compile_backend(model, x, reference=reference, atol=atol, rtol=rtol),
             _run_cuda_backend(model, x, reference=reference, atol=atol, rtol=rtol),
             _run_utpu_backend(model, x, reference=reference, atol=atol, rtol=rtol),
         ]
