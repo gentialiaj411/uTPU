@@ -255,3 +255,7 @@
     - `firmware/host/test_isa_simulator.py`
     - `firmware/host/test_rtl_sim_artifact.py`
   - Local validation: `python -m pytest firmware/host/test_footprint_baseline.py firmware/host/test_compiler_smoke.py firmware/host/test_graph_passes.py firmware/host/test_reference_interpreter.py firmware/host/test_isa_simulator.py firmware/host/test_rtl_sim_artifact.py -v` -> `16 passed`.
+- CI follow-up repair:
+  - GitHub Actions run `26059683385` reached the updated test list but failed in `test_footprint_baseline.py` because clean CI lacks untracked `software/model/weights`.
+  - Updated `test_footprint_baseline.py` to skip when the model weights artifact is absent, matching the existing optional-artifact pattern in `test_rtl_sim_artifact.py`.
+  - Local validation with local weights present: `python -m pytest firmware/host/test_footprint_baseline.py firmware/host/test_compiler_smoke.py firmware/host/test_graph_passes.py firmware/host/test_reference_interpreter.py firmware/host/test_isa_simulator.py firmware/host/test_rtl_sim_artifact.py -v` -> `16 passed`.

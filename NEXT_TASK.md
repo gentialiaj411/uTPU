@@ -4,8 +4,9 @@
 CI status:
 - GitHub Actions run `26059344232` failed because CI referenced removed `firmware/host/test_pipeline_artifact.py`.
 - `.github/workflows/ci.yml` now runs the current narrow host regression set instead.
+- GitHub Actions run `26059683385` then failed because clean CI lacks untracked `software/model/weights`; `test_footprint_baseline.py` now skips when that optional artifact is absent.
 - Local validation: `python -m pytest firmware/host/test_footprint_baseline.py firmware/host/test_compiler_smoke.py firmware/host/test_graph_passes.py firmware/host/test_reference_interpreter.py firmware/host/test_isa_simulator.py firmware/host/test_rtl_sim_artifact.py -v` -> `16 passed`.
-- Next step: push the workflow fix and confirm the replacement CI run passes on GitHub Actions.
+- Next step: push the optional-artifact skip fix and confirm the replacement CI run passes on GitHub Actions.
 
 Schedule-aware pruning follow-up:
 1. Pairwise ordering objective is implemented in `calibrate_cost_model.py` and verified with no-new-CUDA refit.
