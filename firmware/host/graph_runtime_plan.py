@@ -66,59 +66,80 @@ def build_graph_runtime_plan(graph: GraphIR, target: str) -> GraphRuntimePlan:
         if op.name in consumed_relu:
             continue
 
-        if op.op not in {OpKind.LINEAR, OpKind.LINEAR_RELU}:
-            plan.unsupported_ops.append(
-                f"Runtime only supports Linear ops with optional fused ReLU; op '{op.name}' is '{op.op}'"
-            )
+        if op.op not in {
+            OpKind.LINEAR,
+            OpKind.LINEAR_RELU,
+            OpKind.RELU,
+            OpKind.ADD,
+            OpKind.VIEW,
+            OpKind.PERMUTE,
+            OpKind.SOFTMAX,
+            OpKind.LAYER_NORM,
+            OpKind.SCALED_DOT_PRODUCT_ATTENTION,
+        }:
+            plan.unsupported_ops.append(f"Runtime does not support op '{op.name}' kind '{op.op}'")
             continue
 
-        output_name = op.outputs[0]
-        apply_relu = op.op == OpKind.LINEAR_RELU
-        if not apply_relu:
-            output_value = graph.values.get(output_name)
-            if output_value is not None and len(output_value.consumers) == 1:
-                consumer = op_by_name.get(output_value.consumers[0])
-                if consumer is not None and consumer.op == OpKind.RELU:
-                    apply_relu = True
-                    consumed_relu.add(consumer.name)
-                    output_name = consumer.outputs[0]
+        if op.op in {OpKind.LINEAR, OpKind.LINEAR_RELU}:
+            output_name = op.outputs[0]
+            apply_relu = op.op == OpKind.LINEAR_RELU
+            if not apply_relu:
+                output_value = graph.values.get(output_name)
+                if output_value is not None and len(output_value.consumers) == 1:
+                    consumer = op_by_name.get(output_value.consumers[0])
+                    if consumer is not None and consumer.op == OpKind.RELU:
+                        apply_relu = True
+                        consumed_relu.add(consumer.name)
+                        output_name = consumer.outputs[0]
 
-        weight_name = f"{op.name}.weight"
-        bias_name = f"{op.name}.bias"
-        plan.weight_buffers.append(
-            BufferPlan(
-                name=weight_name,
-                kind="weight",
-                shape=tuple(op.attrs["weight"].shape),
-                dtype=str(op.attrs["weight"].dtype),
-                source=op.name,
-            )
-        )
-        if op.attrs.get("bias") is not None:
+            weight_name = f"{op.name}.weight"
+            bias_name = f"{op.name}.bias"
             plan.weight_buffers.append(
                 BufferPlan(
-                    name=bias_name,
-                    kind="bias",
-                    shape=tuple(op.attrs["bias"].shape),
-                    dtype=str(op.attrs["bias"].dtype),
+                    name=weight_name,
+                    kind="weight",
+                    shape=tuple(op.attrs["weight"].shape),
+                    dtype=str(op.attrs["weight"].dtype),
                     source=op.name,
                 )
             )
+            if op.attrs.get("bias") is not None:
+                plan.weight_buffers.append(
+                    BufferPlan(
+                        name=bias_name,
+                        kind="bias",
+                        shape=tuple(op.attrs["bias"].shape),
+                        dtype=str(op.attrs["bias"].dtype),
+                        source=op.name,
+                    )
+                )
 
-        plan.ops.append(
-            RuntimeOpPlan(
-                graph_op=op.name,
-                op=OpKind.LINEAR,
-                inputs=list(op.inputs),
-                output=output_name,
-                weight_buffer=weight_name,
-                bias_buffer=bias_name if op.attrs.get("bias") is not None else None,
-                apply_relu=apply_relu,
+            plan.ops.append(
+                RuntimeOpPlan(
+                    graph_op=op.name,
+                    op=OpKind.LINEAR,
+                    inputs=list(op.inputs),
+                    output=output_name,
+                    weight_buffer=weight_name,
+                    bias_buffer=bias_name if op.attrs.get("bias") is not None else None,
+                    apply_relu=apply_relu,
+                )
             )
-        )
+        else:
+            plan.ops.append(
+                RuntimeOpPlan(
+                    graph_op=op.name,
+                    op=op.op,
+                    inputs=list(op.inputs),
+                    output=op.outputs[0],
+                )
+            )
 
-        if output_name not in produced_outputs:
-            plan.intermediate_buffers.append(_buffer_for_value(graph, output_name, kind="intermediate", source=op.name))
+        op_output_name = plan.ops[-1].output
+        if op_output_name not in produced_outputs:
+            plan.intermediate_buffers.append(
+                _buffer_for_value(graph, op_output_name, kind="intermediate", source=op.name)
+            )
 
     for output_name in graph.outputs:
         plan.output_buffers.append(_buffer_for_value(graph, output_name, kind="output"))

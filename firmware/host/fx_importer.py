@@ -65,6 +65,14 @@ def _is_view_method(target: Any) -> bool:
     return target in {"view", "reshape", "flatten"}
 
 
+def _is_permute_method(target: Any) -> bool:
+    return target in {"permute", "transpose"}
+
+
+def _is_softmax_function(target: Any, torch: Any, F: Any) -> bool:
+    return target in {torch.softmax, F.softmax}
+
+
 def import_fx_graph_module(fx_module: Any, name: Optional[str] = None) -> GraphIR:
     torch, nn, F = _require_torch()
     modules = dict(fx_module.named_modules())
@@ -117,6 +125,23 @@ def import_fx_graph_module(fx_module: Any, name: Optional[str] = None) -> GraphI
                 )
                 node_to_value[node] = node.name
                 continue
+            if isinstance(module, (nn.LayerNorm, nn.RMSNorm)):
+                input_name = _single_node_arg(node)
+                graph.add_value(node.name, shape=shape, dtype=dtype, producer=node.name)
+                graph.add_op(
+                    OpNode(
+                        name=node.name,
+                        op=OpKind.LAYER_NORM,
+                        inputs=[input_name],
+                        outputs=[node.name],
+                        attrs={
+                            "target": str(node.target),
+                            "eps": float(module.eps) if module.eps is not None else 1e-5,
+                        },
+                    )
+                )
+                node_to_value[node] = node.name
+                continue
             raise FXImportError(
                 f"Unsupported call_module node '{node.name}' target '{node.target}' "
                 f"of type {type(module).__name__}"
@@ -154,24 +179,87 @@ def import_fx_graph_module(fx_module: Any, name: Optional[str] = None) -> GraphI
                 )
                 node_to_value[node] = node.name
                 continue
+            if _is_softmax_function(node.target, torch, F):
+                input_name = _single_node_arg(node)
+                graph.add_value(node.name, shape=shape, dtype=dtype, producer=node.name)
+                graph.add_op(
+                    OpNode(
+                        name=node.name,
+                        op=OpKind.SOFTMAX,
+                        inputs=[input_name],
+                        outputs=[node.name],
+                        attrs={"target": str(node.target)},
+                    )
+                )
+                node_to_value[node] = node.name
+                continue
+            if node.target == F.scaled_dot_product_attention:
+                if len(node.args) < 3:
+                    raise FXImportError(f"Attention node '{node.name}' requires q, k, v")
+                q = _node_name(node.args[0])
+                k = _node_name(node.args[1])
+                v = _node_name(node.args[2])
+                inputs = [q, k, v]
+                if len(node.args) > 3 and hasattr(node.args[3], "name"):
+                    inputs.append(_node_name(node.args[3]))
+                graph.add_value(node.name, shape=shape, dtype=dtype, producer=node.name)
+                graph.add_op(
+                    OpNode(
+                        name=node.name,
+                        op=OpKind.SCALED_DOT_PRODUCT_ATTENTION,
+                        inputs=inputs,
+                        outputs=[node.name],
+                        attrs={"causal_mask": bool(node.kwargs.get("is_causal", False))},
+                    )
+                )
+                node_to_value[node] = node.name
+                continue
             raise FXImportError(
                 f"Unsupported call_function node '{node.name}' target '{node.target}'"
             )
 
-        if node.op == "call_method" and _is_view_method(node.target):
-            input_name = _single_node_arg(node)
-            graph.add_value(node.name, shape=shape, dtype=dtype, producer=node.name)
-            graph.add_op(
-                OpNode(
-                    name=node.name,
-                    op=OpKind.VIEW,
-                    inputs=[input_name],
-                    outputs=[node.name],
-                    attrs={"target": str(node.target), "args": tuple(node.args[1:])},
+        if node.op == "call_method":
+            if _is_view_method(node.target):
+                input_name = _single_node_arg(node)
+                graph.add_value(node.name, shape=shape, dtype=dtype, producer=node.name)
+                graph.add_op(
+                    OpNode(
+                        name=node.name,
+                        op=OpKind.VIEW,
+                        inputs=[input_name],
+                        outputs=[node.name],
+                        attrs={"target": str(node.target), "args": tuple(node.args[1:])},
+                    )
                 )
-            )
-            node_to_value[node] = node.name
-            continue
+                node_to_value[node] = node.name
+                continue
+            if _is_permute_method(node.target):
+                input_name = _single_node_arg(node)
+                graph.add_value(node.name, shape=shape, dtype=dtype, producer=node.name)
+                if node.target == "transpose":
+                    if len(node.args) < 3:
+                        raise FXImportError(f"transpose node '{node.name}' missing dims")
+                    dim0 = int(node.args[1])
+                    dim1 = int(node.args[2])
+                    rank = len(shape) if shape is not None else max(dim0, dim1) + 1
+                    dims = list(range(rank))
+                    dims[dim0], dims[dim1] = dims[dim1], dims[dim0]
+                    args = tuple(dims)
+                else:
+                    args = tuple(node.args[1:]) if node.args[1:] else tuple(node.args)
+                    if args and hasattr(args[0], "name"):
+                        args = tuple(node.args[1:])
+                graph.add_op(
+                    OpNode(
+                        name=node.name,
+                        op=OpKind.PERMUTE,
+                        inputs=[input_name],
+                        outputs=[node.name],
+                        attrs={"target": str(node.target), "args": args},
+                    )
+                )
+                node_to_value[node] = node.name
+                continue
 
         raise FXImportError(
             f"Unsupported FX node '{node.name}' with op '{node.op}' and target '{node.target}'"

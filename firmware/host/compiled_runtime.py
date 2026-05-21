@@ -4,9 +4,9 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 
-from cuda_blocked_fc_backend import CUDABlockedFCExecutor
+from cuda_blocked_fc_backend import CUDABlockedFCExecutor, CUDAGraphOpExecutor
 from cuda_autotuner import DEFAULT_CACHE_PATH, lookup_best_schedule
-from graph_ir import GraphIR
+from graph_ir import GraphIR, OpKind
 from graph_runtime_plan import GraphRuntimePlan, RuntimeOpPlan
 from lowering_types import BlockedFCLoweringRequest
 
@@ -121,6 +121,7 @@ class CompiledMLPRuntime:
         self.device = self._resolve_device()
         self.params = self._materialize_parameters()
         self.cuda_executor = CUDABlockedFCExecutor(verbose=False) if self.target == "cuda" else None
+        self.graph_op_executor = CUDAGraphOpExecutor(device=str(self.device)) if self.target == "cuda" else None
 
     def _require_torch(self):
         try:
@@ -326,7 +327,6 @@ class CompiledMLPRuntime:
         return self._to_torch_output(out, args[0])
 
     def _execute_compiled(self, args) -> Any:
-        call_t0 = time.perf_counter()
         if self.target != "cuda":
             raise CompiledRuntimeError(
                 "Callable compiled execution is currently implemented for target='cuda'. "
@@ -337,87 +337,49 @@ class CompiledMLPRuntime:
                 "Compiled graph is not executable: " + "; ".join(self.runtime_plan.unsupported_ops)
             )
 
-        stats = self._new_stats(mode="compiled")
-        if self.target == "cuda":
+        if self._can_use_resident_linear_path():
             return self._execute_compiled_resident(args)
 
+        return self._execute_compiled_graph_ops(args)
+
+    def _can_use_resident_linear_path(self) -> bool:
+        if len(self.runtime_plan.ops) == 0 or len(self.graph.inputs) != 1:
+            return False
+        return all(op.op == OpKind.LINEAR for op in self.runtime_plan.ops)
+
+    def _execute_compiled_graph_ops(self, args) -> Any:
+        call_t0 = time.perf_counter()
+        if self.graph_op_executor is None:
+            raise CompiledRuntimeError("CUDA graph-op executor is not available for this runtime")
+        result = self.graph_op_executor.run(self.graph, *args)
+        if not result.get("executed", False):
+            raise CompiledRuntimeError(
+                f"CUDA graph-op execution failed: {result.get('reason', 'unknown reason')}"
+            )
+
         stats = self._new_stats(mode="compiled")
-        buffers: Dict[str, np.ndarray] = {}
-        for name, value in zip(self.graph.inputs, args):
-            buffers[name] = _as_float_array(value)
-
         for op in self.runtime_plan.ops:
-            if op.op != "linear":
-                raise CompiledRuntimeError(f"Runtime op '{op.op}' is not executable in compiled mode")
-            if len(op.inputs) != 1:
-                raise CompiledRuntimeError(f"Linear op '{op.graph_op}' expected one input")
-
-            t0 = time.perf_counter()
-            y, backend_result = self.execute_linear_cuda(op, buffers[op.inputs[0]])
-            t1 = time.perf_counter()
-            stats.backend_linear_ops_executed += 1
-            stats.compile_time_ms += float(backend_result.get("compile_time_ms", 0.0) or 0.0)
-            stats.setup_time_ms += float(backend_result.get("setup_time_ms", 0.0) or 0.0)
-            stats.h2d_time_ms += float(backend_result.get("h2d_time_ms", 0.0) or 0.0)
-            stats.kernel_time_ms += float(backend_result.get("kernel_time_ms", 0.0) or 0.0)
-            stats.d2h_time_ms += float(backend_result.get("d2h_time_ms", 0.0) or 0.0)
-            notes = [
-                f"kernel_time_ms={backend_result.get('kernel_time_ms')}",
-                f"compile_time_ms={backend_result.get('compile_time_ms')}",
-                f"setup_time_ms={backend_result.get('setup_time_ms')}",
-                f"kernel_cache_hit={backend_result.get('kernel_cache_hit')}",
-                f"schedule_params={backend_result.get('schedule_params')}",
-                "int4 blocked-FC CUDA backend",
-            ]
+            engine = "cuda_graph_ops"
+            if op.op == OpKind.LINEAR:
+                stats.backend_linear_ops_executed += 1
+            else:
+                stats.backend_elementwise_ops_executed += 1
             stats.op_traces.append(
                 RuntimeOpTrace(
                     graph_op=op.graph_op,
                     op=op.op,
-                    engine="nvrtc_cuda_blocked_fc_tuned" if self.use_tuned_schedule else "nvrtc_cuda_blocked_fc",
-                    latency_ms=(t1 - t0) * 1000.0,
-                    notes=notes,
+                    engine=engine,
+                    latency_ms=0.0,
+                    notes=["graph-op execution path"],
                 )
             )
 
-            if op.bias_buffer is not None or op.apply_relu:
-                te0 = time.perf_counter()
-                y, elem_result = self.execute_elementwise_cuda(op, y)
-                te1 = time.perf_counter()
-                stats.backend_elementwise_ops_executed += 1
-                stats.compile_time_ms += float(elem_result.get("compile_time_ms", 0.0) or 0.0)
-                stats.setup_time_ms += float(elem_result.get("setup_time_ms", 0.0) or 0.0)
-                stats.h2d_time_ms += float(elem_result.get("h2d_time_ms", 0.0) or 0.0)
-                stats.kernel_time_ms += float(elem_result.get("kernel_time_ms", 0.0) or 0.0)
-                stats.d2h_time_ms += float(elem_result.get("d2h_time_ms", 0.0) or 0.0)
-                applied = []
-                if op.bias_buffer is not None:
-                    applied.append("bias")
-                if op.apply_relu:
-                    applied.append("relu")
-                stats.op_traces.append(
-                    RuntimeOpTrace(
-                        graph_op=f"{op.graph_op}.elementwise",
-                        op="+".join(applied),
-                        engine="nvrtc_cuda_elementwise",
-                        latency_ms=(te1 - te0) * 1000.0,
-                        notes=[
-                            f"kernel_time_ms={elem_result.get('kernel_time_ms')}",
-                            f"compile_time_ms={elem_result.get('compile_time_ms')}",
-                            f"setup_time_ms={elem_result.get('setup_time_ms')}",
-                            f"kernel_cache_hit={elem_result.get('kernel_cache_hit')}",
-                        ],
-                    )
-                )
-
-            buffers[op.output] = y
-
-        outputs = [buffers[name] for name in self.graph.outputs]
-        out = outputs[0] if len(outputs) == 1 else tuple(outputs)
         stats.wall_time_ms = (time.perf_counter() - call_t0) * 1000.0
         self.last_stats = stats
-        return self._to_torch_output(out, args[0]) if not isinstance(out, tuple) else tuple(
-            self._to_torch_output(v, args[0]) for v in out
-        )
+        outputs = result["outputs"]
+        if isinstance(outputs, list):
+            return tuple(self._to_torch_output(np.asarray(v, dtype=np.float32), args[0]) for v in outputs)
+        return self._to_torch_output(np.asarray(outputs, dtype=np.float32), args[0])
 
     def _execute_reference(self, args) -> Any:
         torch = self._torch

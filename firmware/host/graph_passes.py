@@ -64,6 +64,19 @@ def _shape_from_view_args(args: Any) -> Any:
     return None
 
 
+def _shape_from_permute_args(shape: Optional[Tuple[int, ...]], args: Any) -> Any:
+    if shape is None:
+        return None
+    dims = None
+    if args and isinstance(args[0], (tuple, list)):
+        dims = tuple(int(v) for v in args[0])
+    elif args:
+        dims = tuple(int(v) for v in args)
+    if dims is None or len(dims) != len(shape):
+        return shape
+    return tuple(shape[i] for i in dims)
+
+
 def _graph_to_dict(graph: GraphIR) -> Dict[str, Any]:
     def clean_attr(value: Any) -> Any:
         if isinstance(value, np.ndarray):
@@ -187,6 +200,11 @@ def shape_inference_pass(graph: GraphIR) -> GraphIR:
             out_value.shape = view_shape or in_value.shape or out_value.shape
             out_value.dtype = in_value.dtype or out_value.dtype
             continue
+        if op.op == OpKind.PERMUTE:
+            in_value = inferred.get_value(op.inputs[0])
+            out_value.shape = _shape_from_permute_args(in_value.shape, op.attrs.get("args", ()))
+            out_value.dtype = in_value.dtype or out_value.dtype
+            continue
 
         if op.op == OpKind.SOFTMAX:
             in_value = inferred.get_value(op.inputs[0])
@@ -270,6 +288,10 @@ def backend_legality_pass(graph: GraphIR, backend: str) -> GraphIR:
         "cuda": {
             OpKind.LINEAR,
             OpKind.LINEAR_RELU,
+            OpKind.RELU,
+            OpKind.ADD,
+            OpKind.VIEW,
+            OpKind.PERMUTE,
             OpKind.SOFTMAX,
             OpKind.LAYER_NORM,
             OpKind.SCALED_DOT_PRODUCT_ATTENTION,

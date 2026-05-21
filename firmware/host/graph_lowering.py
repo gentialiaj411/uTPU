@@ -179,13 +179,21 @@ def plan_blocked_fc_graph(
                 consumed_as_fused_relu.add(relu.name)
             continue
 
-        if op.op in {OpKind.RELU, OpKind.ADD, OpKind.VIEW}:
+        if op.op in {
+            OpKind.RELU,
+            OpKind.ADD,
+            OpKind.VIEW,
+            OpKind.PERMUTE,
+            OpKind.SOFTMAX,
+            OpKind.LAYER_NORM,
+            OpKind.SCALED_DOT_PRODUCT_ATTENTION,
+        }:
             plan.fallback_ops.append(
                 PlannedOp(
                     graph_op=op.name,
                     op=op.op,
                     status="fallback",
-                    notes=[f"{op.op} is represented in Graph IR but not lowered to blocked-FC in this milestone"],
+                    notes=[f"{op.op} is executed via graph-op runtime path, not blocked-FC lowering"],
                 )
             )
             continue

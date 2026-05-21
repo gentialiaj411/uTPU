@@ -996,6 +996,13 @@ class CUDAGraphOpExecutor:
                     raw = tuple(raw[0])
                 values[op.outputs[0]] = x.reshape(raw)
                 continue
+            if op.op == OpKind.PERMUTE:
+                x = self._as_torch(values[op.inputs[0]])
+                raw = tuple(op.attrs.get("args", ()))
+                if len(raw) == 1 and isinstance(raw[0], (tuple, list)):
+                    raw = tuple(raw[0])
+                values[op.outputs[0]] = x.permute(*raw)
+                continue
 
             if op.op == OpKind.SOFTMAX:
                 x = self._as_torch(values[op.inputs[0]])

@@ -8,6 +8,7 @@ class OpKind:
     RELU = "relu"
     ADD = "add"
     VIEW = "view"
+    PERMUTE = "permute"
     SOFTMAX = "softmax"
     LAYER_NORM = "layer_norm"
     SCALED_DOT_PRODUCT_ATTENTION = "scaled_dot_product_attention"

@@ -122,6 +122,13 @@ class GraphReferenceInterpreter:
                 shape = _resolve_view_shape(raw, int(x.size))
                 values[op.outputs[0]] = np.reshape(x, shape).astype(np.float32, copy=False)
                 continue
+            if op.op == OpKind.PERMUTE:
+                x = _as_float32(values[op.inputs[0]])
+                raw = tuple(op.attrs.get("args", ()))
+                if len(raw) == 1 and isinstance(raw[0], (tuple, list)):
+                    raw = tuple(raw[0])
+                values[op.outputs[0]] = np.transpose(x, axes=raw).astype(np.float32, copy=False)
+                continue
 
             if op.op == OpKind.SOFTMAX:
                 x = _as_float32(values[op.inputs[0]])

@@ -80,7 +80,7 @@ def test_backend_legality_pass_reports_offending_ops():
     graph.inputs = ["x"]
     graph.outputs = ["y"]
     graph.add_value("x", shape=(1, 4), dtype="torch.float32")
-    graph.add_op(OpNode(name="add1", op=OpKind.ADD, inputs=["x", "x"], outputs=["y"]))
+    graph.add_op(OpNode(name="bad1", op="unsupported_op", inputs=["x"], outputs=["y"]))
 
     try:
         backend_legality_pass(graph, backend="cuda")
@@ -89,8 +89,8 @@ def test_backend_legality_pass_reports_offending_ops():
         payload = e.to_dict()
         assert payload["backend"] == "cuda"
         assert len(payload["offending_ops"]) == 1
-        assert payload["offending_ops"][0]["name"] == "add1"
-        assert payload["offending_ops"][0]["op"] == OpKind.ADD
+        assert payload["offending_ops"][0]["name"] == "bad1"
+        assert payload["offending_ops"][0]["op"] == "unsupported_op"
 
 
 def test_memory_planning_pass_reuses_non_overlapping_buffers():
