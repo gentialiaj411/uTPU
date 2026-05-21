@@ -35,6 +35,10 @@
   - `README.md`
   - `docs/EVIDENCE.md`
   - `docs/inspect_compiler_pipeline_demo.svg`
+- GitHub Actions CI is green:
+  - workflow: `.github/workflows/ci.yml`
+  - current green run: `26256684852` on `main` at commit `75a626d`
+  - clean-checkout optional artifacts skip instead of failing
 
 ## Important Caveat
 - uTPU differential entry uses `quantized_reference_emulation` in software because board runtime execution is not available in this path.
@@ -70,6 +74,7 @@
 - `python -m pytest firmware/host/test_graph_passes.py firmware/host/test_cuda_autotuner.py firmware/host/test_differential_harness.py -q`
 - `python -m pytest firmware/host/test_differential_harness.py firmware/host/test_isa_simulator.py -q`
 - `python firmware/host/run_isa_rtl_bitmatch.py --output-json build/reports/isa_rtl_bitmatch_report.json --output-md build/reports/isa_rtl_bitmatch_report.md`
+- `python -m pytest firmware/host/test_footprint_baseline.py firmware/host/test_compiler_smoke.py firmware/host/test_graph_passes.py firmware/host/test_reference_interpreter.py firmware/host/test_isa_simulator.py firmware/host/test_rtl_sim_artifact.py -v`
 
 ## Resume-Safe Wording
 - Built a pass-based Graph IR compiler (shape inference, Linear+ReLU fusion, dead-code elimination, liveness memory planning, backend legality) and a differential test harness validating backend outputs against a deterministic NumPy interpreter on fixed MLP shapes.

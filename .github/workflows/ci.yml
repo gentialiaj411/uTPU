@@ -30,4 +30,4 @@ jobs:
         run: python examples/inspect_compiler_pipeline.py || true
 
       - name: Run tests
-        run: python -m pytest firmware/host/test_footprint_baseline.py firmware/host/test_compiler_smoke.py firmware/host/test_graph_passes.py firmware/host/test_reference_interpreter.py firmware/host/test_isa_simulator.py firmware/host/test_rtl_sim_artifact.py -v
+        run: python -m pytest firmware/host/test_footprint_baseline.py firmware/host/test_compiler_smoke.py firmware/host/test_graph_passes.py firmware/host/test_reference_interpreter.py firmware/host/test_isa_simulator.py firmware/host/test_rtl_sim_artifact.py firmware/host/test_transformer_integration.py -v

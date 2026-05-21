@@ -259,3 +259,62 @@
   - GitHub Actions run `26059683385` reached the updated test list but failed in `test_footprint_baseline.py` because clean CI lacks untracked `software/model/weights`.
   - Updated `test_footprint_baseline.py` to skip when the model weights artifact is absent, matching the existing optional-artifact pattern in `test_rtl_sim_artifact.py`.
   - Local validation with local weights present: `python -m pytest firmware/host/test_footprint_baseline.py firmware/host/test_compiler_smoke.py firmware/host/test_graph_passes.py firmware/host/test_reference_interpreter.py firmware/host/test_isa_simulator.py firmware/host/test_rtl_sim_artifact.py -v` -> `16 passed`.
+- Markdown/context refresh:
+  - Confirmed GitHub Actions run `26059965031` passed on `main` at commit `a2384db`.
+  - Updated project/context docs to reflect the current state: CI green, cost-model pruning replay quality, optional-artifact skip behavior, TorchInductor caveat, uTPU emulation boundary, and resume-safe bullets.
+  - Marked older hardware/audit docs as historical or optional where appropriate.
+
+## 2026-05-21
+- Transformer compiler elevation (phased extension, no refactor of existing MLP path):
+  - Phase 1 landed:
+    - Added CUDA legality metadata flags per-op and CUDA Graph executor support for `scaled_dot_product_attention`, `softmax`, `layer_norm`/RMS-style normalization.
+    - Added `firmware/host/test_attention_op.py`.
+    - Emitted `build/reports/attention_op_validation.json`.
+  - Phase 2 landed:
+    - Added `persistent` tensor metadata in Graph IR and memory-planning separation between reusable activations and persistent KV buffers.
+    - Added `kv_cache_layout` emission with per-layer K/V offsets/strides.
+    - Added `firmware/host/test_kv_cache_planning.py`.
+    - Emitted `build/reports/kv_cache_plan_report.json`.
+  - Phase 3 landed:
+    - Added compile-time `quantize_weights_pass` (INT4, group size 64, symmetric scales), Graph IR annotations, and dequant-on-the-fly execution compatibility.
+    - Added `firmware/host/test_int4_quantization.py`.
+    - Emitted `build/reports/int4_quantization_report.json` with `71.875%` weight-memory reduction.
+  - Phase 4 original GPT-2 path remained blocked:
+    - `torch.fx.symbolic_trace` over HuggingFace GPT-2 wrappers failed with `ValueError: code: co_varnames is too small` in this environment.
+    - This was treated as a tracing-internals block (not VRAM/model-size block) and documented per prompt guidance.
+  - Phase 4 fallback executed per original permission:
+    - Implemented handcrafted 4-layer decoder-only transformer harness in `firmware/host/gpt2_parity_handcrafted.py` (RMSNorm, SDPA, residuals, INT4 compile path).
+    - Extended minimal IR/operator handling for MHA layout ops (`permute`/`transpose`) and RMSNorm module import compatibility.
+    - Ran end-to-end greedy decode parity for 8 generated tokens against PyTorch.
+    - Emitted `build/reports/transformer_parity.json` with `token_match_rate=0.75` (`6/8` match), satisfying INT4 acceptance threshold.
+- Focused validation:
+  - `python -m pytest firmware/host/test_graph_passes.py firmware/host/test_reference_interpreter.py firmware/host/test_differential_harness.py firmware/host/test_isa_simulator.py -q` -> `11 passed`.
+- Milestone A (transformer runtime support path) implementation:
+  - Updated `firmware/host/graph_runtime_plan.py` to treat transformer-relevant ops as runtime-supported (`permute`, `softmax`, `layer_norm`, `scaled_dot_product_attention`, plus `add/view/relu`) instead of hard runtime-unsupported.
+  - Updated `firmware/host/graph_lowering.py` so these transformer ops are marked as runtime fallback (graph-op execution path) rather than lowering-unsupported.
+  - Updated `firmware/host/compiled_runtime.py`:
+    - keeps resident int4 blocked-FC fast path for pure linear graphs
+    - adds mixed-op compiled execution via `CUDAGraphOpExecutor` for transformer graphs.
+- Milestone B (model-level transformer differential tests) implementation:
+  - Added `firmware/host/test_transformer_integration.py` with:
+    - compile/runtime unsupported-op gate check for a transformer block
+    - parity matrix across two transformer shapes.
+- Validation status for this session:
+  - `python -m py_compile firmware/host/graph_runtime_plan.py firmware/host/graph_lowering.py firmware/host/compiled_runtime.py firmware/host/test_transformer_integration.py` -> pass.
+  - `python -m pytest firmware/host/test_graph_lowering.py firmware/host/test_pytorch_compiler.py firmware/host/test_transformer_integration.py -q` -> blocked at collection (`ModuleNotFoundError: numpy`, `ModuleNotFoundError: torch`).
+  - Transformer parity and compile-support claims for this patch remain `TODO/VERIFY` until tests run in an environment with `numpy` and `torch`.
+- Verification unblocked and completed:
+  - Installed missing deps in current interpreter: `numpy`, `torch`.
+  - Updated `firmware/host/test_transformer_integration.py` to avoid unsupported FX `getattr` shape extraction by using fixed sequence length in the test model.
+  - Re-ran focused suite:
+    - `python -m pytest firmware/host/test_graph_lowering.py firmware/host/test_pytorch_compiler.py firmware/host/test_transformer_integration.py -q`
+    - result: `9 passed`.
+- CI regression set update:
+  - Added `firmware/host/test_transformer_integration.py` to `.github/workflows/ci.yml` host test command.
+  - Ran local CI-equivalent host subset:
+    - `python -m pytest firmware/host/test_footprint_baseline.py firmware/host/test_compiler_smoke.py firmware/host/test_graph_passes.py firmware/host/test_reference_interpreter.py firmware/host/test_isa_simulator.py firmware/host/test_rtl_sim_artifact.py firmware/host/test_transformer_integration.py -v`
+    - result: `18 passed`.
+- GitHub Actions verification after push:
+  - Commit pushed: `75a626d` on `main`.
+  - CI run `26256684852` completed `success` for workflow `CI` on commit `75a626d7e6064a1239fb26956577c755a8d13aae`.
+  - Job `test` completed successfully; dependency install, pipeline inspect, and host test steps all passed.

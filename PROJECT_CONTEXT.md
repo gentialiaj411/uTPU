@@ -32,6 +32,12 @@ torch.fx trace
 - Current supported claim: measured-data replay prunes 16 schedules to `4.92` profiled candidates on average with max replay regression under `0.5%`.
 - Live small-shape smoke artifact exists at `build/reports/live_autotuner_comparison.json`, but replay remains the primary quality evidence.
 
+## CI / Regression Path
+- Workflow: `.github/workflows/ci.yml`.
+- Current GitHub Actions state: green on `main` at commit `75a626d`, run `26256684852`.
+- CI runs a narrow host regression set covering footprint baseline, compiler smoke, graph passes, reference interpreter, ISA simulator, and optional RTL artifact checks.
+- Optional artifact tests skip when clean CI lacks local-only files such as `software/model/weights` or RTL metrics reports.
+
 ## Validation Boundaries
 - CUDA backend uses compiled execution when available.
 - uTPU backend comparison uses software quantized emulation in this repo path (no board runtime execution).
