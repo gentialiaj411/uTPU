@@ -32,6 +32,27 @@ def _resolve_view_shape(raw_shape: Tuple[int, ...], size: int) -> Tuple[int, ...
     return tuple(shape)
 
 
+def _stable_softmax(x: np.ndarray, axis: int = -1) -> np.ndarray:
+    x_max = np.max(x, axis=axis, keepdims=True)
+    shifted = x - x_max
+    exp = np.exp(shifted)
+    denom = np.sum(exp, axis=axis, keepdims=True)
+    return exp / np.maximum(denom, 1e-12)
+
+
+def _rms_norm(x: np.ndarray, eps: float = 1e-5) -> np.ndarray:
+    rms = np.sqrt(np.mean(np.square(x), axis=-1, keepdims=True) + float(eps))
+    return x / rms
+
+
+def _unpack_int4(packed: np.ndarray, size: int) -> np.ndarray:
+    src = np.asarray(packed, dtype=np.uint8).reshape(-1)
+    out = np.zeros((src.size * 2,), dtype=np.int8)
+    out[0::2] = (src & 0x0F).astype(np.int8) - 8
+    out[1::2] = ((src >> 4) & 0x0F).astype(np.int8) - 8
+    return out[:size]
+
+
 @dataclass
 class GraphReferenceInterpreter:
     graph: GraphIR
@@ -51,7 +72,20 @@ class GraphReferenceInterpreter:
         for op in self.graph.ops:
             if op.op in {OpKind.LINEAR, OpKind.LINEAR_RELU}:
                 x = _as_float32(values[op.inputs[0]])
-                w = _as_float32(op.attrs["weight"])
+                if op.attrs.get("dtype_quant") == "int4_g64":
+                    shape = tuple(op.attrs["weight_int4_shape"])
+                    packed = np.asarray(op.attrs["weight_int4_packed"], dtype=np.uint8)
+                    q = _unpack_int4(packed, int(shape[0] * shape[1])).reshape(shape).astype(np.float32)
+                    scales = _as_float32(op.attrs["weight_int4_scales"])
+                    w = np.zeros(shape, dtype=np.float32)
+                    group_size = 64
+                    for o in range(shape[0]):
+                        for g in range(scales.shape[1]):
+                            s = g * group_size
+                            e = min(shape[1], s + group_size)
+                            w[o, s:e] = q[o, s:e] * scales[o, g]
+                else:
+                    w = _as_float32(op.attrs["weight"])
                 b = op.attrs.get("bias")
                 b_arr = _as_float32(b) if b is not None else None
 
@@ -87,6 +121,46 @@ class GraphReferenceInterpreter:
                     raise GraphReferenceInterpreterError(f"View op '{op.name}' has no target shape args")
                 shape = _resolve_view_shape(raw, int(x.size))
                 values[op.outputs[0]] = np.reshape(x, shape).astype(np.float32, copy=False)
+                continue
+
+            if op.op == OpKind.SOFTMAX:
+                x = _as_float32(values[op.inputs[0]])
+                values[op.outputs[0]] = _stable_softmax(x, axis=-1).astype(np.float32, copy=False)
+                continue
+
+            if op.op == OpKind.LAYER_NORM:
+                x = _as_float32(values[op.inputs[0]])
+                eps = float(op.attrs.get("eps", 1e-5))
+                values[op.outputs[0]] = _rms_norm(x, eps=eps).astype(np.float32, copy=False)
+                continue
+
+            if op.op == OpKind.SCALED_DOT_PRODUCT_ATTENTION:
+                q = _as_float32(values[op.inputs[0]])
+                k = _as_float32(values[op.inputs[1]])
+                v = _as_float32(values[op.inputs[2]])
+                mask = _as_float32(values[op.inputs[3]]) if len(op.inputs) > 3 else None
+
+                if q.ndim != 4 or k.ndim != 4 or v.ndim != 4:
+                    raise GraphReferenceInterpreterError(
+                        f"Attention op '{op.name}' expects rank-4 [B,H,T,D] tensors, got "
+                        f"{q.shape}, {k.shape}, {v.shape}"
+                    )
+                head_dim = int(op.attrs.get("head_dim", q.shape[-1]))
+                scale = 1.0 / np.sqrt(float(head_dim))
+                scores = np.matmul(q, np.swapaxes(k, -1, -2)) * scale
+
+                causal = bool(op.attrs.get("causal_mask", False))
+                if causal:
+                    tq, tk = scores.shape[-2], scores.shape[-1]
+                    tri = np.triu(np.ones((tq, tk), dtype=bool), k=1)
+                    scores = np.where(tri[None, None, :, :], -1e9, scores)
+
+                if mask is not None:
+                    scores = scores + mask
+
+                probs = _stable_softmax(scores, axis=-1).astype(np.float32, copy=False)
+                out = np.matmul(probs, v)
+                values[op.outputs[0]] = out.astype(np.float32, copy=False)
                 continue
 
             raise GraphReferenceInterpreterError(f"Unsupported op '{op.op}' in reference interpreter")

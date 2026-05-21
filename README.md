@@ -1,5 +1,7 @@
 ﻿# uTPU: Scoped ML Compiler + CUDA/uTPU Backend Lab
 
+[![CI](https://github.com/gentialiaj411/uTPU/actions/workflows/ci.yml/badge.svg)](https://github.com/gentialiaj411/uTPU/actions/workflows/ci.yml)
+
 ![Compiler pipeline terminal preview](docs/inspect_compiler_pipeline_demo.svg)
 
 `uTPU` is a focused ML systems project: a small PyTorch MLP subset lowers into a custom Graph IR, then into either a generated CUDA blocked-FC kernel or a custom uTPU ISA/RTL path. The point is not broad framework coverage. The point is compiler passes, backend lowering, measurement discipline, autotuning, and hardware-style verification on one narrow workload family.
@@ -62,7 +64,7 @@ Expected summary:
 FX graph: x -> fc1 -> relu -> fc2 -> output
 Graph IR ops: linear_relu, linear
 fallback_ops=[]
-CUDA backend: blocked_fc_int4_kernel executable=True
+CUDA backend: blocked_fc_int4_kernel executable=True/False depending on local CUDA driver bindings
 uTPU ISA footprint: total_utpu_instruction_words=434
 ```
 
@@ -77,6 +79,8 @@ python examples/inspect_compiler_pipeline.py
 ```
 
 For CUDA calibration and holdout validation, use the calibration scripts under `firmware/host/`; these generate local reports under `build/reports/`.
+
+Current GitHub Actions status: green on `main` at commit `a2384db` (run `26059965031`). The CI job runs the narrow host regression set and skips optional local artifacts, such as model weights or RTL metrics, when absent in a clean checkout.
 
 ## Resume-Safe Wording
 

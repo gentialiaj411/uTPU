@@ -8,6 +8,9 @@ class OpKind:
     RELU = "relu"
     ADD = "add"
     VIEW = "view"
+    SOFTMAX = "softmax"
+    LAYER_NORM = "layer_norm"
+    SCALED_DOT_PRODUCT_ATTENTION = "scaled_dot_product_attention"
 
 
 @dataclass
@@ -17,6 +20,7 @@ class TensorValue:
     dtype: Optional[str] = None
     producer: Optional[str] = None
     consumers: List[str] = field(default_factory=list)
+    persistent: bool = False
 
 
 @dataclass
@@ -43,6 +47,7 @@ class GraphIR:
         shape: Optional[Tuple[int, ...]] = None,
         dtype: Optional[str] = None,
         producer: Optional[str] = None,
+        persistent: Optional[bool] = None,
     ) -> TensorValue:
         existing = self.values.get(name)
         if existing is not None:
@@ -52,9 +57,17 @@ class GraphIR:
                 existing.dtype = dtype
             if producer is not None:
                 existing.producer = producer
+            if persistent is not None:
+                existing.persistent = bool(persistent)
             return existing
 
-        value = TensorValue(name=name, shape=shape, dtype=dtype, producer=producer)
+        value = TensorValue(
+            name=name,
+            shape=shape,
+            dtype=dtype,
+            producer=producer,
+            persistent=bool(persistent) if persistent is not None else False,
+        )
         self.values[name] = value
         return value
 

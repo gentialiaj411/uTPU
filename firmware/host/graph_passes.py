@@ -94,6 +94,7 @@ def _graph_to_dict(graph: GraphIR) -> Dict[str, Any]:
                 "dtype": value.dtype,
                 "producer": value.producer,
                 "consumers": list(value.consumers),
+                "persistent": bool(getattr(value, "persistent", False)),
             }
             for name, value in graph.values.items()
         },
@@ -116,7 +117,12 @@ def _copy_value_metadata(src: GraphIR, dst: GraphIR, value_name: str) -> None:
     if value is None:
         dst.add_value(value_name)
         return
-    dst.add_value(value_name, shape=value.shape, dtype=value.dtype)
+    dst.add_value(
+        value_name,
+        shape=value.shape,
+        dtype=value.dtype,
+        persistent=bool(getattr(value, "persistent", False)),
+    )
 
 
 def _rebuild_graph_with_ops(src: GraphIR, ops: List[OpNode]) -> GraphIR:
@@ -180,6 +186,24 @@ def shape_inference_pass(graph: GraphIR) -> GraphIR:
             view_shape = _shape_from_view_args(op.attrs.get("args", ()))
             out_value.shape = view_shape or in_value.shape or out_value.shape
             out_value.dtype = in_value.dtype or out_value.dtype
+            continue
+
+        if op.op == OpKind.SOFTMAX:
+            in_value = inferred.get_value(op.inputs[0])
+            out_value.shape = in_value.shape
+            out_value.dtype = in_value.dtype or out_value.dtype
+            continue
+
+        if op.op == OpKind.LAYER_NORM:
+            in_value = inferred.get_value(op.inputs[0])
+            out_value.shape = in_value.shape
+            out_value.dtype = in_value.dtype or out_value.dtype
+            continue
+
+        if op.op == OpKind.SCALED_DOT_PRODUCT_ATTENTION:
+            q_value = inferred.get_value(op.inputs[0])
+            out_value.shape = q_value.shape or out_value.shape
+            out_value.dtype = q_value.dtype or out_value.dtype
 
     return inferred
 
@@ -243,16 +267,36 @@ def dead_code_elimination_pass(graph: GraphIR) -> GraphIR:
 def backend_legality_pass(graph: GraphIR, backend: str) -> GraphIR:
     target = (backend or "utpu").strip().lower()
     supported = {
-        "cuda": {OpKind.LINEAR, OpKind.LINEAR_RELU},
+        "cuda": {
+            OpKind.LINEAR,
+            OpKind.LINEAR_RELU,
+            OpKind.SOFTMAX,
+            OpKind.LAYER_NORM,
+            OpKind.SCALED_DOT_PRODUCT_ATTENTION,
+        },
         "utpu": {OpKind.LINEAR, OpKind.LINEAR_RELU},
     }
     allowed = supported.get(target)
     if allowed is None:
         raise BackendLegalityError(target, [{"op": target, "reason": "unknown_backend"}])
 
+    lowered = _clone_graph(graph)
+    lowered.metadata.setdefault("backend_legality", {})
+    lowered.metadata["backend_legality"]["backend"] = target
+    lowered.metadata["backend_legality"]["ops"] = []
+
     offending = []
-    for op in graph.ops:
-        if op.op not in allowed:
+    for op in lowered.ops:
+        lowering_available = bool(op.op in allowed)
+        lowered.metadata["backend_legality"]["ops"].append(
+            {
+                "name": op.name,
+                "op": op.op,
+                "lowering_available": lowering_available,
+            }
+        )
+        op.attrs[f"{target}_lowering_available"] = lowering_available
+        if not lowering_available:
             offending.append(
                 {
                     "name": op.name,
@@ -263,7 +307,7 @@ def backend_legality_pass(graph: GraphIR, backend: str) -> GraphIR:
 
     if offending:
         raise BackendLegalityError(target, offending)
-    return _clone_graph(graph)
+    return lowered
 
 
 def _dtype_size_bytes(dtype: Optional[str]) -> int:
@@ -296,9 +340,13 @@ def memory_planning_pass(graph: GraphIR) -> GraphIR:
     op_index = {op.name: idx for idx, op in enumerate(planned.ops)}
     graph_end = len(planned.ops)
     logical_values: List[Dict[str, Any]] = []
+    persistent_values: List[Dict[str, Any]] = []
 
     for name, value in planned.values.items():
-        if name in planned.inputs or value.producer is None:
+        is_persistent = bool(getattr(value, "persistent", False))
+        if name in planned.inputs:
+            continue
+        if value.producer is None and not is_persistent:
             continue
         first_def = int(op_index.get(value.producer, 0))
         consumer_indices = [op_index[c] for c in value.consumers if c in op_index]
@@ -306,19 +354,22 @@ def memory_planning_pass(graph: GraphIR) -> GraphIR:
         if name in planned.outputs:
             last_use = max(last_use, graph_end)
         size_bytes = _shape_nbytes(value.shape, value.dtype)
-        logical_values.append(
-            {
-                "value": name,
-                "producer": value.producer,
-                "consumers": list(value.consumers),
-                "shape": list(value.shape) if value.shape is not None else None,
-                "dtype": value.dtype,
-                "size_bytes": int(size_bytes),
-                "first_def": int(first_def),
-                "last_use": int(last_use),
-                "kind": "output" if name in planned.outputs else "intermediate",
-            }
-        )
+        record = {
+            "value": name,
+            "producer": value.producer,
+            "consumers": list(value.consumers),
+            "shape": list(value.shape) if value.shape is not None else None,
+            "dtype": value.dtype,
+            "size_bytes": int(size_bytes),
+            "first_def": int(first_def),
+            "last_use": int(last_use),
+            "kind": "output" if name in planned.outputs else "intermediate",
+            "persistent": is_persistent,
+        }
+        if record["persistent"]:
+            persistent_values.append(record)
+        else:
+            logical_values.append(record)
 
     buffers: List[Dict[str, Any]] = []
     for logical in sorted(logical_values, key=lambda item: (item["first_def"], -item["size_bytes"], item["value"])):
@@ -344,6 +395,52 @@ def memory_planning_pass(graph: GraphIR) -> GraphIR:
         chosen["values"].append(logical["value"])
         logical["buffer"] = chosen["buffer"]
 
+    kv_buffers: List[Dict[str, Any]] = []
+    kv_cache_layout: Dict[str, Any] = {"layers": [], "total_kv_bytes": 0}
+    persistent_offset = 0
+    layer_map: Dict[int, Dict[str, Any]] = {}
+    for item in sorted(persistent_values, key=lambda v: v["value"]):
+        size = int(item["size_bytes"])
+        kv_buffers.append(
+            {
+                "buffer": f"kv_{len(kv_buffers)}",
+                "value": item["value"],
+                "size_bytes": size,
+                "offset_bytes": persistent_offset,
+            }
+        )
+        item["buffer"] = kv_buffers[-1]["buffer"]
+        item["offset_bytes"] = persistent_offset
+        persistent_offset += size
+
+        lname = item["value"].lower()
+        layer_id = 0
+        if "layer" in lname:
+            suffix = lname.split("layer", 1)[1]
+            digits = "".join(ch for ch in suffix if ch.isdigit())
+            if digits:
+                layer_id = int(digits)
+        entry = layer_map.setdefault(layer_id, {"layer": layer_id})
+        if "k" in lname:
+            entry["k"] = {
+                "value": item["value"],
+                "shape": item["shape"],
+                "size_bytes": size,
+                "offset_bytes": item["offset_bytes"],
+                "stride_last_dim": item["shape"][-1] if item["shape"] else 0,
+            }
+        if "v" in lname:
+            entry["v"] = {
+                "value": item["value"],
+                "shape": item["shape"],
+                "size_bytes": size,
+                "offset_bytes": item["offset_bytes"],
+                "stride_last_dim": item["shape"][-1] if item["shape"] else 0,
+            }
+
+    kv_cache_layout["layers"] = [layer_map[k] for k in sorted(layer_map.keys())]
+    kv_cache_layout["total_kv_bytes"] = int(sum(v["size_bytes"] for v in persistent_values))
+
     naive_persistent_bytes = int(sum(item["size_bytes"] for item in logical_values))
     planned_bytes = int(sum(buf["size_bytes"] for buf in buffers))
     reduction_pct = 0.0
@@ -357,8 +454,11 @@ def memory_planning_pass(graph: GraphIR) -> GraphIR:
         "naive_persistent_bytes": naive_persistent_bytes,
         "planned_peak_bytes": planned_bytes,
         "peak_memory_reduction_pct": float(reduction_pct),
-        "values": logical_values,
+        "values": logical_values + persistent_values,
         "buffers": buffers,
+        "persistent_buffers": kv_buffers,
+        "kv_cache_layout": kv_cache_layout,
+        "activation_bytes_with_reuse": planned_bytes,
     }
     return planned
 

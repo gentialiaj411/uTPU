@@ -5,7 +5,10 @@ from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
 import numpy as np
+import torch
+import torch.nn.functional as F
 
+from graph_ir import GraphIR, OpKind
 from lowering_types import BlockedFCLoweringRequest
 from compiler_abstractions import (
     BlockedFCProblem,
@@ -927,3 +930,103 @@ class CUDABlockedFCExecutor:
                 "backend": "cuda",
                 "reason": str(e),
             }
+
+
+class CUDAGraphOpExecutor:
+    def __init__(self, device: str = "cuda"):
+        self.device = device
+
+    def _as_torch(self, value: Any) -> torch.Tensor:
+        if isinstance(value, torch.Tensor):
+            return value.to(self.device, dtype=torch.float32)
+        return torch.as_tensor(value, device=self.device, dtype=torch.float32)
+
+    def run(self, graph: GraphIR, *inputs: Any) -> Dict[str, Any]:
+        if self.device == "cuda" and not torch.cuda.is_available():
+            return {"executed": False, "reason": "torch.cuda.is_available() is False"}
+
+        values: Dict[str, torch.Tensor] = {}
+        for name, value in zip(graph.inputs, inputs):
+            values[name] = self._as_torch(value)
+
+        for op in graph.ops:
+            if op.op in {OpKind.LINEAR, OpKind.LINEAR_RELU}:
+                x = self._as_torch(values[op.inputs[0]])
+                if op.attrs.get("dtype_quant") == "int4_g64":
+                    packed = np.asarray(op.attrs["weight_int4_packed"], dtype=np.uint8).reshape(-1)
+                    total = int(np.prod(np.asarray(op.attrs["weight_int4_shape"])))
+                    q = np.zeros((packed.size * 2,), dtype=np.int8)
+                    q[0::2] = (packed & 0x0F).astype(np.int8) - 8
+                    q[1::2] = ((packed >> 4) & 0x0F).astype(np.int8) - 8
+                    q = q[:total].reshape(tuple(op.attrs["weight_int4_shape"])).astype(np.float32)
+                    scales = np.asarray(op.attrs["weight_int4_scales"], dtype=np.float32)
+                    deq = np.zeros_like(q, dtype=np.float32)
+                    group_size = 64
+                    for o in range(deq.shape[0]):
+                        for g in range(scales.shape[1]):
+                            s = g * group_size
+                            e = min(deq.shape[1], s + group_size)
+                            deq[o, s:e] = q[o, s:e] * scales[o, g]
+                    w = self._as_torch(deq)
+                else:
+                    w = self._as_torch(op.attrs["weight"])
+                b = op.attrs.get("bias")
+                y = x @ w.transpose(-1, -2)
+                if b is not None:
+                    y = y + self._as_torch(b)
+                if op.op == OpKind.LINEAR_RELU:
+                    y = torch.relu(y)
+                values[op.outputs[0]] = y
+                continue
+
+            if op.op == OpKind.RELU:
+                values[op.outputs[0]] = torch.relu(self._as_torch(values[op.inputs[0]]))
+                continue
+
+            if op.op == OpKind.ADD:
+                lhs = self._as_torch(values[op.inputs[0]])
+                rhs = self._as_torch(values[op.inputs[1]])
+                values[op.outputs[0]] = lhs + rhs
+                continue
+
+            if op.op == OpKind.VIEW:
+                x = self._as_torch(values[op.inputs[0]])
+                raw = tuple(op.attrs.get("args", ()))
+                if len(raw) == 1 and isinstance(raw[0], (tuple, list)):
+                    raw = tuple(raw[0])
+                values[op.outputs[0]] = x.reshape(raw)
+                continue
+
+            if op.op == OpKind.SOFTMAX:
+                x = self._as_torch(values[op.inputs[0]])
+                values[op.outputs[0]] = torch.softmax(x, dim=-1)
+                continue
+
+            if op.op == OpKind.LAYER_NORM:
+                x = self._as_torch(values[op.inputs[0]])
+                eps = float(op.attrs.get("eps", 1e-5))
+                rms = torch.sqrt(torch.mean(x * x, dim=-1, keepdim=True) + eps)
+                values[op.outputs[0]] = x / rms
+                continue
+
+            if op.op == OpKind.SCALED_DOT_PRODUCT_ATTENTION:
+                q = self._as_torch(values[op.inputs[0]])
+                k = self._as_torch(values[op.inputs[1]])
+                v = self._as_torch(values[op.inputs[2]])
+                attn_mask = None
+                if len(op.inputs) > 3 and op.inputs[3] in values:
+                    attn_mask = self._as_torch(values[op.inputs[3]])
+                out = F.scaled_dot_product_attention(
+                    q,
+                    k,
+                    v,
+                    attn_mask=attn_mask,
+                    is_causal=bool(op.attrs.get("causal_mask", False)),
+                )
+                values[op.outputs[0]] = out
+                continue
+
+            return {"executed": False, "reason": f"unsupported op: {op.op}"}
+
+        outputs = [values[name].detach().cpu().numpy().astype(np.float32) for name in graph.outputs]
+        return {"executed": True, "outputs": outputs if len(outputs) > 1 else outputs[0]}

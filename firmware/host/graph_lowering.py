@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
+import copy
 
 import numpy as np
 
@@ -31,6 +32,55 @@ class GraphCompilePlan:
 
 def _as_int4_array(data: Any) -> np.ndarray:
     return np.clip(np.rint(np.asarray(data)), -8, 7).astype(np.int8)
+
+
+def _pack_int4(values: np.ndarray) -> np.ndarray:
+    flat = np.asarray(values, dtype=np.int8).reshape(-1)
+    if flat.size % 2 == 1:
+        flat = np.concatenate([flat, np.zeros((1,), dtype=np.int8)])
+    lo = (flat[0::2] + 8).astype(np.uint8) & 0x0F
+    hi = (flat[1::2] + 8).astype(np.uint8) & 0x0F
+    return (lo | (hi << 4)).astype(np.uint8)
+
+
+def _unpack_int4(packed: np.ndarray, size: int) -> np.ndarray:
+    src = np.asarray(packed, dtype=np.uint8).reshape(-1)
+    out = np.zeros((src.size * 2,), dtype=np.int8)
+    out[0::2] = (src & 0x0F).astype(np.int8) - 8
+    out[1::2] = ((src >> 4) & 0x0F).astype(np.int8) - 8
+    return out[:size]
+
+
+def quantize_weights_pass(graph: GraphIR, group_size: int = 64) -> GraphIR:
+    quantized = copy.deepcopy(graph)
+    for op in quantized.ops:
+        if op.op not in {OpKind.LINEAR, OpKind.LINEAR_RELU}:
+            continue
+        w = op.attrs.get("weight")
+        if w is None:
+            continue
+        w_f = np.asarray(w, dtype=np.float32)
+        out_features, in_features = int(w_f.shape[0]), int(w_f.shape[1])
+        q = np.zeros_like(w_f, dtype=np.int8)
+        num_groups = (in_features + group_size - 1) // group_size
+        scales = np.ones((out_features, num_groups), dtype=np.float32)
+        for o in range(out_features):
+            for g in range(num_groups):
+                s = g * group_size
+                e = min(in_features, s + group_size)
+                chunk = w_f[o, s:e]
+                max_abs = float(np.max(np.abs(chunk))) if chunk.size else 0.0
+                scale = max(max_abs / 7.0, 1e-8)
+                scales[o, g] = scale
+                q[o, s:e] = np.clip(np.rint(chunk / scale), -8, 7).astype(np.int8)
+        packed = _pack_int4(q)
+        op.attrs["weight_fp32"] = w_f
+        op.attrs["weight_int4_packed"] = packed
+        op.attrs["weight_int4_shape"] = (out_features, in_features)
+        op.attrs["weight_int4_scales"] = scales
+        op.attrs["dtype_quant"] = "int4_g64"
+        del op.attrs["weight"]
+    return quantized
 
 
 def _activation_for(
@@ -81,11 +131,26 @@ def plan_blocked_fc_graph(
             continue
 
         if op.op in {OpKind.LINEAR, OpKind.LINEAR_RELU}:
+            if op.attrs.get("dtype_quant") == "int4_g64":
+                packed = np.asarray(op.attrs["weight_int4_packed"], dtype=np.uint8)
+                shape = tuple(op.attrs["weight_int4_shape"])
+                q = _unpack_int4(packed, int(shape[0] * shape[1])).reshape(shape)
+                scales = np.asarray(op.attrs["weight_int4_scales"], dtype=np.float32)
+                deq = np.zeros(shape, dtype=np.float32)
+                group_size = 64
+                for o in range(shape[0]):
+                    for g in range(scales.shape[1]):
+                        s = g * group_size
+                        e = min(shape[1], s + group_size)
+                        deq[o, s:e] = q[o, s:e].astype(np.float32) * scales[o, g]
+                int4_weights = _as_int4_array(deq)
+            else:
+                int4_weights = _as_int4_array(op.attrs["weight"])
             relu = _only_relu_consumer(op, graph, op_by_name)
             apply_relu = op.op == OpKind.LINEAR_RELU or relu is not None
             activations, placeholder_activation = _activation_for(op, graph, activation_values)
             request = BlockedFCLoweringRequest(
-                weights_int4=_as_int4_array(op.attrs["weight"]),
+                weights_int4=int4_weights,
                 activations_int4=activations,
                 out_features=int(op.attrs["out_features"]),
                 in_features=int(op.attrs["in_features"]),
