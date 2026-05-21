@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from pytorch_compiler import compile_mlp_model
+from pytorch_compiler import compile_mlp_model, compile_model
 
 
 class TinyMLP(nn.Module):
@@ -61,11 +61,22 @@ def test_utpu_target_emits_instruction_program_path():
     assert lowered["executable_on_current_fpga_path"] is True
 
 
+def test_compile_model_general_entrypoint_matches_wrapper():
+    model = nn.Sequential(nn.Linear(4, 3), nn.ReLU())
+    x = torch.randn(1, 4)
+    a = compile_model(model, x, target="cuda")
+    b = compile_mlp_model(model, x, target="cuda")
+    assert a.import_error == b.import_error
+    assert a.runtime_plan is not None and b.runtime_plan is not None
+    assert a.runtime_plan.unsupported_ops == b.runtime_plan.unsupported_ops
+
+
 def run_all():
     test_compile_two_layer_mlp_end_to_end_import_and_lowering()
     test_unsupported_model_reports_clear_import_error()
     test_cuda_target_routes_to_cuda_lowerer()
     test_utpu_target_emits_instruction_program_path()
+    test_compile_model_general_entrypoint_matches_wrapper()
     print("test_pytorch_compiler: PASS")
 
 

@@ -1,4 +1,5 @@
 import operator
+from builtins import getattr as builtin_getattr
 from typing import Any, Dict, Optional, Tuple
 
 from graph_ir import GraphIR, OpKind, OpNode
@@ -33,6 +34,37 @@ def _node_name(arg: Any) -> str:
     if hasattr(arg, "name"):
         return arg.name
     raise FXImportError(f"Expected FX node argument, got {arg!r}")
+
+
+def _as_int(value: Any, context: str) -> int:
+    try:
+        return int(value)
+    except Exception as e:
+        raise FXImportError(f"Expected integer-like value for {context}, got {value!r}") from e
+
+
+def _resolve_shape_meta_arg(arg: Any, node_to_value: Dict[Any, str], meta_values: Dict[Any, Any]) -> Any:
+    if hasattr(arg, "op"):
+        if arg in meta_values:
+            return meta_values[arg]
+        if arg in node_to_value:
+            return _node_name(arg)
+        raise FXImportError(f"Unsupported unresolved FX argument node '{arg.name}'")
+    if isinstance(arg, list):
+        return [_resolve_shape_meta_arg(v, node_to_value, meta_values) for v in arg]
+    if isinstance(arg, tuple):
+        return tuple(_resolve_shape_meta_arg(v, node_to_value, meta_values) for v in arg)
+    return arg
+
+
+def _normalize_view_args(node: Any, shape: Optional[Tuple[int, ...]], node_to_value: Dict[Any, str], meta_values: Dict[Any, Any]) -> Tuple[Any, ...]:
+    if shape is not None:
+        return tuple(int(d) for d in shape)
+
+    resolved = [_resolve_shape_meta_arg(a, node_to_value, meta_values) for a in node.args[1:]]
+    if len(resolved) == 1 and isinstance(resolved[0], (tuple, list)):
+        resolved = list(resolved[0])
+    return tuple(resolved)
 
 
 def _single_node_arg(node: Any) -> str:
@@ -78,6 +110,7 @@ def import_fx_graph_module(fx_module: Any, name: Optional[str] = None) -> GraphI
     modules = dict(fx_module.named_modules())
     graph = GraphIR(name=name or fx_module.__class__.__name__)
     node_to_value: Dict[Any, str] = {}
+    meta_values: Dict[Any, Any] = {}
 
     for node in fx_module.graph.nodes:
         shape, dtype = _tensor_meta(node)
@@ -148,6 +181,38 @@ def import_fx_graph_module(fx_module: Any, name: Optional[str] = None) -> GraphI
             )
 
         if node.op == "call_function":
+            if node.target == operator.getitem:
+                if len(node.args) < 2:
+                    raise FXImportError(f"getitem node '{node.name}' needs base and index")
+                base = _resolve_shape_meta_arg(node.args[0], node_to_value, meta_values)
+                index = _resolve_shape_meta_arg(node.args[1], node_to_value, meta_values)
+                try:
+                    meta_values[node] = base[index]
+                except Exception as e:
+                    raise FXImportError(f"Failed to resolve getitem for node '{node.name}'") from e
+                continue
+            if node.target == builtin_getattr:
+                if len(node.args) < 2:
+                    raise FXImportError(f"getattr node '{node.name}' needs object and attr name")
+                base_arg = node.args[0]
+                attr_name = _resolve_shape_meta_arg(node.args[1], node_to_value, meta_values)
+                if not isinstance(attr_name, str):
+                    raise FXImportError(
+                        f"getattr node '{node.name}' attr must resolve to string, got {attr_name!r}"
+                    )
+                if hasattr(base_arg, "op") and base_arg in node_to_value and attr_name == "shape":
+                    value_name = node_to_value[base_arg]
+                    tensor_shape = graph.values.get(value_name).shape if value_name in graph.values else None
+                    if tensor_shape is None:
+                        raise FXImportError(f"getattr(shape) node '{node.name}' requires known input shape")
+                    meta_values[node] = tensor_shape
+                else:
+                    base = _resolve_shape_meta_arg(base_arg, node_to_value, meta_values)
+                    try:
+                        meta_values[node] = getattr(base, attr_name)
+                    except Exception as e:
+                        raise FXImportError(f"Failed to resolve getattr for node '{node.name}'") from e
+                continue
             if _is_relu_function(node.target, torch, F):
                 input_name = _single_node_arg(node)
                 graph.add_value(node.name, shape=shape, dtype=dtype, producer=node.name)
@@ -202,6 +267,10 @@ def import_fx_graph_module(fx_module: Any, name: Optional[str] = None) -> GraphI
                 inputs = [q, k, v]
                 if len(node.args) > 3 and hasattr(node.args[3], "name"):
                     inputs.append(_node_name(node.args[3]))
+                else:
+                    attn_mask_kw = node.kwargs.get("attn_mask")
+                    if hasattr(attn_mask_kw, "name"):
+                        inputs.append(_node_name(attn_mask_kw))
                 graph.add_value(node.name, shape=shape, dtype=dtype, producer=node.name)
                 graph.add_op(
                     OpNode(
@@ -219,6 +288,17 @@ def import_fx_graph_module(fx_module: Any, name: Optional[str] = None) -> GraphI
             )
 
         if node.op == "call_method":
+            if node.target == "size":
+                input_name = _single_node_arg(node)
+                in_shape = graph.values.get(input_name).shape if input_name in graph.values else None
+                if in_shape is None:
+                    raise FXImportError(f"size node '{node.name}' requires known input shape")
+                if len(node.args) > 1:
+                    dim = _as_int(_resolve_shape_meta_arg(node.args[1], node_to_value, meta_values), f"{node.name}.dim")
+                    meta_values[node] = int(in_shape[dim])
+                else:
+                    meta_values[node] = tuple(int(d) for d in in_shape)
+                continue
             if _is_view_method(node.target):
                 input_name = _single_node_arg(node)
                 graph.add_value(node.name, shape=shape, dtype=dtype, producer=node.name)
@@ -228,7 +308,10 @@ def import_fx_graph_module(fx_module: Any, name: Optional[str] = None) -> GraphI
                         op=OpKind.VIEW,
                         inputs=[input_name],
                         outputs=[node.name],
-                        attrs={"target": str(node.target), "args": tuple(node.args[1:])},
+                        attrs={
+                            "target": str(node.target),
+                            "args": _normalize_view_args(node, shape, node_to_value, meta_values),
+                        },
                     )
                 )
                 node_to_value[node] = node.name

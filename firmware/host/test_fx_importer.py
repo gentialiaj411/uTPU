@@ -87,6 +87,37 @@ def test_unsupported_op_fails_clearly():
         assert "sigmoid" in str(e)
 
 
+def test_import_transformer_shape_getattr_size_getitem_patterns():
+    torch_info = _require_torch_or_skip()
+    if torch_info is None:
+        return
+    torch, nn, _ = torch_info
+    import torch.nn.functional as F
+
+    from fx_importer import import_fx_graph_module
+    from graph_ir import OpKind
+
+    class ShapePatternBlock(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.proj = nn.Linear(32, 32, bias=False)
+
+        def forward(self, x):
+            b = x.size(0)
+            s = getattr(x, "shape")[1]
+            h = x.size(2)
+            y = self.proj(x).reshape([b, s, h]).view((b, s, h))
+            return F.softmax(y, dim=-1)
+
+    gm = _trace_with_shapes(ShapePatternBlock().eval(), torch.randn(1, 8, 32))
+    graph = import_fx_graph_module(gm, name="shape_pattern_block")
+    assert [op.op for op in graph.ops] == [OpKind.LINEAR, OpKind.VIEW, OpKind.VIEW, OpKind.SOFTMAX]
+
+    for op in graph.ops:
+        if op.op == OpKind.VIEW:
+            assert tuple(op.attrs["args"]) == (1, 8, 32)
+
+
 def run_all():
     if importlib.util.find_spec("torch") is None:
         print("test_fx_importer: SKIP (PyTorch not installed)")
@@ -94,6 +125,7 @@ def run_all():
     test_import_simple_mlp()
     test_import_add_function()
     test_unsupported_op_fails_clearly()
+    test_import_transformer_shape_getattr_size_getitem_patterns()
     print("test_fx_importer: PASS")
 
 

@@ -351,6 +351,7 @@ class CompiledMLPRuntime:
         call_t0 = time.perf_counter()
         if self.graph_op_executor is None:
             raise CompiledRuntimeError("CUDA graph-op executor is not available for this runtime")
+        self._validate_graph_ops(args)
         result = self.graph_op_executor.run(self.graph, *args)
         if not result.get("executed", False):
             raise CompiledRuntimeError(
@@ -380,6 +381,99 @@ class CompiledMLPRuntime:
         if isinstance(outputs, list):
             return tuple(self._to_torch_output(np.asarray(v, dtype=np.float32), args[0]) for v in outputs)
         return self._to_torch_output(np.asarray(outputs, dtype=np.float32), args[0])
+
+    def _shape_for_runtime_value(self, value: Any):
+        if hasattr(value, "shape"):
+            return tuple(int(d) for d in value.shape)
+        arr = np.asarray(value)
+        return tuple(int(d) for d in arr.shape)
+
+    def _validate_graph_ops(self, args) -> None:
+        shapes: Dict[str, tuple[int, ...]] = {}
+        op_by_name = {op.name: op for op in self.graph.ops}
+        for name, value in zip(self.graph.inputs, args):
+            shapes[name] = self._shape_for_runtime_value(value)
+
+        for op in self.runtime_plan.ops:
+            in_shape = shapes.get(op.inputs[0])
+            out_shape = self.graph.values.get(op.output).shape if op.output in self.graph.values else None
+
+            if op.op == OpKind.VIEW:
+                if in_shape is not None and out_shape is not None:
+                    in_elems = int(np.prod(in_shape))
+                    out_elems = int(np.prod(out_shape))
+                    if in_elems != out_elems:
+                        raise CompiledRuntimeError(
+                            f"Invalid view '{op.graph_op}': input elements {in_elems} != output elements {out_elems}"
+                        )
+            elif op.op == OpKind.PERMUTE:
+                if in_shape is not None:
+                    rank = len(in_shape)
+                    graph_op = op_by_name.get(op.graph_op)
+                    axes = tuple(graph_op.attrs.get("args", ())) if graph_op is not None else ()
+                    if len(axes) != rank:
+                        raise CompiledRuntimeError(
+                            f"Invalid permute '{op.graph_op}': axes rank {len(axes)} != input rank {rank}"
+                        )
+                    if sorted(int(a) for a in axes) != list(range(rank)):
+                        raise CompiledRuntimeError(
+                            f"Invalid permute '{op.graph_op}': axes must be a permutation of 0..{rank - 1}"
+                        )
+            elif op.op == OpKind.LAYER_NORM:
+                if in_shape is not None and len(in_shape) < 2:
+                    raise CompiledRuntimeError(
+                        f"Invalid layer_norm '{op.graph_op}': expected rank >= 2, got shape {in_shape}"
+                    )
+            elif op.op == OpKind.SCALED_DOT_PRODUCT_ATTENTION:
+                if len(op.inputs) < 3:
+                    raise CompiledRuntimeError(
+                        f"Invalid attention '{op.graph_op}': expected q/k/v inputs"
+                    )
+                q_shape = shapes.get(op.inputs[0])
+                k_shape = shapes.get(op.inputs[1])
+                v_shape = shapes.get(op.inputs[2])
+                if q_shape is not None and k_shape is not None and v_shape is not None:
+                    if not (len(q_shape) == len(k_shape) == len(v_shape) == 4):
+                        raise CompiledRuntimeError(
+                            f"Invalid attention '{op.graph_op}': expected rank-4 q/k/v, "
+                            f"got q={q_shape}, k={k_shape}, v={v_shape}"
+                        )
+                    if q_shape[0] != k_shape[0] or q_shape[0] != v_shape[0]:
+                        raise CompiledRuntimeError(
+                            f"Invalid attention '{op.graph_op}': batch mismatch q={q_shape}, k={k_shape}, v={v_shape}"
+                        )
+                    if q_shape[1] != k_shape[1] or q_shape[1] != v_shape[1]:
+                        raise CompiledRuntimeError(
+                            f"Invalid attention '{op.graph_op}': head mismatch q={q_shape}, k={k_shape}, v={v_shape}"
+                        )
+                    if q_shape[-1] != k_shape[-1]:
+                        raise CompiledRuntimeError(
+                            f"Invalid attention '{op.graph_op}': q/k head dim mismatch q={q_shape}, k={k_shape}"
+                        )
+                    if k_shape[-2] != v_shape[-2]:
+                        raise CompiledRuntimeError(
+                            f"Invalid attention '{op.graph_op}': k/v seq mismatch k={k_shape}, v={v_shape}"
+                        )
+                if len(op.inputs) > 3:
+                    mask_shape = shapes.get(op.inputs[3])
+                    if mask_shape is not None and len(mask_shape) not in {2, 3, 4}:
+                        raise CompiledRuntimeError(
+                            f"Invalid attention '{op.graph_op}': mask rank must be 2/3/4, got {mask_shape}"
+                        )
+                    if (
+                        mask_shape is not None
+                        and q_shape is not None
+                        and k_shape is not None
+                        and len(mask_shape) == 4
+                    ):
+                        if mask_shape[-2] != q_shape[-2] or mask_shape[-1] != k_shape[-2]:
+                            raise CompiledRuntimeError(
+                                f"Invalid attention '{op.graph_op}': mask shape {mask_shape} "
+                                f"must end with (q_seq={q_shape[-2]}, k_seq={k_shape[-2]})"
+                            )
+
+            if out_shape is not None:
+                shapes[op.output] = tuple(int(d) for d in out_shape)
 
     def _execute_reference(self, args) -> Any:
         torch = self._torch

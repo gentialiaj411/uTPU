@@ -99,9 +99,11 @@ class PyTorchCompileResult:
         return {
             "model_name": self.model_name,
             "target": self.target,
+            "compile_api": "compile_model",
             "ok": self.ok,
             "callable": self.callable,
             "fully_lowered_to_backend": self.fully_lowered_to_backend,
+            "supports_mixed_graph_execution": self.runtime_plan is not None,
             "graph_op_count": len(graph_ops),
             "backend_lowered_op_count": len(self.backend_ops),
             "runtime_op_count": len(self.runtime_plan.ops) if self.runtime_plan is not None else 0,
@@ -121,7 +123,7 @@ def _require_torch():
         from torch.fx.passes.shape_prop import ShapeProp
     except Exception as e:
         raise PyTorchCompileError(
-            "PyTorch is required for compile_mlp_model, but it is not available"
+            "PyTorch is required for compile_model, but it is not available"
         ) from e
     return torch, ShapeProp
 
@@ -167,7 +169,7 @@ def _lower_backend_ops(
     return lowered
 
 
-def compile_mlp_model(
+def compile_model(
     model: Any,
     example_inputs: Any,
     target: str = "cuda",
@@ -178,13 +180,7 @@ def compile_mlp_model(
     autotune_cache_path: Optional[str] = None,
     pass_pipeline_dump_path: Optional[str] = None,
 ) -> PyTorchCompileResult:
-    """
-    Compile a small PyTorch MLP-style model into Graph IR plus blocked-FC backend lowering plans.
-
-    This is a frontend/compiler entrypoint, not a full torch.compile backend. It traces with
-    torch.fx, imports supported nodes into Graph IR, plans Linear/ReLU patterns, and lowers
-    supported Linear ops through the existing uTPU/CUDA blocked-FC backend infrastructure.
-    """
+    """Compile a supported PyTorch model into Graph IR, runtime plan, and backend lowering."""
     torch, ShapeProp = _require_torch()
     inputs = _as_input_tuple(example_inputs)
     model_name = model.__class__.__name__
@@ -259,3 +255,28 @@ def compile_mlp_model(
         )
 
     return result
+
+
+def compile_mlp_model(
+    model: Any,
+    example_inputs: Any,
+    target: str = "cuda",
+    array_size: int = 16,
+    apply_quant: bool = True,
+    strict: bool = False,
+    use_tuned_schedule: bool = False,
+    autotune_cache_path: Optional[str] = None,
+    pass_pipeline_dump_path: Optional[str] = None,
+) -> PyTorchCompileResult:
+    """Backward-compatible wrapper; prefer compile_model for new call sites."""
+    return compile_model(
+        model=model,
+        example_inputs=example_inputs,
+        target=target,
+        array_size=array_size,
+        apply_quant=apply_quant,
+        strict=strict,
+        use_tuned_schedule=use_tuned_schedule,
+        autotune_cache_path=autotune_cache_path,
+        pass_pipeline_dump_path=pass_pipeline_dump_path,
+    )
