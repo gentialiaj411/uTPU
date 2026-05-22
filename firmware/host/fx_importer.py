@@ -101,6 +101,10 @@ def _is_permute_method(target: Any) -> bool:
     return target in {"permute", "transpose"}
 
 
+def _is_shape_plumbing_view_method(target: Any) -> bool:
+    return target in {"unsqueeze", "squeeze", "contiguous"}
+
+
 def _is_softmax_function(target: Any, torch: Any, F: Any) -> bool:
     return target in {torch.softmax, F.softmax}
 
@@ -160,6 +164,10 @@ def import_fx_graph_module(fx_module: Any, name: Optional[str] = None) -> GraphI
                 continue
             if isinstance(module, (nn.LayerNorm, nn.RMSNorm)):
                 input_name = _single_node_arg(node)
+                weight = module.weight.detach().cpu().numpy() if getattr(module, "weight", None) is not None else None
+                bias = module.bias.detach().cpu().numpy() if getattr(module, "bias", None) is not None else None
+                norm_kind = "rms_norm" if isinstance(module, nn.RMSNorm) else "layer_norm"
+                normalized_shape = tuple(int(d) for d in module.normalized_shape) if getattr(module, "normalized_shape", None) is not None else None
                 graph.add_value(node.name, shape=shape, dtype=dtype, producer=node.name)
                 graph.add_op(
                     OpNode(
@@ -169,7 +177,11 @@ def import_fx_graph_module(fx_module: Any, name: Optional[str] = None) -> GraphI
                         outputs=[node.name],
                         attrs={
                             "target": str(node.target),
+                            "norm_kind": norm_kind,
+                            "normalized_shape": normalized_shape,
                             "eps": float(module.eps) if module.eps is not None else 1e-5,
+                            "weight": weight,
+                            "bias": bias,
                         },
                     )
                 )
@@ -311,6 +323,27 @@ def import_fx_graph_module(fx_module: Any, name: Optional[str] = None) -> GraphI
                         attrs={
                             "target": str(node.target),
                             "args": _normalize_view_args(node, shape, node_to_value, meta_values),
+                        },
+                    )
+                )
+                node_to_value[node] = node.name
+                continue
+            if _is_shape_plumbing_view_method(node.target):
+                input_name = _single_node_arg(node)
+                if shape is None:
+                    raise FXImportError(
+                        f"{node.target} node '{node.name}' requires known output shape metadata"
+                    )
+                graph.add_value(node.name, shape=shape, dtype=dtype, producer=node.name)
+                graph.add_op(
+                    OpNode(
+                        name=node.name,
+                        op=OpKind.VIEW,
+                        inputs=[input_name],
+                        outputs=[node.name],
+                        attrs={
+                            "target": str(node.target),
+                            "args": tuple(int(d) for d in shape),
                         },
                     )
                 )

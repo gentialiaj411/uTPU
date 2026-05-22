@@ -118,6 +118,57 @@ def test_import_transformer_shape_getattr_size_getitem_patterns():
             assert tuple(op.attrs["args"]) == (1, 8, 32)
 
 
+def test_import_shape_plumbing_unsqueeze_squeeze_contiguous_patterns():
+    torch_info = _require_torch_or_skip()
+    if torch_info is None:
+        return
+    torch, nn, _ = torch_info
+
+    from fx_importer import import_fx_graph_module
+    from graph_ir import OpKind
+
+    class ShapePlumbingBlock(nn.Module):
+        def forward(self, x):
+            y = x.unsqueeze(1).contiguous().squeeze(1)
+            return y
+
+    gm = _trace_with_shapes(ShapePlumbingBlock().eval(), torch.randn(1, 8, 32))
+    graph = import_fx_graph_module(gm, name="shape_plumbing_block")
+    assert [op.op for op in graph.ops] == [OpKind.VIEW, OpKind.VIEW, OpKind.VIEW]
+    assert tuple(graph.ops[0].attrs["args"]) == (1, 1, 8, 32)
+    assert tuple(graph.ops[1].attrs["args"]) == (1, 1, 8, 32)
+    assert tuple(graph.ops[2].attrs["args"]) == (1, 8, 32)
+
+
+def test_import_affine_norm_metadata():
+    torch_info = _require_torch_or_skip()
+    if torch_info is None:
+        return
+    torch, nn, _ = torch_info
+
+    from fx_importer import import_fx_graph_module
+    from graph_ir import OpKind
+
+    class AffineNormBlock(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.n1 = nn.LayerNorm(32, elementwise_affine=True)
+            self.n2 = nn.RMSNorm(32, elementwise_affine=True)
+
+        def forward(self, x):
+            return self.n2(self.n1(x))
+
+    gm = _trace_with_shapes(AffineNormBlock().eval(), torch.randn(1, 8, 32))
+    graph = import_fx_graph_module(gm, name="affine_norm_block")
+    norm_ops = [op for op in graph.ops if op.op == OpKind.LAYER_NORM]
+    assert len(norm_ops) == 2
+    assert norm_ops[0].attrs["norm_kind"] == "layer_norm"
+    assert norm_ops[1].attrs["norm_kind"] == "rms_norm"
+    assert norm_ops[0].attrs["weight"] is not None
+    assert norm_ops[0].attrs["bias"] is not None
+    assert norm_ops[1].attrs["weight"] is not None
+
+
 def run_all():
     if importlib.util.find_spec("torch") is None:
         print("test_fx_importer: SKIP (PyTorch not installed)")
@@ -126,6 +177,8 @@ def run_all():
     test_import_add_function()
     test_unsupported_op_fails_clearly()
     test_import_transformer_shape_getattr_size_getitem_patterns()
+    test_import_shape_plumbing_unsqueeze_squeeze_contiguous_patterns()
+    test_import_affine_norm_metadata()
     print("test_fx_importer: PASS")
 
 

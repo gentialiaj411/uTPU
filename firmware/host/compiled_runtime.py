@@ -383,6 +383,8 @@ class CompiledMLPRuntime:
         return self._to_torch_output(np.asarray(outputs, dtype=np.float32), args[0])
 
     def _shape_for_runtime_value(self, value: Any):
+        if value is None:
+            return None
         if hasattr(value, "shape"):
             return tuple(int(d) for d in value.shape)
         arr = np.asarray(value)
@@ -460,17 +462,42 @@ class CompiledMLPRuntime:
                         raise CompiledRuntimeError(
                             f"Invalid attention '{op.graph_op}': mask rank must be 2/3/4, got {mask_shape}"
                         )
-                    if (
-                        mask_shape is not None
-                        and q_shape is not None
-                        and k_shape is not None
-                        and len(mask_shape) == 4
-                    ):
-                        if mask_shape[-2] != q_shape[-2] or mask_shape[-1] != k_shape[-2]:
-                            raise CompiledRuntimeError(
-                                f"Invalid attention '{op.graph_op}': mask shape {mask_shape} "
-                                f"must end with (q_seq={q_shape[-2]}, k_seq={k_shape[-2]})"
-                            )
+                    if mask_shape is not None and q_shape is not None and k_shape is not None:
+                        q_batch, q_heads, q_seq = q_shape[0], q_shape[1], q_shape[-2]
+                        k_batch, k_heads, k_seq = k_shape[0], k_shape[1], k_shape[-2]
+                        if len(mask_shape) == 2:
+                            if mask_shape[0] != q_seq or mask_shape[1] != k_seq:
+                                raise CompiledRuntimeError(
+                                    f"Invalid attention '{op.graph_op}': 2D mask shape {mask_shape} "
+                                    f"must be (q_seq={q_seq}, k_seq={k_seq})"
+                                )
+                        elif len(mask_shape) == 3:
+                            if mask_shape[0] not in {1, q_batch}:
+                                raise CompiledRuntimeError(
+                                    f"Invalid attention '{op.graph_op}': 3D mask batch dim {mask_shape[0]} "
+                                    f"must broadcast to q batch {q_batch}"
+                                )
+                            if mask_shape[1] != q_seq or mask_shape[2] != k_seq:
+                                raise CompiledRuntimeError(
+                                    f"Invalid attention '{op.graph_op}': 3D mask shape {mask_shape} "
+                                    f"must end with (q_seq={q_seq}, k_seq={k_seq})"
+                                )
+                        else:
+                            if mask_shape[0] not in {1, q_batch, k_batch}:
+                                raise CompiledRuntimeError(
+                                    f"Invalid attention '{op.graph_op}': 4D mask batch dim {mask_shape[0]} "
+                                    f"must broadcast to q/k batch ({q_batch}/{k_batch})"
+                                )
+                            if mask_shape[1] not in {1, q_heads, k_heads}:
+                                raise CompiledRuntimeError(
+                                    f"Invalid attention '{op.graph_op}': 4D mask head dim {mask_shape[1]} "
+                                    f"must broadcast to q/k heads ({q_heads}/{k_heads})"
+                                )
+                            if mask_shape[-2] != q_seq or mask_shape[-1] != k_seq:
+                                raise CompiledRuntimeError(
+                                    f"Invalid attention '{op.graph_op}': mask shape {mask_shape} "
+                                    f"must end with (q_seq={q_seq}, k_seq={k_seq})"
+                                )
 
             if out_shape is not None:
                 shapes[op.output] = tuple(int(d) for d in out_shape)

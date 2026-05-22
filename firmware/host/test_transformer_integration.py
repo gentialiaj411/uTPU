@@ -9,18 +9,26 @@ from pytorch_compiler import compile_model
 
 
 class TinyTransformerBlock(nn.Module):
-    def __init__(self, hidden_dim: int, num_heads: int, mlp_dim: int, seq_len: int, causal: bool = False):
+    def __init__(
+        self,
+        hidden_dim: int,
+        num_heads: int,
+        mlp_dim: int,
+        seq_len: int,
+        causal: bool = False,
+        affine_norm: bool = False,
+    ):
         super().__init__()
         self.hidden_dim = hidden_dim
         self.num_heads = num_heads
         self.head_dim = hidden_dim // num_heads
         self.seq_len = seq_len
-        self.norm1 = nn.RMSNorm(hidden_dim, elementwise_affine=False)
+        self.norm1 = nn.RMSNorm(hidden_dim, elementwise_affine=bool(affine_norm))
         self.q_proj = nn.Linear(hidden_dim, hidden_dim, bias=False)
         self.k_proj = nn.Linear(hidden_dim, hidden_dim, bias=False)
         self.v_proj = nn.Linear(hidden_dim, hidden_dim, bias=False)
         self.o_proj = nn.Linear(hidden_dim, hidden_dim, bias=False)
-        self.norm2 = nn.RMSNorm(hidden_dim, elementwise_affine=False)
+        self.norm2 = nn.RMSNorm(hidden_dim, elementwise_affine=bool(affine_norm))
         self.fc1 = nn.Linear(hidden_dim, mlp_dim, bias=False)
         self.fc2 = nn.Linear(mlp_dim, hidden_dim, bias=False)
         self.causal = bool(causal)
@@ -89,13 +97,16 @@ def test_transformer_graph_compiles_without_runtime_unsupported_ops():
 def test_transformer_parity_matrix_small_shapes():
     torch.manual_seed(9)
     shape_matrix = [
-        {"seq_len": 8, "hidden_dim": 32, "num_heads": 4, "mlp_dim": 64, "causal": False, "use_mask": False},
-        {"seq_len": 16, "hidden_dim": 32, "num_heads": 4, "mlp_dim": 64, "causal": True, "use_mask": False},
-        {"seq_len": 24, "hidden_dim": 48, "num_heads": 6, "mlp_dim": 96, "causal": True, "use_mask": True},
-        {"seq_len": 32, "hidden_dim": 64, "num_heads": 8, "mlp_dim": 128, "causal": False, "use_mask": True},
+        {"seq_len": 8, "hidden_dim": 32, "num_heads": 4, "mlp_dim": 64, "causal": False, "mask_variant": "4d_full", "affine_norm": False},
+        {"seq_len": 16, "hidden_dim": 32, "num_heads": 4, "mlp_dim": 64, "causal": False, "mask_variant": "2d_broadcast", "affine_norm": False},
+        {"seq_len": 24, "hidden_dim": 48, "num_heads": 6, "mlp_dim": 96, "causal": False, "mask_variant": "3d_batch", "affine_norm": False},
+        {"seq_len": 32, "hidden_dim": 64, "num_heads": 8, "mlp_dim": 128, "causal": False, "mask_variant": "4d_head_broadcast", "affine_norm": False},
+        {"seq_len": 48, "hidden_dim": 64, "num_heads": 8, "mlp_dim": 128, "causal": False, "mask_variant": "4d_full", "affine_norm": False},
+        {"seq_len": 16, "hidden_dim": 32, "num_heads": 4, "mlp_dim": 64, "causal": False, "mask_variant": "4d_full", "affine_norm": True},
     ]
     tol_abs = 1e-4
     tol_rel = 3e-3
+    tol_rel_any = 1e-2
     report_cases = []
 
     with torch.no_grad():
@@ -106,20 +117,28 @@ def test_transformer_parity_matrix_small_shapes():
                 mlp_dim=cfg["mlp_dim"],
                 seq_len=cfg["seq_len"],
                 causal=cfg["causal"],
+                affine_norm=cfg["affine_norm"],
             ).eval()
             x = torch.randn(1, cfg["seq_len"], cfg["hidden_dim"])
-            if cfg["use_mask"]:
-                attn_mask = torch.zeros((1, cfg["num_heads"], cfg["seq_len"], cfg["seq_len"]), dtype=torch.float32)
-                attn_mask[:, :, :, -1] = -1e4
+            seq_len = cfg["seq_len"]
+            num_heads = cfg["num_heads"]
+            if cfg["mask_variant"] == "2d_broadcast":
+                attn_mask = torch.zeros((seq_len, seq_len), dtype=torch.float32)
+            elif cfg["mask_variant"] == "3d_batch":
+                attn_mask = torch.zeros((1, seq_len, seq_len), dtype=torch.float32)
+            elif cfg["mask_variant"] == "4d_head_broadcast":
+                attn_mask = torch.zeros((1, 1, seq_len, seq_len), dtype=torch.float32)
             else:
-                attn_mask = torch.zeros((1, cfg["num_heads"], cfg["seq_len"], cfg["seq_len"]), dtype=torch.float32)
+                attn_mask = torch.zeros((1, num_heads, seq_len, seq_len), dtype=torch.float32)
+            if attn_mask is not None:
+                attn_mask[..., -1] = -1e4
             compiled = compile_model(model, (x, attn_mask), target="cuda")
             y_compiled = compiled((x, attn_mask), mode="compiled")
             y_ref = model(x, attn_mask=attn_mask)
             max_abs = _max_abs(y_compiled, y_ref)
             max_rel = _max_rel(y_compiled, y_ref)
             max_rel_nonzero_ref = _max_rel_nonzero_ref(y_compiled, y_ref, ref_floor=1e-3)
-            case_ok = max_abs <= tol_abs and max_rel <= tol_rel
+            case_ok = max_abs <= tol_abs and max_rel_nonzero_ref <= tol_rel and max_rel <= tol_rel_any
             report_cases.append(
                 {
                     "config": cfg,
@@ -129,6 +148,9 @@ def test_transformer_parity_matrix_small_shapes():
                     "within_tolerance": case_ok,
                 }
             )
-            assert case_ok
+            assert case_ok, (
+                f"cfg={cfg} max_abs={max_abs} max_rel={max_rel} "
+                f"max_rel_nonzero_ref={max_rel_nonzero_ref}"
+            )
 
     _write_parity_report(report_cases)

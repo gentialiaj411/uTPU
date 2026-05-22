@@ -66,3 +66,28 @@ def test_runtime_validation_rejects_invalid_attention_mask_shape():
     bad_mask = torch.zeros((1, 4, 7, 8), dtype=torch.float32)
     with pytest.raises(CompiledRuntimeError, match="must end with"):
         compiled((x, bad_mask), mode="compiled")
+
+
+def test_runtime_validation_rejects_invalid_attention_mask_3d_batch_broadcast():
+    compiled, x, _ = _compile_case()
+    bad_mask = torch.zeros((2, 8, 8), dtype=torch.float32)
+    with pytest.raises(CompiledRuntimeError, match="3D mask batch dim"):
+        compiled((x, bad_mask), mode="compiled")
+
+
+def test_runtime_validation_rejects_invalid_attention_mask_4d_head_broadcast():
+    compiled, x, _ = _compile_case()
+    bad_mask = torch.zeros((1, 3, 8, 8), dtype=torch.float32)
+    with pytest.raises(CompiledRuntimeError, match="4D mask head dim"):
+        compiled((x, bad_mask), mode="compiled")
+
+
+def test_runtime_validation_rejects_mismatched_qkv_shape_contracts():
+    compiled, x, mask = _compile_case()
+    attn_op = next(op for op in compiled.runtime_plan.ops if op.op == "scaled_dot_product_attention")
+    k_name = attn_op.inputs[1]
+    original_k_shape = compiled.graph_ir.values[k_name].shape
+    compiled.graph_ir.values[k_name].shape = (1, 4, 8, 7)
+    with pytest.raises(CompiledRuntimeError, match="q/k head dim mismatch"):
+        compiled((x, mask), mode="compiled")
+    compiled.graph_ir.values[k_name].shape = original_k_shape

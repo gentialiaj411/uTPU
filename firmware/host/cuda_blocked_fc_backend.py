@@ -1012,8 +1012,21 @@ class CUDAGraphOpExecutor:
             if op.op == OpKind.LAYER_NORM:
                 x = self._as_torch(values[op.inputs[0]])
                 eps = float(op.attrs.get("eps", 1e-5))
-                rms = torch.sqrt(torch.mean(x * x, dim=-1, keepdim=True) + eps)
-                values[op.outputs[0]] = x / rms
+                norm_kind = str(op.attrs.get("norm_kind", "rms_norm"))
+                if norm_kind == "layer_norm":
+                    mean = torch.mean(x, dim=-1, keepdim=True)
+                    var = torch.mean((x - mean) * (x - mean), dim=-1, keepdim=True)
+                    y = (x - mean) / torch.sqrt(var + eps)
+                else:
+                    rms = torch.sqrt(torch.mean(x * x, dim=-1, keepdim=True) + eps)
+                    y = x / rms
+                if op.attrs.get("weight") is not None:
+                    w = self._as_torch(op.attrs["weight"])
+                    y = y * w
+                if op.attrs.get("bias") is not None:
+                    b = self._as_torch(op.attrs["bias"])
+                    y = y + b
+                values[op.outputs[0]] = y
                 continue
 
             if op.op == OpKind.SCALED_DOT_PRODUCT_ATTENTION:
