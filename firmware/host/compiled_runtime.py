@@ -426,6 +426,39 @@ class CompiledMLPRuntime:
                     raise CompiledRuntimeError(
                         f"Invalid layer_norm '{op.graph_op}': expected rank >= 2, got shape {in_shape}"
                     )
+                graph_op = op_by_name.get(op.graph_op)
+                attrs = graph_op.attrs if graph_op is not None else {}
+                normalized_shape = attrs.get("normalized_shape")
+                if in_shape is not None and normalized_shape is not None:
+                    norm_shape = tuple(int(d) for d in normalized_shape)
+                    if len(norm_shape) == 0 or len(norm_shape) > len(in_shape):
+                        raise CompiledRuntimeError(
+                            f"Invalid layer_norm '{op.graph_op}': normalized_shape={norm_shape} "
+                            f"is incompatible with input shape {in_shape}"
+                        )
+                    if tuple(in_shape[-len(norm_shape):]) != norm_shape:
+                        raise CompiledRuntimeError(
+                            f"Invalid layer_norm '{op.graph_op}': input tail {in_shape[-len(norm_shape):]} "
+                            f"must match normalized_shape={norm_shape}"
+                        )
+                weight = attrs.get("weight")
+                bias = attrs.get("bias")
+                if weight is not None and normalized_shape is not None:
+                    w_shape = tuple(int(d) for d in np.asarray(weight).shape)
+                    norm_shape = tuple(int(d) for d in normalized_shape)
+                    if w_shape != norm_shape:
+                        raise CompiledRuntimeError(
+                            f"Invalid layer_norm '{op.graph_op}': weight shape {w_shape} "
+                            f"must match normalized_shape={norm_shape}"
+                        )
+                if bias is not None and normalized_shape is not None:
+                    b_shape = tuple(int(d) for d in np.asarray(bias).shape)
+                    norm_shape = tuple(int(d) for d in normalized_shape)
+                    if b_shape != norm_shape:
+                        raise CompiledRuntimeError(
+                            f"Invalid layer_norm '{op.graph_op}': bias shape {b_shape} "
+                            f"must match normalized_shape={norm_shape}"
+                        )
             elif op.op == OpKind.SCALED_DOT_PRODUCT_ATTENTION:
                 if len(op.inputs) < 3:
                     raise CompiledRuntimeError(

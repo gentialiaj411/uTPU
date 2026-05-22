@@ -91,3 +91,39 @@ def test_runtime_validation_rejects_mismatched_qkv_shape_contracts():
     with pytest.raises(CompiledRuntimeError, match="q/k head dim mismatch"):
         compiled((x, mask), mode="compiled")
     compiled.graph_ir.values[k_name].shape = original_k_shape
+
+
+def test_runtime_validation_rejects_invalid_norm_normalized_shape():
+    compiled, x, mask = _compile_case()
+    norm_op = next(op for op in compiled.graph_ir.ops if op.op == "layer_norm")
+    original = norm_op.attrs.get("normalized_shape")
+    norm_op.attrs["normalized_shape"] = (31,)
+    with pytest.raises(CompiledRuntimeError, match="must match normalized_shape"):
+        compiled((x, mask), mode="compiled")
+    norm_op.attrs["normalized_shape"] = original
+
+
+def test_runtime_validation_rejects_invalid_norm_affine_weight_shape():
+    compiled, x, mask = _compile_case()
+    norm_op = next(op for op in compiled.graph_ir.ops if op.op == "layer_norm")
+    original_weight = norm_op.attrs.get("weight")
+    original_norm_shape = norm_op.attrs.get("normalized_shape")
+    norm_op.attrs["normalized_shape"] = (32,)
+    norm_op.attrs["weight"] = torch.ones(31, dtype=torch.float32).numpy()
+    with pytest.raises(CompiledRuntimeError, match="weight shape"):
+        compiled((x, mask), mode="compiled")
+    norm_op.attrs["weight"] = original_weight
+    norm_op.attrs["normalized_shape"] = original_norm_shape
+
+
+def test_runtime_validation_rejects_invalid_norm_affine_bias_shape():
+    compiled, x, mask = _compile_case()
+    norm_op = next(op for op in compiled.graph_ir.ops if op.op == "layer_norm")
+    original_bias = norm_op.attrs.get("bias")
+    original_norm_shape = norm_op.attrs.get("normalized_shape")
+    norm_op.attrs["normalized_shape"] = (32,)
+    norm_op.attrs["bias"] = torch.ones(31, dtype=torch.float32).numpy()
+    with pytest.raises(CompiledRuntimeError, match="bias shape"):
+        compiled((x, mask), mode="compiled")
+    norm_op.attrs["bias"] = original_bias
+    norm_op.attrs["normalized_shape"] = original_norm_shape
