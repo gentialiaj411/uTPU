@@ -11,11 +11,34 @@ set top_name   top
 # Create project
 create_project -force $proj_name $proj_dir -part $part_name
 
-# Add RTL sources
-set rtl_files [concat \
-    [glob -nocomplain -directory $script_dir rtl/**/*.sv] \
-    [glob -nocomplain -directory $script_dir generated/**/*.sv] \
-]
+# Add RTL sources via explicit whitelist to avoid pulling in simulation/testbench files.
+proc add_whitelist_dir {base rel} {
+    set files [glob -nocomplain -directory [file join $base $rel] *.sv]
+    set out {}
+    foreach f $files {
+        set name [string tolower [file tail $f]]
+        if {[string match "*icarus*" $name]} { continue }
+        if {[string match "tb_*" $name]} { continue }
+        if {[string match "*_tb*" $name]} { continue }
+        lappend out $f
+    }
+    return [lsort $out]
+}
+
+set rtl_files {}
+set rtl_files [concat $rtl_files [add_whitelist_dir $script_dir "rtl/top"]]
+set rtl_files [concat $rtl_files [add_whitelist_dir $script_dir "rtl/PEArray"]]
+set rtl_files [concat $rtl_files [add_whitelist_dir $script_dir "rtl/UART"]]
+set rtl_files [concat $rtl_files [add_whitelist_dir $script_dir "rtl/fifo"]]
+set rtl_files [concat $rtl_files [add_whitelist_dir $script_dir "rtl/memory"]]
+set rtl_files [concat $rtl_files [add_whitelist_dir $script_dir "rtl/quantizer"]]
+set rtl_files [concat $rtl_files [add_whitelist_dir $script_dir "rtl/LeakyReLU"]]
+set rtl_files [concat $rtl_files [add_whitelist_dir $script_dir "rtl/unified_buffer"]]
+lappend rtl_files [file join $script_dir generated generated_params.sv]
+
+if {[llength $rtl_files] == 0} {
+    error "No RTL source files found in whitelist"
+}
 read_verilog -sv $rtl_files
 
 # Add constraints

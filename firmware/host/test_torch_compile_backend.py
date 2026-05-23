@@ -118,7 +118,6 @@ def test_pure_unsupported_falls_back_cleanly():
 
 
 def test_stats_artifact_schema_shape():
-    reset_stats()
     payload = dump_stats_artifact("build/reports/torch_compile_backend_report.json")
     path = Path("build/reports/torch_compile_backend_report.json")
     assert path.exists()
@@ -138,6 +137,10 @@ def test_stats_artifact_schema_shape():
         assert key in loaded
     assert loaded["backend_name"] == "utpu"
     assert isinstance(loaded["unsupported_op_counts"], dict)
+    if loaded["dynamo_available"]:
+        # CPU-runnable fallback tests should contribute non-zero dispatch evidence.
+        assert loaded["subgraphs_seen"] >= 1
+        assert loaded["subgraphs_fallback"] >= 1
     assert loaded == payload
 
 
