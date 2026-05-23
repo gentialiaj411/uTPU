@@ -8,6 +8,35 @@ import numpy as np
 
 from graph_ir import GraphIR, OpKind, OpNode
 
+_BACKEND_SUPPORTED_OPS: Dict[str, Set[str]] = {
+    "cuda": {
+        OpKind.LINEAR,
+        OpKind.LINEAR_RELU,
+        OpKind.RELU,
+        OpKind.ADD,
+        OpKind.VIEW,
+        OpKind.PERMUTE,
+        OpKind.SOFTMAX,
+        OpKind.LAYER_NORM,
+        OpKind.SCALED_DOT_PRODUCT_ATTENTION,
+        OpKind.BATCHED_MATMUL,
+        OpKind.SCALE,
+        OpKind.SCALED_SOFTMAX,
+    },
+    "utpu": {OpKind.LINEAR, OpKind.LINEAR_RELU},
+}
+
+
+def supported_ops_for_backend(backend: str) -> Set[str]:
+    target = (backend or "utpu").strip().lower()
+    if target not in _BACKEND_SUPPORTED_OPS:
+        raise BackendLegalityError(target, [{"op": target, "reason": "unknown_backend"}])
+    return set(_BACKEND_SUPPORTED_OPS[target])
+
+
+def is_op_supported_for_backend(op_kind: str, backend: str) -> bool:
+    return op_kind in supported_ops_for_backend(backend)
+
 
 class BackendLegalityError(ValueError):
     def __init__(self, backend: str, offending_ops: List[Dict[str, Any]]):
@@ -222,8 +251,109 @@ def shape_inference_pass(graph: GraphIR) -> GraphIR:
             q_value = inferred.get_value(op.inputs[0])
             out_value.shape = q_value.shape or out_value.shape
             out_value.dtype = q_value.dtype or out_value.dtype
+            continue
+
+        if op.op == OpKind.BATCHED_MATMUL:
+            lhs = inferred.get_value(op.inputs[0])
+            rhs = inferred.get_value(op.inputs[1])
+            if lhs.shape is not None and rhs.shape is not None and len(lhs.shape) >= 2 and len(rhs.shape) >= 2:
+                out_value.shape = tuple(lhs.shape[:-1]) + (int(rhs.shape[-1]),)
+            else:
+                out_value.shape = lhs.shape or rhs.shape or out_value.shape
+            out_value.dtype = lhs.dtype or rhs.dtype or out_value.dtype
+            continue
+
+        if op.op in {OpKind.SCALE, OpKind.SCALED_SOFTMAX}:
+            in_value = inferred.get_value(op.inputs[0])
+            out_value.shape = in_value.shape
+            out_value.dtype = in_value.dtype or out_value.dtype
 
     return inferred
+
+
+def attention_decomposition_pass(graph: GraphIR) -> GraphIR:
+    current = _clone_graph(graph)
+    lowered_ops: List[OpNode] = []
+    for op in current.ops:
+        if op.op != OpKind.SCALED_DOT_PRODUCT_ATTENTION:
+            lowered_ops.append(copy.deepcopy(op))
+            continue
+        q_name, k_name, v_name = op.inputs[0], op.inputs[1], op.inputs[2]
+        mask_name = op.inputs[3] if len(op.inputs) > 3 else None
+        k_shape = current.values.get(k_name).shape if k_name in current.values else None
+        rank = len(k_shape) if k_shape is not None else 4
+        if rank < 2:
+            lowered_ops.append(copy.deepcopy(op))
+            continue
+        dims = list(range(rank))
+        dims[-2], dims[-1] = dims[-1], dims[-2]
+
+        k_t = f"{op.name}.k_t"
+        scores = f"{op.name}.scores"
+        scaled_scores = f"{op.name}.scaled_scores"
+        masked_scores = f"{op.name}.masked_scores"
+        probs = f"{op.name}.probs"
+        out_name = op.outputs[0]
+
+        lowered_ops.append(
+            OpNode(
+                name=f"{op.name}.permute_k",
+                op=OpKind.PERMUTE,
+                inputs=[k_name],
+                outputs=[k_t],
+                attrs={"target": "decompose_attention", "args": tuple(dims)},
+            )
+        )
+        lowered_ops.append(
+            OpNode(
+                name=f"{op.name}.qk",
+                op=OpKind.BATCHED_MATMUL,
+                inputs=[q_name, k_t],
+                outputs=[scores],
+                attrs={"target": "decompose_attention"},
+            )
+        )
+        lowered_ops.append(
+            OpNode(
+                name=f"{op.name}.scale",
+                op=OpKind.SCALE,
+                inputs=[scores],
+                outputs=[scaled_scores],
+                attrs={"target": "decompose_attention", "scale": float(op.attrs.get("scale", 1.0))},
+            )
+        )
+        softmax_inputs = [scaled_scores]
+        if mask_name is not None:
+            lowered_ops.append(
+                OpNode(
+                    name=f"{op.name}.mask_add",
+                    op=OpKind.ADD,
+                    inputs=[scaled_scores, mask_name],
+                    outputs=[masked_scores],
+                    attrs={"target": "decompose_attention"},
+                )
+            )
+            softmax_inputs = [masked_scores]
+        lowered_ops.append(
+            OpNode(
+                name=f"{op.name}.softmax",
+                op=OpKind.SOFTMAX,
+                inputs=softmax_inputs,
+                outputs=[probs],
+                attrs={"target": "decompose_attention", "causal_mask": bool(op.attrs.get("causal_mask", False))},
+            )
+        )
+        lowered_ops.append(
+            OpNode(
+                name=f"{op.name}.out",
+                op=OpKind.BATCHED_MATMUL,
+                inputs=[probs, v_name],
+                outputs=[out_name],
+                attrs={"target": "decompose_attention", "causal_mask": bool(op.attrs.get("causal_mask", False))},
+            )
+        )
+
+    return _rebuild_graph_with_ops(current, lowered_ops)
 
 
 def linear_relu_fusion_pass(graph: GraphIR) -> GraphIR:
@@ -267,6 +397,42 @@ def linear_relu_fusion_pass(graph: GraphIR) -> GraphIR:
     return _rebuild_graph_with_ops(current, fused_ops)
 
 
+def scale_softmax_fusion_pass(graph: GraphIR) -> GraphIR:
+    current = _clone_graph(graph)
+    op_by_name = {op.name: op for op in current.ops}
+    skip_ops: Set[str] = set()
+    fused_ops: List[OpNode] = []
+    for op in current.ops:
+        if op.name in skip_ops:
+            continue
+        if op.op != OpKind.SCALE:
+            fused_ops.append(copy.deepcopy(op))
+            continue
+        out_name = op.outputs[0] if op.outputs else None
+        out_value = current.values.get(out_name) if out_name is not None else None
+        if out_value is None or len(out_value.consumers) != 1:
+            fused_ops.append(copy.deepcopy(op))
+            continue
+        consumer = op_by_name.get(out_value.consumers[0])
+        if consumer is None or consumer.op != OpKind.SOFTMAX:
+            fused_ops.append(copy.deepcopy(op))
+            continue
+        fused_ops.append(
+            OpNode(
+                name=f"{op.name}_softmax_fused",
+                op=OpKind.SCALED_SOFTMAX,
+                inputs=list(op.inputs),
+                outputs=list(consumer.outputs),
+                attrs={
+                    "scale": float(op.attrs.get("scale", 1.0)),
+                    "causal_mask": bool(consumer.attrs.get("causal_mask", False)),
+                },
+            )
+        )
+        skip_ops.add(consumer.name)
+    return _rebuild_graph_with_ops(current, fused_ops)
+
+
 def dead_code_elimination_pass(graph: GraphIR) -> GraphIR:
     current = _clone_graph(graph)
     live_values: Set[str] = set(current.outputs)
@@ -284,23 +450,7 @@ def dead_code_elimination_pass(graph: GraphIR) -> GraphIR:
 
 def backend_legality_pass(graph: GraphIR, backend: str) -> GraphIR:
     target = (backend or "utpu").strip().lower()
-    supported = {
-        "cuda": {
-            OpKind.LINEAR,
-            OpKind.LINEAR_RELU,
-            OpKind.RELU,
-            OpKind.ADD,
-            OpKind.VIEW,
-            OpKind.PERMUTE,
-            OpKind.SOFTMAX,
-            OpKind.LAYER_NORM,
-            OpKind.SCALED_DOT_PRODUCT_ATTENTION,
-        },
-        "utpu": {OpKind.LINEAR, OpKind.LINEAR_RELU},
-    }
-    allowed = supported.get(target)
-    if allowed is None:
-        raise BackendLegalityError(target, [{"op": target, "reason": "unknown_backend"}])
+    allowed = supported_ops_for_backend(target)
 
     lowered = _clone_graph(graph)
     lowered.metadata.setdefault("backend_legality", {})
@@ -494,7 +644,9 @@ class GraphPassManager:
         records: List[PassRecord] = []
         passes = [
             ("shape_inference", shape_inference_pass),
+            ("attention_decomposition", attention_decomposition_pass),
             ("linear_relu_fusion", linear_relu_fusion_pass),
+            ("scale_softmax_fusion", scale_softmax_fusion_pass),
             ("dead_code_elimination", dead_code_elimination_pass),
             ("memory_planning", memory_planning_pass),
             ("backend_legality", lambda g: backend_legality_pass(g, backend=self.target_backend)),

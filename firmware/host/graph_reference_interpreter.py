@@ -132,13 +132,27 @@ class GraphReferenceInterpreter:
 
             if op.op == OpKind.SOFTMAX:
                 x = _as_float32(values[op.inputs[0]])
+                if bool(op.attrs.get("causal_mask", False)):
+                    tri = np.triu(np.ones((x.shape[-2], x.shape[-1]), dtype=bool), k=1)
+                    x = np.where(tri, -1e9, x)
                 values[op.outputs[0]] = _stable_softmax(x, axis=-1).astype(np.float32, copy=False)
                 continue
 
             if op.op == OpKind.LAYER_NORM:
                 x = _as_float32(values[op.inputs[0]])
                 eps = float(op.attrs.get("eps", 1e-5))
-                values[op.outputs[0]] = _rms_norm(x, eps=eps).astype(np.float32, copy=False)
+                norm_kind = str(op.attrs.get("norm_kind", "rms_norm"))
+                if norm_kind == "layer_norm":
+                    mean = np.mean(x, axis=-1, keepdims=True)
+                    var = np.mean(np.square(x - mean), axis=-1, keepdims=True)
+                    y = (x - mean) / np.sqrt(var + eps)
+                else:
+                    y = _rms_norm(x, eps=eps)
+                if op.attrs.get("weight") is not None:
+                    y = y * _as_float32(op.attrs["weight"])
+                if op.attrs.get("bias") is not None:
+                    y = y + _as_float32(op.attrs["bias"])
+                values[op.outputs[0]] = y.astype(np.float32, copy=False)
                 continue
 
             if op.op == OpKind.SCALED_DOT_PRODUCT_ATTENTION:
@@ -168,6 +182,29 @@ class GraphReferenceInterpreter:
                 probs = _stable_softmax(scores, axis=-1).astype(np.float32, copy=False)
                 out = np.matmul(probs, v)
                 values[op.outputs[0]] = out.astype(np.float32, copy=False)
+                continue
+
+            if op.op == OpKind.BATCHED_MATMUL:
+                lhs = _as_float32(values[op.inputs[0]])
+                rhs = _as_float32(values[op.inputs[1]])
+                values[op.outputs[0]] = np.matmul(lhs, rhs).astype(np.float32, copy=False)
+                continue
+
+            if op.op == OpKind.SCALE:
+                x = _as_float32(values[op.inputs[0]])
+                s = float(op.attrs.get("scale", 1.0))
+                values[op.outputs[0]] = (x * s).astype(np.float32, copy=False)
+                continue
+
+            if op.op == OpKind.SCALED_SOFTMAX:
+                x = _as_float32(values[op.inputs[0]])
+                if len(op.inputs) > 1:
+                    x = x + _as_float32(values[op.inputs[1]])
+                s = float(op.attrs.get("scale", 1.0))
+                if bool(op.attrs.get("causal_mask", False)):
+                    tri = np.triu(np.ones((x.shape[-2], x.shape[-1]), dtype=bool), k=1)
+                    x = np.where(tri, -1e9, x)
+                values[op.outputs[0]] = _stable_softmax(x * s, axis=-1).astype(np.float32, copy=False)
                 continue
 
             raise GraphReferenceInterpreterError(f"Unsupported op '{op.op}' in reference interpreter")

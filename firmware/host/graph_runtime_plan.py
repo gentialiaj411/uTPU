@@ -76,6 +76,9 @@ def build_graph_runtime_plan(graph: GraphIR, target: str) -> GraphRuntimePlan:
             OpKind.SOFTMAX,
             OpKind.LAYER_NORM,
             OpKind.SCALED_DOT_PRODUCT_ATTENTION,
+            OpKind.BATCHED_MATMUL,
+            OpKind.SCALE,
+            OpKind.SCALED_SOFTMAX,
         }:
             plan.unsupported_ops.append(f"Runtime does not support op '{op.name}' kind '{op.op}'")
             continue

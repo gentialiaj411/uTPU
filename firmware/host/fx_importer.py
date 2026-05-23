@@ -290,7 +290,10 @@ def import_fx_graph_module(fx_module: Any, name: Optional[str] = None) -> GraphI
                         op=OpKind.SCALED_DOT_PRODUCT_ATTENTION,
                         inputs=inputs,
                         outputs=[node.name],
-                        attrs={"causal_mask": bool(node.kwargs.get("is_causal", False))},
+                        attrs={
+                            "causal_mask": bool(node.kwargs.get("is_causal", False)),
+                            "scale": float(node.kwargs.get("scale")) if node.kwargs.get("scale") is not None else 1.0,
+                        },
                     )
                 )
                 node_to_value[node] = node.name

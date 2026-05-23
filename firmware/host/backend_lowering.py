@@ -8,6 +8,8 @@ from lowering_types import BlockedFCLoweringRequest
 class BackendLowerer(Protocol):
     def lower_blocked_fc(self, request: BlockedFCLoweringRequest) -> Dict[str, Any]:
         ...
+    def lower_graph_op(self, op: Any) -> Dict[str, Any]:
+        ...
 
 
 class UTPUBackendLowerer:
@@ -24,6 +26,15 @@ class UTPUBackendLowerer:
             input_addr=request.input_addr,
             result_addr=request.result_addr,
         )
+
+    def lower_graph_op(self, op: Any) -> Dict[str, Any]:
+        return {
+            "mode": "utpu_graph_op_unsupported",
+            "op_kind": str(op.op),
+            "generated_by_compiler": True,
+            "executable_on_current_fpga_path": False,
+            "blockers": [f"uTPU backend currently supports only blocked-FC linear ops; unsupported graph op '{op.op}'"],
+        }
 
 
 def create_backend_lowerer(name: str) -> BackendLowerer:

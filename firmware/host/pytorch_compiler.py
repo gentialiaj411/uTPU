@@ -149,6 +149,8 @@ def _activation_bindings(graph: GraphIR, example_inputs: Tuple[Any, ...]) -> Dic
 
 def _lower_backend_ops(
     planned_ops: List[PlannedOp],
+    graph: GraphIR,
+    runtime_plan: GraphRuntimePlan,
     target: str,
 ) -> List[BackendLoweredOp]:
     lowerer = create_backend_lowerer(target)
@@ -164,6 +166,23 @@ def _lower_backend_ops(
                 lowering=lowerer.lower_blocked_fc(op.request),
                 fused_activation=op.fused_activation,
                 notes=list(op.notes),
+            )
+        )
+    graph_op_map = {op.name: op for op in graph.ops}
+    lowered_names = {op.graph_op for op in lowered}
+    for runtime_op in runtime_plan.ops:
+        if runtime_op.graph_op in lowered_names:
+            continue
+        graph_op = graph_op_map.get(runtime_op.graph_op)
+        if graph_op is None:
+            continue
+        lowered.append(
+            BackendLoweredOp(
+                graph_op=runtime_op.graph_op,
+                op=runtime_op.op,
+                target=target,
+                lowering=lowerer.lower_graph_op(graph_op),
+                notes=["graph-op lowering"],
             )
         )
     return lowered
@@ -223,7 +242,7 @@ def compile_model(
         activation_values=_activation_bindings(graph, inputs),
     )
     runtime_plan = build_graph_runtime_plan(graph, target_name)
-    backend_ops = _lower_backend_ops(plan.lowered_ops, target_name)
+    backend_ops = _lower_backend_ops(plan.lowered_ops, graph, runtime_plan, target_name)
     result = PyTorchCompileResult(
         model_name=model_name,
         target=target_name,

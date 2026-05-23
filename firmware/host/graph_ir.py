@@ -12,6 +12,9 @@ class OpKind:
     SOFTMAX = "softmax"
     LAYER_NORM = "layer_norm"
     SCALED_DOT_PRODUCT_ATTENTION = "scaled_dot_product_attention"
+    BATCHED_MATMUL = "batched_matmul"
+    SCALE = "scale"
+    SCALED_SOFTMAX = "scaled_softmax"
 
 
 @dataclass

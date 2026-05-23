@@ -32,6 +32,7 @@ class RuntimeExecutionStats:
     backend_linear_ops_executed: int = 0
     backend_elementwise_ops_executed: int = 0
     pytorch_fallback_ops: int = 0
+    numpy_fallback_ops: int = 0
     adapter_ops: int = 0
     fallback_ops: List[str] = field(default_factory=list)
     op_traces: List[RuntimeOpTrace] = field(default_factory=list)
@@ -54,6 +55,7 @@ class RuntimeExecutionStats:
             "backend_linear_ops_executed": self.backend_linear_ops_executed,
             "backend_elementwise_ops_executed": self.backend_elementwise_ops_executed,
             "pytorch_fallback_ops": self.pytorch_fallback_ops,
+            "numpy_fallback_ops": self.numpy_fallback_ops,
             "adapter_ops": self.adapter_ops,
             "fallback_ops": list(self.fallback_ops),
             "max_abs_error_vs_pytorch": self.max_abs_error_vs_pytorch,

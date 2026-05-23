@@ -5,8 +5,6 @@ from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
 import numpy as np
-import torch
-import torch.nn.functional as F
 
 from graph_ir import GraphIR, OpKind
 from lowering_types import BlockedFCLoweringRequest
@@ -152,6 +150,172 @@ void elementwise_int4_kernel(
 """
 
 
+def _batched_matmul_kernel_source() -> str:
+    return r"""
+extern "C" __global__
+void batched_matmul_fp32_kernel(
+    const float* __restrict__ a,
+    const float* __restrict__ b,
+    float* __restrict__ c,
+    int m,
+    int k,
+    int n
+) {
+    int col = blockIdx.x * blockDim.x + threadIdx.x;
+    int row = blockIdx.y * blockDim.y + threadIdx.y;
+    if (row >= m || col >= n) return;
+    float acc = 0.0f;
+    for (int i = 0; i < k; ++i) {
+        acc += a[row * k + i] * b[i * n + col];
+    }
+    c[row * n + col] = acc;
+}
+"""
+
+
+def _scale_softmax_kernel_source() -> str:
+    return r"""
+extern "C" __global__
+void scaled_softmax_fp32_kernel(const float* __restrict__ x, float* __restrict__ y, int n, float scale) {
+    int row = blockIdx.x;
+    const float* row_in = x + row * n;
+    float* row_out = y + row * n;
+    float max_v = -3.402823e38f;
+    for (int i = threadIdx.x; i < n; i += blockDim.x) {
+        float v = row_in[i] * scale;
+        if (v > max_v) max_v = v;
+    }
+    __shared__ float smem_max;
+    if (threadIdx.x == 0) smem_max = max_v;
+    __syncthreads();
+    float sum = 0.0f;
+    for (int i = threadIdx.x; i < n; i += blockDim.x) {
+        float e = expf(row_in[i] * scale - smem_max);
+        row_out[i] = e;
+        sum += e;
+    }
+    __shared__ float smem_sum;
+    if (threadIdx.x == 0) smem_sum = sum;
+    __syncthreads();
+    float denom = smem_sum + 1e-12f;
+    for (int i = threadIdx.x; i < n; i += blockDim.x) {
+        row_out[i] = row_out[i] / denom;
+    }
+}
+"""
+
+
+def _linear_fp32_kernel_source() -> str:
+    return r"""
+extern "C" __global__
+void linear_fp32_kernel(
+    const float* __restrict__ x,
+    const float* __restrict__ w,
+    const float* __restrict__ b,
+    float* __restrict__ y,
+    int rows,
+    int in_features,
+    int out_features,
+    int has_bias
+) {
+    int row = blockIdx.y * blockDim.y + threadIdx.y;
+    int col = blockIdx.x * blockDim.x + threadIdx.x;
+    if (row >= rows || col >= out_features) return;
+    float acc = 0.0f;
+    const float* xrow = x + row * in_features;
+    const float* wrow = w + col * in_features;
+    for (int k = 0; k < in_features; ++k) {
+        acc += xrow[k] * wrow[k];
+    }
+    if (has_bias) acc += b[col];
+    y[row * out_features + col] = acc;
+}
+"""
+
+
+def _add_fp32_kernel_source() -> str:
+    return r"""
+extern "C" __global__
+void add_fp32_kernel(const float* a, const float* b, float* out, int n) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < n) out[i] = a[i] + b[i];
+}
+"""
+
+
+def _scale_fp32_kernel_source() -> str:
+    return r"""
+extern "C" __global__
+void scale_fp32_kernel(const float* x, float* y, int n, float s) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < n) y[i] = x[i] * s;
+}
+"""
+
+
+def _row_softmax_fp32_kernel_source() -> str:
+    return r"""
+extern "C" __global__
+void row_softmax_fp32_kernel(const float* x, float* y, int rows, int cols, float scale, int causal, int q_len, int k_len) {
+    int row = blockIdx.x * blockDim.x + threadIdx.x;
+    if (row >= rows) return;
+    int q_idx = (q_len > 0) ? (row % q_len) : 0;
+    const float* xr = x + row * cols;
+    float* yr = y + row * cols;
+    float max_v = -3.402823e38f;
+    for (int c = 0; c < cols; ++c) {
+        float v = xr[c] * scale;
+        if (causal && q_len > 0 && k_len > 0 && c > q_idx) v = -1.0e9f;
+        if (v > max_v) max_v = v;
+    }
+    float sum = 0.0f;
+    for (int c = 0; c < cols; ++c) {
+        float v = xr[c] * scale;
+        if (causal && q_len > 0 && k_len > 0 && c > q_idx) v = -1.0e9f;
+        float e = expf(v - max_v);
+        yr[c] = e;
+        sum += e;
+    }
+    float denom = sum + 1e-12f;
+    for (int c = 0; c < cols; ++c) yr[c] = yr[c] / denom;
+}
+"""
+
+
+def _layer_norm_fp32_kernel_source() -> str:
+    return r"""
+extern "C" __global__
+void layer_norm_fp32_kernel(
+    const float* x, const float* w, const float* b, float* y,
+    int rows, int cols, float eps, int use_weight, int use_bias, int rms_only
+) {
+    int row = blockIdx.x * blockDim.x + threadIdx.x;
+    if (row >= rows) return;
+    const float* xr = x + row * cols;
+    float* yr = y + row * cols;
+    float mean = 0.0f;
+    if (!rms_only) {
+        for (int c = 0; c < cols; ++c) mean += xr[c];
+        mean /= (float)cols;
+    }
+    float var = 0.0f;
+    for (int c = 0; c < cols; ++c) {
+        float v = rms_only ? xr[c] : (xr[c] - mean);
+        var += v * v;
+    }
+    var /= (float)cols;
+    float inv = rsqrtf(var + eps);
+    for (int c = 0; c < cols; ++c) {
+        float v = rms_only ? xr[c] : (xr[c] - mean);
+        float out = v * inv;
+        if (use_weight) out *= w[c];
+        if (use_bias) out += b[c];
+        yr[c] = out;
+    }
+}
+"""
+
+
 def _leaky_relu_quantize_int4(x: np.ndarray, apply_relu: bool) -> np.ndarray:
     out = x.astype(np.float32)
     if apply_relu:
@@ -264,6 +428,31 @@ class CUDABackendLowerer:
             "executable_on_current_fpga_path": False,
             "int32_accumulation_supported": True,
             "quantize_after_accumulation_supported": bool(request.apply_quant),
+        }
+
+    def lower_graph_op(self, op: Any) -> Dict[str, Any]:
+        op_kind = str(op.op)
+        kernel_name = None
+        kernel_source = None
+        if op_kind == OpKind.BATCHED_MATMUL:
+            kernel_name = "batched_matmul_fp32_kernel"
+            kernel_source = _batched_matmul_kernel_source()
+        elif op_kind in {OpKind.SCALE, OpKind.SCALED_SOFTMAX, OpKind.SOFTMAX}:
+            kernel_name = "scaled_softmax_fp32_kernel"
+            kernel_source = _scale_softmax_kernel_source()
+        elif op_kind in {OpKind.ADD, OpKind.LAYER_NORM}:
+            kernel_name = "elementwise_int4_kernel"
+            kernel_source = _elementwise_kernel_source()
+        return {
+            "mode": "cuda_graph_op",
+            "op_kind": op_kind,
+            "kernel_name": kernel_name,
+            "kernel_source": kernel_source,
+            "generated_by_compiler": True,
+            "notes": [
+                "Graph-op codegen emits CUDA kernel templates per op family.",
+                "Execution uses compiler-owned CUDA graph-op kernels.",
+            ],
         }
 
 
@@ -935,118 +1124,297 @@ class CUDABlockedFCExecutor:
 class CUDAGraphOpExecutor:
     def __init__(self, device: str = "cuda"):
         self.device = device
+        self._cuda = None
+        self._nvrtc = None
+        self._ctx = None
+        self._kernel_cache: Dict[str, Any] = {}
 
-    def _as_torch(self, value: Any) -> torch.Tensor:
-        if isinstance(value, torch.Tensor):
-            return value.to(self.device, dtype=torch.float32)
-        return torch.as_tensor(value, device=self.device, dtype=torch.float32)
+    def _load_cuda_bindings(self):
+        if self._cuda is not None and self._nvrtc is not None:
+            return self._cuda, self._nvrtc
+        try:
+            from cuda import cuda, nvrtc
+        except Exception:
+            from cuda.bindings import driver as cuda
+            from cuda.bindings import nvrtc
+        self._cuda = cuda
+        self._nvrtc = nvrtc
+        return cuda, nvrtc
+
+    def _check_cuda(self, err, ctx: str):
+        cuda = self._cuda
+        if err != cuda.CUresult.CUDA_SUCCESS:
+            name = cuda.cuGetErrorName(err)[1].decode("utf-8")
+            desc = cuda.cuGetErrorString(err)[1].decode("utf-8")
+            raise RuntimeError(f"{ctx} failed: {name} ({desc})")
+
+    def _check_nvrtc(self, err, ctx: str):
+        nvrtc = self._nvrtc
+        if err != nvrtc.nvrtcResult.NVRTC_SUCCESS:
+            raise RuntimeError(f"{ctx} failed: {nvrtc.nvrtcGetErrorString(err)[1].decode('utf-8')}")
+
+    def _ensure_context(self) -> None:
+        cuda, _ = self._load_cuda_bindings()
+        if self._ctx is not None:
+            if hasattr(cuda, "cuCtxSetCurrent"):
+                self._check_cuda(cuda.cuCtxSetCurrent(self._ctx)[0], "cuCtxSetCurrent")
+            return
+        self._check_cuda(cuda.cuInit(0)[0], "cuInit")
+        err, dev = cuda.cuDeviceGet(0)
+        self._check_cuda(err, "cuDeviceGet")
+        err, self._ctx = cuda.cuCtxCreate(None, 0, dev)
+        self._check_cuda(err, "cuCtxCreate")
+
+    def _get_kernel(self, key: str, source: str, fn_name: str):
+        cuda, nvrtc = self._load_cuda_bindings()
+        self._ensure_context()
+        if key in self._kernel_cache:
+            return self._kernel_cache[key]
+        src = source.encode("utf-8")
+        err, prog = nvrtc.nvrtcCreateProgram(src, b"graph_op.cu", 0, [], [])
+        self._check_nvrtc(err, f"nvrtcCreateProgram({key})")
+        opts = [b"--std=c++11"]
+        err, = nvrtc.nvrtcCompileProgram(prog, len(opts), opts)
+        if err != nvrtc.nvrtcResult.NVRTC_SUCCESS:
+            _, log_size = nvrtc.nvrtcGetProgramLogSize(prog)
+            log = b""
+            if log_size > 1:
+                buf = bytearray(log_size)
+                nvrtc.nvrtcGetProgramLog(prog, buf)
+                log = bytes(buf)
+            raise RuntimeError(f"nvrtcCompileProgram({key}) failed: {log.decode('utf-8', errors='replace')}")
+        err, ptx_size = nvrtc.nvrtcGetPTXSize(prog)
+        self._check_nvrtc(err, f"nvrtcGetPTXSize({key})")
+        ptx = bytearray(ptx_size)
+        err, = nvrtc.nvrtcGetPTX(prog, ptx)
+        self._check_nvrtc(err, f"nvrtcGetPTX({key})")
+        nvrtc.nvrtcDestroyProgram(prog)
+        err, mod = cuda.cuModuleLoadData(bytes(ptx))
+        self._check_cuda(err, f"cuModuleLoadData({key})")
+        err, fn = cuda.cuModuleGetFunction(mod, fn_name.encode("utf-8"))
+        self._check_cuda(err, f"cuModuleGetFunction({key})")
+        self._kernel_cache[key] = (mod, fn)
+        return mod, fn
+
+    def _launch_unary_scale(self, x: np.ndarray, scale: float) -> np.ndarray:
+        cuda, _ = self._load_cuda_bindings()
+        _, fn = self._get_kernel("scale_fp32", _scale_fp32_kernel_source(), "scale_fp32_kernel")
+        x = np.ascontiguousarray(x.astype(np.float32, copy=False).reshape(-1))
+        out = np.zeros_like(x)
+        nbytes = int(x.nbytes)
+        err, d_x = cuda.cuMemAlloc(nbytes); self._check_cuda(err, "cuMemAlloc(scale_in)")
+        err, d_y = cuda.cuMemAlloc(nbytes); self._check_cuda(err, "cuMemAlloc(scale_out)")
+        self._check_cuda(cuda.cuMemcpyHtoD(d_x, x.tobytes(), nbytes)[0], "cuMemcpyHtoD(scale_x)")
+        arg_x = ctypes.c_void_p(int(d_x)); arg_y = ctypes.c_void_p(int(d_y))
+        arg_n = ctypes.c_int32(int(x.size)); arg_s = ctypes.c_float(float(scale))
+        args = (ctypes.c_void_p * 4)(
+            ctypes.cast(ctypes.pointer(arg_x), ctypes.c_void_p),
+            ctypes.cast(ctypes.pointer(arg_y), ctypes.c_void_p),
+            ctypes.cast(ctypes.pointer(arg_n), ctypes.c_void_p),
+            ctypes.cast(ctypes.pointer(arg_s), ctypes.c_void_p),
+        )
+        threads = 128
+        blocks = int(math.ceil(x.size / threads))
+        self._check_cuda(cuda.cuLaunchKernel(fn, blocks, 1, 1, threads, 1, 1, 0, 0, args, 0)[0], "cuLaunchKernel(scale)")
+        self._check_cuda(cuda.cuCtxSynchronize()[0], "cuCtxSynchronize(scale)")
+        self._check_cuda(cuda.cuMemcpyDtoH(out.ctypes.data, d_y, nbytes)[0], "cuMemcpyDtoH(scale)")
+        cuda.cuMemFree(d_x); cuda.cuMemFree(d_y)
+        return out
+
+    def _launch_add(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
+        cuda, _ = self._load_cuda_bindings()
+        _, fn = self._get_kernel("add_fp32", _add_fp32_kernel_source(), "add_fp32_kernel")
+        av = np.ascontiguousarray(a.astype(np.float32, copy=False).reshape(-1))
+        bv = np.ascontiguousarray(b.astype(np.float32, copy=False).reshape(-1))
+        out = np.zeros_like(av)
+        nbytes = int(av.nbytes)
+        err, d_a = cuda.cuMemAlloc(nbytes); self._check_cuda(err, "cuMemAlloc(add_a)")
+        err, d_b = cuda.cuMemAlloc(nbytes); self._check_cuda(err, "cuMemAlloc(add_b)")
+        err, d_o = cuda.cuMemAlloc(nbytes); self._check_cuda(err, "cuMemAlloc(add_out)")
+        self._check_cuda(cuda.cuMemcpyHtoD(d_a, av.tobytes(), nbytes)[0], "cuMemcpyHtoD(add_a)")
+        self._check_cuda(cuda.cuMemcpyHtoD(d_b, bv.tobytes(), nbytes)[0], "cuMemcpyHtoD(add_b)")
+        arg_a = ctypes.c_void_p(int(d_a)); arg_b = ctypes.c_void_p(int(d_b)); arg_o = ctypes.c_void_p(int(d_o)); arg_n = ctypes.c_int32(int(av.size))
+        args = (ctypes.c_void_p * 4)(ctypes.cast(ctypes.pointer(arg_a), ctypes.c_void_p), ctypes.cast(ctypes.pointer(arg_b), ctypes.c_void_p), ctypes.cast(ctypes.pointer(arg_o), ctypes.c_void_p), ctypes.cast(ctypes.pointer(arg_n), ctypes.c_void_p))
+        threads = 128; blocks = int(math.ceil(av.size / threads))
+        self._check_cuda(cuda.cuLaunchKernel(fn, blocks, 1, 1, threads, 1, 1, 0, 0, args, 0)[0], "cuLaunchKernel(add)")
+        self._check_cuda(cuda.cuCtxSynchronize()[0], "cuCtxSynchronize(add)")
+        self._check_cuda(cuda.cuMemcpyDtoH(out.ctypes.data, d_o, nbytes)[0], "cuMemcpyDtoH(add)")
+        cuda.cuMemFree(d_a); cuda.cuMemFree(d_b); cuda.cuMemFree(d_o)
+        return out
+
+    def _launch_linear(self, x: np.ndarray, w: np.ndarray, b: Optional[np.ndarray]) -> np.ndarray:
+        cuda, _ = self._load_cuda_bindings()
+        _, fn = self._get_kernel("linear_fp32", _linear_fp32_kernel_source(), "linear_fp32_kernel")
+        rows = int(np.prod(x.shape[:-1])) if x.ndim > 1 else 1
+        in_features = int(x.shape[-1])
+        out_features = int(w.shape[0])
+        xv = np.ascontiguousarray(x.astype(np.float32, copy=False).reshape(rows, in_features))
+        wv = np.ascontiguousarray(w.astype(np.float32, copy=False))
+        bv = None if b is None else np.ascontiguousarray(b.astype(np.float32, copy=False).reshape(-1))
+        out = np.zeros((rows, out_features), dtype=np.float32)
+        x_bytes = int(xv.nbytes); w_bytes = int(wv.nbytes); o_bytes = int(out.nbytes); b_bytes = int(bv.nbytes) if bv is not None else 0
+        err, d_x = cuda.cuMemAlloc(x_bytes); self._check_cuda(err, "cuMemAlloc(linear_x)")
+        err, d_w = cuda.cuMemAlloc(w_bytes); self._check_cuda(err, "cuMemAlloc(linear_w)")
+        err, d_o = cuda.cuMemAlloc(o_bytes); self._check_cuda(err, "cuMemAlloc(linear_o)")
+        d_b = 0
+        if bv is not None:
+            err, d_b = cuda.cuMemAlloc(b_bytes); self._check_cuda(err, "cuMemAlloc(linear_b)")
+            self._check_cuda(cuda.cuMemcpyHtoD(d_b, bv.tobytes(), b_bytes)[0], "cuMemcpyHtoD(linear_b)")
+        self._check_cuda(cuda.cuMemcpyHtoD(d_x, xv.tobytes(), x_bytes)[0], "cuMemcpyHtoD(linear_x)")
+        self._check_cuda(cuda.cuMemcpyHtoD(d_w, wv.tobytes(), w_bytes)[0], "cuMemcpyHtoD(linear_w)")
+        arg_x = ctypes.c_void_p(int(d_x)); arg_w = ctypes.c_void_p(int(d_w)); arg_b = ctypes.c_void_p(int(d_b)); arg_o = ctypes.c_void_p(int(d_o))
+        arg_rows = ctypes.c_int32(rows); arg_in = ctypes.c_int32(in_features); arg_out = ctypes.c_int32(out_features); arg_has_bias = ctypes.c_int32(1 if bv is not None else 0)
+        args = (ctypes.c_void_p * 8)(ctypes.cast(ctypes.pointer(arg_x), ctypes.c_void_p), ctypes.cast(ctypes.pointer(arg_w), ctypes.c_void_p), ctypes.cast(ctypes.pointer(arg_b), ctypes.c_void_p), ctypes.cast(ctypes.pointer(arg_o), ctypes.c_void_p), ctypes.cast(ctypes.pointer(arg_rows), ctypes.c_void_p), ctypes.cast(ctypes.pointer(arg_in), ctypes.c_void_p), ctypes.cast(ctypes.pointer(arg_out), ctypes.c_void_p), ctypes.cast(ctypes.pointer(arg_has_bias), ctypes.c_void_p))
+        tx, ty = 16, 16
+        bx, by = int(math.ceil(out_features / tx)), int(math.ceil(rows / ty))
+        self._check_cuda(cuda.cuLaunchKernel(fn, bx, by, 1, tx, ty, 1, 0, 0, args, 0)[0], "cuLaunchKernel(linear)")
+        self._check_cuda(cuda.cuCtxSynchronize()[0], "cuCtxSynchronize(linear)")
+        self._check_cuda(cuda.cuMemcpyDtoH(out.ctypes.data, d_o, o_bytes)[0], "cuMemcpyDtoH(linear)")
+        cuda.cuMemFree(d_x); cuda.cuMemFree(d_w); cuda.cuMemFree(d_o)
+        if d_b:
+            cuda.cuMemFree(d_b)
+        return out.reshape(tuple(x.shape[:-1]) + (out_features,))
+
+    def _launch_softmax(self, x: np.ndarray, scale: float, causal: bool = False) -> np.ndarray:
+        cuda, _ = self._load_cuda_bindings()
+        _, fn = self._get_kernel("row_softmax_fp32", _row_softmax_fp32_kernel_source(), "row_softmax_fp32_kernel")
+        cols = int(x.shape[-1]); rows = int(np.prod(x.shape[:-1])) if x.ndim > 1 else 1
+        xv = np.ascontiguousarray(x.astype(np.float32, copy=False).reshape(rows, cols))
+        out = np.zeros_like(xv)
+        nbytes = int(xv.nbytes)
+        err, d_x = cuda.cuMemAlloc(nbytes); self._check_cuda(err, "cuMemAlloc(softmax_x)")
+        err, d_y = cuda.cuMemAlloc(nbytes); self._check_cuda(err, "cuMemAlloc(softmax_y)")
+        self._check_cuda(cuda.cuMemcpyHtoD(d_x, xv.tobytes(), nbytes)[0], "cuMemcpyHtoD(softmax_x)")
+        q_len = int(x.shape[-2]) if x.ndim >= 2 else 0
+        k_len = int(x.shape[-1]) if x.ndim >= 1 else 0
+        arg_x = ctypes.c_void_p(int(d_x)); arg_y = ctypes.c_void_p(int(d_y))
+        arg_rows = ctypes.c_int32(rows); arg_cols = ctypes.c_int32(cols); arg_scale = ctypes.c_float(scale)
+        arg_causal = ctypes.c_int32(1 if causal else 0); arg_q = ctypes.c_int32(q_len); arg_k = ctypes.c_int32(k_len)
+        args = (ctypes.c_void_p * 8)(ctypes.cast(ctypes.pointer(arg_x), ctypes.c_void_p), ctypes.cast(ctypes.pointer(arg_y), ctypes.c_void_p), ctypes.cast(ctypes.pointer(arg_rows), ctypes.c_void_p), ctypes.cast(ctypes.pointer(arg_cols), ctypes.c_void_p), ctypes.cast(ctypes.pointer(arg_scale), ctypes.c_void_p), ctypes.cast(ctypes.pointer(arg_causal), ctypes.c_void_p), ctypes.cast(ctypes.pointer(arg_q), ctypes.c_void_p), ctypes.cast(ctypes.pointer(arg_k), ctypes.c_void_p))
+        threads = 128; blocks = int(math.ceil(rows / threads))
+        self._check_cuda(cuda.cuLaunchKernel(fn, blocks, 1, 1, threads, 1, 1, 0, 0, args, 0)[0], "cuLaunchKernel(softmax)")
+        self._check_cuda(cuda.cuCtxSynchronize()[0], "cuCtxSynchronize(softmax)")
+        self._check_cuda(cuda.cuMemcpyDtoH(out.ctypes.data, d_y, nbytes)[0], "cuMemcpyDtoH(softmax)")
+        cuda.cuMemFree(d_x); cuda.cuMemFree(d_y)
+        return out.reshape(x.shape)
+
+    def _launch_layer_norm(self, x: np.ndarray, op_attrs: Dict[str, Any]) -> np.ndarray:
+        cuda, _ = self._load_cuda_bindings()
+        _, fn = self._get_kernel("layer_norm_fp32", _layer_norm_fp32_kernel_source(), "layer_norm_fp32_kernel")
+        cols = int(x.shape[-1]); rows = int(np.prod(x.shape[:-1])) if x.ndim > 1 else 1
+        xv = np.ascontiguousarray(x.astype(np.float32, copy=False).reshape(rows, cols))
+        out = np.zeros_like(xv)
+        w = op_attrs.get("weight"); b = op_attrs.get("bias")
+        use_weight = 1 if w is not None else 0
+        use_bias = 1 if b is not None else 0
+        rms_only = 1 if str(op_attrs.get("norm_kind", "rms_norm")) != "layer_norm" else 0
+        eps = float(op_attrs.get("eps", 1e-5))
+        nbytes = int(xv.nbytes)
+        err, d_x = cuda.cuMemAlloc(nbytes); self._check_cuda(err, "cuMemAlloc(norm_x)")
+        err, d_y = cuda.cuMemAlloc(nbytes); self._check_cuda(err, "cuMemAlloc(norm_y)")
+        d_w = 0; d_b = 0
+        if use_weight:
+            wv = np.ascontiguousarray(np.asarray(w, dtype=np.float32).reshape(-1))
+            err, d_w = cuda.cuMemAlloc(int(wv.nbytes)); self._check_cuda(err, "cuMemAlloc(norm_w)")
+            self._check_cuda(cuda.cuMemcpyHtoD(d_w, wv.tobytes(), int(wv.nbytes))[0], "cuMemcpyHtoD(norm_w)")
+        if use_bias:
+            bv = np.ascontiguousarray(np.asarray(b, dtype=np.float32).reshape(-1))
+            err, d_b = cuda.cuMemAlloc(int(bv.nbytes)); self._check_cuda(err, "cuMemAlloc(norm_b)")
+            self._check_cuda(cuda.cuMemcpyHtoD(d_b, bv.tobytes(), int(bv.nbytes))[0], "cuMemcpyHtoD(norm_b)")
+        self._check_cuda(cuda.cuMemcpyHtoD(d_x, xv.tobytes(), nbytes)[0], "cuMemcpyHtoD(norm_x)")
+        arg_x = ctypes.c_void_p(int(d_x)); arg_w = ctypes.c_void_p(int(d_w)); arg_b = ctypes.c_void_p(int(d_b)); arg_y = ctypes.c_void_p(int(d_y))
+        arg_rows = ctypes.c_int32(rows); arg_cols = ctypes.c_int32(cols); arg_eps = ctypes.c_float(eps)
+        arg_use_w = ctypes.c_int32(use_weight); arg_use_b = ctypes.c_int32(use_bias); arg_rms = ctypes.c_int32(rms_only)
+        args = (ctypes.c_void_p * 10)(ctypes.cast(ctypes.pointer(arg_x), ctypes.c_void_p), ctypes.cast(ctypes.pointer(arg_w), ctypes.c_void_p), ctypes.cast(ctypes.pointer(arg_b), ctypes.c_void_p), ctypes.cast(ctypes.pointer(arg_y), ctypes.c_void_p), ctypes.cast(ctypes.pointer(arg_rows), ctypes.c_void_p), ctypes.cast(ctypes.pointer(arg_cols), ctypes.c_void_p), ctypes.cast(ctypes.pointer(arg_eps), ctypes.c_void_p), ctypes.cast(ctypes.pointer(arg_use_w), ctypes.c_void_p), ctypes.cast(ctypes.pointer(arg_use_b), ctypes.c_void_p), ctypes.cast(ctypes.pointer(arg_rms), ctypes.c_void_p))
+        threads = 128; blocks = int(math.ceil(rows / threads))
+        self._check_cuda(cuda.cuLaunchKernel(fn, blocks, 1, 1, threads, 1, 1, 0, 0, args, 0)[0], "cuLaunchKernel(norm)")
+        self._check_cuda(cuda.cuCtxSynchronize()[0], "cuCtxSynchronize(norm)")
+        self._check_cuda(cuda.cuMemcpyDtoH(out.ctypes.data, d_y, nbytes)[0], "cuMemcpyDtoH(norm)")
+        cuda.cuMemFree(d_x); cuda.cuMemFree(d_y)
+        if d_w: cuda.cuMemFree(d_w)
+        if d_b: cuda.cuMemFree(d_b)
+        return out.reshape(x.shape)
 
     def run(self, graph: GraphIR, *inputs: Any) -> Dict[str, Any]:
-        if self.device == "cuda" and not torch.cuda.is_available():
-            return {"executed": False, "reason": "torch.cuda.is_available() is False"}
-
-        values: Dict[str, torch.Tensor] = {}
-        for name, value in zip(graph.inputs, inputs):
-            values[name] = self._as_torch(value)
-
-        for op in graph.ops:
-            if op.op in {OpKind.LINEAR, OpKind.LINEAR_RELU}:
-                x = self._as_torch(values[op.inputs[0]])
-                if op.attrs.get("dtype_quant") == "int4_g64":
-                    packed = np.asarray(op.attrs["weight_int4_packed"], dtype=np.uint8).reshape(-1)
-                    total = int(np.prod(np.asarray(op.attrs["weight_int4_shape"])))
-                    q = np.zeros((packed.size * 2,), dtype=np.int8)
-                    q[0::2] = (packed & 0x0F).astype(np.int8) - 8
-                    q[1::2] = ((packed >> 4) & 0x0F).astype(np.int8) - 8
-                    q = q[:total].reshape(tuple(op.attrs["weight_int4_shape"])).astype(np.float32)
-                    scales = np.asarray(op.attrs["weight_int4_scales"], dtype=np.float32)
-                    deq = np.zeros_like(q, dtype=np.float32)
-                    group_size = 64
-                    for o in range(deq.shape[0]):
-                        for g in range(scales.shape[1]):
-                            s = g * group_size
-                            e = min(deq.shape[1], s + group_size)
-                            deq[o, s:e] = q[o, s:e] * scales[o, g]
-                    w = self._as_torch(deq)
+        env = detect_cuda_environment()
+        if not env.runtime_available:
+            return {"executed": False, "reason": env.reason or "CUDA runtime unavailable"}
+        try:
+            self._ensure_context()
+            values: Dict[str, np.ndarray] = {}
+            for name, value in zip(graph.inputs, inputs):
+                if hasattr(value, "detach"):
+                    values[name] = value.detach().cpu().numpy().astype(np.float32)
                 else:
-                    w = self._as_torch(op.attrs["weight"])
-                b = op.attrs.get("bias")
-                y = x @ w.transpose(-1, -2)
-                if b is not None:
-                    y = y + self._as_torch(b)
-                if op.op == OpKind.LINEAR_RELU:
-                    y = torch.relu(y)
-                values[op.outputs[0]] = y
-                continue
+                    values[name] = np.asarray(value, dtype=np.float32)
 
-            if op.op == OpKind.RELU:
-                values[op.outputs[0]] = torch.relu(self._as_torch(values[op.inputs[0]]))
-                continue
+            for op in graph.ops:
+                if op.op in {OpKind.LINEAR, OpKind.LINEAR_RELU}:
+                    x = values[op.inputs[0]]
+                    w = np.asarray(op.attrs["weight"], dtype=np.float32)
+                    b = None if op.attrs.get("bias") is None else np.asarray(op.attrs["bias"], dtype=np.float32)
+                    y = self._launch_linear(x, w, b)
+                    if op.op == OpKind.LINEAR_RELU:
+                        y = np.maximum(y, 0.0).astype(np.float32)
+                    values[op.outputs[0]] = y
+                    continue
+                if op.op == OpKind.ADD:
+                    lhs = values[op.inputs[0]]
+                    rhs = values[op.inputs[1]]
+                    values[op.outputs[0]] = self._launch_add(lhs, rhs).reshape(lhs.shape)
+                    continue
+                if op.op == OpKind.VIEW:
+                    x = values[op.inputs[0]]
+                    raw = tuple(op.attrs.get("args", ()))
+                    if len(raw) == 1 and isinstance(raw[0], (tuple, list)):
+                        raw = tuple(raw[0])
+                    values[op.outputs[0]] = x.reshape(raw).astype(np.float32, copy=False)
+                    continue
+                if op.op == OpKind.PERMUTE:
+                    x = values[op.inputs[0]]
+                    raw = tuple(op.attrs.get("args", ()))
+                    if len(raw) == 1 and isinstance(raw[0], (tuple, list)):
+                        raw = tuple(raw[0])
+                    values[op.outputs[0]] = np.transpose(x, axes=raw).astype(np.float32, copy=False)
+                    continue
+                if op.op == OpKind.BATCHED_MATMUL:
+                    a = values[op.inputs[0]]
+                    b = values[op.inputs[1]]
+                    batch = int(np.prod(a.shape[:-2])) if a.ndim > 2 else 1
+                    m, k, n = int(a.shape[-2]), int(a.shape[-1]), int(b.shape[-1])
+                    a2 = a.reshape(batch, m, k)
+                    b2 = b.reshape(batch, k, n)
+                    out = np.zeros((batch, m, n), dtype=np.float32)
+                    for i in range(batch):
+                        out[i] = self._launch_linear(a2[i], b2[i].T, None)
+                    values[op.outputs[0]] = out.reshape(tuple(a.shape[:-2]) + (m, n))
+                    continue
+                if op.op == OpKind.SCALE:
+                    x = values[op.inputs[0]]
+                    s = float(op.attrs.get("scale", 1.0))
+                    values[op.outputs[0]] = self._launch_unary_scale(x, s).reshape(x.shape)
+                    continue
+                if op.op == OpKind.SOFTMAX:
+                    x = values[op.inputs[0]]
+                    values[op.outputs[0]] = self._launch_softmax(x, 1.0, causal=False)
+                    continue
+                if op.op == OpKind.SCALED_SOFTMAX:
+                    x = values[op.inputs[0]]
+                    s = float(op.attrs.get("scale", 1.0))
+                    causal = bool(op.attrs.get("causal_mask", False))
+                    values[op.outputs[0]] = self._launch_softmax(x, s, causal=causal)
+                    continue
+                if op.op == OpKind.LAYER_NORM:
+                    x = values[op.inputs[0]]
+                    values[op.outputs[0]] = self._launch_layer_norm(x, op.attrs)
+                    continue
+                if op.op == OpKind.RELU:
+                    x = values[op.inputs[0]]
+                    values[op.outputs[0]] = np.maximum(x, 0.0).astype(np.float32)
+                    continue
+                return {"executed": False, "reason": f"unsupported op: {op.op}"}
 
-            if op.op == OpKind.ADD:
-                lhs = self._as_torch(values[op.inputs[0]])
-                rhs = self._as_torch(values[op.inputs[1]])
-                values[op.outputs[0]] = lhs + rhs
-                continue
-
-            if op.op == OpKind.VIEW:
-                x = self._as_torch(values[op.inputs[0]])
-                raw = tuple(op.attrs.get("args", ()))
-                if len(raw) == 1 and isinstance(raw[0], (tuple, list)):
-                    raw = tuple(raw[0])
-                values[op.outputs[0]] = x.reshape(raw)
-                continue
-            if op.op == OpKind.PERMUTE:
-                x = self._as_torch(values[op.inputs[0]])
-                raw = tuple(op.attrs.get("args", ()))
-                if len(raw) == 1 and isinstance(raw[0], (tuple, list)):
-                    raw = tuple(raw[0])
-                values[op.outputs[0]] = x.permute(*raw)
-                continue
-
-            if op.op == OpKind.SOFTMAX:
-                x = self._as_torch(values[op.inputs[0]])
-                values[op.outputs[0]] = torch.softmax(x, dim=-1)
-                continue
-
-            if op.op == OpKind.LAYER_NORM:
-                x = self._as_torch(values[op.inputs[0]])
-                eps = float(op.attrs.get("eps", 1e-5))
-                norm_kind = str(op.attrs.get("norm_kind", "rms_norm"))
-                if norm_kind == "layer_norm":
-                    mean = torch.mean(x, dim=-1, keepdim=True)
-                    var = torch.mean((x - mean) * (x - mean), dim=-1, keepdim=True)
-                    y = (x - mean) / torch.sqrt(var + eps)
-                else:
-                    rms = torch.sqrt(torch.mean(x * x, dim=-1, keepdim=True) + eps)
-                    y = x / rms
-                if op.attrs.get("weight") is not None:
-                    w = self._as_torch(op.attrs["weight"])
-                    y = y * w
-                if op.attrs.get("bias") is not None:
-                    b = self._as_torch(op.attrs["bias"])
-                    y = y + b
-                values[op.outputs[0]] = y
-                continue
-
-            if op.op == OpKind.SCALED_DOT_PRODUCT_ATTENTION:
-                q = self._as_torch(values[op.inputs[0]])
-                k = self._as_torch(values[op.inputs[1]])
-                v = self._as_torch(values[op.inputs[2]])
-                attn_mask = None
-                if len(op.inputs) > 3 and op.inputs[3] in values:
-                    attn_mask = self._as_torch(values[op.inputs[3]])
-                out = F.scaled_dot_product_attention(
-                    q,
-                    k,
-                    v,
-                    attn_mask=attn_mask,
-                    is_causal=bool(op.attrs.get("causal_mask", False)),
-                )
-                values[op.outputs[0]] = out
-                continue
-
-            return {"executed": False, "reason": f"unsupported op: {op.op}"}
-
-        outputs = [values[name].detach().cpu().numpy().astype(np.float32) for name in graph.outputs]
-        return {"executed": True, "outputs": outputs if len(outputs) > 1 else outputs[0]}
+            outputs = [values[name].astype(np.float32, copy=False) for name in graph.outputs]
+            return {"executed": True, "outputs": outputs if len(outputs) > 1 else outputs[0]}
+        except Exception as e:
+            return {"executed": False, "reason": str(e)}

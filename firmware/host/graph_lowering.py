@@ -187,6 +187,9 @@ def plan_blocked_fc_graph(
             OpKind.SOFTMAX,
             OpKind.LAYER_NORM,
             OpKind.SCALED_DOT_PRODUCT_ATTENTION,
+            OpKind.BATCHED_MATMUL,
+            OpKind.SCALE,
+            OpKind.SCALED_SOFTMAX,
         }:
             plan.fallback_ops.append(
                 PlannedOp(
