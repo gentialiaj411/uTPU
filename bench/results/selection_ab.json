@@ -1,0 +1,1406 @@
+{
+  "aggregate": {
+    "realized_regret_pct_count": 24,
+    "realized_regret_pct_max": 3.3714805076036614,
+    "realized_regret_pct_mean": 0.10250847127025346,
+    "realized_regret_pct_median": -0.1002591901329124,
+    "realized_regret_pct_min": -2.3916950107357975,
+    "realized_regret_pct_p95": 2.209430695377766,
+    "realized_within_10pct_fraction": 1.0,
+    "realized_within_1pct_fraction": 0.6666666666666666,
+    "realized_within_5pct_fraction": 1.0
+  },
+  "environment": {
+    "device_name": "NVIDIA GeForce RTX 5070 Laptop GPU",
+    "python_version": "3.14.4",
+    "torch_version": "2.11.0+cu130"
+  },
+  "generated_at_utc": "2026-05-25T15:58:50.062826+00:00",
+  "methodology": {
+    "api": "firmware/host/run_selection_ab.py + firmware/host/_selection_ab_cuda_subprocess.py",
+    "array_size": 16,
+    "consumed_by_runtime": "Schedule A is the same schedule that CompiledMLPRuntime executes when schedule_source='cost_model' (see firmware/host/compiled_runtime.py::_schedule_params_for_op and test_compiled_runtime_schedule_source.py).",
+    "dtype_caveats": [
+      "INT4 weights x INT4 activations, INT32 accumulator, INT4 quantised output (matches the rest of the uTPU CUDA path).",
+      "Bit-exactness is checked against the NumPy reference oracle (clip[-8,7] of int32 W@x); both A and B must match."
+    ],
+    "measurement_iters": 50,
+    "realized_regret_pct": "(median(A.kernel_ms) - median(B.kernel_ms)) / median(B.kernel_ms) * 100; positive => cost-model choice is slower than oracle; 0 means the schedules were identical or tied on wall-clock.",
+    "shape_source": "bench/results/cost_model_selection.json (24 shapes from calibrate_cost_model._shape_grid())",
+    "timing": "time.perf_counter brackets with torch.cuda.synchronize before and after each timed call (so the timer always captures completed kernel time). A and B are interleaved per iteration (warmup(A)->warmup(B)->[A,B]xN) so GPU clocking and thermal state are symmetric across the two arms; this matters at sub-millisecond GEMV-N=1 latencies.",
+    "warmup_iters": 10,
+    "what_it_measures": "Wall-clock A/B of two NVRTC blocked-FC schedules per shape: A = cost-model-selected schedule (chosen_schedule from cost_model_selection.json, the schedule the runtime backend now actually consumes after remediation P2.1); B = oracle schedule (measured-best from the autotuner cache, oracle_schedule from cost_model_selection.json)."
+  },
+  "per_shape": [
+    {
+      "cost_model_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.42087500000054234,
+          "mean": 0.2710527799999518,
+          "median": 0.2570935000001384,
+          "min": 0.2443130000004956,
+          "p95": 0.4002979999997436,
+          "samples": 50,
+          "stdev": 0.040720767308747366
+        },
+        "schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        }
+      },
+      "oracle_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.7777049999999619,
+          "mean": 0.2759398400000457,
+          "median": 0.25538399999947003,
+          "min": 0.24453500000021222,
+          "p95": 0.3480040000001239,
+          "samples": 50,
+          "stdev": 0.07632092140359321
+        },
+        "schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 2
+        }
+      },
+      "predicted": {
+        "chosen_schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        },
+        "confidence": 0.0023791697277050217,
+        "is_top1": false,
+        "margin_pct": 0.011910022245415302,
+        "oracle_schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 2
+        },
+        "predicted_latency_us": 7.194214906534143,
+        "predicted_regret_pct": 5.165229924433706
+      },
+      "realized_regret_pct": 0.6693841433574274,
+      "schedules_identical": false,
+      "seed": 42477573647,
+      "shape": {
+        "array_size": 16,
+        "in_features": 16,
+        "out_features": 16
+      }
+    },
+    {
+      "cost_model_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.39856799999959946,
+          "mean": 0.270764700000079,
+          "median": 0.2549645000002876,
+          "min": 0.24517700000004083,
+          "p95": 0.38402999999931353,
+          "samples": 50,
+          "stdev": 0.03827037837964868
+        },
+        "schedule": {
+          "threads_per_block": 256,
+          "unroll_factor": 1
+        }
+      },
+      "oracle_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.9152160000001075,
+          "mean": 0.2813479199999236,
+          "median": 0.25537149999976805,
+          "min": 0.24409899999966456,
+          "p95": 0.3671169999996948,
+          "samples": 50,
+          "stdev": 0.09605764997604904
+        },
+        "schedule": {
+          "threads_per_block": 256,
+          "unroll_factor": 8
+        }
+      },
+      "predicted": {
+        "chosen_schedule": {
+          "threads_per_block": 256,
+          "unroll_factor": 1
+        },
+        "confidence": 0.0,
+        "is_top1": false,
+        "margin_pct": 0.0,
+        "oracle_schedule": {
+          "threads_per_block": 256,
+          "unroll_factor": 8
+        },
+        "predicted_latency_us": 6.626367018988137,
+        "predicted_regret_pct": 4.445596283610221
+      },
+      "realized_regret_pct": -0.15937565448017163,
+      "schedules_identical": false,
+      "seed": 169877020927,
+      "shape": {
+        "array_size": 16,
+        "in_features": 16,
+        "out_features": 64
+      }
+    },
+    {
+      "cost_model_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.43650000000017286,
+          "mean": 0.28896228000002466,
+          "median": 0.27818499999998636,
+          "min": 0.25673900000011685,
+          "p95": 0.43171700000055324,
+          "samples": 50,
+          "stdev": 0.03866402690774705
+        },
+        "schedule": {
+          "threads_per_block": 256,
+          "unroll_factor": 1
+        }
+      },
+      "oracle_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.7138199999996431,
+          "mean": 0.31196155999998254,
+          "median": 0.27829950000013426,
+          "min": 0.2572010000001512,
+          "p95": 0.586496999999575,
+          "samples": 50,
+          "stdev": 0.09093277318063021
+        },
+        "schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        }
+      },
+      "predicted": {
+        "chosen_schedule": {
+          "threads_per_block": 256,
+          "unroll_factor": 1
+        },
+        "confidence": 0.0,
+        "is_top1": false,
+        "margin_pct": 0.0,
+        "oracle_schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        },
+        "predicted_latency_us": 5.924419710051613,
+        "predicted_regret_pct": 3.191919232834058
+      },
+      "realized_regret_pct": -0.041142725785653166,
+      "schedules_identical": false,
+      "seed": 679541374015,
+      "shape": {
+        "array_size": 16,
+        "in_features": 16,
+        "out_features": 256
+      }
+    },
+    {
+      "cost_model_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.5751189999996242,
+          "mean": 0.2991875800000443,
+          "median": 0.27992749999983246,
+          "min": 0.26503499999996905,
+          "p95": 0.4073910000004233,
+          "samples": 50,
+          "stdev": 0.05644234723613336
+        },
+        "schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        }
+      },
+      "oracle_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.5391139999995076,
+          "mean": 0.2947790999999178,
+          "median": 0.2768145000002775,
+          "min": 0.2650969999997699,
+          "p95": 0.4442990000006475,
+          "samples": 50,
+          "stdev": 0.05745426581835885
+        },
+        "schedule": {
+          "threads_per_block": 256,
+          "unroll_factor": 4
+        }
+      },
+      "predicted": {
+        "chosen_schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        },
+        "confidence": 0.0,
+        "is_top1": false,
+        "margin_pct": 0.0,
+        "oracle_schedule": {
+          "threads_per_block": 256,
+          "unroll_factor": 4
+        },
+        "predicted_latency_us": 6.52470243959585,
+        "predicted_regret_pct": 2.8046824200804306
+      },
+      "realized_regret_pct": 1.1245798177305824,
+      "schedules_identical": false,
+      "seed": 1359060971327,
+      "shape": {
+        "array_size": 16,
+        "in_features": 16,
+        "out_features": 512
+      }
+    },
+    {
+      "cost_model_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.41376499999934424,
+          "mean": 0.2752448799999385,
+          "median": 0.2644319999998146,
+          "min": 0.24356499999989012,
+          "p95": 0.3970569999998119,
+          "samples": 50,
+          "stdev": 0.039064437554209845
+        },
+        "schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        }
+      },
+      "oracle_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.5049399999998982,
+          "mean": 0.2790743199999923,
+          "median": 0.2558075000003157,
+          "min": 0.24458700000007383,
+          "p95": 0.459347999999693,
+          "samples": 50,
+          "stdev": 0.05924275995035573
+        },
+        "schedule": {
+          "threads_per_block": 256,
+          "unroll_factor": 8
+        }
+      },
+      "predicted": {
+        "chosen_schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        },
+        "confidence": 0.04998289896343566,
+        "is_top1": false,
+        "margin_pct": 0.2563764672922397,
+        "oracle_schedule": {
+          "threads_per_block": 256,
+          "unroll_factor": 8
+        },
+        "predicted_latency_us": 7.318479419695506,
+        "predicted_regret_pct": 1.2981227867725735
+      },
+      "realized_regret_pct": 3.3714805076036614,
+      "schedules_identical": false,
+      "seed": 42477572447,
+      "shape": {
+        "array_size": 16,
+        "in_features": 32,
+        "out_features": 16
+      }
+    },
+    {
+      "cost_model_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.22567900000058927,
+          "mean": 0.14560531999993742,
+          "median": 0.14471299999962994,
+          "min": 0.12451299999938215,
+          "p95": 0.1675549999999859,
+          "samples": 50,
+          "stdev": 0.016483990083173347
+        },
+        "schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        }
+      },
+      "oracle_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.25389400000008777,
+          "mean": 0.14562828000002526,
+          "median": 0.14429400000004478,
+          "min": 0.12457100000062837,
+          "p95": 0.16303299999975707,
+          "samples": 50,
+          "stdev": 0.01946724992700246
+        },
+        "schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 2
+        }
+      },
+      "predicted": {
+        "chosen_schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        },
+        "confidence": 0.0,
+        "is_top1": false,
+        "margin_pct": 0.0,
+        "oracle_schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 2
+        },
+        "predicted_latency_us": 7.0583356714814,
+        "predicted_regret_pct": 8.038716857071023
+      },
+      "realized_regret_pct": 0.29037936406575315,
+      "schedules_identical": false,
+      "seed": 169877020687,
+      "shape": {
+        "array_size": 16,
+        "in_features": 32,
+        "out_features": 64
+      }
+    },
+    {
+      "cost_model_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.580096999999391,
+          "mean": 0.29106095999988923,
+          "median": 0.31639000000005524,
+          "min": 0.13560299999948455,
+          "p95": 0.4956590000002592,
+          "samples": 50,
+          "stdev": 0.11494258889510812
+        },
+        "schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        }
+      },
+      "oracle_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.47812399999980215,
+          "mean": 0.287761320000115,
+          "median": 0.32414250000023515,
+          "min": 0.12994099999996678,
+          "p95": 0.4547070000002762,
+          "samples": 50,
+          "stdev": 0.1015329372244057
+        },
+        "schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        }
+      },
+      "predicted": {
+        "chosen_schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        },
+        "confidence": 0.0,
+        "is_top1": true,
+        "margin_pct": 0.0,
+        "oracle_schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        },
+        "predicted_latency_us": 6.743244043223632,
+        "predicted_regret_pct": 0.0
+      },
+      "realized_regret_pct": -2.3916950107357975,
+      "schedules_identical": true,
+      "seed": 679541374799,
+      "shape": {
+        "array_size": 16,
+        "in_features": 32,
+        "out_features": 256
+      }
+    },
+    {
+      "cost_model_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.28330199999970773,
+          "mean": 0.1685217000000705,
+          "median": 0.16507350000027898,
+          "min": 0.14731299999937164,
+          "p95": 0.19143000000010346,
+          "samples": 50,
+          "stdev": 0.01927284144103383
+        },
+        "schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        }
+      },
+      "oracle_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.19535399999970338,
+          "mean": 0.1671107599999999,
+          "median": 0.16289249999967836,
+          "min": 0.1457010000001091,
+          "p95": 0.19053100000032686,
+          "samples": 50,
+          "stdev": 0.011049710120225808
+        },
+        "schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        }
+      },
+      "predicted": {
+        "chosen_schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        },
+        "confidence": 0.0,
+        "is_top1": true,
+        "margin_pct": 0.0,
+        "oracle_schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        },
+        "predicted_latency_us": 6.879310515924587,
+        "predicted_regret_pct": 0.0
+      },
+      "realized_regret_pct": 1.3389198401429934,
+      "schedules_identical": true,
+      "seed": 1359060971087,
+      "shape": {
+        "array_size": 16,
+        "in_features": 32,
+        "out_features": 512
+      }
+    },
+    {
+      "cost_model_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.7049569999999505,
+          "mean": 0.29957381999995647,
+          "median": 0.2838509999998351,
+          "min": 0.23488699999951734,
+          "p95": 0.3949419999997872,
+          "samples": 50,
+          "stdev": 0.06647897119958573
+        },
+        "schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        }
+      },
+      "oracle_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.5242920000005924,
+          "mean": 0.2993720400000299,
+          "median": 0.28434299999968715,
+          "min": 0.23128000000038895,
+          "p95": 0.4260779999993858,
+          "samples": 50,
+          "stdev": 0.052178015038429754
+        },
+        "schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 8
+        }
+      },
+      "predicted": {
+        "chosen_schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        },
+        "confidence": 0.13432380818661904,
+        "is_top1": false,
+        "margin_pct": 0.7212217639903743,
+        "oracle_schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 8
+        },
+        "predicted_latency_us": 7.567008446018233,
+        "predicted_regret_pct": 7.380253332131394
+      },
+      "realized_regret_pct": -0.17303045963944833,
+      "schedules_identical": false,
+      "seed": 42477573055,
+      "shape": {
+        "array_size": 16,
+        "in_features": 64,
+        "out_features": 16
+      }
+    },
+    {
+      "cost_model_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.5766899999999353,
+          "mean": 0.3378194199999385,
+          "median": 0.3197179999996358,
+          "min": 0.27785900000054653,
+          "p95": 0.4736510000000749,
+          "samples": 50,
+          "stdev": 0.057051365977397746
+        },
+        "schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        }
+      },
+      "oracle_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.9845840000002326,
+          "mean": 0.34459684000006874,
+          "median": 0.32411799999998436,
+          "min": 0.2466979999997676,
+          "p95": 0.4572009999996851,
+          "samples": 50,
+          "stdev": 0.10028235245492777
+        },
+        "schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        }
+      },
+      "predicted": {
+        "chosen_schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        },
+        "confidence": 0.0,
+        "is_top1": true,
+        "margin_pct": 0.0,
+        "oracle_schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        },
+        "predicted_latency_us": 7.555892866604055,
+        "predicted_regret_pct": 0.0
+      },
+      "realized_regret_pct": -1.3575302822887905,
+      "schedules_identical": true,
+      "seed": 169877021295,
+      "shape": {
+        "array_size": 16,
+        "in_features": 64,
+        "out_features": 64
+      }
+    },
+    {
+      "cost_model_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.5555880000001068,
+          "mean": 0.32880469999993167,
+          "median": 0.3172634999999424,
+          "min": 0.2684390000000647,
+          "p95": 0.4470549999995299,
+          "samples": 50,
+          "stdev": 0.04872713131772434
+        },
+        "schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        }
+      },
+      "oracle_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.8637730000007338,
+          "mean": 0.3388244000000462,
+          "median": 0.31686899999971985,
+          "min": 0.2793490000003729,
+          "p95": 0.48545799999999417,
+          "samples": 50,
+          "stdev": 0.0876972425314343
+        },
+        "schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 4
+        }
+      },
+      "predicted": {
+        "chosen_schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        },
+        "confidence": 0.0,
+        "is_top1": false,
+        "margin_pct": 0.0,
+        "oracle_schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 4
+        },
+        "predicted_latency_us": 7.331512220146924,
+        "predicted_regret_pct": 0.9013496346801045
+      },
+      "realized_regret_pct": 0.12449939887553305,
+      "schedules_identical": false,
+      "seed": 679541373359,
+      "shape": {
+        "array_size": 16,
+        "in_features": 64,
+        "out_features": 256
+      }
+    },
+    {
+      "cost_model_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.5379049999998387,
+          "mean": 0.34125303999998025,
+          "median": 0.31959900000000374,
+          "min": 0.288018000000001,
+          "p95": 0.4705349999998276,
+          "samples": 50,
+          "stdev": 0.056580086608320514
+        },
+        "schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        }
+      },
+      "oracle_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 2.862703000000799,
+          "mean": 0.3803093600000551,
+          "median": 0.319375500000163,
+          "min": 0.2840260000001038,
+          "p95": 0.45368000000056696,
+          "samples": 50,
+          "stdev": 0.3572168139925883
+        },
+        "schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 4
+        }
+      },
+      "predicted": {
+        "chosen_schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        },
+        "confidence": 0.0,
+        "is_top1": false,
+        "margin_pct": 0.0,
+        "oracle_schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 4
+        },
+        "predicted_latency_us": 7.588526668582062,
+        "predicted_regret_pct": 0.610014006570552
+      },
+      "realized_regret_pct": 0.06998032092023716,
+      "schedules_identical": false,
+      "seed": 1359060969647,
+      "shape": {
+        "array_size": 16,
+        "in_features": 64,
+        "out_features": 512
+      }
+    },
+    {
+      "cost_model_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.3632509999995648,
+          "mean": 0.1557022799999963,
+          "median": 0.14632300000005927,
+          "min": 0.13841300000017043,
+          "p95": 0.20191800000013416,
+          "samples": 50,
+          "stdev": 0.03394968949013232
+        },
+        "schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        }
+      },
+      "oracle_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 13.220816999999663,
+          "mean": 0.41468947999991457,
+          "median": 0.14578699999967526,
+          "min": 0.13511800000021168,
+          "p95": 0.21475900000034187,
+          "samples": 50,
+          "stdev": 1.8295648804255507
+        },
+        "schedule": {
+          "threads_per_block": 256,
+          "unroll_factor": 4
+        }
+      },
+      "predicted": {
+        "chosen_schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        },
+        "confidence": 0.17374235917522363,
+        "is_top1": false,
+        "margin_pct": 0.9542432013235834,
+        "oracle_schedule": {
+          "threads_per_block": 256,
+          "unroll_factor": 4
+        },
+        "predicted_latency_us": 8.064066498663689,
+        "predicted_regret_pct": 0.4949177221943927
+      },
+      "realized_regret_pct": 0.3676596681358427,
+      "schedules_identical": false,
+      "seed": 42477579391,
+      "shape": {
+        "array_size": 16,
+        "in_features": 128,
+        "out_features": 16
+      }
+    },
+    {
+      "cost_model_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 3.404799000000125,
+          "mean": 0.4170216800000581,
+          "median": 0.3503464999998762,
+          "min": 0.30706600000041107,
+          "p95": 0.46636899999974446,
+          "samples": 50,
+          "stdev": 0.4283905102980964
+        },
+        "schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        }
+      },
+      "oracle_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.5869469999995047,
+          "mean": 0.3647522999999886,
+          "median": 0.3478165000001532,
+          "min": 0.3000889999995593,
+          "p95": 0.5078460000005336,
+          "samples": 50,
+          "stdev": 0.05829550721431567
+        },
+        "schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        }
+      },
+      "predicted": {
+        "chosen_schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        },
+        "confidence": 0.0,
+        "is_top1": true,
+        "margin_pct": 0.0,
+        "oracle_schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        },
+        "predicted_latency_us": 8.551007256849365,
+        "predicted_regret_pct": 0.0
+      },
+      "realized_regret_pct": 0.7273950487460823,
+      "schedules_identical": true,
+      "seed": 169877028655,
+      "shape": {
+        "array_size": 16,
+        "in_features": 128,
+        "out_features": 64
+      }
+    },
+    {
+      "cost_model_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.5303689999998085,
+          "mean": 0.33304432000001327,
+          "median": 0.31772800000018364,
+          "min": 0.27619799999989425,
+          "p95": 0.44783500000011855,
+          "samples": 50,
+          "stdev": 0.043881953242048376
+        },
+        "schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        }
+      },
+      "oracle_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.45905200000007085,
+          "mean": 0.3275405199999959,
+          "median": 0.31436600000001036,
+          "min": 0.2742119999998849,
+          "p95": 0.4545159999995718,
+          "samples": 50,
+          "stdev": 0.03609938209730997
+        },
+        "schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 4
+        }
+      },
+      "predicted": {
+        "chosen_schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        },
+        "confidence": 0.0,
+        "is_top1": false,
+        "margin_pct": 0.0,
+        "oracle_schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 4
+        },
+        "predicted_latency_us": 8.508048573993507,
+        "predicted_regret_pct": 4.840964977366355
+      },
+      "realized_regret_pct": 1.0694540758775348,
+      "schedules_identical": false,
+      "seed": 679541373551,
+      "shape": {
+        "array_size": 16,
+        "in_features": 128,
+        "out_features": 256
+      }
+    },
+    {
+      "cost_model_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.6362910000001776,
+          "mean": 0.365702019999965,
+          "median": 0.3596735000002127,
+          "min": 0.3209849999992187,
+          "p95": 0.3903250000005798,
+          "samples": 50,
+          "stdev": 0.04471118937610526
+        },
+        "schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        }
+      },
+      "oracle_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.6569000000000713,
+          "mean": 0.38290346000003694,
+          "median": 0.36123149999989224,
+          "min": 0.3266350000004081,
+          "p95": 0.6166430000007495,
+          "samples": 50,
+          "stdev": 0.07479557559945682
+        },
+        "schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 4
+        }
+      },
+      "predicted": {
+        "chosen_schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        },
+        "confidence": 0.0,
+        "is_top1": false,
+        "margin_pct": 0.0,
+        "oracle_schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 4
+        },
+        "predicted_latency_us": 9.00695897389701,
+        "predicted_regret_pct": 2.409077009269983
+      },
+      "realized_regret_pct": -0.43130236418474105,
+      "schedules_identical": false,
+      "seed": 1359060968815,
+      "shape": {
+        "array_size": 16,
+        "in_features": 128,
+        "out_features": 512
+      }
+    },
+    {
+      "cost_model_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.5096849999999264,
+          "mean": 0.30698525999991233,
+          "median": 0.2996579999998694,
+          "min": 0.26851799999949577,
+          "p95": 0.34224099999935476,
+          "samples": 50,
+          "stdev": 0.03977272665172677
+        },
+        "schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        }
+      },
+      "oracle_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.42734500000030096,
+          "mean": 0.3081391600000316,
+          "median": 0.30214750000023827,
+          "min": 0.2705370000004592,
+          "p95": 0.3978590000004445,
+          "samples": 50,
+          "stdev": 0.03080064949401578
+        },
+        "schedule": {
+          "threads_per_block": 128,
+          "unroll_factor": 1
+        }
+      },
+      "predicted": {
+        "chosen_schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        },
+        "confidence": 0.15625369113704712,
+        "is_top1": false,
+        "margin_pct": 0.8495170574295557,
+        "oracle_schedule": {
+          "threads_per_block": 128,
+          "unroll_factor": 1
+        },
+        "predicted_latency_us": 9.058182603954595,
+        "predicted_regret_pct": 2.8495188981808237
+      },
+      "realized_regret_pct": -0.8239353297203803,
+      "schedules_identical": false,
+      "seed": 42477577727,
+      "shape": {
+        "array_size": 16,
+        "in_features": 256,
+        "out_features": 16
+      }
+    },
+    {
+      "cost_model_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.4831229999995301,
+          "mean": 0.3172278600000311,
+          "median": 0.30790849999995373,
+          "min": 0.25191200000040936,
+          "p95": 0.4252600000000939,
+          "samples": 50,
+          "stdev": 0.03823485926113718
+        },
+        "schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        }
+      },
+      "oracle_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.4406440000002121,
+          "mean": 0.32348390000004557,
+          "median": 0.3099044999999023,
+          "min": 0.2701109999998508,
+          "p95": 0.4287930000002049,
+          "samples": 50,
+          "stdev": 0.03882462500544231
+        },
+        "schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 2
+        }
+      },
+      "predicted": {
+        "chosen_schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        },
+        "confidence": 0.0,
+        "is_top1": false,
+        "margin_pct": 0.0,
+        "oracle_schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 2
+        },
+        "predicted_latency_us": 10.541236037339987,
+        "predicted_regret_pct": 4.861917527760981
+      },
+      "realized_regret_pct": -0.6440693826482751,
+      "schedules_identical": false,
+      "seed": 169877025967,
+      "shape": {
+        "array_size": 16,
+        "in_features": 256,
+        "out_features": 64
+      }
+    },
+    {
+      "cost_model_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.6434450000005754,
+          "mean": 0.3660593600000439,
+          "median": 0.3476014999996835,
+          "min": 0.33002400000015086,
+          "p95": 0.49338799999976146,
+          "samples": 50,
+          "stdev": 0.0558029057923867
+        },
+        "schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        }
+      },
+      "oracle_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.5006860000005275,
+          "mean": 0.3597280999999697,
+          "median": 0.3487949999998463,
+          "min": 0.32318100000061634,
+          "p95": 0.46837699999979776,
+          "samples": 50,
+          "stdev": 0.036238276783105206
+        },
+        "schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 2
+        }
+      },
+      "predicted": {
+        "chosen_schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        },
+        "confidence": 0.0,
+        "is_top1": false,
+        "margin_pct": 0.0,
+        "oracle_schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 2
+        },
+        "predicted_latency_us": 10.861121281686676,
+        "predicted_regret_pct": 2.601519392985703
+      },
+      "realized_regret_pct": -0.3421780702599963,
+      "schedules_identical": false,
+      "seed": 679541371887,
+      "shape": {
+        "array_size": 16,
+        "in_features": 256,
+        "out_features": 256
+      }
+    },
+    {
+      "cost_model_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.6112060000003083,
+          "mean": 0.4575623600000611,
+          "median": 0.4531359999999651,
+          "min": 0.3735230000003753,
+          "p95": 0.5476999999993737,
+          "samples": 50,
+          "stdev": 0.044861757542728545
+        },
+        "schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        }
+      },
+      "oracle_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.6666339999998883,
+          "mean": 0.46032306000000744,
+          "median": 0.457992499999893,
+          "min": 0.38675099999974094,
+          "p95": 0.5780079999997412,
+          "samples": 50,
+          "stdev": 0.04852459283058286
+        },
+        "schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 8
+        }
+      },
+      "predicted": {
+        "chosen_schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        },
+        "confidence": 0.0,
+        "is_top1": false,
+        "margin_pct": 0.0,
+        "oracle_schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 8
+        },
+        "predicted_latency_us": 11.84382358452691,
+        "predicted_regret_pct": 4.929360393686131
+      },
+      "realized_regret_pct": -1.0603885434650158,
+      "schedules_identical": false,
+      "seed": 1359060968175,
+      "shape": {
+        "array_size": 16,
+        "in_features": 256,
+        "out_features": 512
+      }
+    },
+    {
+      "cost_model_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.5427840000002959,
+          "mean": 0.3266544600000465,
+          "median": 0.30684750000009586,
+          "min": 0.2893560000005735,
+          "p95": 0.4691939999998951,
+          "samples": 50,
+          "stdev": 0.05567497931180619
+        },
+        "schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        }
+      },
+      "oracle_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.4993799999999382,
+          "mean": 0.32164915999999266,
+          "median": 0.3080025000001818,
+          "min": 0.28918199999949934,
+          "p95": 0.4335470000000896,
+          "samples": 50,
+          "stdev": 0.041694686102318884
+        },
+        "schedule": {
+          "threads_per_block": 128,
+          "unroll_factor": 1
+        }
+      },
+      "predicted": {
+        "chosen_schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        },
+        "confidence": 0.13005273220307667,
+        "is_top1": false,
+        "margin_pct": 0.6966134044907347,
+        "oracle_schedule": {
+          "threads_per_block": 128,
+          "unroll_factor": 1
+        },
+        "predicted_latency_us": 11.046414814536412,
+        "predicted_regret_pct": 4.521414515181826
+      },
+      "realized_regret_pct": -0.37499695622122114,
+      "schedules_identical": false,
+      "seed": 42477582591,
+      "shape": {
+        "array_size": 16,
+        "in_features": 512,
+        "out_features": 16
+      }
+    },
+    {
+      "cost_model_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.48688699999921425,
+          "mean": 0.3410989000000342,
+          "median": 0.3331420000001195,
+          "min": 0.2686860000000735,
+          "p95": 0.4267719999999642,
+          "samples": 50,
+          "stdev": 0.04076904508327501
+        },
+        "schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        }
+      },
+      "oracle_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.6038640000003426,
+          "mean": 0.3505119399999934,
+          "median": 0.33405050000023806,
+          "min": 0.27334699999936873,
+          "p95": 0.4861670000000373,
+          "samples": 50,
+          "stdev": 0.06008015771668829
+        },
+        "schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        }
+      },
+      "predicted": {
+        "chosen_schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        },
+        "confidence": 0.0,
+        "is_top1": true,
+        "margin_pct": 0.0,
+        "oracle_schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        },
+        "predicted_latency_us": 14.521693598321226,
+        "predicted_regret_pct": 0.0
+      },
+      "realized_regret_pct": -0.27196486762268074,
+      "schedules_identical": true,
+      "seed": 169876999087,
+      "shape": {
+        "array_size": 16,
+        "in_features": 512,
+        "out_features": 64
+      }
+    },
+    {
+      "cost_model_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.6398299999998969,
+          "mean": 0.4553615800000088,
+          "median": 0.45686650000043016,
+          "min": 0.381553000000423,
+          "p95": 0.5910270000004658,
+          "samples": 50,
+          "stdev": 0.049522017679498716
+        },
+        "schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        }
+      },
+      "oracle_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 2.6224539999999408,
+          "mean": 0.5011364400000318,
+          "median": 0.460696499999802,
+          "min": 0.3748990000005392,
+          "p95": 0.6423689999994764,
+          "samples": 50,
+          "stdev": 0.30829740419826374
+        },
+        "schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        }
+      },
+      "predicted": {
+        "chosen_schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        },
+        "confidence": 0.0,
+        "is_top1": true,
+        "margin_pct": 0.0,
+        "oracle_schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        },
+        "predicted_latency_us": 15.567266697073013,
+        "predicted_regret_pct": 0.0
+      },
+      "realized_regret_pct": -0.8313499232951589,
+      "schedules_identical": true,
+      "seed": 679541343983,
+      "shape": {
+        "array_size": 16,
+        "in_features": 512,
+        "out_features": 256
+      }
+    },
+    {
+      "cost_model_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.6814960000003367,
+          "mean": 0.5337369800000147,
+          "median": 0.5212404999999087,
+          "min": 0.4734400000003802,
+          "p95": 0.6644180000003885,
+          "samples": 50,
+          "stdev": 0.048345658206146135
+        },
+        "schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        }
+      },
+      "oracle_run": {
+        "bit_exact_vs_numpy_oracle": true,
+        "kernel_ms": {
+          "max": 0.706317000000567,
+          "mean": 0.5249685800000492,
+          "median": 0.5099729999997749,
+          "min": 0.4750859999997914,
+          "p95": 0.6341409999999215,
+          "samples": 50,
+          "stdev": 0.04851954994033897
+        },
+        "schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        }
+      },
+      "predicted": {
+        "chosen_schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        },
+        "confidence": 0.0,
+        "is_top1": true,
+        "margin_pct": 0.0,
+        "oracle_schedule": {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        },
+        "predicted_latency_us": 17.517552805786707,
+        "predicted_regret_pct": 0.0
+      },
+      "realized_regret_pct": 2.209430695377766,
+      "schedules_identical": true,
+      "seed": 1359060972015,
+      "shape": {
+        "array_size": 16,
+        "in_features": 512,
+        "out_features": 512
+      }
+    }
+  ],
+  "shape_count": 24,
+  "status": "ok"
+}

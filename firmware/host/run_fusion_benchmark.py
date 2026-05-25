@@ -40,8 +40,11 @@ artifact schema + asserts that every workload is correctness-clean.
 """
 
 import json
+import os
 import platform
 import statistics
+import subprocess
+import sys
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -71,6 +74,16 @@ DEFAULT_WARMUP = 3
 DEFAULT_ITERS = 15  # odd → median is a real sample
 DEFAULT_TOLERANCE_ABS = 1e-4
 DEFAULT_TOLERANCE_REL = 1e-4
+
+# Phase 7 remediation: CUDA fusion benchmark subprocess
+CUDA_SUBPROCESS_SCRIPT = Path(__file__).with_name("_fusion_benchmark_cuda_subprocess.py")
+CUDA_DEFAULT_WARMUP = 5
+CUDA_DEFAULT_ITERS = 30
+CUDA_PER_WORKLOAD_SEEDS = {
+    "linear_relu_mlp_3x256": 0xC0FFEE,
+    "scale_softmax_attention_8x128x128": 0xBADC0DE,
+    "conv_bn_resnet_block_1x16x32x32": 0xFEED,
+}
 
 
 @dataclass
@@ -398,11 +411,124 @@ def benchmark_workload(
     }
 
 
+def _summarize_throughput_deltas(deltas: List[float]) -> Dict[str, float]:
+    if not deltas:
+        return {
+            "median_throughput_delta_pct": 0.0,
+            "mean_throughput_delta_pct": 0.0,
+            "min_throughput_delta_pct": 0.0,
+            "max_throughput_delta_pct": 0.0,
+            "workload_count": 0,
+        }
+    return {
+        "median_throughput_delta_pct": float(statistics.median(deltas)),
+        "mean_throughput_delta_pct": float(statistics.mean(deltas)),
+        "min_throughput_delta_pct": float(min(deltas)),
+        "max_throughput_delta_pct": float(max(deltas)),
+        "workload_count": int(len(deltas)),
+    }
+
+
+def _run_cuda_fusion_subprocess(
+    cuda_warmup: int,
+    cuda_iters: int,
+    output_path: Path,
+) -> Dict[str, Any]:
+    """Spawn the CUDA fusion benchmark subprocess (Torch eager vs
+    ``torch.compile(backend="inductor")``) for the same three workloads.
+
+    Always returns a JSON-able dict. On non-CUDA hosts (or any error
+    starting / parsing the subprocess) the dict has ``status`` set to a
+    descriptive string and no ``workloads`` block, but the top-level
+    ``cuda_fusion`` key in the parent artifact still exists so the
+    schema is consistent between CPU and GPU regenerators.
+    """
+    if not CUDA_SUBPROCESS_SCRIPT.exists():
+        return {"status": "missing_subprocess_script", "reason": str(CUDA_SUBPROCESS_SCRIPT)}
+    try:
+        import torch  # noqa: F401
+    except Exception as exc:
+        return {
+            "status": "torch_unavailable_parent",
+            "reason": f"{type(exc).__name__}: {exc}",
+        }
+    import torch as torch_mod
+    if not torch_mod.cuda.is_available():
+        return {
+            "status": "cuda_unavailable",
+            "reason": "torch.cuda.is_available() is False in parent process.",
+            "torch_version": str(torch_mod.__version__),
+            "warmup": int(cuda_warmup),
+            "iters": int(cuda_iters),
+        }
+    tmp_path = output_path.with_suffix(".cuda_subprocess.json")
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(CUDA_SUBPROCESS_SCRIPT),
+            "--seeds-json",
+            json.dumps(CUDA_PER_WORKLOAD_SEEDS),
+            "--output",
+            str(tmp_path),
+            "--warmup",
+            str(int(cuda_warmup)),
+            "--iters",
+            str(int(cuda_iters)),
+        ],
+        capture_output=True,
+        text=True,
+        cwd=str(REPO_ROOT),
+    )
+    if proc.returncode != 0:
+        return {
+            "status": "subprocess_failed",
+            "returncode": int(proc.returncode),
+            "stderr": proc.stderr[-2000:],
+            "stdout": proc.stdout[-2000:],
+        }
+    try:
+        payload = json.loads(tmp_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        return {
+            "status": "subprocess_json_parse_failed",
+            "reason": f"{type(exc).__name__}: {exc}",
+            "stdout": proc.stdout[-2000:],
+        }
+    finally:
+        if tmp_path.exists():
+            try:
+                tmp_path.unlink()
+            except Exception:
+                pass
+
+    if payload.get("status") == "ok":
+        deltas = [
+            float(w["throughput_delta_pct"])
+            for w in payload.get("workloads", [])
+            if "throughput_delta_pct" in w
+            and "error" not in w
+            and (w.get("correctness", {}).get("within_tolerance") is True)
+        ]
+        payload["summary"] = _summarize_throughput_deltas(deltas)
+        payload["all_correctness_within_tolerance"] = bool(
+            payload.get("workloads")
+            and all(
+                w.get("correctness", {}).get("within_tolerance") is True
+                for w in payload["workloads"]
+                if "error" not in w
+            )
+        )
+    return payload
+
+
 def run_benchmark(
     warmup: int = DEFAULT_WARMUP,
     iters: int = DEFAULT_ITERS,
     seed: int = 0xBEEF,
     output_path: Optional[Path] = None,
+    enable_cuda_section: bool = True,
+    cuda_warmup: int = CUDA_DEFAULT_WARMUP,
+    cuda_iters: int = CUDA_DEFAULT_ITERS,
 ) -> Dict[str, Any]:
     output_path = output_path or DEFAULT_OUTPUT_JSON
     workload_results = [
@@ -434,8 +560,9 @@ def run_benchmark(
         "regime_note": (
             "CPU NumPy reference path. Reflects what fusion buys at the IR / "
             "interpreter layer (fewer Python-level ops, fewer intermediate "
-            "allocations, fewer materialised tensors). A CUDA-backend run on "
-            "a GPU host would produce a separate, comparably-scoped entry."
+            "allocations, fewer materialised tensors). The CUDA section "
+            "below (``cuda_fusion``) measures what *Inductor* fusion buys "
+            "on the same workloads on a real GPU."
         ),
         "methodology": {
             "warmup_iters": warmup,
@@ -459,6 +586,63 @@ def run_benchmark(
         "summary": summary,
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
+
+    if enable_cuda_section:
+        cuda_payload = _run_cuda_fusion_subprocess(
+            cuda_warmup=cuda_warmup,
+            cuda_iters=cuda_iters,
+            output_path=output_path,
+        )
+        artifact["cuda_fusion"] = {
+            "backend": "torch_eager_vs_inductor_fp32",
+            "methodology": {
+                "eager_path": (
+                    "PyTorch eager-mode forward; each op dispatches as a "
+                    "separate CUDA kernel + intermediate tensor."
+                ),
+                "compiled_path": (
+                    "torch.compile(model, backend='inductor', "
+                    "fullgraph=True); Inductor fuses producer-consumer "
+                    "pairs (Linear+ReLU, Scale+Softmax, Conv+BN) into "
+                    "single GPU kernels."
+                ),
+                "throughput_delta_definition": (
+                    "(eager_median_ms - inductor_median_ms) / "
+                    "eager_median_ms * 100 — positive => Inductor fusion "
+                    "wins; null / negative => fusion does not win on "
+                    "this GPU for this workload."
+                ),
+                "isolation": (
+                    "CUDA timings run in a separate Python process "
+                    "(_fusion_benchmark_cuda_subprocess.py) so any "
+                    "parent NVRTC driver context does not collide with "
+                    "Torch + Inductor CUDA contexts (same pattern as "
+                    "_cublas_baseline_torch_subprocess.py and "
+                    "inductor_oracle_subprocess.py)."
+                ),
+                "warmup_iters": int(cuda_warmup),
+                "timed_iters": int(cuda_iters),
+                "sync_protocol": (
+                    "torch.cuda.synchronize() brackets each measured "
+                    "invocation; time.perf_counter() in ms."
+                ),
+                "dtype": "float32 throughout (Torch dispatcher default).",
+                "dtype_caveat": (
+                    "FP32 dtype throughout. The NumPy-reference section "
+                    "above uses NumPy fp32 as well; this is a "
+                    "framework-level fusion comparison on the *same* "
+                    "dtype on both sides, not the uTPU INT8 path. The "
+                    "cuBLAS / Inductor uTPU baseline (run_cublas_baseline.py "
+                    "+ cublas_baseline.json) is the place to read the "
+                    "uTPU-vs-Inductor comparison; this artifact only "
+                    "measures eager-vs-Inductor on the same FP32 path."
+                ),
+                "correctness_tolerance_abs": 1e-3,
+                "correctness_tolerance_rel": 1e-3,
+                "seeds_per_workload": dict(CUDA_PER_WORKLOAD_SEEDS),
+            },
+            "result": cuda_payload,
+        }
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:

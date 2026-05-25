@@ -14,12 +14,21 @@ module top #(
     parameter BUFFER_SIZE            = 512,
     parameter BUFFER_WORD_SIZE       = 16,
     parameter ADDRESS_SIZE           = $clog2(BUFFER_SIZE),
+    // Phase 4 widening: when 1, FETCH/RUN/LOAD/BSTORE use a 2-word extended
+    // address layout (low ADDRESS_SIZE bits of the next instruction word).
+    // When 0 (default), legacy 9-bit address-in-opcode-word layout is used
+    // and behaviour is byte-identical to pre-Phase-4.
+    parameter EXT_ADDR_EN            = 0,
     parameter OPCODE_WIDTH           = 3,
     parameter RELU_SIZE              = ARRAY_SIZE*ARRAY_SIZE,
     parameter RELU_SIZE_WIDTH        = $clog2(RELU_SIZE),
     parameter QUANTIZER_SIZE         = ARRAY_SIZE*ARRAY_SIZE,
     parameter QUANTIZER_SIZE_WIDTH   = $clog2(QUANTIZER_SIZE),
     parameter NUM_COMPUTE_LANES      = ARRAY_SIZE*ARRAY_SIZE,
+    // Phase 4 widening: derived elements-per-buffer-word. INT4@16-bit word
+    // -> 4; INT8@16-bit word -> 2. Drives the LOAD_STATE pack/unpack loops
+    // and matches `unified_buffer.sv`'s `ITEMS_IN_SLOT` calculation.
+    parameter ITEMS_IN_SLOT          = BUFFER_WORD_SIZE/COMPUTE_DATA_WIDTH,
     parameter STORE_DATA_WIDTH       = 16,
     parameter DEBUG_STORE_ACK        = 0,
     parameter DEBUG_FETCH_ACK        = 0,
@@ -298,7 +307,9 @@ module top #(
         HALT_STATE,            // 18 terminal; exits on 0xA3
         BSTORE_FETCH_COUNT_STATE, // 19 read burst count
         BSTORE_FETCH_DATA_STATE,  // 20 read burst data word
-        BSTORE_WRITE_STATE        // 21 write burst data word
+        BSTORE_WRITE_STATE,       // 21 write burst data word
+        EXT_ADDR_FETCH_STATE,     // 22 (EXT_ADDR_EN=1) issue BRAM read for address word; pc++
+        EXT_ADDR_LATCH_STATE      // 23 (EXT_ADDR_EN=1) latch address word, route to target state
     } state_e;
 
     state_e current_state, next_state;
@@ -322,17 +333,35 @@ module top #(
     logic [BUFFER_WORD_SIZE-1:0] bstore_data_word;
     logic                        load_clear_pending;
     logic                        load_is_weights;
+    // Phase 4: latched opcode for routing the EXT_ADDR_LATCH_STATE -> target
+    // state in 2-word extended-address mode. Only used when EXT_ADDR_EN=1.
+    opcode_e                     pending_opcode;
 
+    // Phase 4: parameterised saturating clip from 32-bit signed accumulator
+    // to ``COMPUTE_DATA_WIDTH`` signed output. Reduces to the original INT4
+    // ``+7 / -8`` clip when ``COMPUTE_DATA_WIDTH=4``.
+    function automatic logic signed [COMPUTE_DATA_WIDTH-1:0] quantize_clip(
+        input logic signed [31:0] x
+    );
+        logic signed [31:0] hi;
+        logic signed [31:0] lo;
+        logic signed [COMPUTE_DATA_WIDTH-1:0] q;
+        begin
+            hi = (32'sd1 <<< (COMPUTE_DATA_WIDTH-1)) - 32'sd1;
+            lo = -(32'sd1 <<< (COMPUTE_DATA_WIDTH-1));
+            if (x > hi)      q = hi[COMPUTE_DATA_WIDTH-1:0];
+            else if (x < lo) q = lo[COMPUTE_DATA_WIDTH-1:0];
+            else             q = x[COMPUTE_DATA_WIDTH-1:0];
+            quantize_clip = q;
+        end
+    endfunction
+
+    // Legacy alias kept for any external reference; identical to
+    // ``quantize_clip`` at ``COMPUTE_DATA_WIDTH=4``.
     function automatic logic signed [COMPUTE_DATA_WIDTH-1:0] quantize_clip_int4(
         input logic signed [31:0] x
     );
-        logic signed [COMPUTE_DATA_WIDTH-1:0] q;
-        begin
-            if (x > 32'sd7)       q = 4'sd7;
-            else if (x < -32'sd8) q = -4'sd8;
-            else                  q = x[COMPUTE_DATA_WIDTH-1:0];
-            quantize_clip_int4 = q;
-        end
+        quantize_clip_int4 = quantize_clip(x);
     endfunction
 
     // -----------------------------------------------------------------------
@@ -432,11 +461,11 @@ module top #(
             DECODE_STATE:
                 case (opcode)
                     STORE_OP: next_state = STORE_FETCH_W2_STATE;
-                    FETCH_OP: next_state = FETCH_BUFFER_STATE;
-                    RUN_OP:   next_state = COMPUTE_STATE;
-                    LOAD_OP:  next_state = LOAD_STATE;
+                    FETCH_OP: next_state = EXT_ADDR_EN ? EXT_ADDR_FETCH_STATE : FETCH_BUFFER_STATE;
+                    RUN_OP:   next_state = EXT_ADDR_EN ? EXT_ADDR_FETCH_STATE : COMPUTE_STATE;
+                    LOAD_OP:  next_state = EXT_ADDR_EN ? EXT_ADDR_FETCH_STATE : LOAD_STATE;
                     HALT_OP:  next_state = HALT_STATE;
-                    BSTORE_OP:next_state = BSTORE_FETCH_COUNT_STATE;
+                    BSTORE_OP:next_state = EXT_ADDR_EN ? EXT_ADDR_FETCH_STATE : BSTORE_FETCH_COUNT_STATE;
                     NOP:      next_state = FETCH_BRAM_STATE;
                     default:  next_state = FETCH_BRAM_STATE;
                 endcase
@@ -508,6 +537,20 @@ module top #(
                     else
                         next_state = BSTORE_FETCH_DATA_STATE;
                 end
+
+            // Phase 4 EXT_ADDR_EN: 2-word fetch path. Issue BRAM read for the
+            // address word at PC, latch on next cycle, then dispatch.
+            EXT_ADDR_FETCH_STATE:
+                next_state = EXT_ADDR_LATCH_STATE;
+
+            EXT_ADDR_LATCH_STATE:
+                case (pending_opcode)
+                    FETCH_OP: next_state = FETCH_BUFFER_STATE;
+                    RUN_OP:   next_state = COMPUTE_STATE;
+                    LOAD_OP:  next_state = LOAD_STATE;
+                    BSTORE_OP:next_state = BSTORE_FETCH_COUNT_STATE;
+                    default:  next_state = FETCH_BRAM_STATE;
+                endcase
 
             // HALT: re-arm on 0xA3, otherwise stay
             HALT_STATE:
@@ -697,31 +740,58 @@ module top #(
 
             // -----------------------------------------------------------------
             DECODE_STATE: begin
+                pending_opcode <= opcode;
                 case (opcode)
                     STORE_OP: begin
                         address_indicator <= instruction[4];
                     end
                     FETCH_OP: begin
                         bot_mem  <= instruction[3];
-                        address  <= instruction[BUFFER_WORD_SIZE-1:BUFFER_WORD_SIZE-ADDRESS_SIZE];
+                        // Legacy: address embedded in opcode word. Ext-addr:
+                        // address comes from the next instruction word and
+                        // is latched in EXT_ADDR_LATCH_STATE.
+                        if (!EXT_ADDR_EN)
+                            address <= instruction[BUFFER_WORD_SIZE-1:BUFFER_WORD_SIZE-ADDRESS_SIZE];
                     end
                     RUN_OP: begin
                         compute_en          <= instruction[3];
                         quantizer_en        <= instruction[4];
                         relu_en             <= instruction[5];
                         acc_clear_en        <= instruction[6];
-                        address             <= instruction[BUFFER_WORD_SIZE-1:BUFFER_WORD_SIZE-ADDRESS_SIZE];
-                        compute_result_addr <= instruction[BUFFER_WORD_SIZE-1:BUFFER_WORD_SIZE-ADDRESS_SIZE];
+                        if (!EXT_ADDR_EN) begin
+                            address             <= instruction[BUFFER_WORD_SIZE-1:BUFFER_WORD_SIZE-ADDRESS_SIZE];
+                            compute_result_addr <= instruction[BUFFER_WORD_SIZE-1:BUFFER_WORD_SIZE-ADDRESS_SIZE];
+                        end
                     end
                     LOAD_OP: begin
                         // Defer actual load_en pulse to LOAD_STATE when buffer data is valid.
                         load_is_weights    <= instruction[3];
                         compute_load_en    <= 1'b0;
                         load_clear_pending <= 1'b0;
-                        address         <= instruction[BUFFER_WORD_SIZE-1:BUFFER_WORD_SIZE-ADDRESS_SIZE];
+                        if (!EXT_ADDR_EN)
+                            address <= instruction[BUFFER_WORD_SIZE-1:BUFFER_WORD_SIZE-ADDRESS_SIZE];
                     end
                     default: ;
                 endcase
+            end
+
+            // -----------------------------------------------------------------
+            // Phase 4 EXT_ADDR_EN: read the address word from BRAM and latch
+            // its low ADDRESS_SIZE bits as the operand address.
+            // -----------------------------------------------------------------
+            EXT_ADDR_FETCH_STATE: begin
+                bram_rd_addr <= pc[PC_WIDTH-1:0];
+                bram_rd_en   <= 1'b1;
+                pc           <= pc + 1'b1;
+            end
+
+            EXT_ADDR_LATCH_STATE: begin
+                // bram_rd_data holds the address word.
+                address <= bram_rd_data[ADDRESS_SIZE-1:0];
+                if (pending_opcode == RUN_OP)
+                    compute_result_addr <= bram_rd_data[ADDRESS_SIZE-1:0];
+                if (pending_opcode == BSTORE_OP)
+                    bstore_base_addr <= bram_rd_data[ADDRESS_SIZE-1:0];
             end
 
             // -----------------------------------------------------------------
@@ -781,11 +851,7 @@ module top #(
                 buffer_fifo_en    <= 1'b1;
                 buffer_compute_en <= 1'b0;
                 section           <= bot_mem;
-`ifdef ICARUS
                 if (buffer_done_d) begin
-`else
-                if (buffer_done_d) begin
-`endif
                     buffer_fifo_en  <= 1'b0;
                     buffer_re       <= 1'b0;
                     tx_pending      <= 1'b1;
@@ -805,34 +871,34 @@ module top #(
                 if (buffer_done) begin
 `endif
 `ifdef ICARUS
-                    for (int bi = 0; bi < (NUM_COMPUTE_LANES/4); bi++) begin
-                        compute_in[(bi*4)+0] <= u_unified_buffer.bank_dout[bi][3:0];
-                        compute_in[(bi*4)+1] <= u_unified_buffer.bank_dout[bi][7:4];
-                        compute_in[(bi*4)+2] <= u_unified_buffer.bank_dout[bi][11:8];
-                        compute_in[(bi*4)+3] <= u_unified_buffer.bank_dout[bi][15:12];
+                    // Phase 4 widening: parameter-driven lane unpack instead
+                    // of hardcoded /4 INT4 nibbles. Reduces to the legacy
+                    // 4-nibble code path when ITEMS_IN_SLOT=4 (INT4).
+                    for (int bi = 0; bi < (NUM_COMPUTE_LANES/ITEMS_IN_SLOT); bi++) begin
+                        for (int li = 0; li < ITEMS_IN_SLOT; li++) begin
+                            compute_in[(bi*ITEMS_IN_SLOT)+li] <=
+                                u_unified_buffer.bank_dout[bi][(COMPUTE_DATA_WIDTH*li) +: COMPUTE_DATA_WIDTH];
+                        end
                     end
                     if (load_is_weights) begin
-                        for (int bi = 0; bi < (NUM_COMPUTE_LANES/4); bi++) begin
+                        for (int bi = 0; bi < (NUM_COMPUTE_LANES/ITEMS_IN_SLOT); bi++) begin
                             int bank_idx;
-                            int lane0, lane1, lane2, lane3;
-                            bank_idx = (u_unified_buffer.base_bank + bi) % (NUM_COMPUTE_LANES/4);
-                            lane0 = (bi*4)+0;
-                            lane1 = (bi*4)+1;
-                            lane2 = (bi*4)+2;
-                            lane3 = (bi*4)+3;
-                            sim_block_weights[lane0/ARRAY_SIZE][lane0%ARRAY_SIZE] <= u_unified_buffer.bank_dout[bank_idx][3:0];
-                            sim_block_weights[lane1/ARRAY_SIZE][lane1%ARRAY_SIZE] <= u_unified_buffer.bank_dout[bank_idx][7:4];
-                            sim_block_weights[lane2/ARRAY_SIZE][lane2%ARRAY_SIZE] <= u_unified_buffer.bank_dout[bank_idx][11:8];
-                            sim_block_weights[lane3/ARRAY_SIZE][lane3%ARRAY_SIZE] <= u_unified_buffer.bank_dout[bank_idx][15:12];
+                            bank_idx = (u_unified_buffer.base_bank + bi) % (NUM_COMPUTE_LANES/ITEMS_IN_SLOT);
+                            for (int li = 0; li < ITEMS_IN_SLOT; li++) begin
+                                int lane;
+                                lane = (bi*ITEMS_IN_SLOT)+li;
+                                sim_block_weights[lane/ARRAY_SIZE][lane%ARRAY_SIZE] <=
+                                    u_unified_buffer.bank_dout[bank_idx][(COMPUTE_DATA_WIDTH*li) +: COMPUTE_DATA_WIDTH];
+                            end
                         end
                     end else begin
-                        for (int bi = 0; bi < (ARRAY_SIZE/4); bi++) begin
+                        for (int bi = 0; bi < (ARRAY_SIZE/ITEMS_IN_SLOT); bi++) begin
                             int bank_idx;
-                            bank_idx = (u_unified_buffer.base_bank + bi) % (NUM_COMPUTE_LANES/4);
-                            sim_block_inputs[(bi*4)+0] <= u_unified_buffer.bank_dout[bank_idx][3:0];
-                            sim_block_inputs[(bi*4)+1] <= u_unified_buffer.bank_dout[bank_idx][7:4];
-                            sim_block_inputs[(bi*4)+2] <= u_unified_buffer.bank_dout[bank_idx][11:8];
-                            sim_block_inputs[(bi*4)+3] <= u_unified_buffer.bank_dout[bank_idx][15:12];
+                            bank_idx = (u_unified_buffer.base_bank + bi) % (NUM_COMPUTE_LANES/ITEMS_IN_SLOT);
+                            for (int li = 0; li < ITEMS_IN_SLOT; li++) begin
+                                sim_block_inputs[(bi*ITEMS_IN_SLOT)+li] <=
+                                    u_unified_buffer.bank_dout[bank_idx][(COMPUTE_DATA_WIDTH*li) +: COMPUTE_DATA_WIDTH];
+                            end
                         end
                     end
 `else
@@ -995,7 +1061,11 @@ module top #(
                 bram_rd_addr <= pc[PC_WIDTH-1:0];
                 bram_rd_en   <= 1'b1;
                 pc           <= pc + 1'b1;
-                bstore_base_addr <= instruction[BUFFER_WORD_SIZE-1:BUFFER_WORD_SIZE-ADDRESS_SIZE];
+                // Legacy: base address lives in the opcode word's high bits.
+                // Ext-addr: it was already latched in EXT_ADDR_LATCH_STATE
+                // (do not overwrite here).
+                if (!EXT_ADDR_EN)
+                    bstore_base_addr <= instruction[BUFFER_WORD_SIZE-1:BUFFER_WORD_SIZE-ADDRESS_SIZE];
                 bstore_index <= '0;
             end
 

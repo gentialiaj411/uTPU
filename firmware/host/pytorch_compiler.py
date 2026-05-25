@@ -198,6 +198,7 @@ def compile_model(
     use_tuned_schedule: bool = False,
     autotune_cache_path: Optional[str] = None,
     pass_pipeline_dump_path: Optional[str] = None,
+    schedule_source: Optional[str] = None,
 ) -> PyTorchCompileResult:
     """Compile a supported PyTorch model into Graph IR, runtime plan, and backend lowering."""
     torch, ShapeProp = _require_torch()
@@ -261,6 +262,7 @@ def compile_model(
         array_size=array_size,
         use_tuned_schedule=use_tuned_schedule,
         autotune_cache_path=autotune_cache_path if autotune_cache_path is not None else None,
+        schedule_source=schedule_source,
     )
 
     if strict and not result.fully_lowered_to_backend:
@@ -286,6 +288,7 @@ def compile_mlp_model(
     use_tuned_schedule: bool = False,
     autotune_cache_path: Optional[str] = None,
     pass_pipeline_dump_path: Optional[str] = None,
+    schedule_source: Optional[str] = None,
 ) -> PyTorchCompileResult:
     """Backward-compatible wrapper; prefer compile_model for new call sites."""
     return compile_model(
@@ -297,5 +300,6 @@ def compile_mlp_model(
         strict=strict,
         use_tuned_schedule=use_tuned_schedule,
         autotune_cache_path=autotune_cache_path,
+        schedule_source=schedule_source,
         pass_pipeline_dump_path=pass_pipeline_dump_path,
     )

@@ -145,7 +145,13 @@ def test_benchmark_rerun_is_correctness_clean(tmp_path):
     artifact (small iter count keeps CI fast; the headline artifact is
     the one checked in)."""
     out = tmp_path / "fusion_payoff_rerun.json"
-    artifact = run_benchmark(warmup=2, iters=5, seed=0xC0FFEE, output_path=out)
+    artifact = run_benchmark(
+        warmup=2,
+        iters=5,
+        seed=0xC0FFEE,
+        output_path=out,
+        enable_cuda_section=False,
+    )
     assert artifact["summary"]["all_correctness_within_tolerance"] is True
     assert artifact["summary"]["workload_count"] == len(WORKLOADS)
     assert {w["rule_name"] for w in artifact["workloads"]} == EXPECTED_RULE_NAMES
@@ -158,3 +164,87 @@ def test_benchmark_rerun_is_correctness_clean(tmp_path):
             assert (
                 w["op_count_reduction"] == by_name[w["workload"]]["op_count_reduction"]
             ), w["workload"]
+
+
+# ---------------------------------------------------------------------------
+# Phase 7 remediation P1.2 — CUDA fusion section schema lock
+# ---------------------------------------------------------------------------
+
+
+CUDA_FUSION_METHODOLOGY_KEYS = {
+    "eager_path",
+    "compiled_path",
+    "throughput_delta_definition",
+    "isolation",
+    "warmup_iters",
+    "timed_iters",
+    "sync_protocol",
+    "dtype",
+    "dtype_caveat",
+    "correctness_tolerance_abs",
+    "correctness_tolerance_rel",
+    "seeds_per_workload",
+}
+
+
+def test_cuda_fusion_section_is_present_with_locked_keys():
+    """The cuda_fusion section is always emitted (status reflects
+    CUDA availability). When CUDA is unavailable in the parent process
+    the schema is still present so downstream tooling does not have to
+    special-case missing GPUs."""
+    artifact = _load_artifact()
+    assert "cuda_fusion" in artifact, (
+        "artifact missing top-level cuda_fusion section; re-run "
+        "`python firmware/host/run_fusion_benchmark.py` after the "
+        "Phase 7 remediation."
+    )
+    cuda = artifact["cuda_fusion"]
+    assert cuda["backend"] == "torch_eager_vs_inductor_fp32"
+    assert CUDA_FUSION_METHODOLOGY_KEYS <= set(cuda["methodology"].keys())
+    seeds = cuda["methodology"]["seeds_per_workload"]
+    assert set(seeds.keys()) == {w.name for w in WORKLOADS}
+    result = cuda.get("result")
+    assert isinstance(result, dict) and "status" in result
+
+
+def test_cuda_fusion_status_is_one_of_locked_set():
+    artifact = _load_artifact()
+    status = artifact["cuda_fusion"]["result"]["status"]
+    assert status in {
+        "ok",
+        "cuda_unavailable",
+        "torch_unavailable_parent",
+        "subprocess_failed",
+        "subprocess_json_parse_failed",
+        "missing_subprocess_script",
+    }
+
+
+def test_cuda_fusion_ok_path_covers_every_workload_and_is_correctness_clean():
+    artifact = _load_artifact()
+    result = artifact["cuda_fusion"]["result"]
+    if result.get("status") != "ok":
+        pytest.skip(f"cuda_fusion status={result.get('status')} — live gate not applicable")
+    by_name = {w["workload"]: w for w in result["workloads"]}
+    assert set(by_name.keys()) == {w.name for w in WORKLOADS}
+    for w in result["workloads"]:
+        if "error" in w:
+            pytest.fail(f"workload {w['workload']} raised: {w['error']}")
+        for key in (
+            "rule_name",
+            "input_shape",
+            "input_dtype",
+            "eager_kernel_ms",
+            "inductor_kernel_ms",
+            "throughput_delta_pct",
+            "correctness",
+        ):
+            assert key in w, f"{w['workload']} missing field {key}"
+        for stat in ("mean", "median", "stdev", "min", "max", "p95", "samples"):
+            assert stat in w["eager_kernel_ms"], f"{w['workload']}.eager_kernel_ms missing {stat}"
+            assert stat in w["inductor_kernel_ms"], f"{w['workload']}.inductor_kernel_ms missing {stat}"
+        if w.get("compile_error") is None:
+            assert w["correctness"]["within_tolerance"] is True, (
+                f"{w['workload']}: eager vs inductor outputs disagree beyond tolerance "
+                f"(max_abs={w['correctness']['max_abs_error']:.3e})"
+            )

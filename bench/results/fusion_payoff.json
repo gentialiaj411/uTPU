@@ -1,12 +1,180 @@
 {
   "backend": "numpy_reference",
-  "environment": {
-    "machine": "AMD64",
-    "numpy": "2.4.6",
-    "platform": "Windows-10-10.0.26200-SP0",
-    "python": "3.11.9"
+  "cuda_fusion": {
+    "backend": "torch_eager_vs_inductor_fp32",
+    "methodology": {
+      "compiled_path": "torch.compile(model, backend='inductor', fullgraph=True); Inductor fuses producer-consumer pairs (Linear+ReLU, Scale+Softmax, Conv+BN) into single GPU kernels.",
+      "correctness_tolerance_abs": 0.001,
+      "correctness_tolerance_rel": 0.001,
+      "dtype": "float32 throughout (Torch dispatcher default).",
+      "dtype_caveat": "FP32 dtype throughout. The NumPy-reference section above uses NumPy fp32 as well; this is a framework-level fusion comparison on the *same* dtype on both sides, not the uTPU INT8 path. The cuBLAS / Inductor uTPU baseline (run_cublas_baseline.py + cublas_baseline.json) is the place to read the uTPU-vs-Inductor comparison; this artifact only measures eager-vs-Inductor on the same FP32 path.",
+      "eager_path": "PyTorch eager-mode forward; each op dispatches as a separate CUDA kernel + intermediate tensor.",
+      "isolation": "CUDA timings run in a separate Python process (_fusion_benchmark_cuda_subprocess.py) so any parent NVRTC driver context does not collide with Torch + Inductor CUDA contexts (same pattern as _cublas_baseline_torch_subprocess.py and inductor_oracle_subprocess.py).",
+      "seeds_per_workload": {
+        "conv_bn_resnet_block_1x16x32x32": 65261,
+        "linear_relu_mlp_3x256": 12648430,
+        "scale_softmax_attention_8x128x128": 195936478
+      },
+      "sync_protocol": "torch.cuda.synchronize() brackets each measured invocation; time.perf_counter() in ms.",
+      "throughput_delta_definition": "(eager_median_ms - inductor_median_ms) / eager_median_ms * 100 \u2014 positive => Inductor fusion wins; null / negative => fusion does not win on this GPU for this workload.",
+      "timed_iters": 30,
+      "warmup_iters": 5
+    },
+    "result": {
+      "all_correctness_within_tolerance": true,
+      "environment": {
+        "cuda_version": "13.0",
+        "device_capability": [
+          12,
+          0
+        ],
+        "device_index": 0,
+        "device_name": "NVIDIA GeForce RTX 5070 Laptop GPU",
+        "torch_version": "2.11.0+cu130"
+      },
+      "iters": 30,
+      "status": "ok",
+      "summary": {
+        "max_throughput_delta_pct": -29.934298179162887,
+        "mean_throughput_delta_pct": -82.1258825338313,
+        "median_throughput_delta_pct": -65.20590205077735,
+        "min_throughput_delta_pct": -151.23744737155366,
+        "workload_count": 3
+      },
+      "tolerance_abs": 0.001,
+      "tolerance_rel": 0.001,
+      "warmup": 5,
+      "workloads": [
+        {
+          "compile_error": null,
+          "correctness": {
+            "max_abs_error": 0.0,
+            "max_rel_error": 0.0,
+            "tolerance_abs": 0.001,
+            "tolerance_rel": 0.001,
+            "within_tolerance": true
+          },
+          "description": "3-layer MLP (256x256) with ReLU between layers; activation fusion target",
+          "eager_kernel_ms": {
+            "max": 0.5491119991347659,
+            "mean": 0.23954716695394987,
+            "median": 0.20653899991884828,
+            "min": 0.18769500093185343,
+            "p95": 0.47139000162133016,
+            "samples": 30,
+            "stdev": 0.08267400767793832
+          },
+          "inductor_kernel_ms": {
+            "max": 0.481885999761289,
+            "mean": 0.3060286001224692,
+            "median": 0.2683650000108173,
+            "min": 0.24008900072658435,
+            "p95": 0.44244499804335646,
+            "samples": 30,
+            "stdev": 0.06741839064419913
+          },
+          "input_dtype": "float32",
+          "input_shape": [
+            64,
+            256
+          ],
+          "rule_name": "linear_relu_fusion",
+          "seed": 12648430,
+          "speedup": 0.7696197339836531,
+          "throughput_delta_pct": -29.934298179162887,
+          "workload": "linear_relu_mlp_3x256"
+        },
+        {
+          "compile_error": null,
+          "correctness": {
+            "max_abs_error": 2.7939677238464355e-09,
+            "max_rel_error": 3.087772597609728e-07,
+            "tolerance_abs": 0.001,
+            "tolerance_rel": 0.001,
+            "within_tolerance": true
+          },
+          "description": "Pre-softmax scale + softmax over (8,128,128); attention-style fusion target",
+          "eager_kernel_ms": {
+            "max": 0.2464440003677737,
+            "mean": 0.04779483363866651,
+            "median": 0.030451999919023365,
+            "min": 0.026529000024311244,
+            "p95": 0.11860399899887852,
+            "samples": 30,
+            "stdev": 0.045734968374844386
+          },
+          "inductor_kernel_ms": {
+            "max": 0.057388999266549945,
+            "mean": 0.05084140029794071,
+            "median": 0.05030850115872454,
+            "min": 0.04405599975143559,
+            "p95": 0.05674500062013976,
+            "samples": 30,
+            "stdev": 0.0031255410134097823
+          },
+          "input_dtype": "float32",
+          "input_shape": [
+            8,
+            128,
+            128
+          ],
+          "rule_name": "scale_softmax_fusion",
+          "seed": 195936478,
+          "speedup": 0.6053052509544374,
+          "throughput_delta_pct": -65.20590205077735,
+          "workload": "scale_softmax_attention_8x128x128"
+        },
+        {
+          "compile_error": null,
+          "correctness": {
+            "max_abs_error": 1.3113021850585938e-06,
+            "max_rel_error": 0.000890158349648118,
+            "tolerance_abs": 0.001,
+            "tolerance_rel": 0.001,
+            "within_tolerance": true
+          },
+          "description": "Conv2d(16->32,k=3,p=1) + BatchNorm2d, ResNet-style; weight-fold fusion target",
+          "eager_kernel_ms": {
+            "max": 0.3328689999761991,
+            "mean": 0.08469896662669878,
+            "median": 0.07683150033699349,
+            "min": 0.039315997128142044,
+            "p95": 0.2792999985103961,
+            "samples": 30,
+            "stdev": 0.0656823707909048
+          },
+          "inductor_kernel_ms": {
+            "max": 0.33818600059021264,
+            "mean": 0.21378439996624365,
+            "median": 0.19302950022392906,
+            "min": 0.1745410008879844,
+            "p95": 0.32279999868478626,
+            "samples": 30,
+            "stdev": 0.04699509353395398
+          },
+          "input_dtype": "float32",
+          "input_shape": [
+            1,
+            16,
+            32,
+            32
+          ],
+          "rule_name": "conv_bn_fusion",
+          "seed": 65261,
+          "speedup": 0.39802983610206233,
+          "throughput_delta_pct": -151.23744737155366,
+          "workload": "conv_bn_resnet_block_1x16x32x32"
+        }
+      ]
+    }
   },
-  "generated_at": "2026-05-25T03:29:06Z",
+  "environment": {
+    "machine": "x86_64",
+    "numpy": "2.4.6",
+    "platform": "Linux-6.6.114.1-microsoft-standard-WSL2-x86_64-with-glibc2.43",
+    "python": "3.14.4"
+  },
+  "generated_at": "2026-05-25T06:49:00Z",
   "methodology": {
     "cache_state": "warm: same input tensor reused across samples after warmup",
     "clock_note": "Wall-clock via time.perf_counter; no CPU-clock pinning. Median + p10/p90 reported to make per-sample noise visible. Median throughput delta is the headline metric.",
@@ -16,13 +184,13 @@
     "warmup_iters": 3
   },
   "phase": "phase_2_generalized_fusion",
-  "regime_note": "CPU NumPy reference path. Reflects what fusion buys at the IR / interpreter layer (fewer Python-level ops, fewer intermediate allocations, fewer materialised tensors). A CUDA-backend run on a GPU host would produce a separate, comparably-scoped entry.",
+  "regime_note": "CPU NumPy reference path. Reflects what fusion buys at the IR / interpreter layer (fewer Python-level ops, fewer intermediate allocations, fewer materialised tensors). The CUDA section below (``cuda_fusion``) measures what *Inductor* fusion buys on the same workloads on a real GPU.",
   "summary": {
     "all_correctness_within_tolerance": true,
-    "max_throughput_delta_pct": 31.87302826041607,
-    "mean_throughput_delta_pct": 5.386245407693104,
-    "median_throughput_delta_pct": -0.3546393692784042,
-    "min_throughput_delta_pct": -15.359652668058354,
+    "max_throughput_delta_pct": 16.155590782612308,
+    "mean_throughput_delta_pct": -6.202717151177253,
+    "median_throughput_delta_pct": -1.2665883379528446,
+    "min_throughput_delta_pct": -33.49715389819122,
     "workload_count": 3
   },
   "workloads": [
@@ -36,11 +204,11 @@
       },
       "description": "3-layer MLP (256x256) with ReLU between layers; activation fusion target",
       "fused_latency_us": {
-        "max_us": 490.79999735113233,
-        "mean_us": 388.4599990366648,
-        "median_us": 367.00000055134296,
-        "min_us": 348.5000052023679,
-        "stdev_us": 41.55174635409498
+        "max_us": 208.04399900953285,
+        "mean_us": 120.79220008066234,
+        "median_us": 105.59700240264647,
+        "min_us": 100.91199874295853,
+        "stdev_us": 29.06261657324825
       },
       "input_dtype": "float32",
       "input_shape": [
@@ -54,14 +222,14 @@
       "op_count_unfused": 6,
       "rule_name": "linear_relu_fusion",
       "seed": 48879,
-      "speedup": 1.4678474243982407,
-      "throughput_delta_pct": 31.87302826041607,
+      "speedup": 1.1926853672583568,
+      "throughput_delta_pct": 16.155590782612308,
       "unfused_latency_us": {
-        "max_us": 821.0000014514662,
-        "mean_us": 541.4866682258435,
-        "median_us": 538.7000055634417,
-        "min_us": 389.50000453041866,
-        "stdev_us": 97.4047968783411
+        "max_us": 1404.2360016901512,
+        "mean_us": 249.31306616053917,
+        "median_us": 125.94399959198199,
+        "min_us": 105.18300041439943,
+        "stdev_us": 328.49235294675657
       },
       "workload": "linear_relu_mlp_3x256"
     },
@@ -75,11 +243,11 @@
       },
       "description": "Pre-softmax scale + softmax over (8,128,128); attention-style fusion target",
       "fused_latency_us": {
-        "max_us": 725.8999976329505,
-        "mean_us": 618.5133315739222,
-        "median_us": 639.899997622706,
-        "min_us": 527.5000003166497,
-        "stdev_us": 64.93996060971152
+        "max_us": 518.1100023037288,
+        "mean_us": 377.03866692027077,
+        "median_us": 368.06100251851603,
+        "min_us": 348.9720002107788,
+        "stdev_us": 40.66593932588164
       },
       "input_dtype": "float32",
       "input_shape": [
@@ -94,14 +262,14 @@
       "op_count_unfused": 2,
       "rule_name": "scale_softmax_fusion",
       "seed": 48879,
-      "speedup": 0.8668542049770643,
-      "throughput_delta_pct": -15.359652668058354,
+      "speedup": 0.7490796401267317,
+      "throughput_delta_pct": -33.49715389819122,
       "unfused_latency_us": {
-        "max_us": 580.5000037071295,
-        "mean_us": 550.7200000768838,
-        "median_us": 554.7000037040561,
-        "min_us": 513.3999948156998,
-        "stdev_us": 18.331910354333527
+        "max_us": 426.55799916246906,
+        "mean_us": 290.4729330718207,
+        "median_us": 275.7070033112541,
+        "min_us": 226.8149983137846,
+        "stdev_us": 61.088823965235214
       },
       "workload": "scale_softmax_attention_8x128x128"
     },
@@ -115,11 +283,11 @@
       },
       "description": "Conv2d(16\u219232,k=3,p=1) + BatchNorm2d, ResNet-style; weight-fold fusion target",
       "fused_latency_us": {
-        "max_us": 78390.69999317871,
-        "mean_us": 77459.10666659863,
-        "median_us": 77337.49999897555,
-        "min_us": 76657.30000007898,
-        "stdev_us": 447.89259929788045
+        "max_us": 69251.23599648941,
+        "mean_us": 65492.2471997755,
+        "median_us": 64865.4210017412,
+        "min_us": 63145.510997856036,
+        "stdev_us": 1848.2406165879809
       },
       "input_dtype": "float32",
       "input_shape": [
@@ -135,14 +303,14 @@
       "op_count_unfused": 2,
       "rule_name": "conv_bn_fusion",
       "seed": 48879,
-      "speedup": 0.9964661387703918,
-      "throughput_delta_pct": -0.3546393692784042,
+      "speedup": 0.9874925347171181,
+      "throughput_delta_pct": -1.2665883379528446,
       "unfused_latency_us": {
-        "max_us": 78056.1999999918,
-        "mean_us": 77131.9200017994,
-        "median_us": 77064.20000613434,
-        "min_us": 76698.10000516009,
-        "stdev_us": 333.69319422309655
+        "max_us": 69083.02699957858,
+        "mean_us": 64820.78919968141,
+        "median_us": 64054.1190005024,
+        "min_us": 62866.997999663,
+        "stdev_us": 1815.9626025354728
       },
       "workload": "conv_bn_resnet_block_1x16x32x32"
     }

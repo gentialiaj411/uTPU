@@ -1,0 +1,242 @@
+{
+  "fit": {
+    "coefficients_train_only": {
+      "cta_memory_us_per_kib": 0.43045886901435654,
+      "idle_thread_ratio_us": 0.5231397100129698,
+      "intercept_us": 6.261155907582989,
+      "large_k_unroll_gain_us": 1.9636088362363989e-07,
+      "large_out_small_k_wave_tpb_efficiency_us": 1.5835077490619833,
+      "memory_us_per_kib": 0.014084566682965385,
+      "small_out_idle_penalty_us": 1.3299432582113976e-11,
+      "small_out_tpb_interaction_us": 3.941675066773604e-05,
+      "small_out_unroll_interaction_us": 0.00014326797278806384,
+      "small_out_unroll_penalty_us": 0.0792915751816976,
+      "tile_tail_penalty_us": 0.5,
+      "underoccupancy_penalty_us": 0.5981741552905561,
+      "unroll_gain_us": 1.308969890324338e-06,
+      "unroll_k_tail_penalty_us": 0.4,
+      "unroll_shape_interaction_us": 1.2956258669750124e-06,
+      "wave_tpb_interaction_us": 5.432839247211604e-09
+    },
+    "fit_objective": "mean_log_latency_mse_plus_pairwise_ordering",
+    "fit_status": "ok",
+    "model_form": "intercept + cta_memory_kib + total_memory_kib + underoccupancy + tile_tail - unroll_gain + unroll_k_tail_penalty - unroll_shape_interaction + small_out_tpb_interaction + small_out_unroll_interaction + idle_thread_ratio + wave_tpb_interaction + small_out_idle_penalty - large_k_unroll_gain + small_out_unroll_penalty - large_out_small_k_wave_tpb_efficiency"
+  },
+  "generated_at_utc": "2026-05-25T06:21:09.840806+00:00",
+  "git_sha": "6d5dc2532f1f31200a2b4f687e3f2c0503cff67c",
+  "latency_prediction": {
+    "test_metrics": {
+      "log_r2": 0.9260877254038729,
+      "mape_pct": 14.322911565575378,
+      "p95_abs_rel_error_pct": 36.37573726053376
+    },
+    "test_over_train_ratios": {
+      "log_r2": 0.9951115307057358,
+      "mape": 1.318322750554125,
+      "p95_abs_rel_error": 1.2673892471689088
+    },
+    "train_metrics": {
+      "log_r2": 0.9306371163713568,
+      "mape_pct": 10.86449548075772,
+      "p95_abs_rel_error_pct": 28.70131440817397
+    }
+  },
+  "methodology": {
+    "claims_scope": "Generalization to layer shapes the cost model was not fitted on. Sim-only / replay-only artifact: no live CUDA timing here; uses measurements captured once on the WSL2 + RTX 5070 host that produced the source calibration JSON. Re-running this script on a CPU-only laptop produces the same numbers byte-for-byte.",
+    "fit_function": "calibrate_cost_model._fit_coefficients (production fitter)",
+    "harness": "firmware/host/run_cost_model_heldout.py",
+    "holdout_fraction": 0.2,
+    "selection_metric_definition": "For each held-out shape with >= 2 distinct schedules, predicted-best schedule is argmin over schedules of predicted median latency (refit on TRAIN only). Regret uses the *measured* latency of the predicted-best schedule vs the measured-best schedule; this is what a user pays at runtime. Top-1 == 1.0 means the cost model picked the same schedule the autotuner would have.",
+    "split_policy": "deterministic SHA-256 hash of f'{seed}|{in_features}|{out_features}'; lowest ceil(N * holdout_frac) shapes by hash become test set.",
+    "split_seed": "phase7-heldout-v1",
+    "split_unit": "shape_used = (in_features, out_features)"
+  },
+  "phase": "phase7_generalization_replay",
+  "selection_quality": {
+    "per_shape": [
+      {
+        "measured_best": {
+          "measured_median_us": 6.740500102750957,
+          "predicted_median_us": 7.48438399900232,
+          "schedule": {
+            "threads_per_block": 256,
+            "unroll_factor": 8
+          }
+        },
+        "n_schedules": 16,
+        "predicted_best": {
+          "measured_median_us": 6.907000089995563,
+          "predicted_median_us": 7.305872760368603,
+          "schedule": {
+            "threads_per_block": 256,
+            "unroll_factor": 1
+          }
+        },
+        "regret_pct": 2.470142937564135,
+        "shape": {
+          "in_features": 32,
+          "out_features": 16
+        },
+        "top1_hit": false
+      },
+      {
+        "measured_best": {
+          "measured_median_us": 7.017250056378543,
+          "predicted_median_us": 7.443097969657499,
+          "schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 4
+          }
+        },
+        "n_schedules": 16,
+        "predicted_best": {
+          "measured_median_us": 7.478500017896295,
+          "predicted_median_us": 7.443095653196252,
+          "schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 8
+          }
+        },
+        "regret_pct": 6.573087146844426,
+        "shape": {
+          "in_features": 64,
+          "out_features": 256
+        },
+        "top1_hit": false
+      },
+      {
+        "measured_best": {
+          "measured_median_us": 11.032000184059143,
+          "predicted_median_us": 10.785263563181942,
+          "schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 2
+          }
+        },
+        "n_schedules": 16,
+        "predicted_best": {
+          "measured_median_us": 11.095749912783504,
+          "predicted_median_us": 10.785256866262396,
+          "schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 8
+          }
+        },
+        "regret_pct": 0.5778619258588901,
+        "shape": {
+          "in_features": 256,
+          "out_features": 256
+        },
+        "top1_hit": false
+      },
+      {
+        "measured_best": {
+          "measured_median_us": 10.826250305399299,
+          "predicted_median_us": 11.05106503768195,
+          "schedule": {
+            "threads_per_block": 128,
+            "unroll_factor": 1
+          }
+        },
+        "n_schedules": 16,
+        "predicted_best": {
+          "measured_median_us": 11.31574995815754,
+          "predicted_median_us": 10.854867934426121,
+          "schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          }
+        },
+        "regret_pct": 4.521414515181826,
+        "shape": {
+          "in_features": 512,
+          "out_features": 16
+        },
+        "top1_hit": false
+      },
+      {
+        "measured_best": {
+          "measured_median_us": 17.89875002577901,
+          "predicted_median_us": 15.241485990390682,
+          "schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          }
+        },
+        "n_schedules": 16,
+        "predicted_best": {
+          "measured_median_us": 20.02799976617098,
+          "predicted_median_us": 15.241474229685842,
+          "schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 8
+          }
+        },
+        "regret_pct": 11.896080661081237,
+        "shape": {
+          "in_features": 512,
+          "out_features": 256
+        },
+        "top1_hit": false
+      }
+    ],
+    "summary": {
+      "max_regret_pct": 11.896080661081237,
+      "mean_regret_pct": 5.207717437306103,
+      "median_regret_pct": 4.521414515181826,
+      "n_held_out_shapes_with_multi_schedule": 5,
+      "p95_regret_pct": 10.831481958233875,
+      "top1_accuracy": 0.0,
+      "within_10pct_fraction": 0.8,
+      "within_5pct_fraction": 0.6
+    }
+  },
+  "source": {
+    "source": "build\\reports\\cost_model_calibration.json",
+    "source_environment": {
+      "cuda_available": true,
+      "cuda_version": "12.8",
+      "gpu_name": "NVIDIA GeForce RTX 5070 Laptop GPU",
+      "numpy_version": "2.4.4",
+      "python_version": "3.14.4",
+      "torch_version": "2.11.0+cu128"
+    },
+    "source_git_sha": "35d0d179988ac0e1245762819b898a4c24e9573b",
+    "source_machine_info": {
+      "hostname": "genti_laptop",
+      "platform": "Windows-11-10.0.26200-SP0",
+      "processor": "Intel64 Family 6 Model 198 Stepping 2, GenuineIntel"
+    },
+    "source_n_rows": 3072,
+    "source_timestamp_utc": "2026-05-24T04:52:20.912612+00:00"
+  },
+  "split": {
+    "holdout_shapes": [
+      {
+        "in_features": 256,
+        "out_features": 256
+      },
+      {
+        "in_features": 32,
+        "out_features": 16
+      },
+      {
+        "in_features": 512,
+        "out_features": 256
+      },
+      {
+        "in_features": 512,
+        "out_features": 16
+      },
+      {
+        "in_features": 64,
+        "out_features": 256
+      }
+    ],
+    "n_test_rows": 704,
+    "n_train_rows": 2368,
+    "n_unique_test_shapes": 5,
+    "n_unique_train_shapes": 19
+  },
+  "version": 1
+}

@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import hashlib
 import time
 from typing import Any, Dict, List
 
@@ -43,6 +44,8 @@ def _write_outputs(metrics: Dict[str, Any], out_json: str, out_md: str) -> None:
     md.append(f"- fpga_accuracy_pct: {metrics['fpga_accuracy_pct']}")
     md.append(f"- prediction_match_rate_pct: {metrics['prediction_match_rate_pct']}")
     md.append(f"- max_abs_output_diff: {metrics['max_abs_output_diff']}")
+    md.append(f"- software_output_sha256: {metrics['software_output_sha256']}")
+    md.append(f"- fpga_output_sha256: {metrics['fpga_output_sha256']}")
     md.append("")
     md.append("## Timing / IO")
     md.append(f"- total_wall_time_ms: {metrics['total_wall_time_ms']}")
@@ -134,6 +137,8 @@ def main() -> None:
     hw_correct = 0
     pred_match = 0
     max_abs_output_diff = 0.0
+    sw_hash = hashlib.sha256()
+    hw_hash = hashlib.sha256()
 
     total_wall_start = time.perf_counter()
     total_upload_ms = 0.0
@@ -146,6 +151,7 @@ def main() -> None:
         for i in range(n):
             sw_pred, sw_logits = sw_engine.predict(images[i])
             sw_correct += int(sw_pred == labels[i])
+            sw_hash.update(np.asarray(sw_logits, dtype=np.float32).tobytes())
 
             x = sw_engine.preprocess_image(images[i]).astype(np.int8)
             fc1_res = loader.execute_fc_layer_blocked(
@@ -176,6 +182,7 @@ def main() -> None:
             )
             hw_logits = np.array(fc2_res.get("output_int4_padded", [0] * array_size), dtype=np.float32)[:sw_engine.fc2_weight.shape[0]]
             hw_pred = int(np.argmax(hw_logits))
+            hw_hash.update(np.asarray(hw_logits, dtype=np.float32).tobytes())
 
             hw_correct += int(hw_pred == labels[i])
             pred_match += int(hw_pred == sw_pred)
@@ -204,8 +211,9 @@ def main() -> None:
     else:
         # Dry-run or no UART path: compute software-only accuracy.
         for i in range(n):
-            sw_pred, _ = sw_engine.predict(images[i])
+            sw_pred, sw_logits = sw_engine.predict(images[i])
             sw_correct += int(sw_pred == labels[i])
+            sw_hash.update(np.asarray(sw_logits, dtype=np.float32).tobytes())
 
     total_wall_ms = (time.perf_counter() - total_wall_start) * 1000.0
 
@@ -235,6 +243,8 @@ def main() -> None:
         "fpga_accuracy_pct": fpga_accuracy_pct,
         "prediction_match_rate_pct": prediction_match_rate_pct,
         "max_abs_output_diff": float(max_abs_output_diff) if hardware_executed else None,
+        "software_output_sha256": sw_hash.hexdigest(),
+        "fpga_output_sha256": hw_hash.hexdigest() if hardware_executed else None,
         "mismatch_examples": mismatch_examples,
     }
 

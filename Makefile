@@ -91,7 +91,9 @@ RTL_DESIGN := \
 RTL_STUBS := rtl/tb/xpm_memory_sdpram_stub.sv
 
 .PHONY: sim-units sim-all sim-perf clean-sim bench test-host \
-        sim-iverilog-fused sim-iverilog-perf sim-iverilog-all clean-sim-iverilog \
+        sim-iverilog-fused sim-iverilog-perf sim-iverilog-phase4-widen \
+        sim-iverilog-scheduler-cross-check \
+        sim-iverilog-all clean-sim-iverilog \
         repro repro-host repro-cuda
 
 # ---------------------------
@@ -100,7 +102,7 @@ RTL_STUBS := rtl/tb/xpm_memory_sdpram_stub.sv
 # .github/workflows/ci.yml so docs/agents never drift.
 # ---------------------------
 test-host:
-	python -m pytest firmware/host/test_fx_importer.py firmware/host/test_pytorch_compiler.py firmware/host/test_torch_compile_backend.py firmware/host/test_compiled_runtime_validation.py firmware/host/test_footprint_baseline.py firmware/host/test_compiler_smoke.py firmware/host/test_graph_passes.py firmware/host/test_reference_interpreter.py firmware/host/test_isa_simulator.py firmware/host/test_rtl_sim_artifact.py firmware/host/test_transformer_integration.py firmware/host/test_cost_model_regression.py firmware/host/test_cost_model_selection.py firmware/host/test_fusion_benchmark.py firmware/host/test_multi_pe_sim.py firmware/host/test_real_model_ops.py firmware/host/test_real_model_end_to_end.py -v
+	python -m pytest firmware/host/test_fx_importer.py firmware/host/test_pytorch_compiler.py firmware/host/test_torch_compile_backend.py firmware/host/test_compiled_runtime_validation.py firmware/host/test_compiled_runtime_schedule_source.py firmware/host/test_footprint_baseline.py firmware/host/test_compiler_smoke.py firmware/host/test_graph_passes.py firmware/host/test_reference_interpreter.py firmware/host/test_isa_simulator.py firmware/host/test_rtl_sim_artifact.py firmware/host/test_transformer_integration.py firmware/host/test_cost_model_regression.py firmware/host/test_cost_model_selection.py firmware/host/test_fusion_benchmark.py firmware/host/test_tiling_controller.py firmware/host/test_multi_pe_sim.py firmware/host/test_real_model_ops.py firmware/host/test_real_model_end_to_end.py firmware/host/test_phase4_isa_widen.py firmware/host/test_scheduler_allocator.py firmware/host/test_cublas_baseline.py firmware/host/test_cost_model_heldout.py firmware/host/test_selection_ab.py firmware/host/test_board_fit_audit.py firmware/host/test_scheduler_rtl_crosscheck.py firmware/host/test_scheduler_rtl_crosscheck_bigmlp.py firmware/host/test_p4_2_vivado_reports.py firmware/host/test_diff_oracle.py firmware/host/test_region_fusion.py firmware/host/test_megakernel_benchmark.py -v
 
 sim-units:
 	mkdir -p "$(SIM_OUT)"
@@ -156,7 +158,48 @@ sim-iverilog-perf:
 	"$(VVP)" "$(SIM_IVERILOG_OUT)/tb_perf_counters.out"
 	@echo "[sim-iverilog-perf] VCD: $(SIM_IVERILOG_OUT)/tb_perf_counters.vcd"
 
-sim-iverilog-all: sim-iverilog-fused sim-iverilog-perf
+sim-iverilog-all: sim-iverilog-fused sim-iverilog-perf sim-iverilog-phase4-widen sim-iverilog-scheduler-cross-check
+
+# Phase 7 remediation P4.1: scheduler RTL cycle cross-check.
+# Generates two programs (naive + scheduled) for (M=32, K=32) and
+# verifies (a) RTL_scheduled_cycles < RTL_naive_cycles, (b) the
+# RTL's per-mille cycle reduction is within ±20 permille (±2.0%) of
+# the simulator's per-mille reduction (the headline 4.67%-style
+# claim), and (c) the scheduler's RTL invariant
+# RTL_naive_bytes === RTL_scheduled_bytes holds. The Python wrapper
+# `run_scheduler_rtl_crosscheck.py` does the same and also emits
+# bench/results/scheduler_rtl_crosscheck.json. PROG_DEPTH stays at the
+# shipping default of 1024; BUFFER_SIZE stays at 512. VCD dumping is
+# off by default for this target (the program runs for ~2 ms of sim
+# time, which generates a ~150 MB VCD with $dumpvars(0,*) — opt in
+# with `make sim-iverilog-scheduler-cross-check DUMP_VCD=1` if you
+# want it).
+DUMP_VCD ?= 0
+SCHEDULER_CROSS_DEFINES = -DICARUS
+ifeq ($(DUMP_VCD),1)
+SCHEDULER_CROSS_DEFINES += -DDUMP_VCD
+endif
+
+sim-iverilog-scheduler-cross-check:
+	mkdir -p "$(SIM_IVERILOG_OUT)" build/test_vectors build/reports
+	$(PYTHON) firmware/host/generate_scheduler_rtl_test_vectors.py > /dev/null
+	"$(IVERILOG)" -g2012 $(SCHEDULER_CROSS_DEFINES) \
+		-o "$(SIM_IVERILOG_OUT)/tb_scheduler_cycles.out" \
+		rtl/tb/tb_scheduler_cycles.sv $(RTL_STUBS) $(RTL_DESIGN)
+	"$(VVP)" "$(SIM_IVERILOG_OUT)/tb_scheduler_cycles.out"
+	@echo "[sim-iverilog-scheduler-cross-check] artifact: bench/results/scheduler_rtl_crosscheck.json (run run_scheduler_rtl_crosscheck.py)"
+
+# Phase 4 widened RTL sim: INT8 datapath, ARRAY_SIZE=8, BUFFER_SIZE=4096,
+# EXT_ADDR_EN=1 (2-word address layout). Compares against the python
+# isa_simulator oracle (which is itself NumPy-validated).
+sim-iverilog-phase4-widen:
+	mkdir -p "$(SIM_IVERILOG_OUT)" build/test_vectors build/reports
+	$(PYTHON) firmware/host/generate_phase4_widen_rtl_vectors.py > /dev/null
+	"$(IVERILOG)" -g2012 -DICARUS -DDUMP_VCD \
+		-o "$(SIM_IVERILOG_OUT)/tb_phase4_widen.out" \
+		rtl/tb/tb_phase4_widen.sv $(RTL_STUBS) $(RTL_DESIGN)
+	"$(VVP)" "$(SIM_IVERILOG_OUT)/tb_phase4_widen.out"
+	@echo "[sim-iverilog-phase4-widen] VCD: $(SIM_IVERILOG_OUT)/tb_phase4_widen.vcd"
 
 clean-sim-iverilog:
 	rm -rf "$(SIM_IVERILOG_OUT)"
@@ -189,13 +232,35 @@ repro-host:
 		--output-json bench/results/cost_model_selection.json
 	@echo "[repro-host] fusion payoff (Phase 2) -> bench/results/fusion_payoff.json"
 	$(PYTHON) firmware/host/run_fusion_benchmark.py
-	@echo "[repro-host] done. CUDA-only artifact (ResNet-18) is regenerated via 'make repro-cuda'."
+	@echo "[repro-host] tiling correctness (Phase 3) -> bench/results/tiling_correctness.json"
+	$(PYTHON) firmware/host/run_tiling_correctness.py
+	@echo "[repro-host] scheduler cycles (Phase 5) -> bench/results/scheduler_cycles.json"
+	$(PYTHON) firmware/host/run_scheduler_benchmark.py
+	@echo "[repro-host] cost-model held-out generalization (Phase 7) -> bench/results/cost_model_heldout.json"
+	$(PYTHON) firmware/host/run_cost_model_heldout.py
+	@echo "[repro-host] cuBLAS baseline schema/stub (Phase 7) -> bench/results/cublas_baseline.json"
+	$(PYTHON) firmware/host/run_cublas_baseline.py
+	@echo "[repro-host] selection A/B schema/stub (Phase 7 remediation P2.2) -> bench/results/selection_ab.json"
+	$(PYTHON) firmware/host/run_selection_ab.py
+	@echo "[repro-host] board-fit audit (Phase 7 remediation P3) -> bench/results/board_fit_audit.json"
+	$(PYTHON) firmware/host/run_board_fit_audit.py
+	@echo "[repro-host] scheduler RTL cross-check (Phase 7 remediation P4.1; stub on hosts without iverilog) -> bench/results/scheduler_rtl_crosscheck.json"
+	-$(PYTHON) firmware/host/run_scheduler_rtl_crosscheck.py || true
+	@echo "[repro-host] megakernel payoff stub (Task 1; populated on CUDA hosts via repro-cuda) -> bench/results/megakernel_payoff.json"
+	$(PYTHON) firmware/host/run_megakernel_benchmark.py
+	@echo "[repro-host] done. CUDA-only artifacts (ResNet-18, populated cuBLAS baseline, populated selection A/B, populated megakernel payoff) regenerate via 'make repro-cuda'."
 
 repro-cuda:
 	mkdir -p bench/results
 	@echo "[repro-cuda] ResNet-18 end-to-end (requires CUDA + Linux/WSL2) -> bench/results/real_model_end_to_end.json"
 	$(PYTHON) firmware/host/run_real_model_end_to_end.py --output bench/results/real_model_end_to_end.json
 	$(PYTHON) -m pytest firmware/host/test_real_model_ops.py firmware/host/test_real_model_end_to_end.py -q
+	@echo "[repro-cuda] cuBLAS baseline (Phase 7, populated) -> bench/results/cublas_baseline.json"
+	$(PYTHON) firmware/host/run_cublas_baseline.py --warmup 10 --iters 50
+	@echo "[repro-cuda] selection A/B (Phase 7 remediation P2.2, populated) -> bench/results/selection_ab.json"
+	$(PYTHON) firmware/host/run_selection_ab.py --warmup 10 --iters 50
+	@echo "[repro-cuda] megakernel payoff (Task 1, populated) -> bench/results/megakernel_payoff.json"
+	$(PYTHON) firmware/host/run_megakernel_benchmark.py --warmup 10 --iters 50
 
 repro: repro-host
-	@echo "[repro] host artifacts regenerated. For ResNet-18 (CUDA), run: make repro-cuda"
+	@echo "[repro] host artifacts regenerated. For ResNet-18 + populated cuBLAS baseline (CUDA), run: make repro-cuda"

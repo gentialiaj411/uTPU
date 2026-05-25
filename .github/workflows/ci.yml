@@ -32,5 +32,29 @@ jobs:
       - name: Regenerate fusion-payoff artifact (Phase 2)
         run: python firmware/host/run_fusion_benchmark.py
 
+      - name: Regenerate tiling-correctness artifact (Phase 3)
+        run: python firmware/host/run_tiling_correctness.py
+
+      - name: Regenerate scheduler-cycles artifact (Phase 5)
+        run: python firmware/host/run_scheduler_benchmark.py
+
+      - name: Regenerate cost-model held-out generalization artifact (Phase 7)
+        run: python firmware/host/run_cost_model_heldout.py
+
+      - name: Regenerate cuBLAS baseline stub (Phase 7, CPU runner)
+        run: python firmware/host/run_cublas_baseline.py
+
+      - name: Regenerate selection A/B stub (Phase 7 remediation P2.2, CPU runner)
+        run: python firmware/host/run_selection_ab.py
+
+      - name: Regenerate board-fit audit (Phase 7 remediation P3)
+        run: python firmware/host/run_board_fit_audit.py
+
+      - name: Regenerate scheduler RTL cross-check stub (Phase 7 remediation P4.1; CI runner has no iverilog)
+        run: python firmware/host/run_scheduler_rtl_crosscheck.py --skip-iverilog
+
+      - name: Regenerate megakernel-payoff stub (Task 1, CPU runner emits cuda_unavailable artifact)
+        run: python firmware/host/run_megakernel_benchmark.py
+
       - name: Run tests
-        run: python -m pytest firmware/host/test_fx_importer.py firmware/host/test_pytorch_compiler.py firmware/host/test_torch_compile_backend.py firmware/host/test_compiled_runtime_validation.py firmware/host/test_footprint_baseline.py firmware/host/test_compiler_smoke.py firmware/host/test_graph_passes.py firmware/host/test_reference_interpreter.py firmware/host/test_isa_simulator.py firmware/host/test_rtl_sim_artifact.py firmware/host/test_transformer_integration.py firmware/host/test_cost_model_regression.py firmware/host/test_cost_model_selection.py firmware/host/test_fusion_benchmark.py firmware/host/test_multi_pe_sim.py firmware/host/test_real_model_ops.py firmware/host/test_real_model_end_to_end.py -v
+        run: python -m pytest firmware/host/test_fx_importer.py firmware/host/test_pytorch_compiler.py firmware/host/test_torch_compile_backend.py firmware/host/test_compiled_runtime_validation.py firmware/host/test_compiled_runtime_schedule_source.py firmware/host/test_footprint_baseline.py firmware/host/test_compiler_smoke.py firmware/host/test_graph_passes.py firmware/host/test_reference_interpreter.py firmware/host/test_isa_simulator.py firmware/host/test_rtl_sim_artifact.py firmware/host/test_transformer_integration.py firmware/host/test_cost_model_regression.py firmware/host/test_cost_model_selection.py firmware/host/test_fusion_benchmark.py firmware/host/test_tiling_controller.py firmware/host/test_multi_pe_sim.py firmware/host/test_real_model_ops.py firmware/host/test_real_model_end_to_end.py firmware/host/test_phase4_isa_widen.py firmware/host/test_scheduler_allocator.py firmware/host/test_cublas_baseline.py firmware/host/test_cost_model_heldout.py firmware/host/test_selection_ab.py firmware/host/test_board_fit_audit.py firmware/host/test_scheduler_rtl_crosscheck.py firmware/host/test_scheduler_rtl_crosscheck_bigmlp.py firmware/host/test_p4_2_vivado_reports.py firmware/host/test_diff_oracle.py firmware/host/test_region_fusion.py firmware/host/test_megakernel_benchmark.py -v

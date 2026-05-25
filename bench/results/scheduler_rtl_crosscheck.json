@@ -1,0 +1,73 @@
+{
+  "expected": {
+    "array_size": 16,
+    "cycles_saved": 8,
+    "expected_fetch_bytes": [
+      119,
+      119,
+      135,
+      136,
+      119,
+      120,
+      119,
+      135,
+      119,
+      119,
+      136,
+      119,
+      120,
+      120,
+      120,
+      135
+    ],
+    "fetch_bytes_invariant_simulator": true,
+    "fetch_bytes_n": 16,
+    "input_addr": 0,
+    "naive_cycles": 303,
+    "naive_words": 847,
+    "reduction_permille": 26,
+    "result_addr": 320,
+    "sched_cycles": 295,
+    "sched_words": 823,
+    "shape": {
+      "in_features": 32,
+      "out_features": 32
+    },
+    "weight_addr": 256
+  },
+  "generated_at_utc": "2026-05-25T21:37:55.361706+00:00",
+  "git_sha": "6d5dc2532f1f31200a2b4f687e3f2c0503cff67c",
+  "host": {
+    "machine": "AMD64",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "python_version": "3.11.9"
+  },
+  "instructions": "Install iverilog locally (Windows: bleyer.org/icarus; Linux: apt-get install -y iverilog) and rerun this script. The test vectors under build/test_vectors/scheduler_*.mem and the testbench at rtl/tb/tb_scheduler_cycles.sv are already in place; no other inputs change between stub and populated modes.",
+  "iverilog_resolved": {
+    "iverilog": "C:\\iverilog\\bin\\iverilog.exe",
+    "vvp": "C:\\iverilog\\bin\\vvp.exe"
+  },
+  "methodology": {
+    "advisory_metrics": [
+      "RTL_naive byte agreement with simulator (out of sim fetch_n)",
+      "RTL_sched byte agreement with simulator (out of sim fetch_n)"
+    ],
+    "headline_assertions": [
+      "RTL scheduled cycles strictly less than naive",
+      "|RTL_reduction_permille - sim_reduction_permille| <= 20",
+      "RTL_naive fetch_bytes === RTL_scheduled fetch_bytes",
+      "RTL_naive fetch_n == sim fetch_n; RTL_sched fetch_n == sim fetch_n"
+    ],
+    "summary": "RTL cycle cross-check of the Phase 5 scheduler at (M=32, K=32). The simulator's 1-cycle-per-op model and the RTL FSM's multi-cycle STORE/FETCH paths produce different absolute cycle counts; we cross-check the *percentage* cycle reduction (within \u00b120 permille = \u00b12.0%) and verify the scheduler's RTL-side bit-exactness invariant (RTL_naive === RTL_scheduled fetch_bytes). The simulator-vs-RTL byte agreement is recorded as an advisory metric only.",
+    "tools": {
+      "naive_baseline": "firmware/host/lowering_blocked_fc_utpu.py (lower_blocked_fc_program_utpu)",
+      "rtl_generator": "firmware/host/generate_scheduler_rtl_test_vectors.py",
+      "scheduler": "firmware/host/scheduler_allocator.py (lower_blocked_fc_program_scheduled)",
+      "simulator": "firmware/host/isa_simulator.py (1 cycle/op; STORE/BSTORE 2+N)",
+      "testbench": "rtl/tb/tb_scheduler_cycles.sv"
+    }
+  },
+  "status": "iverilog_unavailable",
+  "tolerance_permille": 20,
+  "version": 1
+}

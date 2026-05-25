@@ -11,13 +11,16 @@ except ImportError:
     UARTDriver = None
 from isa_encoder import (
     ISAEncoder,
+    IsaConfig,
+    DEFAULT_CFG,
     encodeStoreValues,
     encodeLoadWeights,
     encodeLoadInputs,
     encodeRun,
     encodeFetch,
     encodeHalt,
-    int4To16
+    int4To16,
+    pack_values_to_word,
 )
 from lowering_types import BlockedFCLoweringRequest
 from backend_lowering import create_backend_lowerer
@@ -36,10 +39,16 @@ class ProgramLoader:
     BUFFER_SECTION_C = 0x100  # 0x100-0x17F
     BUFFER_SECTION_D = 0x180  # 0x180-0x1FF
 
-    def __init__(self, uart, verbose, backend: str = "utpu"):
+    def __init__(self, uart, verbose, backend: str = "utpu", cfg: Optional[IsaConfig] = None):
+        # ``cfg`` lets callers opt into widened (Phase 4) ISA encodings — INT8
+        # datapath, extended 2-word address layout, etc. The default keeps the
+        # legacy 9-bit-address / INT4 byte-for-byte representation so all
+        # pre-Phase-4 host code paths and the hardware FPGA build remain
+        # unchanged when ``cfg`` is omitted.
+        self.cfg = cfg or DEFAULT_CFG
         self.uart = uart
         self.verbose = verbose
-        self.encoder = ISAEncoder()
+        self.encoder = ISAEncoder(cfg=self.cfg)
         self.default_array_size = self._resolve_array_size()
         self.backend_name = backend
         self.backend_lowerer = create_backend_lowerer(backend)

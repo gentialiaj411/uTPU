@@ -1,0 +1,952 @@
+{
+  "aggregate": {
+    "all_cases_ok": true,
+    "all_cases_rtl_byte_exact": true,
+    "board_layout": {
+      "array_size": 16,
+      "input_addr": 0,
+      "prog_depth": 8192,
+      "result_addr": 320,
+      "weight_addr": 256
+    },
+    "case_count": 5,
+    "cases_fit_bram": {
+      "bench_128x64": true,
+      "bench_32x32": true,
+      "bench_32x64": true,
+      "bench_64x32": true,
+      "bench_64x64": true
+    },
+    "ok_case_count": 5
+  },
+  "cases": [
+    {
+      "array_size": 16,
+      "expected": {
+        "array_size": 16,
+        "cycles_saved": 8,
+        "expected_fetch_bytes": [
+          119,
+          119,
+          135,
+          136,
+          119,
+          120,
+          119,
+          135,
+          119,
+          119,
+          136,
+          119,
+          120,
+          120,
+          120,
+          135
+        ],
+        "fetch_bytes_invariant_simulator": true,
+        "fetch_bytes_n": 16,
+        "input_addr": 0,
+        "naive_cycles": 303,
+        "naive_words": 847,
+        "reduction_permille": 26,
+        "result_addr": 320,
+        "sched_cycles": 295,
+        "sched_words": 823,
+        "shape": {
+          "in_features": 32,
+          "out_features": 32
+        },
+        "weight_addr": 256
+      },
+      "headline": {
+        "diff_permille": 1,
+        "rtl_cycles_saved": 72,
+        "rtl_naive_cycles": 2844,
+        "rtl_reduction_permille": 25,
+        "rtl_sched_cycles": 2772,
+        "scheduler_invariant_holds": true,
+        "sim_reduction_permille": 26,
+        "tol_permille": 20
+      },
+      "host": {
+        "machine": "AMD64",
+        "platform": "Windows-10-10.0.26200-SP0",
+        "python_version": "3.11.9"
+      },
+      "input_addr": 0,
+      "methodology": {
+        "advisory_metrics": [
+          "RTL_naive byte agreement with simulator (out of sim fetch_n)",
+          "RTL_sched byte agreement with simulator (out of sim fetch_n)"
+        ],
+        "api": "firmware/host/run_scheduler_rtl_crosscheck_bigmlp.py",
+        "cases": [
+          {
+            "in_features": 32,
+            "out_features": 32,
+            "tag": "bench_32x32"
+          },
+          {
+            "in_features": 64,
+            "out_features": 32,
+            "tag": "bench_32x64"
+          },
+          {
+            "in_features": 32,
+            "out_features": 64,
+            "tag": "bench_64x32"
+          },
+          {
+            "in_features": 64,
+            "out_features": 64,
+            "tag": "bench_64x64"
+          },
+          {
+            "in_features": 64,
+            "out_features": 128,
+            "tag": "bench_128x64"
+          }
+        ],
+        "fit_criterion": "Each case must satisfy RTL_scheduled_cycles < RTL_naive_cycles, |RTL_reduction_permille - sim_reduction_permille| <= 20, and RTL_naive fetch_bytes === RTL_scheduled fetch_bytes.",
+        "headline_assertions": [
+          "RTL scheduled cycles strictly less than naive",
+          "|RTL_reduction_permille - sim_reduction_permille| <= 20",
+          "RTL_naive fetch_bytes === RTL_scheduled fetch_bytes",
+          "RTL_naive fetch_n == sim fetch_n; RTL_sched fetch_n == sim fetch_n"
+        ],
+        "layout": {
+          "array_size": 16,
+          "input_addr": 0,
+          "prog_depth": 8192,
+          "result_addr": 320,
+          "weight_addr": 256
+        },
+        "summary": "Wider RTL cross-check for the board-fit suite. The suite uses the same scheduler / simulator / RTL pipeline as the single-shape smoke test, but it runs the larger shapes that are relevant to the board flash plan and stresses the multi-out-block output addressing path.",
+        "tolerance_permille": 20,
+        "tools": {
+          "naive_baseline": "firmware/host/lowering_blocked_fc_utpu.py (lower_blocked_fc_program_utpu)",
+          "rtl_generator": "firmware/host/generate_scheduler_rtl_test_vectors.py::build_case_vectors",
+          "scheduler": "firmware/host/scheduler_allocator.py (lower_blocked_fc_program_scheduled)",
+          "simulator": "firmware/host/isa_simulator.py (1 cycle/op; STORE/BSTORE 2+N)",
+          "testbench": "rtl/tb/tb_scheduler_cycles.sv"
+        },
+        "what_it_measures": "RTL cycle reduction and RTL byte-exactness for the scheduler on board-fit blocked-FC shapes that exercise multi-out-block output addressing."
+      },
+      "naive_words": 847,
+      "paths": {
+        "expected_bytes_svh": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\test_vectors\\scheduler_rtl_crosscheck_bigmlp\\bench_32x32\\boardfit_bench_32x32_expected_bytes.svh",
+        "expected_svh": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\test_vectors\\scheduler_rtl_crosscheck_bigmlp\\bench_32x32\\boardfit_bench_32x32_expected.svh",
+        "naive_mem": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\test_vectors\\scheduler_rtl_crosscheck_bigmlp\\bench_32x32\\boardfit_bench_32x32_naive.mem",
+        "sched_mem": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\test_vectors\\scheduler_rtl_crosscheck_bigmlp\\bench_32x32\\boardfit_bench_32x32_sched.mem"
+      },
+      "result_addr": 320,
+      "rtl_result": {
+        "diff_permille": 1,
+        "errors": 0,
+        "iverilog_compile_ok": true,
+        "iverilog_compile_stderr": "rtl/tb/tb_scheduler_cycles.sv:323: warning: Static variable initialization requires explicit lifetime in this context.\nrtl/tb/tb_scheduler_cycles.sv:324: warning: Static variable initialization requires explicit lifetime in this context.\nrtl/top/top.sv:877: warning: A for statement must use the index (bi) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:884: warning: A for statement must use the index (bi) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:920: warning: A for statement must use the index (ci) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:922: warning: A for statement must use the index (ci) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:932: warning: A for statement must use the index (ci) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:934: warning: A for statement must use the index (ci) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:944: warning: A for statement must use the index (ci) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:946: warning: A for statement must use the index (ci) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:948: warning: A for statement must use the index (ci) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:1006: warning: A for statement must use the index (ai) in the condition expression to be synthesized in an always_ff process.\n",
+        "iverilog_run_returncode": 0,
+        "log_path": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\sim_iverilog\\scheduler_rtl_crosscheck_bigmlp\\bench_32x32\\tb_scheduler_cycles.log",
+        "raw_log": "=================================================\nPhase 7 remediation P4.1 \u00e2\u20ac\u201d scheduler RTL cycle cross-check\nshape M=32 K=32  array_size=16\nsimulator: naive=303 sched=295 saved=8\n=================================================\nWARNING: rtl/tb/tb_scheduler_cycles.sv:168: $readmemh(C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_rtl_crosscheck_bigmlp/bench_32x32/boardfit_bench_32x32_naive.mem): Not enough words in the file for the requested range [0:8191].\n[ OK ] reached WAIT_START [C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_rtl_crosscheck_bigmlp/bench_32x32/boardfit_bench_32x32_naive.mem]\n[ OK ] reached HALT [C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_rtl_crosscheck_bigmlp/bench_32x32/boardfit_bench_32x32_naive.mem]\nRTL_NAIVE_CYCLES=2844 (sim=303) NAIVE_FETCH_N=16 (sim=16)\nWARNING: rtl/tb/tb_scheduler_cycles.sv:170: $readmemh(C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_rtl_crosscheck_bigmlp/bench_32x32/boardfit_bench_32x32_sched.mem): Not enough words in the file for the requested range [0:8191].\n[ OK ] reached WAIT_START [C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_rtl_crosscheck_bigmlp/bench_32x32/boardfit_bench_32x32_sched.mem]\n[ OK ] reached HALT [C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_rtl_crosscheck_bigmlp/bench_32x32/boardfit_bench_32x32_sched.mem]\nRTL_SCHED_CYCLES=2772 (sim=295) SCHED_FETCH_N=16 (sim=16)\nRTL_CYCLES_SAVED=72 (sim_saved=8)\nRTL_REDUCTION_PERMILLE=25  SIM_REDUCTION_PERMILLE=26  TOL=20  DIFF=1\n[ OK ] RTL scheduled cycles strictly less than naive\n[ OK ] RTL cycle reduction within \u00c2\u00b1SCHED_TOL_PERMILLE of sim\n[ OK ] RTL fetch byte count equals expected (scheduled run)\n[ OK ] RTL fetch byte count equals expected (naive run)\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 0\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 1\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 2\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 3\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 4\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 5\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 6\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 7\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 8\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 9\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 10\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 11\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 12\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 13\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 14\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 15\nADVISORY: RTL_naive matches sim on 16 / 16 bytes\nADVISORY: RTL_sched matches sim on 16 / 16 bytes\n=================================================\nDONE tests=24 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_scheduler_cycles.sv:350: $finish called at 157235000 (1ps)\n",
+        "rtl_naive_bytes_matching_sim": 16,
+        "rtl_naive_bytes_total": 16,
+        "rtl_naive_cycles": 2844,
+        "rtl_naive_fetch_n": 16,
+        "rtl_reduction_permille": 25,
+        "rtl_sched_bytes_matching_sim": 16,
+        "rtl_sched_bytes_total": 16,
+        "rtl_sched_cycles": 2772,
+        "rtl_sched_fetch_n": 16,
+        "sim_fetch_n_in_header": 16,
+        "sim_naive_cycles_in_header": 303,
+        "sim_reduction_permille_in_header": 26,
+        "sim_sched_cycles_in_header": 295,
+        "tb_result_pass": true,
+        "tests": 24,
+        "tol_permille": 20
+      },
+      "sched_words": 823,
+      "seed": 50398,
+      "shape": {
+        "in_features": 32,
+        "out_features": 32
+      },
+      "tag": "bench_32x32",
+      "tolerance_permille": 20,
+      "weight_addr": 256
+    },
+    {
+      "array_size": 16,
+      "expected": {
+        "array_size": 16,
+        "cycles_saved": 16,
+        "expected_fetch_bytes": [
+          135,
+          119,
+          135,
+          135,
+          120,
+          119,
+          135,
+          120,
+          119,
+          120,
+          119,
+          120,
+          135,
+          120,
+          119,
+          135
+        ],
+        "fetch_bytes_invariant_simulator": true,
+        "fetch_bytes_n": 16,
+        "input_addr": 0,
+        "naive_cycles": 587,
+        "naive_words": 1675,
+        "reduction_permille": 27,
+        "result_addr": 320,
+        "sched_cycles": 571,
+        "sched_words": 1627,
+        "shape": {
+          "in_features": 64,
+          "out_features": 32
+        },
+        "weight_addr": 256
+      },
+      "headline": {
+        "diff_permille": 2,
+        "rtl_cycles_saved": 144,
+        "rtl_naive_cycles": 5552,
+        "rtl_reduction_permille": 25,
+        "rtl_sched_cycles": 5408,
+        "scheduler_invariant_holds": true,
+        "sim_reduction_permille": 27,
+        "tol_permille": 20
+      },
+      "host": {
+        "machine": "AMD64",
+        "platform": "Windows-10-10.0.26200-SP0",
+        "python_version": "3.11.9"
+      },
+      "input_addr": 0,
+      "methodology": {
+        "advisory_metrics": [
+          "RTL_naive byte agreement with simulator (out of sim fetch_n)",
+          "RTL_sched byte agreement with simulator (out of sim fetch_n)"
+        ],
+        "api": "firmware/host/run_scheduler_rtl_crosscheck_bigmlp.py",
+        "cases": [
+          {
+            "in_features": 32,
+            "out_features": 32,
+            "tag": "bench_32x32"
+          },
+          {
+            "in_features": 64,
+            "out_features": 32,
+            "tag": "bench_32x64"
+          },
+          {
+            "in_features": 32,
+            "out_features": 64,
+            "tag": "bench_64x32"
+          },
+          {
+            "in_features": 64,
+            "out_features": 64,
+            "tag": "bench_64x64"
+          },
+          {
+            "in_features": 64,
+            "out_features": 128,
+            "tag": "bench_128x64"
+          }
+        ],
+        "fit_criterion": "Each case must satisfy RTL_scheduled_cycles < RTL_naive_cycles, |RTL_reduction_permille - sim_reduction_permille| <= 20, and RTL_naive fetch_bytes === RTL_scheduled fetch_bytes.",
+        "headline_assertions": [
+          "RTL scheduled cycles strictly less than naive",
+          "|RTL_reduction_permille - sim_reduction_permille| <= 20",
+          "RTL_naive fetch_bytes === RTL_scheduled fetch_bytes",
+          "RTL_naive fetch_n == sim fetch_n; RTL_sched fetch_n == sim fetch_n"
+        ],
+        "layout": {
+          "array_size": 16,
+          "input_addr": 0,
+          "prog_depth": 8192,
+          "result_addr": 320,
+          "weight_addr": 256
+        },
+        "summary": "Wider RTL cross-check for the board-fit suite. The suite uses the same scheduler / simulator / RTL pipeline as the single-shape smoke test, but it runs the larger shapes that are relevant to the board flash plan and stresses the multi-out-block output addressing path.",
+        "tolerance_permille": 20,
+        "tools": {
+          "naive_baseline": "firmware/host/lowering_blocked_fc_utpu.py (lower_blocked_fc_program_utpu)",
+          "rtl_generator": "firmware/host/generate_scheduler_rtl_test_vectors.py::build_case_vectors",
+          "scheduler": "firmware/host/scheduler_allocator.py (lower_blocked_fc_program_scheduled)",
+          "simulator": "firmware/host/isa_simulator.py (1 cycle/op; STORE/BSTORE 2+N)",
+          "testbench": "rtl/tb/tb_scheduler_cycles.sv"
+        },
+        "what_it_measures": "RTL cycle reduction and RTL byte-exactness for the scheduler on board-fit blocked-FC shapes that exercise multi-out-block output addressing."
+      },
+      "naive_words": 1675,
+      "paths": {
+        "expected_bytes_svh": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\test_vectors\\scheduler_rtl_crosscheck_bigmlp\\bench_32x64\\boardfit_bench_32x64_expected_bytes.svh",
+        "expected_svh": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\test_vectors\\scheduler_rtl_crosscheck_bigmlp\\bench_32x64\\boardfit_bench_32x64_expected.svh",
+        "naive_mem": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\test_vectors\\scheduler_rtl_crosscheck_bigmlp\\bench_32x64\\boardfit_bench_32x64_naive.mem",
+        "sched_mem": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\test_vectors\\scheduler_rtl_crosscheck_bigmlp\\bench_32x64\\boardfit_bench_32x64_sched.mem"
+      },
+      "result_addr": 320,
+      "rtl_result": {
+        "diff_permille": 2,
+        "errors": 0,
+        "iverilog_compile_ok": true,
+        "iverilog_compile_stderr": "rtl/tb/tb_scheduler_cycles.sv:323: warning: Static variable initialization requires explicit lifetime in this context.\nrtl/tb/tb_scheduler_cycles.sv:324: warning: Static variable initialization requires explicit lifetime in this context.\nrtl/top/top.sv:877: warning: A for statement must use the index (bi) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:884: warning: A for statement must use the index (bi) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:920: warning: A for statement must use the index (ci) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:922: warning: A for statement must use the index (ci) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:932: warning: A for statement must use the index (ci) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:934: warning: A for statement must use the index (ci) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:944: warning: A for statement must use the index (ci) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:946: warning: A for statement must use the index (ci) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:948: warning: A for statement must use the index (ci) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:1006: warning: A for statement must use the index (ai) in the condition expression to be synthesized in an always_ff process.\n",
+        "iverilog_run_returncode": 0,
+        "log_path": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\sim_iverilog\\scheduler_rtl_crosscheck_bigmlp\\bench_32x64\\tb_scheduler_cycles.log",
+        "raw_log": "=================================================\nPhase 7 remediation P4.1 \u00e2\u20ac\u201d scheduler RTL cycle cross-check\nshape M=32 K=64  array_size=16\nsimulator: naive=587 sched=571 saved=16\n=================================================\nWARNING: rtl/tb/tb_scheduler_cycles.sv:168: $readmemh(C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_rtl_crosscheck_bigmlp/bench_32x64/boardfit_bench_32x64_naive.mem): Not enough words in the file for the requested range [0:8191].\n[ OK ] reached WAIT_START [C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_rtl_crosscheck_bigmlp/bench_32x64/boardfit_bench_32x64_naive.mem]\n[ OK ] reached HALT [C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_rtl_crosscheck_bigmlp/bench_32x64/boardfit_bench_32x64_naive.mem]\nRTL_NAIVE_CYCLES=5552 (sim=587) NAIVE_FETCH_N=16 (sim=16)\nWARNING: rtl/tb/tb_scheduler_cycles.sv:170: $readmemh(C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_rtl_crosscheck_bigmlp/bench_32x64/boardfit_bench_32x64_sched.mem): Not enough words in the file for the requested range [0:8191].\n[ OK ] reached WAIT_START [C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_rtl_crosscheck_bigmlp/bench_32x64/boardfit_bench_32x64_sched.mem]\n[ OK ] reached HALT [C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_rtl_crosscheck_bigmlp/bench_32x64/boardfit_bench_32x64_sched.mem]\nRTL_SCHED_CYCLES=5408 (sim=571) SCHED_FETCH_N=16 (sim=16)\nRTL_CYCLES_SAVED=144 (sim_saved=16)\nRTL_REDUCTION_PERMILLE=25  SIM_REDUCTION_PERMILLE=27  TOL=20  DIFF=2\n[ OK ] RTL scheduled cycles strictly less than naive\n[ OK ] RTL cycle reduction within \u00c2\u00b1SCHED_TOL_PERMILLE of sim\n[ OK ] RTL fetch byte count equals expected (scheduled run)\n[ OK ] RTL fetch byte count equals expected (naive run)\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 0\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 1\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 2\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 3\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 4\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 5\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 6\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 7\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 8\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 9\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 10\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 11\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 12\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 13\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 14\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 15\nADVISORY: RTL_naive matches sim on 16 / 16 bytes\nADVISORY: RTL_sched matches sim on 16 / 16 bytes\n=================================================\nDONE tests=24 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_scheduler_cycles.sv:350: $finish called at 308595000 (1ps)\n",
+        "rtl_naive_bytes_matching_sim": 16,
+        "rtl_naive_bytes_total": 16,
+        "rtl_naive_cycles": 5552,
+        "rtl_naive_fetch_n": 16,
+        "rtl_reduction_permille": 25,
+        "rtl_sched_bytes_matching_sim": 16,
+        "rtl_sched_bytes_total": 16,
+        "rtl_sched_cycles": 5408,
+        "rtl_sched_fetch_n": 16,
+        "sim_fetch_n_in_header": 16,
+        "sim_naive_cycles_in_header": 587,
+        "sim_reduction_permille_in_header": 27,
+        "sim_sched_cycles_in_header": 571,
+        "tb_result_pass": true,
+        "tests": 24,
+        "tol_permille": 20
+      },
+      "sched_words": 1627,
+      "seed": 50430,
+      "shape": {
+        "in_features": 64,
+        "out_features": 32
+      },
+      "tag": "bench_32x64",
+      "tolerance_permille": 20,
+      "weight_addr": 256
+    },
+    {
+      "array_size": 16,
+      "expected": {
+        "array_size": 16,
+        "cycles_saved": 24,
+        "expected_fetch_bytes": [
+          119,
+          119,
+          136,
+          135,
+          120,
+          124,
+          119,
+          136,
+          135,
+          119,
+          215,
+          136,
+          136,
+          119,
+          136,
+          135,
+          119,
+          119,
+          136,
+          118,
+          135,
+          120,
+          119,
+          135,
+          136,
+          120,
+          136,
+          120,
+          120,
+          119,
+          135,
+          136
+        ],
+        "fetch_bytes_invariant_simulator": true,
+        "fetch_bytes_n": 32,
+        "input_addr": 0,
+        "naive_cycles": 605,
+        "naive_words": 1693,
+        "reduction_permille": 40,
+        "result_addr": 320,
+        "sched_cycles": 581,
+        "sched_words": 1621,
+        "shape": {
+          "in_features": 32,
+          "out_features": 64
+        },
+        "weight_addr": 256
+      },
+      "headline": {
+        "diff_permille": 2,
+        "rtl_cycles_saved": 216,
+        "rtl_naive_cycles": 5678,
+        "rtl_reduction_permille": 38,
+        "rtl_sched_cycles": 5462,
+        "scheduler_invariant_holds": true,
+        "sim_reduction_permille": 40,
+        "tol_permille": 20
+      },
+      "host": {
+        "machine": "AMD64",
+        "platform": "Windows-10-10.0.26200-SP0",
+        "python_version": "3.11.9"
+      },
+      "input_addr": 0,
+      "methodology": {
+        "advisory_metrics": [
+          "RTL_naive byte agreement with simulator (out of sim fetch_n)",
+          "RTL_sched byte agreement with simulator (out of sim fetch_n)"
+        ],
+        "api": "firmware/host/run_scheduler_rtl_crosscheck_bigmlp.py",
+        "cases": [
+          {
+            "in_features": 32,
+            "out_features": 32,
+            "tag": "bench_32x32"
+          },
+          {
+            "in_features": 64,
+            "out_features": 32,
+            "tag": "bench_32x64"
+          },
+          {
+            "in_features": 32,
+            "out_features": 64,
+            "tag": "bench_64x32"
+          },
+          {
+            "in_features": 64,
+            "out_features": 64,
+            "tag": "bench_64x64"
+          },
+          {
+            "in_features": 64,
+            "out_features": 128,
+            "tag": "bench_128x64"
+          }
+        ],
+        "fit_criterion": "Each case must satisfy RTL_scheduled_cycles < RTL_naive_cycles, |RTL_reduction_permille - sim_reduction_permille| <= 20, and RTL_naive fetch_bytes === RTL_scheduled fetch_bytes.",
+        "headline_assertions": [
+          "RTL scheduled cycles strictly less than naive",
+          "|RTL_reduction_permille - sim_reduction_permille| <= 20",
+          "RTL_naive fetch_bytes === RTL_scheduled fetch_bytes",
+          "RTL_naive fetch_n == sim fetch_n; RTL_sched fetch_n == sim fetch_n"
+        ],
+        "layout": {
+          "array_size": 16,
+          "input_addr": 0,
+          "prog_depth": 8192,
+          "result_addr": 320,
+          "weight_addr": 256
+        },
+        "summary": "Wider RTL cross-check for the board-fit suite. The suite uses the same scheduler / simulator / RTL pipeline as the single-shape smoke test, but it runs the larger shapes that are relevant to the board flash plan and stresses the multi-out-block output addressing path.",
+        "tolerance_permille": 20,
+        "tools": {
+          "naive_baseline": "firmware/host/lowering_blocked_fc_utpu.py (lower_blocked_fc_program_utpu)",
+          "rtl_generator": "firmware/host/generate_scheduler_rtl_test_vectors.py::build_case_vectors",
+          "scheduler": "firmware/host/scheduler_allocator.py (lower_blocked_fc_program_scheduled)",
+          "simulator": "firmware/host/isa_simulator.py (1 cycle/op; STORE/BSTORE 2+N)",
+          "testbench": "rtl/tb/tb_scheduler_cycles.sv"
+        },
+        "what_it_measures": "RTL cycle reduction and RTL byte-exactness for the scheduler on board-fit blocked-FC shapes that exercise multi-out-block output addressing."
+      },
+      "naive_words": 1693,
+      "paths": {
+        "expected_bytes_svh": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\test_vectors\\scheduler_rtl_crosscheck_bigmlp\\bench_64x32\\boardfit_bench_64x32_expected_bytes.svh",
+        "expected_svh": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\test_vectors\\scheduler_rtl_crosscheck_bigmlp\\bench_64x32\\boardfit_bench_64x32_expected.svh",
+        "naive_mem": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\test_vectors\\scheduler_rtl_crosscheck_bigmlp\\bench_64x32\\boardfit_bench_64x32_naive.mem",
+        "sched_mem": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\test_vectors\\scheduler_rtl_crosscheck_bigmlp\\bench_64x32\\boardfit_bench_64x32_sched.mem"
+      },
+      "result_addr": 320,
+      "rtl_result": {
+        "diff_permille": 2,
+        "errors": 0,
+        "iverilog_compile_ok": true,
+        "iverilog_compile_stderr": "rtl/tb/tb_scheduler_cycles.sv:323: warning: Static variable initialization requires explicit lifetime in this context.\nrtl/tb/tb_scheduler_cycles.sv:324: warning: Static variable initialization requires explicit lifetime in this context.\nrtl/top/top.sv:877: warning: A for statement must use the index (bi) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:884: warning: A for statement must use the index (bi) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:920: warning: A for statement must use the index (ci) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:922: warning: A for statement must use the index (ci) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:932: warning: A for statement must use the index (ci) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:934: warning: A for statement must use the index (ci) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:944: warning: A for statement must use the index (ci) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:946: warning: A for statement must use the index (ci) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:948: warning: A for statement must use the index (ci) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:1006: warning: A for statement must use the index (ai) in the condition expression to be synthesized in an always_ff process.\n",
+        "iverilog_run_returncode": 0,
+        "log_path": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\sim_iverilog\\scheduler_rtl_crosscheck_bigmlp\\bench_64x32\\tb_scheduler_cycles.log",
+        "raw_log": "=================================================\nPhase 7 remediation P4.1 \u00e2\u20ac\u201d scheduler RTL cycle cross-check\nshape M=64 K=32  array_size=16\nsimulator: naive=605 sched=581 saved=24\n=================================================\nWARNING: rtl/tb/tb_scheduler_cycles.sv:168: $readmemh(C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_rtl_crosscheck_bigmlp/bench_64x32/boardfit_bench_64x32_naive.mem): Not enough words in the file for the requested range [0:8191].\n[ OK ] reached WAIT_START [C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_rtl_crosscheck_bigmlp/bench_64x32/boardfit_bench_64x32_naive.mem]\n[ OK ] reached HALT [C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_rtl_crosscheck_bigmlp/bench_64x32/boardfit_bench_64x32_naive.mem]\nRTL_NAIVE_CYCLES=5678 (sim=605) NAIVE_FETCH_N=32 (sim=32)\nWARNING: rtl/tb/tb_scheduler_cycles.sv:170: $readmemh(C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_rtl_crosscheck_bigmlp/bench_64x32/boardfit_bench_64x32_sched.mem): Not enough words in the file for the requested range [0:8191].\n[ OK ] reached WAIT_START [C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_rtl_crosscheck_bigmlp/bench_64x32/boardfit_bench_64x32_sched.mem]\n[ OK ] reached HALT [C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_rtl_crosscheck_bigmlp/bench_64x32/boardfit_bench_64x32_sched.mem]\nRTL_SCHED_CYCLES=5462 (sim=581) SCHED_FETCH_N=32 (sim=32)\nRTL_CYCLES_SAVED=216 (sim_saved=24)\nRTL_REDUCTION_PERMILLE=38  SIM_REDUCTION_PERMILLE=40  TOL=20  DIFF=2\n[ OK ] RTL scheduled cycles strictly less than naive\n[ OK ] RTL cycle reduction within \u00c2\u00b1SCHED_TOL_PERMILLE of sim\n[ OK ] RTL fetch byte count equals expected (scheduled run)\n[ OK ] RTL fetch byte count equals expected (naive run)\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 0\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 1\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 2\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 3\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 4\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 5\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 6\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 7\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 8\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 9\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 10\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 11\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 12\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 13\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 14\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 15\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 16\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 17\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 18\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 19\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 20\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 21\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 22\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 23\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 24\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 25\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 26\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 27\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 28\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 29\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 30\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 31\nADVISORY: RTL_naive matches sim on 32 / 32 bytes\nADVISORY: RTL_sched matches sim on 32 / 32 bytes\n=================================================\nDONE tests=40 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_scheduler_cycles.sv:350: $finish called at 311115000 (1ps)\n",
+        "rtl_naive_bytes_matching_sim": 32,
+        "rtl_naive_bytes_total": 32,
+        "rtl_naive_cycles": 5678,
+        "rtl_naive_fetch_n": 32,
+        "rtl_reduction_permille": 38,
+        "rtl_sched_bytes_matching_sim": 32,
+        "rtl_sched_bytes_total": 32,
+        "rtl_sched_cycles": 5462,
+        "rtl_sched_fetch_n": 32,
+        "sim_fetch_n_in_header": 32,
+        "sim_naive_cycles_in_header": 605,
+        "sim_reduction_permille_in_header": 40,
+        "sim_sched_cycles_in_header": 581,
+        "tb_result_pass": true,
+        "tests": 40,
+        "tol_permille": 20
+      },
+      "sched_words": 1621,
+      "seed": 51390,
+      "shape": {
+        "in_features": 32,
+        "out_features": 64
+      },
+      "tag": "bench_64x32",
+      "tolerance_permille": 20,
+      "weight_addr": 256
+    },
+    {
+      "array_size": 16,
+      "expected": {
+        "array_size": 16,
+        "cycles_saved": 48,
+        "expected_fetch_bytes": [
+          135,
+          119,
+          136,
+          135,
+          119,
+          135,
+          119,
+          119,
+          135,
+          120,
+          135,
+          135,
+          119,
+          121,
+          135,
+          136,
+          135,
+          120,
+          136,
+          120,
+          215,
+          136,
+          120,
+          135,
+          120,
+          136,
+          119,
+          119,
+          136,
+          71,
+          135,
+          119
+        ],
+        "fetch_bytes_invariant_simulator": true,
+        "fetch_bytes_n": 32,
+        "input_addr": 0,
+        "naive_cycles": 1173,
+        "naive_words": 3349,
+        "reduction_permille": 41,
+        "result_addr": 320,
+        "sched_cycles": 1125,
+        "sched_words": 3205,
+        "shape": {
+          "in_features": 64,
+          "out_features": 64
+        },
+        "weight_addr": 256
+      },
+      "headline": {
+        "diff_permille": 3,
+        "rtl_cycles_saved": 432,
+        "rtl_naive_cycles": 11094,
+        "rtl_reduction_permille": 38,
+        "rtl_sched_cycles": 10662,
+        "scheduler_invariant_holds": true,
+        "sim_reduction_permille": 41,
+        "tol_permille": 20
+      },
+      "host": {
+        "machine": "AMD64",
+        "platform": "Windows-10-10.0.26200-SP0",
+        "python_version": "3.11.9"
+      },
+      "input_addr": 0,
+      "methodology": {
+        "advisory_metrics": [
+          "RTL_naive byte agreement with simulator (out of sim fetch_n)",
+          "RTL_sched byte agreement with simulator (out of sim fetch_n)"
+        ],
+        "api": "firmware/host/run_scheduler_rtl_crosscheck_bigmlp.py",
+        "cases": [
+          {
+            "in_features": 32,
+            "out_features": 32,
+            "tag": "bench_32x32"
+          },
+          {
+            "in_features": 64,
+            "out_features": 32,
+            "tag": "bench_32x64"
+          },
+          {
+            "in_features": 32,
+            "out_features": 64,
+            "tag": "bench_64x32"
+          },
+          {
+            "in_features": 64,
+            "out_features": 64,
+            "tag": "bench_64x64"
+          },
+          {
+            "in_features": 64,
+            "out_features": 128,
+            "tag": "bench_128x64"
+          }
+        ],
+        "fit_criterion": "Each case must satisfy RTL_scheduled_cycles < RTL_naive_cycles, |RTL_reduction_permille - sim_reduction_permille| <= 20, and RTL_naive fetch_bytes === RTL_scheduled fetch_bytes.",
+        "headline_assertions": [
+          "RTL scheduled cycles strictly less than naive",
+          "|RTL_reduction_permille - sim_reduction_permille| <= 20",
+          "RTL_naive fetch_bytes === RTL_scheduled fetch_bytes",
+          "RTL_naive fetch_n == sim fetch_n; RTL_sched fetch_n == sim fetch_n"
+        ],
+        "layout": {
+          "array_size": 16,
+          "input_addr": 0,
+          "prog_depth": 8192,
+          "result_addr": 320,
+          "weight_addr": 256
+        },
+        "summary": "Wider RTL cross-check for the board-fit suite. The suite uses the same scheduler / simulator / RTL pipeline as the single-shape smoke test, but it runs the larger shapes that are relevant to the board flash plan and stresses the multi-out-block output addressing path.",
+        "tolerance_permille": 20,
+        "tools": {
+          "naive_baseline": "firmware/host/lowering_blocked_fc_utpu.py (lower_blocked_fc_program_utpu)",
+          "rtl_generator": "firmware/host/generate_scheduler_rtl_test_vectors.py::build_case_vectors",
+          "scheduler": "firmware/host/scheduler_allocator.py (lower_blocked_fc_program_scheduled)",
+          "simulator": "firmware/host/isa_simulator.py (1 cycle/op; STORE/BSTORE 2+N)",
+          "testbench": "rtl/tb/tb_scheduler_cycles.sv"
+        },
+        "what_it_measures": "RTL cycle reduction and RTL byte-exactness for the scheduler on board-fit blocked-FC shapes that exercise multi-out-block output addressing."
+      },
+      "naive_words": 3349,
+      "paths": {
+        "expected_bytes_svh": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\test_vectors\\scheduler_rtl_crosscheck_bigmlp\\bench_64x64\\boardfit_bench_64x64_expected_bytes.svh",
+        "expected_svh": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\test_vectors\\scheduler_rtl_crosscheck_bigmlp\\bench_64x64\\boardfit_bench_64x64_expected.svh",
+        "naive_mem": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\test_vectors\\scheduler_rtl_crosscheck_bigmlp\\bench_64x64\\boardfit_bench_64x64_naive.mem",
+        "sched_mem": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\test_vectors\\scheduler_rtl_crosscheck_bigmlp\\bench_64x64\\boardfit_bench_64x64_sched.mem"
+      },
+      "result_addr": 320,
+      "rtl_result": {
+        "diff_permille": 3,
+        "errors": 0,
+        "iverilog_compile_ok": true,
+        "iverilog_compile_stderr": "rtl/tb/tb_scheduler_cycles.sv:323: warning: Static variable initialization requires explicit lifetime in this context.\nrtl/tb/tb_scheduler_cycles.sv:324: warning: Static variable initialization requires explicit lifetime in this context.\nrtl/top/top.sv:877: warning: A for statement must use the index (bi) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:884: warning: A for statement must use the index (bi) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:920: warning: A for statement must use the index (ci) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:922: warning: A for statement must use the index (ci) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:932: warning: A for statement must use the index (ci) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:934: warning: A for statement must use the index (ci) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:944: warning: A for statement must use the index (ci) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:946: warning: A for statement must use the index (ci) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:948: warning: A for statement must use the index (ci) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:1006: warning: A for statement must use the index (ai) in the condition expression to be synthesized in an always_ff process.\n",
+        "iverilog_run_returncode": 0,
+        "log_path": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\sim_iverilog\\scheduler_rtl_crosscheck_bigmlp\\bench_64x64\\tb_scheduler_cycles.log",
+        "raw_log": "=================================================\nPhase 7 remediation P4.1 \u00e2\u20ac\u201d scheduler RTL cycle cross-check\nshape M=64 K=64  array_size=16\nsimulator: naive=1173 sched=1125 saved=48\n=================================================\nWARNING: rtl/tb/tb_scheduler_cycles.sv:168: $readmemh(C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_rtl_crosscheck_bigmlp/bench_64x64/boardfit_bench_64x64_naive.mem): Not enough words in the file for the requested range [0:8191].\n[ OK ] reached WAIT_START [C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_rtl_crosscheck_bigmlp/bench_64x64/boardfit_bench_64x64_naive.mem]\n[ OK ] reached HALT [C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_rtl_crosscheck_bigmlp/bench_64x64/boardfit_bench_64x64_naive.mem]\nRTL_NAIVE_CYCLES=11094 (sim=1173) NAIVE_FETCH_N=32 (sim=32)\nWARNING: rtl/tb/tb_scheduler_cycles.sv:170: $readmemh(C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_rtl_crosscheck_bigmlp/bench_64x64/boardfit_bench_64x64_sched.mem): Not enough words in the file for the requested range [0:8191].\n[ OK ] reached WAIT_START [C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_rtl_crosscheck_bigmlp/bench_64x64/boardfit_bench_64x64_sched.mem]\n[ OK ] reached HALT [C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_rtl_crosscheck_bigmlp/bench_64x64/boardfit_bench_64x64_sched.mem]\nRTL_SCHED_CYCLES=10662 (sim=1125) SCHED_FETCH_N=32 (sim=32)\nRTL_CYCLES_SAVED=432 (sim_saved=48)\nRTL_REDUCTION_PERMILLE=38  SIM_REDUCTION_PERMILLE=41  TOL=20  DIFF=3\n[ OK ] RTL scheduled cycles strictly less than naive\n[ OK ] RTL cycle reduction within \u00c2\u00b1SCHED_TOL_PERMILLE of sim\n[ OK ] RTL fetch byte count equals expected (scheduled run)\n[ OK ] RTL fetch byte count equals expected (naive run)\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 0\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 1\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 2\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 3\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 4\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 5\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 6\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 7\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 8\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 9\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 10\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 11\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 12\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 13\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 14\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 15\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 16\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 17\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 18\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 19\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 20\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 21\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 22\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 23\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 24\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 25\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 26\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 27\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 28\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 29\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 30\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 31\nADVISORY: RTL_naive matches sim on 32 / 32 bytes\nADVISORY: RTL_sched matches sim on 32 / 32 bytes\n=================================================\nDONE tests=40 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_scheduler_cycles.sv:350: $finish called at 611675000 (1ps)\n",
+        "rtl_naive_bytes_matching_sim": 32,
+        "rtl_naive_bytes_total": 32,
+        "rtl_naive_cycles": 11094,
+        "rtl_naive_fetch_n": 32,
+        "rtl_reduction_permille": 38,
+        "rtl_sched_bytes_matching_sim": 32,
+        "rtl_sched_bytes_total": 32,
+        "rtl_sched_cycles": 10662,
+        "rtl_sched_fetch_n": 32,
+        "sim_fetch_n_in_header": 32,
+        "sim_naive_cycles_in_header": 1173,
+        "sim_reduction_permille_in_header": 41,
+        "sim_sched_cycles_in_header": 1125,
+        "tb_result_pass": true,
+        "tests": 40,
+        "tol_permille": 20
+      },
+      "sched_words": 3205,
+      "seed": 51422,
+      "shape": {
+        "in_features": 64,
+        "out_features": 64
+      },
+      "tag": "bench_64x64",
+      "tolerance_permille": 20,
+      "weight_addr": 256
+    },
+    {
+      "array_size": 16,
+      "expected": {
+        "array_size": 16,
+        "cycles_saved": 112,
+        "expected_fetch_bytes": [
+          135,
+          136,
+          136,
+          119,
+          120,
+          119,
+          120,
+          120,
+          136,
+          135,
+          120,
+          120,
+          119,
+          136,
+          120,
+          135,
+          119,
+          135,
+          119,
+          136,
+          120,
+          119,
+          120,
+          136,
+          136,
+          135,
+          136,
+          120,
+          135,
+          136,
+          135,
+          119,
+          135,
+          135,
+          119,
+          120,
+          135,
+          119,
+          135,
+          120,
+          120,
+          119,
+          135,
+          136,
+          119,
+          120,
+          136,
+          135,
+          120,
+          119,
+          136,
+          120,
+          112,
+          120,
+          119,
+          135,
+          120,
+          136,
+          119,
+          135,
+          120,
+          119,
+          135,
+          136
+        ],
+        "fetch_bytes_invariant_simulator": true,
+        "fetch_bytes_n": 64,
+        "input_addr": 0,
+        "naive_cycles": 2345,
+        "naive_words": 6697,
+        "reduction_permille": 48,
+        "result_addr": 320,
+        "sched_cycles": 2233,
+        "sched_words": 6361,
+        "shape": {
+          "in_features": 64,
+          "out_features": 128
+        },
+        "weight_addr": 256
+      },
+      "headline": {
+        "diff_permille": 3,
+        "rtl_cycles_saved": 1008,
+        "rtl_naive_cycles": 22178,
+        "rtl_reduction_permille": 45,
+        "rtl_sched_cycles": 21170,
+        "scheduler_invariant_holds": true,
+        "sim_reduction_permille": 48,
+        "tol_permille": 20
+      },
+      "host": {
+        "machine": "AMD64",
+        "platform": "Windows-10-10.0.26200-SP0",
+        "python_version": "3.11.9"
+      },
+      "input_addr": 0,
+      "methodology": {
+        "advisory_metrics": [
+          "RTL_naive byte agreement with simulator (out of sim fetch_n)",
+          "RTL_sched byte agreement with simulator (out of sim fetch_n)"
+        ],
+        "api": "firmware/host/run_scheduler_rtl_crosscheck_bigmlp.py",
+        "cases": [
+          {
+            "in_features": 32,
+            "out_features": 32,
+            "tag": "bench_32x32"
+          },
+          {
+            "in_features": 64,
+            "out_features": 32,
+            "tag": "bench_32x64"
+          },
+          {
+            "in_features": 32,
+            "out_features": 64,
+            "tag": "bench_64x32"
+          },
+          {
+            "in_features": 64,
+            "out_features": 64,
+            "tag": "bench_64x64"
+          },
+          {
+            "in_features": 64,
+            "out_features": 128,
+            "tag": "bench_128x64"
+          }
+        ],
+        "fit_criterion": "Each case must satisfy RTL_scheduled_cycles < RTL_naive_cycles, |RTL_reduction_permille - sim_reduction_permille| <= 20, and RTL_naive fetch_bytes === RTL_scheduled fetch_bytes.",
+        "headline_assertions": [
+          "RTL scheduled cycles strictly less than naive",
+          "|RTL_reduction_permille - sim_reduction_permille| <= 20",
+          "RTL_naive fetch_bytes === RTL_scheduled fetch_bytes",
+          "RTL_naive fetch_n == sim fetch_n; RTL_sched fetch_n == sim fetch_n"
+        ],
+        "layout": {
+          "array_size": 16,
+          "input_addr": 0,
+          "prog_depth": 8192,
+          "result_addr": 320,
+          "weight_addr": 256
+        },
+        "summary": "Wider RTL cross-check for the board-fit suite. The suite uses the same scheduler / simulator / RTL pipeline as the single-shape smoke test, but it runs the larger shapes that are relevant to the board flash plan and stresses the multi-out-block output addressing path.",
+        "tolerance_permille": 20,
+        "tools": {
+          "naive_baseline": "firmware/host/lowering_blocked_fc_utpu.py (lower_blocked_fc_program_utpu)",
+          "rtl_generator": "firmware/host/generate_scheduler_rtl_test_vectors.py::build_case_vectors",
+          "scheduler": "firmware/host/scheduler_allocator.py (lower_blocked_fc_program_scheduled)",
+          "simulator": "firmware/host/isa_simulator.py (1 cycle/op; STORE/BSTORE 2+N)",
+          "testbench": "rtl/tb/tb_scheduler_cycles.sv"
+        },
+        "what_it_measures": "RTL cycle reduction and RTL byte-exactness for the scheduler on board-fit blocked-FC shapes that exercise multi-out-block output addressing."
+      },
+      "naive_words": 6697,
+      "paths": {
+        "expected_bytes_svh": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\test_vectors\\scheduler_rtl_crosscheck_bigmlp\\bench_128x64\\boardfit_bench_128x64_expected_bytes.svh",
+        "expected_svh": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\test_vectors\\scheduler_rtl_crosscheck_bigmlp\\bench_128x64\\boardfit_bench_128x64_expected.svh",
+        "naive_mem": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\test_vectors\\scheduler_rtl_crosscheck_bigmlp\\bench_128x64\\boardfit_bench_128x64_naive.mem",
+        "sched_mem": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\test_vectors\\scheduler_rtl_crosscheck_bigmlp\\bench_128x64\\boardfit_bench_128x64_sched.mem"
+      },
+      "result_addr": 320,
+      "rtl_result": {
+        "diff_permille": 3,
+        "errors": 0,
+        "iverilog_compile_ok": true,
+        "iverilog_compile_stderr": "rtl/tb/tb_scheduler_cycles.sv:323: warning: Static variable initialization requires explicit lifetime in this context.\nrtl/tb/tb_scheduler_cycles.sv:324: warning: Static variable initialization requires explicit lifetime in this context.\nrtl/top/top.sv:877: warning: A for statement must use the index (bi) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:884: warning: A for statement must use the index (bi) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:920: warning: A for statement must use the index (ci) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:922: warning: A for statement must use the index (ci) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:932: warning: A for statement must use the index (ci) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:934: warning: A for statement must use the index (ci) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:944: warning: A for statement must use the index (ci) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:946: warning: A for statement must use the index (ci) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:948: warning: A for statement must use the index (ci) in the condition expression to be synthesized in an always_ff process.\nrtl/top/top.sv:1006: warning: A for statement must use the index (ai) in the condition expression to be synthesized in an always_ff process.\n",
+        "iverilog_run_returncode": 0,
+        "log_path": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\sim_iverilog\\scheduler_rtl_crosscheck_bigmlp\\bench_128x64\\tb_scheduler_cycles.log",
+        "raw_log": "=================================================\nPhase 7 remediation P4.1 \u00e2\u20ac\u201d scheduler RTL cycle cross-check\nshape M=128 K=64  array_size=16\nsimulator: naive=2345 sched=2233 saved=112\n=================================================\nWARNING: rtl/tb/tb_scheduler_cycles.sv:168: $readmemh(C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_rtl_crosscheck_bigmlp/bench_128x64/boardfit_bench_128x64_naive.mem): Not enough words in the file for the requested range [0:8191].\n[ OK ] reached WAIT_START [C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_rtl_crosscheck_bigmlp/bench_128x64/boardfit_bench_128x64_naive.mem]\n[ OK ] reached HALT [C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_rtl_crosscheck_bigmlp/bench_128x64/boardfit_bench_128x64_naive.mem]\nRTL_NAIVE_CYCLES=22178 (sim=2345) NAIVE_FETCH_N=64 (sim=64)\nWARNING: rtl/tb/tb_scheduler_cycles.sv:170: $readmemh(C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_rtl_crosscheck_bigmlp/bench_128x64/boardfit_bench_128x64_sched.mem): Not enough words in the file for the requested range [0:8191].\n[ OK ] reached WAIT_START [C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_rtl_crosscheck_bigmlp/bench_128x64/boardfit_bench_128x64_sched.mem]\n[ OK ] reached HALT [C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_rtl_crosscheck_bigmlp/bench_128x64/boardfit_bench_128x64_sched.mem]\nRTL_SCHED_CYCLES=21170 (sim=2233) SCHED_FETCH_N=64 (sim=64)\nRTL_CYCLES_SAVED=1008 (sim_saved=112)\nRTL_REDUCTION_PERMILLE=45  SIM_REDUCTION_PERMILLE=48  TOL=20  DIFF=3\n[ OK ] RTL scheduled cycles strictly less than naive\n[ OK ] RTL cycle reduction within \u00c2\u00b1SCHED_TOL_PERMILLE of sim\n[ OK ] RTL fetch byte count equals expected (scheduled run)\n[ OK ] RTL fetch byte count equals expected (naive run)\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 0\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 1\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 2\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 3\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 4\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 5\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 6\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 7\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 8\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 9\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 10\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 11\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 12\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 13\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 14\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 15\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 16\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 17\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 18\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 19\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 20\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 21\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 22\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 23\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 24\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 25\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 26\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 27\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 28\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 29\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 30\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 31\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 32\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 33\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 34\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 35\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 36\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 37\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 38\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 39\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 40\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 41\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 42\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 43\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 44\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 45\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 46\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 47\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 48\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 49\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 50\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 51\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 52\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 53\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 54\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 55\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 56\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 57\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 58\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 59\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 60\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 61\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 62\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 63\nADVISORY: RTL_naive matches sim on 64 / 64 bytes\nADVISORY: RTL_sched matches sim on 64 / 64 bytes\n=================================================\nDONE tests=72 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_scheduler_cycles.sv:350: $finish called at 1217835000 (1ps)\n",
+        "rtl_naive_bytes_matching_sim": 64,
+        "rtl_naive_bytes_total": 64,
+        "rtl_naive_cycles": 22178,
+        "rtl_naive_fetch_n": 64,
+        "rtl_reduction_permille": 45,
+        "rtl_sched_bytes_matching_sim": 64,
+        "rtl_sched_bytes_total": 64,
+        "rtl_sched_cycles": 21170,
+        "rtl_sched_fetch_n": 64,
+        "sim_fetch_n_in_header": 64,
+        "sim_naive_cycles_in_header": 2345,
+        "sim_reduction_permille_in_header": 48,
+        "sim_sched_cycles_in_header": 2233,
+        "tb_result_pass": true,
+        "tests": 72,
+        "tol_permille": 20
+      },
+      "sched_words": 6361,
+      "seed": 53406,
+      "shape": {
+        "in_features": 64,
+        "out_features": 128
+      },
+      "tag": "bench_128x64",
+      "tolerance_permille": 20,
+      "weight_addr": 256
+    }
+  ],
+  "generated_at_utc": "2026-05-25T20:21:41.094119+00:00",
+  "git_sha": "6d5dc2532f1f31200a2b4f687e3f2c0503cff67c",
+  "host": {
+    "machine": "AMD64",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "python_version": "3.11.9"
+  },
+  "iverilog": {
+    "iverilog_bin": "C:\\iverilog\\bin\\iverilog.exe",
+    "vvp_bin": "C:\\iverilog\\bin\\vvp.exe"
+  },
+  "methodology": {
+    "advisory_metrics": [
+      "RTL_naive byte agreement with simulator (out of sim fetch_n)",
+      "RTL_sched byte agreement with simulator (out of sim fetch_n)"
+    ],
+    "api": "firmware/host/run_scheduler_rtl_crosscheck_bigmlp.py",
+    "cases": [
+      {
+        "in_features": 32,
+        "out_features": 32,
+        "tag": "bench_32x32"
+      },
+      {
+        "in_features": 64,
+        "out_features": 32,
+        "tag": "bench_32x64"
+      },
+      {
+        "in_features": 32,
+        "out_features": 64,
+        "tag": "bench_64x32"
+      },
+      {
+        "in_features": 64,
+        "out_features": 64,
+        "tag": "bench_64x64"
+      },
+      {
+        "in_features": 64,
+        "out_features": 128,
+        "tag": "bench_128x64"
+      }
+    ],
+    "fit_criterion": "Each case must satisfy RTL_scheduled_cycles < RTL_naive_cycles, |RTL_reduction_permille - sim_reduction_permille| <= 20, and RTL_naive fetch_bytes === RTL_scheduled fetch_bytes.",
+    "headline_assertions": [
+      "RTL scheduled cycles strictly less than naive",
+      "|RTL_reduction_permille - sim_reduction_permille| <= 20",
+      "RTL_naive fetch_bytes === RTL_scheduled fetch_bytes",
+      "RTL_naive fetch_n == sim fetch_n; RTL_sched fetch_n == sim fetch_n"
+    ],
+    "layout": {
+      "array_size": 16,
+      "input_addr": 0,
+      "prog_depth": 8192,
+      "result_addr": 320,
+      "weight_addr": 256
+    },
+    "summary": "Wider RTL cross-check for the board-fit suite. The suite uses the same scheduler / simulator / RTL pipeline as the single-shape smoke test, but it runs the larger shapes that are relevant to the board flash plan and stresses the multi-out-block output addressing path.",
+    "tolerance_permille": 20,
+    "tools": {
+      "naive_baseline": "firmware/host/lowering_blocked_fc_utpu.py (lower_blocked_fc_program_utpu)",
+      "rtl_generator": "firmware/host/generate_scheduler_rtl_test_vectors.py::build_case_vectors",
+      "scheduler": "firmware/host/scheduler_allocator.py (lower_blocked_fc_program_scheduled)",
+      "simulator": "firmware/host/isa_simulator.py (1 cycle/op; STORE/BSTORE 2+N)",
+      "testbench": "rtl/tb/tb_scheduler_cycles.sv"
+    },
+    "what_it_measures": "RTL cycle reduction and RTL byte-exactness for the scheduler on board-fit blocked-FC shapes that exercise multi-out-block output addressing."
+  },
+  "status": "ok",
+  "suite": "board_fit_bigmlp_v1",
+  "tolerance_permille": 20,
+  "version": 1
+}

@@ -100,6 +100,14 @@ def _quantized_linear_output(x_int4: np.ndarray, w_int4: np.ndarray) -> np.ndarr
     return np.clip(accum, -8, 7).astype(np.int8)
 
 
+_VALID_SCHEDULE_SOURCES = (
+    "none",
+    "cost_model",
+    "autotuner_cache",
+    "cost_model_then_autotuner",
+)
+
+
 class CompiledMLPRuntime:
     def __init__(
         self,
@@ -110,6 +118,7 @@ class CompiledMLPRuntime:
         array_size: int = 16,
         use_tuned_schedule: bool = False,
         autotune_cache_path: str = DEFAULT_CACHE_PATH,
+        schedule_source: Optional[str] = None,
     ):
         self.graph = graph
         self.runtime_plan = runtime_plan
@@ -118,6 +127,31 @@ class CompiledMLPRuntime:
         self.array_size = int(array_size)
         self.use_tuned_schedule = bool(use_tuned_schedule)
         self.autotune_cache_path = autotune_cache_path or DEFAULT_CACHE_PATH
+
+        # `schedule_source` decides which schedule the CUDA backend actually
+        # consumes at execution time. Precedence:
+        #   - explicit `schedule_source` argument wins,
+        #   - else legacy `use_tuned_schedule=True` maps to "autotuner_cache",
+        #   - else default "none".
+        # The cost-model choice recorded on `RuntimeOpPlan.cuda_schedule` is
+        # consumed iff `schedule_source` is "cost_model" or
+        # "cost_model_then_autotuner". This makes the Phase 1 claim
+        # "cost model drives schedule selection" actually true end-to-end
+        # (previously the runtime plan recorded the choice but the executor
+        # re-searched via the autotuner cache).
+        if schedule_source is not None:
+            normalized = str(schedule_source).strip().lower()
+            if normalized not in _VALID_SCHEDULE_SOURCES:
+                raise CompiledRuntimeError(
+                    f"Unknown schedule_source '{schedule_source}'. "
+                    f"Expected one of {_VALID_SCHEDULE_SOURCES}."
+                )
+            self.schedule_source = normalized
+        elif self.use_tuned_schedule:
+            self.schedule_source = "autotuner_cache"
+        else:
+            self.schedule_source = "none"
+
         self.last_stats: Optional[RuntimeExecutionStats] = None
         self._torch = self._require_torch()
         self.device = self._resolve_device()
@@ -190,15 +224,10 @@ class CompiledMLPRuntime:
             input_addr=0x000,
             result_addr=0x100,
         )
-        schedule_params = None
-        if self.use_tuned_schedule:
-            schedule_params = lookup_best_schedule(
-                out_features=int(w.shape[0]),
-                in_features=int(w.shape[1]),
-                array_size=self.array_size,
-                path=self.autotune_cache_path,
-            )
+        schedule_params, _selected_source = self._schedule_params_for_op(op, w)
         result = self.cuda_executor.execute(request, schedule_params=schedule_params)
+        if isinstance(result, dict):
+            result["selected_schedule_source"] = _selected_source
         if not result.get("executed", False):
             raise CompiledRuntimeError(
                 f"CUDA backend execution failed for '{op.graph_op}': {result.get('reason', 'unknown reason')}"
@@ -248,7 +277,7 @@ class CompiledMLPRuntime:
         return out.reshape(1, -1) if not isinstance(out, tuple) else tuple(v.reshape(1, -1) for v in out)
 
     def _schedule_params_for_weight(self, w: np.ndarray) -> Optional[Dict[str, int]]:
-        if not self.use_tuned_schedule:
+        if self.schedule_source == "none":
             return None
         return lookup_best_schedule(
             out_features=int(w.shape[0]),
@@ -256,6 +285,58 @@ class CompiledMLPRuntime:
             array_size=self.array_size,
             path=self.autotune_cache_path,
         )
+
+    def _schedule_params_for_op(
+        self,
+        op: RuntimeOpPlan,
+        w: np.ndarray,
+    ) -> tuple[Optional[Dict[str, int]], str]:
+        """Resolve which schedule the backend should consume for `op`.
+
+        Returns `(schedule_params, source_tag)`. `source_tag` is one of
+        "none", "cost_model", "autotuner_cache",
+        "cost_model_then_autotuner.cost_model",
+        "cost_model_then_autotuner.autotuner_cache",
+        or "<request>:missing" if the requested source had no schedule
+        available and we fell back to None. This tag lands in the op trace
+        so the A/B harness can confirm the executed config is the planned
+        one (not a silent re-search).
+        """
+        if self.schedule_source == "none":
+            return None, "none"
+
+        if self.schedule_source == "cost_model":
+            chosen = op.cuda_schedule
+            if chosen is not None:
+                return dict(chosen), "cost_model"
+            return None, "cost_model:missing"
+
+        if self.schedule_source == "autotuner_cache":
+            from_cache = lookup_best_schedule(
+                out_features=int(w.shape[0]),
+                in_features=int(w.shape[1]),
+                array_size=self.array_size,
+                path=self.autotune_cache_path,
+            )
+            if from_cache is not None:
+                return dict(from_cache), "autotuner_cache"
+            return None, "autotuner_cache:missing"
+
+        if self.schedule_source == "cost_model_then_autotuner":
+            chosen = op.cuda_schedule
+            if chosen is not None:
+                return dict(chosen), "cost_model_then_autotuner.cost_model"
+            from_cache = lookup_best_schedule(
+                out_features=int(w.shape[0]),
+                in_features=int(w.shape[1]),
+                array_size=self.array_size,
+                path=self.autotune_cache_path,
+            )
+            if from_cache is not None:
+                return dict(from_cache), "cost_model_then_autotuner.autotuner_cache"
+            return None, "cost_model_then_autotuner:missing"
+
+        return None, f"unknown:{self.schedule_source}"
 
     def _execute_compiled_resident(self, args) -> Any:
         call_t0 = time.perf_counter()
@@ -265,18 +346,21 @@ class CompiledMLPRuntime:
         input_name = self.graph.inputs[0]
         input_int4 = _as_int4_array(args[0])
         graph_ops = []
+        op_schedule_sources: Dict[str, str] = {}
         for op in self.runtime_plan.ops:
             if op.op != "linear":
                 raise CompiledRuntimeError(f"Runtime op '{op.op}' is not executable in compiled mode")
             w = _as_int4_array(self.params[op.weight_buffer])
             bias = _as_int4_array(self.params[op.bias_buffer]) if op.bias_buffer is not None else None
+            schedule_params, schedule_source_tag = self._schedule_params_for_op(op, w)
+            op_schedule_sources[op.graph_op] = schedule_source_tag
             graph_ops.append(
                 {
                     "name": op.graph_op,
                     "weights_int4": w,
                     "bias_int4": bias,
                     "apply_relu": bool(op.apply_relu),
-                    "schedule_params": self._schedule_params_for_weight(w),
+                    "schedule_params": schedule_params,
                 }
             )
 
@@ -305,7 +389,11 @@ class CompiledMLPRuntime:
             is_elementwise = op_result.get("op") == "bias_relu"
             engine = "nvrtc_cuda_elementwise"
             if not is_elementwise:
-                engine = "nvrtc_cuda_blocked_fc_tuned" if self.use_tuned_schedule else "nvrtc_cuda_blocked_fc"
+                if self.schedule_source == "none":
+                    engine = "nvrtc_cuda_blocked_fc"
+                else:
+                    engine = f"nvrtc_cuda_blocked_fc_tuned[{self.schedule_source}]"
+            selected_source = op_schedule_sources.get(op_name, "n/a")
             stats.op_traces.append(
                 RuntimeOpTrace(
                     graph_op=op_name,
@@ -319,6 +407,7 @@ class CompiledMLPRuntime:
                         f"setup_time_ms={op_result.get('setup_time_ms')}",
                         f"kernel_cache_hit={op_result.get('kernel_cache_hit')}",
                         f"schedule_params={op_result.get('schedule_params')}",
+                        f"selected_schedule_source={selected_source}",
                     ],
                 )
             )

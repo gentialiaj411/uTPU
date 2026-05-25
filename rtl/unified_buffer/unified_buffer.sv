@@ -59,6 +59,20 @@ module unified_buffer #(
             row_for_bank = row;
     endfunction
 
+    function automatic [BANK_BITS-1:0] bank_for_block_slot(
+        input int slot_idx,
+        input [BANK_BITS-1:0] bank_sel
+    );
+        bank_for_block_slot = (slot_idx + bank_sel) % BANKS;
+    endfunction
+
+    function automatic [BANK_BITS-1:0] slot_for_bank(
+        input int bank_idx,
+        input [BANK_BITS-1:0] bank_sel
+    );
+        slot_for_bank = (bank_idx + BANKS - bank_sel) % BANKS;
+    endfunction
+
     always_comb begin
 `ifdef ICARUS
         base_bank = address % BANKS;
@@ -111,7 +125,7 @@ module unified_buffer #(
             if (compute_en) begin
                 for (int i = 0; i < BANKS; i++) begin
                     bank_we[i] = 2'b11;
-                    bank_din[i] = compute_word[i];
+                    bank_din[i] = compute_word[slot_for_bank(i, base_bank)];
                 end
             end else if (fifo_en) begin
                 bank_we[base_bank] = section ? 2'b10 : 2'b01;
@@ -221,24 +235,30 @@ module unified_buffer #(
 `ifdef ICARUS
             if (ITEMS_IN_SLOT == 4 && COMPUTE_DATA_WIDTH == 4) begin
                 for (int i = 0; i < BANKS; i++) begin
-                    compute_out_flat[(COMPUTE_DATA_WIDTH*((i*4)+0)) +: COMPUTE_DATA_WIDTH] <= bank_dout[i][3:0];
-                    compute_out_flat[(COMPUTE_DATA_WIDTH*((i*4)+1)) +: COMPUTE_DATA_WIDTH] <= bank_dout[i][7:4];
-                    compute_out_flat[(COMPUTE_DATA_WIDTH*((i*4)+2)) +: COMPUTE_DATA_WIDTH] <= bank_dout[i][11:8];
-                    compute_out_flat[(COMPUTE_DATA_WIDTH*((i*4)+3)) +: COMPUTE_DATA_WIDTH] <= bank_dout[i][15:12];
+                    int bank_idx;
+                    bank_idx = bank_for_block_slot(i, read_bank_sel_d);
+                    compute_out_flat[(COMPUTE_DATA_WIDTH*((i*4)+0)) +: COMPUTE_DATA_WIDTH] <= bank_dout[bank_idx][3:0];
+                    compute_out_flat[(COMPUTE_DATA_WIDTH*((i*4)+1)) +: COMPUTE_DATA_WIDTH] <= bank_dout[bank_idx][7:4];
+                    compute_out_flat[(COMPUTE_DATA_WIDTH*((i*4)+2)) +: COMPUTE_DATA_WIDTH] <= bank_dout[bank_idx][11:8];
+                    compute_out_flat[(COMPUTE_DATA_WIDTH*((i*4)+3)) +: COMPUTE_DATA_WIDTH] <= bank_dout[bank_idx][15:12];
                 end
             end else begin
                 for (int i = 0; i < BANKS; i++) begin
+                    int bank_idx;
+                    bank_idx = bank_for_block_slot(i, read_bank_sel_d);
                     for (int j = 0; j < ITEMS_IN_SLOT; j++) begin
                         compute_out_flat[(COMPUTE_DATA_WIDTH*(j + i*ITEMS_IN_SLOT)) +: COMPUTE_DATA_WIDTH]
-                            <= bank_dout[i][(COMPUTE_DATA_WIDTH*j) +: COMPUTE_DATA_WIDTH];
+                            <= bank_dout[bank_idx][(COMPUTE_DATA_WIDTH*j) +: COMPUTE_DATA_WIDTH];
                     end
                 end
             end
 `else
             for (int i = 0; i < BANKS; i++) begin
+                int bank_idx;
+                bank_idx = bank_for_block_slot(i, read_bank_sel_d);
                 for (int j = 0; j < ITEMS_IN_SLOT; j++) begin
                     compute_out_flat[(COMPUTE_DATA_WIDTH*(j + i*ITEMS_IN_SLOT)) +: COMPUTE_DATA_WIDTH]
-                        <= bank_dout[i][(COMPUTE_DATA_WIDTH*j) +: COMPUTE_DATA_WIDTH];
+                        <= bank_dout[bank_idx][(COMPUTE_DATA_WIDTH*j) +: COMPUTE_DATA_WIDTH];
                 end
             end
 `endif

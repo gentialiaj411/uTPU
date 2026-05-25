@@ -1,0 +1,331 @@
+{
+  "buffer_model": {
+    "array_size": 16,
+    "buffer_capacity_words": 512,
+    "default_layout": {
+      "input_addr": 64,
+      "result_addr": 68,
+      "weight_addr": 0
+    },
+    "finalize_footprint_words": 64,
+    "input_scratch_words": 4,
+    "max_m_per_tile": 1536,
+    "max_out_blocks_per_tile": 96,
+    "weight_scratch_words": 64
+  },
+  "environment": {
+    "numpy": "2.4.6",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "python": "3.11.9"
+  },
+  "generated_at": "2026-05-25T03:58:15Z",
+  "phase": "phase_3_tiling_controller",
+  "scope": "Simulator-only correctness evidence. NumPy oracle vs ISA simulator execution of the tiled program. No RTL changes; no on-board claim.",
+  "summary": {
+    "all_bit_identical_to_oracle": true,
+    "max_max_abs_error_int4": 0,
+    "max_num_tiles": 3,
+    "max_total_sim_cycles_sequential": 874755,
+    "workload_count": 5
+  },
+  "workloads": [
+    {
+      "apply_relu": false,
+      "array_size": 16,
+      "buffer_capacity_words": 512,
+      "correctness": {
+        "bit_identical_to_oracle": true,
+        "max_abs_error_int4": 0,
+        "mismatch_count": 0,
+        "total_outputs": 256
+      },
+      "description": "Fits in a single tile (max_m_per_tile=1536); proves planner does not over-partition.",
+      "execution": {
+        "fits_instruction_bram_per_tile": [
+          false
+        ],
+        "num_tiles": 1,
+        "per_tile_cycles": [
+          36497
+        ],
+        "per_tile_program_words": [
+          106129
+        ],
+        "total_program_words": 106129,
+        "total_sim_cycles_sequential": 36497
+      },
+      "in_features": 512,
+      "name": "linear_256x512_under_capacity",
+      "out_features": 256,
+      "plan": {
+        "array_size": 16,
+        "buffer_capacity_words": 512,
+        "candidates_considered": 16,
+        "cost_model_provenance": null,
+        "estimated_per_tile_cycles": 36496,
+        "estimated_total_cycles": 36496,
+        "fits_in_buffer": true,
+        "in_blocks_per_tile": 32,
+        "in_features": 512,
+        "layer_name": "linear_256x512_under_capacity",
+        "m_tile": 256,
+        "notes": "max-fit heuristic: largest m_tile that fits the buffer",
+        "num_m_tiles": 1,
+        "out_features": 256,
+        "peak_buffer_words_per_tile": 192,
+        "policy": "max_fit_heuristic",
+        "tile_partition": [
+          [
+            0,
+            256
+          ]
+        ]
+      },
+      "seed": 257
+    },
+    {
+      "apply_relu": false,
+      "array_size": 16,
+      "buffer_capacity_words": 512,
+      "correctness": {
+        "bit_identical_to_oracle": true,
+        "max_abs_error_int4": 0,
+        "mismatch_count": 0,
+        "total_outputs": 1536
+      },
+      "description": "Exactly at max_m_per_tile boundary for AS=16/BS=512; tight buffer-math test.",
+      "execution": {
+        "fits_instruction_bram_per_tile": [
+          false
+        ],
+        "num_tiles": 1,
+        "per_tile_cycles": [
+          218977
+        ],
+        "per_tile_program_words": [
+          636769
+        ],
+        "total_program_words": 636769,
+        "total_sim_cycles_sequential": 218977
+      },
+      "in_features": 512,
+      "name": "linear_1536x512_at_capacity",
+      "out_features": 1536,
+      "plan": {
+        "array_size": 16,
+        "buffer_capacity_words": 512,
+        "candidates_considered": 96,
+        "cost_model_provenance": null,
+        "estimated_per_tile_cycles": 218976,
+        "estimated_total_cycles": 218976,
+        "fits_in_buffer": true,
+        "in_blocks_per_tile": 32,
+        "in_features": 512,
+        "layer_name": "linear_1536x512_at_capacity",
+        "m_tile": 1536,
+        "notes": "max-fit heuristic: largest m_tile that fits the buffer",
+        "num_m_tiles": 1,
+        "out_features": 1536,
+        "peak_buffer_words_per_tile": 512,
+        "policy": "max_fit_heuristic",
+        "tile_partition": [
+          [
+            0,
+            1536
+          ]
+        ]
+      },
+      "seed": 514
+    },
+    {
+      "apply_relu": false,
+      "array_size": 16,
+      "buffer_capacity_words": 512,
+      "correctness": {
+        "bit_identical_to_oracle": true,
+        "max_abs_error_int4": 0,
+        "mismatch_count": 0,
+        "total_outputs": 2048
+      },
+      "description": "Un-tiled lowering fails at encode time (9-bit address overflow); tiling resolves it.",
+      "execution": {
+        "fits_instruction_bram_per_tile": [
+          false,
+          false
+        ],
+        "num_tiles": 2,
+        "per_tile_cycles": [
+          218977,
+          72993
+        ],
+        "per_tile_program_words": [
+          636769,
+          212257
+        ],
+        "total_program_words": 849026,
+        "total_sim_cycles_sequential": 291970
+      },
+      "in_features": 512,
+      "name": "linear_2048x512_over_capacity",
+      "out_features": 2048,
+      "plan": {
+        "array_size": 16,
+        "buffer_capacity_words": 512,
+        "candidates_considered": 96,
+        "cost_model_provenance": null,
+        "estimated_per_tile_cycles": 218976,
+        "estimated_total_cycles": 437952,
+        "fits_in_buffer": true,
+        "in_blocks_per_tile": 32,
+        "in_features": 512,
+        "layer_name": "linear_2048x512_over_capacity",
+        "m_tile": 1536,
+        "notes": "max-fit heuristic: largest m_tile that fits the buffer",
+        "num_m_tiles": 2,
+        "out_features": 2048,
+        "peak_buffer_words_per_tile": 512,
+        "policy": "max_fit_heuristic",
+        "tile_partition": [
+          [
+            0,
+            1536
+          ],
+          [
+            1536,
+            2048
+          ]
+        ]
+      },
+      "seed": 771
+    },
+    {
+      "apply_relu": false,
+      "array_size": 16,
+      "buffer_capacity_words": 512,
+      "correctness": {
+        "bit_identical_to_oracle": true,
+        "max_abs_error_int4": 0,
+        "mismatch_count": 0,
+        "total_outputs": 4096
+      },
+      "description": "3 tiles; proves the pass scales beyond 2x capacity with bit-exact output.",
+      "execution": {
+        "fits_instruction_bram_per_tile": [
+          false,
+          false,
+          false
+        ],
+        "num_tiles": 3,
+        "per_tile_cycles": [
+          328033,
+          328033,
+          218689
+        ],
+        "per_tile_program_words": [
+          954721,
+          954721,
+          636481
+        ],
+        "total_program_words": 2545923,
+        "total_sim_cycles_sequential": 874755
+      },
+      "in_features": 768,
+      "name": "linear_4096x768_2x_over_capacity",
+      "out_features": 4096,
+      "plan": {
+        "array_size": 16,
+        "buffer_capacity_words": 512,
+        "candidates_considered": 96,
+        "cost_model_provenance": null,
+        "estimated_per_tile_cycles": 328032,
+        "estimated_total_cycles": 984096,
+        "fits_in_buffer": true,
+        "in_blocks_per_tile": 48,
+        "in_features": 768,
+        "layer_name": "linear_4096x768_2x_over_capacity",
+        "m_tile": 1536,
+        "notes": "max-fit heuristic: largest m_tile that fits the buffer",
+        "num_m_tiles": 3,
+        "out_features": 4096,
+        "peak_buffer_words_per_tile": 512,
+        "policy": "max_fit_heuristic",
+        "tile_partition": [
+          [
+            0,
+            1536
+          ],
+          [
+            1536,
+            3072
+          ],
+          [
+            3072,
+            4096
+          ]
+        ]
+      },
+      "seed": 1028
+    },
+    {
+      "apply_relu": true,
+      "array_size": 16,
+      "buffer_capacity_words": 512,
+      "correctness": {
+        "bit_identical_to_oracle": true,
+        "max_abs_error_int4": 0,
+        "mismatch_count": 0,
+        "total_outputs": 3072
+      },
+      "description": "Exercises _run_finalize leaky-relu path inside every tile; multi-tile + activation.",
+      "execution": {
+        "fits_instruction_bram_per_tile": [
+          false,
+          false
+        ],
+        "num_tiles": 2,
+        "per_tile_cycles": [
+          437089,
+          437089
+        ],
+        "per_tile_program_words": [
+          1272673,
+          1272673
+        ],
+        "total_program_words": 2545346,
+        "total_sim_cycles_sequential": 874178
+      },
+      "in_features": 1024,
+      "name": "linear_3072x1024_relu_over_capacity",
+      "out_features": 3072,
+      "plan": {
+        "array_size": 16,
+        "buffer_capacity_words": 512,
+        "candidates_considered": 96,
+        "cost_model_provenance": null,
+        "estimated_per_tile_cycles": 437088,
+        "estimated_total_cycles": 874176,
+        "fits_in_buffer": true,
+        "in_blocks_per_tile": 64,
+        "in_features": 1024,
+        "layer_name": "linear_3072x1024_relu_over_capacity",
+        "m_tile": 1536,
+        "notes": "max-fit heuristic: largest m_tile that fits the buffer",
+        "num_m_tiles": 2,
+        "out_features": 3072,
+        "peak_buffer_words_per_tile": 512,
+        "policy": "max_fit_heuristic",
+        "tile_partition": [
+          [
+            0,
+            1536
+          ],
+          [
+            1536,
+            3072
+          ]
+        ]
+      },
+      "seed": 1285
+    }
+  ]
+}

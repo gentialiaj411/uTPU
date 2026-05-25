@@ -20,6 +20,9 @@ def _store_int4_array_to_buffer(encoder: ISAEncoder, base_addr: int, data) -> No
         addr += 1
 
 
+DEFAULT_PROG_DEPTH = 1024
+
+
 def lower_blocked_fc_program_utpu(
     weights_int4,
     activations_int4,
@@ -31,6 +34,7 @@ def lower_blocked_fc_program_utpu(
     weight_addr: int,
     input_addr: int,
     result_addr: int,
+    prog_depth: int = DEFAULT_PROG_DEPTH,
 ) -> Dict[str, Any]:
     schedule = build_blocked_fc_schedule(
         problem=BlockedFCProblem(
@@ -111,7 +115,8 @@ def lower_blocked_fc_program_utpu(
     return {
         "program": program,
         "program_instruction_words": int(words),
-        "fits_instruction_bram": bool(words <= 1024),
+        "fits_instruction_bram": bool(words <= int(prog_depth)),
+        "instruction_bram_words": int(prog_depth),
         "array_size": int(array_size),
         "out_blocks": int(out_blocks),
         "in_blocks": int(in_blocks),

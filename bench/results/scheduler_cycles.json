@@ -1,0 +1,549 @@
+{
+  "aggregate": {
+    "all_fetch_bytes_match": true,
+    "cycle_reduction_pct": 4.666666666666667,
+    "cycles_saved_total": 672,
+    "macs_total": 50432,
+    "naive_cycles_total": 14400,
+    "naive_store_bytes_total": 26792,
+    "scheduled_cycles_total": 13728,
+    "scheduled_store_bytes_total": 25448,
+    "store_bytes_reduction_pct": 5.016422812779934,
+    "store_bytes_saved_total": 1344
+  },
+  "config": {
+    "array_size": 16,
+    "input_addr": 0,
+    "result_addr": 320,
+    "weight_addr": 256
+  },
+  "generated_at_utc": "2026-05-25T05:15:59.052504+00:00",
+  "git_sha": "6d5dc2532f1f31200a2b4f687e3f2c0503cff67c",
+  "methodology": {
+    "claims_scope": "simulated/benchmarked, not hardware-measured. RTL cycle cross-check is recorded as TODO/VERIFY pending a scheduled-emission iverilog testbench (current tb_perf_counters.sv harness exercises the legacy fixed program).",
+    "naive_baseline": "firmware/host/lowering_blocked_fc_utpu.py (lower_blocked_fc_program_utpu)",
+    "notes": "Cycle counts are simulator cycles (sim-only). Phase 5 hoists input-block STOREs out of the (ob, ib) loop when the buffer fits all input blocks; otherwise it falls back to byte-for-byte naive emission. fetch_bytes is asserted bit-exact against the naive baseline for every shape.",
+    "scheduler": "firmware/host/scheduler_allocator.py (lower_blocked_fc_program_scheduled)",
+    "simulator": "firmware/host/isa_simulator.py (cycles = 1 per ISA op; 2+N for BSTORE/BUFFER_XFER)"
+  },
+  "rtl_crosscheck": {
+    "notes": "Landed in Phase 7 remediation P4.1. firmware/host/run_scheduler_rtl_crosscheck.py generates naive + scheduled (M=32, K=32) programs, runs them under tb_scheduler_cycles.sv (iverilog 12), and writes bench/results/scheduler_rtl_crosscheck.json. The simulator's 1-cycle-per-op model and the RTL FSM's multi-cycle STORE/FETCH paths produce different absolute cycle counts; the cross-check verifies the *percentage* cycle reduction within \u00b120 permille (\u00b12.0%) plus the scheduler's own bit-exactness invariant (RTL_naive_bytes === RTL_scheduled_bytes). For the (32, 32) shape (sim cycles_saved=8, sim reduction=26 permille), the RTL run shows sched=2772 < naive=2844 cycles, RTL reduction=25 permille, diff=1 permille \u2264 20 permille tolerance, and the RTL_naive===RTL_scheduled byte invariant holds across all 16 fetch bytes.",
+    "status": "RTL-verified",
+    "artifact": "bench/results/scheduler_rtl_crosscheck.json"
+  },
+  "shapes": [
+    {
+      "array_size": 16,
+      "buffer_capacity_words": 256,
+      "bytes_saved_total": 0,
+      "cycle_reduction_pct": 0.0,
+      "cycles_saved_total": 0,
+      "fetch_bytes_match": true,
+      "in_blocks": 1,
+      "naive": {
+        "array_utilization": 0.012345679012345678,
+        "compute_runs": 1,
+        "cycle_count_sequential": 81,
+        "cycles_per_mac": 0.31640625,
+        "executed_ops": {
+          "acc_add": 0,
+          "barrier": 0,
+          "bstore": 0,
+          "buffer_xfer": 0,
+          "fetch": 8,
+          "halt": 1,
+          "load": 2,
+          "nop": 0,
+          "pe_select": 0,
+          "run": 2,
+          "store": 68
+        },
+        "instruction_count": 217,
+        "program_instruction_words": 217,
+        "redundant_store_bytes": 0,
+        "store_bytes_total": 136,
+        "total_macs": 256
+      },
+      "out_blocks": 1,
+      "peak_live_words": 4,
+      "scheduled": {
+        "array_utilization": 0.012345679012345678,
+        "compute_runs": 1,
+        "cycle_count_sequential": 81,
+        "cycles_per_mac": 0.31640625,
+        "executed_ops": {
+          "acc_add": 0,
+          "barrier": 0,
+          "bstore": 0,
+          "buffer_xfer": 0,
+          "fetch": 8,
+          "halt": 1,
+          "load": 2,
+          "nop": 0,
+          "pe_select": 0,
+          "run": 2,
+          "store": 68
+        },
+        "instruction_count": 217,
+        "program_instruction_words": 217,
+        "redundant_store_bytes": 0,
+        "store_bytes_total": 136,
+        "total_macs": 256
+      },
+      "shape": {
+        "in_features": 16,
+        "out_features": 16
+      },
+      "spill_count": 0
+    },
+    {
+      "array_size": 16,
+      "buffer_capacity_words": 256,
+      "bytes_saved_total": 16,
+      "cycle_reduction_pct": 2.6402640264026402,
+      "cycles_saved_total": 8,
+      "fetch_bytes_match": true,
+      "in_blocks": 2,
+      "naive": {
+        "array_utilization": 0.013201320132013201,
+        "compute_runs": 4,
+        "cycle_count_sequential": 303,
+        "cycles_per_mac": 0.2958984375,
+        "executed_ops": {
+          "acc_add": 0,
+          "barrier": 0,
+          "bstore": 0,
+          "buffer_xfer": 0,
+          "fetch": 16,
+          "halt": 1,
+          "load": 8,
+          "nop": 0,
+          "pe_select": 0,
+          "run": 6,
+          "store": 272
+        },
+        "instruction_count": 847,
+        "program_instruction_words": 847,
+        "redundant_store_bytes": 0,
+        "store_bytes_total": 544,
+        "total_macs": 1024
+      },
+      "out_blocks": 2,
+      "peak_live_words": 8,
+      "scheduled": {
+        "array_utilization": 0.013559322033898305,
+        "compute_runs": 4,
+        "cycle_count_sequential": 295,
+        "cycles_per_mac": 0.2880859375,
+        "executed_ops": {
+          "acc_add": 0,
+          "barrier": 0,
+          "bstore": 0,
+          "buffer_xfer": 0,
+          "fetch": 16,
+          "halt": 1,
+          "load": 8,
+          "nop": 0,
+          "pe_select": 0,
+          "run": 6,
+          "store": 264
+        },
+        "instruction_count": 823,
+        "program_instruction_words": 823,
+        "redundant_store_bytes": 0,
+        "store_bytes_total": 528,
+        "total_macs": 1024
+      },
+      "shape": {
+        "in_features": 32,
+        "out_features": 32
+      },
+      "spill_count": 0
+    },
+    {
+      "array_size": 16,
+      "buffer_capacity_words": 256,
+      "bytes_saved_total": 48,
+      "cycle_reduction_pct": 3.9669421487603307,
+      "cycles_saved_total": 24,
+      "fetch_bytes_match": true,
+      "in_blocks": 2,
+      "naive": {
+        "array_utilization": 0.013223140495867768,
+        "compute_runs": 8,
+        "cycle_count_sequential": 605,
+        "cycles_per_mac": 0.29541015625,
+        "executed_ops": {
+          "acc_add": 0,
+          "barrier": 0,
+          "bstore": 0,
+          "buffer_xfer": 0,
+          "fetch": 32,
+          "halt": 1,
+          "load": 16,
+          "nop": 0,
+          "pe_select": 0,
+          "run": 12,
+          "store": 544
+        },
+        "instruction_count": 1693,
+        "program_instruction_words": 1693,
+        "redundant_store_bytes": 0,
+        "store_bytes_total": 1088,
+        "total_macs": 2048
+      },
+      "out_blocks": 4,
+      "peak_live_words": 8,
+      "scheduled": {
+        "array_utilization": 0.013769363166953529,
+        "compute_runs": 8,
+        "cycle_count_sequential": 581,
+        "cycles_per_mac": 0.28369140625,
+        "executed_ops": {
+          "acc_add": 0,
+          "barrier": 0,
+          "bstore": 0,
+          "buffer_xfer": 0,
+          "fetch": 32,
+          "halt": 1,
+          "load": 16,
+          "nop": 0,
+          "pe_select": 0,
+          "run": 12,
+          "store": 520
+        },
+        "instruction_count": 1621,
+        "program_instruction_words": 1621,
+        "redundant_store_bytes": 0,
+        "store_bytes_total": 1040,
+        "total_macs": 2048
+      },
+      "shape": {
+        "in_features": 32,
+        "out_features": 64
+      },
+      "spill_count": 0
+    },
+    {
+      "array_size": 16,
+      "buffer_capacity_words": 256,
+      "bytes_saved_total": 32,
+      "cycle_reduction_pct": 2.72572402044293,
+      "cycles_saved_total": 16,
+      "fetch_bytes_match": true,
+      "in_blocks": 4,
+      "naive": {
+        "array_utilization": 0.013628620102214651,
+        "compute_runs": 8,
+        "cycle_count_sequential": 587,
+        "cycles_per_mac": 0.28662109375,
+        "executed_ops": {
+          "acc_add": 0,
+          "barrier": 0,
+          "bstore": 0,
+          "buffer_xfer": 0,
+          "fetch": 16,
+          "halt": 1,
+          "load": 16,
+          "nop": 0,
+          "pe_select": 0,
+          "run": 10,
+          "store": 544
+        },
+        "instruction_count": 1675,
+        "program_instruction_words": 1675,
+        "redundant_store_bytes": 0,
+        "store_bytes_total": 1088,
+        "total_macs": 2048
+      },
+      "out_blocks": 2,
+      "peak_live_words": 16,
+      "scheduled": {
+        "array_utilization": 0.014010507880910683,
+        "compute_runs": 8,
+        "cycle_count_sequential": 571,
+        "cycles_per_mac": 0.27880859375,
+        "executed_ops": {
+          "acc_add": 0,
+          "barrier": 0,
+          "bstore": 0,
+          "buffer_xfer": 0,
+          "fetch": 16,
+          "halt": 1,
+          "load": 16,
+          "nop": 0,
+          "pe_select": 0,
+          "run": 10,
+          "store": 528
+        },
+        "instruction_count": 1627,
+        "program_instruction_words": 1627,
+        "redundant_store_bytes": 0,
+        "store_bytes_total": 1056,
+        "total_macs": 2048
+      },
+      "shape": {
+        "in_features": 64,
+        "out_features": 32
+      },
+      "spill_count": 0
+    },
+    {
+      "array_size": 16,
+      "buffer_capacity_words": 256,
+      "bytes_saved_total": 96,
+      "cycle_reduction_pct": 4.092071611253197,
+      "cycles_saved_total": 48,
+      "fetch_bytes_match": true,
+      "in_blocks": 4,
+      "naive": {
+        "array_utilization": 0.013640238704177323,
+        "compute_runs": 16,
+        "cycle_count_sequential": 1173,
+        "cycles_per_mac": 0.286376953125,
+        "executed_ops": {
+          "acc_add": 0,
+          "barrier": 0,
+          "bstore": 0,
+          "buffer_xfer": 0,
+          "fetch": 32,
+          "halt": 1,
+          "load": 32,
+          "nop": 0,
+          "pe_select": 0,
+          "run": 20,
+          "store": 1088
+        },
+        "instruction_count": 3349,
+        "program_instruction_words": 3349,
+        "redundant_store_bytes": 0,
+        "store_bytes_total": 2176,
+        "total_macs": 4096
+      },
+      "out_blocks": 4,
+      "peak_live_words": 16,
+      "scheduled": {
+        "array_utilization": 0.014222222222222223,
+        "compute_runs": 16,
+        "cycle_count_sequential": 1125,
+        "cycles_per_mac": 0.274658203125,
+        "executed_ops": {
+          "acc_add": 0,
+          "barrier": 0,
+          "bstore": 0,
+          "buffer_xfer": 0,
+          "fetch": 32,
+          "halt": 1,
+          "load": 32,
+          "nop": 0,
+          "pe_select": 0,
+          "run": 20,
+          "store": 1040
+        },
+        "instruction_count": 3205,
+        "program_instruction_words": 3205,
+        "redundant_store_bytes": 0,
+        "store_bytes_total": 2080,
+        "total_macs": 4096
+      },
+      "shape": {
+        "in_features": 64,
+        "out_features": 64
+      },
+      "spill_count": 0
+    },
+    {
+      "array_size": 16,
+      "buffer_capacity_words": 256,
+      "bytes_saved_total": 224,
+      "cycle_reduction_pct": 4.776119402985075,
+      "cycles_saved_total": 112,
+      "fetch_bytes_match": true,
+      "in_blocks": 4,
+      "naive": {
+        "array_utilization": 0.013646055437100213,
+        "compute_runs": 32,
+        "cycle_count_sequential": 2345,
+        "cycles_per_mac": 0.2862548828125,
+        "executed_ops": {
+          "acc_add": 0,
+          "barrier": 0,
+          "bstore": 0,
+          "buffer_xfer": 0,
+          "fetch": 64,
+          "halt": 1,
+          "load": 64,
+          "nop": 0,
+          "pe_select": 0,
+          "run": 40,
+          "store": 2176
+        },
+        "instruction_count": 6697,
+        "program_instruction_words": 6697,
+        "redundant_store_bytes": 2,
+        "store_bytes_total": 4352,
+        "total_macs": 8192
+      },
+      "out_blocks": 8,
+      "peak_live_words": 16,
+      "scheduled": {
+        "array_utilization": 0.014330497089117778,
+        "compute_runs": 32,
+        "cycle_count_sequential": 2233,
+        "cycles_per_mac": 0.2725830078125,
+        "executed_ops": {
+          "acc_add": 0,
+          "barrier": 0,
+          "bstore": 0,
+          "buffer_xfer": 0,
+          "fetch": 64,
+          "halt": 1,
+          "load": 64,
+          "nop": 0,
+          "pe_select": 0,
+          "run": 40,
+          "store": 2064
+        },
+        "instruction_count": 6361,
+        "program_instruction_words": 6361,
+        "redundant_store_bytes": 2,
+        "store_bytes_total": 4128,
+        "total_macs": 8192
+      },
+      "shape": {
+        "in_features": 64,
+        "out_features": 128
+      },
+      "spill_count": 0
+    },
+    {
+      "array_size": 16,
+      "buffer_capacity_words": 256,
+      "bytes_saved_total": 480,
+      "cycle_reduction_pct": 5.1183621241202815,
+      "cycles_saved_total": 240,
+      "fetch_bytes_match": true,
+      "in_blocks": 4,
+      "naive": {
+        "array_utilization": 0.01364896566432075,
+        "compute_runs": 64,
+        "cycle_count_sequential": 4689,
+        "cycles_per_mac": 0.28619384765625,
+        "executed_ops": {
+          "acc_add": 0,
+          "barrier": 0,
+          "bstore": 0,
+          "buffer_xfer": 0,
+          "fetch": 128,
+          "halt": 1,
+          "load": 128,
+          "nop": 0,
+          "pe_select": 0,
+          "run": 80,
+          "store": 4352
+        },
+        "instruction_count": 13393,
+        "program_instruction_words": 13393,
+        "redundant_store_bytes": 0,
+        "store_bytes_total": 8704,
+        "total_macs": 16384
+      },
+      "out_blocks": 16,
+      "peak_live_words": 16,
+      "scheduled": {
+        "array_utilization": 0.014385255113508653,
+        "compute_runs": 64,
+        "cycle_count_sequential": 4449,
+        "cycles_per_mac": 0.27154541015625,
+        "executed_ops": {
+          "acc_add": 0,
+          "barrier": 0,
+          "bstore": 0,
+          "buffer_xfer": 0,
+          "fetch": 128,
+          "halt": 1,
+          "load": 128,
+          "nop": 0,
+          "pe_select": 0,
+          "run": 80,
+          "store": 4112
+        },
+        "instruction_count": 12673,
+        "program_instruction_words": 12673,
+        "redundant_store_bytes": 0,
+        "store_bytes_total": 8224,
+        "total_macs": 16384
+      },
+      "shape": {
+        "in_features": 64,
+        "out_features": 256
+      },
+      "spill_count": 0
+    },
+    {
+      "array_size": 16,
+      "buffer_capacity_words": 256,
+      "bytes_saved_total": 448,
+      "cycle_reduction_pct": 4.851635260991986,
+      "cycles_saved_total": 224,
+      "fetch_bytes_match": true,
+      "in_blocks": 8,
+      "naive": {
+        "array_utilization": 0.013861815031405674,
+        "compute_runs": 64,
+        "cycle_count_sequential": 4617,
+        "cycles_per_mac": 0.28179931640625,
+        "executed_ops": {
+          "acc_add": 0,
+          "barrier": 0,
+          "bstore": 0,
+          "buffer_xfer": 0,
+          "fetch": 64,
+          "halt": 1,
+          "load": 128,
+          "nop": 0,
+          "pe_select": 0,
+          "run": 72,
+          "store": 4352
+        },
+        "instruction_count": 13321,
+        "program_instruction_words": 13321,
+        "redundant_store_bytes": 0,
+        "store_bytes_total": 8704,
+        "total_macs": 16384
+      },
+      "out_blocks": 8,
+      "peak_live_words": 32,
+      "scheduled": {
+        "array_utilization": 0.014568631914409288,
+        "compute_runs": 64,
+        "cycle_count_sequential": 4393,
+        "cycles_per_mac": 0.26812744140625,
+        "executed_ops": {
+          "acc_add": 0,
+          "barrier": 0,
+          "bstore": 0,
+          "buffer_xfer": 0,
+          "fetch": 64,
+          "halt": 1,
+          "load": 128,
+          "nop": 0,
+          "pe_select": 0,
+          "run": 72,
+          "store": 4128
+        },
+        "instruction_count": 12649,
+        "program_instruction_words": 12649,
+        "redundant_store_bytes": 0,
+        "store_bytes_total": 8256,
+        "total_macs": 16384
+      },
+      "shape": {
+        "in_features": 128,
+        "out_features": 128
+      },
+      "spill_count": 0
+    }
+  ],
+  "version": 1
+}

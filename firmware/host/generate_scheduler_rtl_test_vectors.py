@@ -1,0 +1,211 @@
+"""Phase 7 remediation P4.1 - generate RTL test vectors for the
+scheduler cycle cross-check.
+
+Produces three files used by ``rtl/tb/tb_scheduler_cycles.sv``:
+
+- ``build/test_vectors/scheduler_{naive,sched}.mem`` - hex-formatted
+  instruction streams for the naive and scheduled blocked-FC programs.
+- ``build/test_vectors/scheduler_expected.svh`` - `define block with the
+  word counts, the simulator-measured cycle counts for each program,
+  the expected ``fetch_bytes`` they produce, the shape ``(M, K)``, and
+  the absolute / relative cycle savings the scheduler advertises.
+
+The module also exposes ``build_case_vectors`` so wider suites can reuse
+the exact same deterministic reference construction with different
+shapes or buffer layouts.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+import sys
+
+import numpy as np
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+HOST_DIR = REPO_ROOT / "firmware" / "host"
+if str(HOST_DIR) not in sys.path:
+    sys.path.insert(0, str(HOST_DIR))
+
+from isa_simulator import simulate_program_bytes  # noqa: E402
+from lowering_blocked_fc_utpu import lower_blocked_fc_program_utpu  # noqa: E402
+from scheduler_allocator import lower_blocked_fc_program_scheduled  # noqa: E402
+
+ARRAY_SIZE = 16
+WEIGHT_ADDR = 256
+INPUT_ADDR = 0
+RESULT_ADDR = 320
+
+# Smallest shape with non-zero scheduler savings that fits both
+# PROG_DEPTH=1024 (shipping bitstream depth) and BUFFER_SIZE=512
+# (the unified buffer's address range): (32, 32) -> naive 847 words /
+# 303 cycles, scheduled 823 words / 295 cycles, saved 8 cycles
+# (2.64% sim reduction). Larger shapes (M*K >= 4096) overrun the
+# default BUFFER_SIZE for the result region with the default address
+# layout (weight_addr=256, result_addr=320), which would silently
+# corrupt fetch_bytes in RTL even though the simulator keeps running.
+OUT_FEATURES = 32
+IN_FEATURES = 32
+SEED = 0xC0DE + OUT_FEATURES * 31 + IN_FEATURES
+
+OUT_DIR = REPO_ROOT / "build" / "test_vectors"
+
+
+def _bytes_to_mem_text(byte_seq: bytes) -> str:
+    """Convert a byte stream into a Verilog $readmemh-compatible text."""
+    if len(byte_seq) % 2 != 0:
+        raise ValueError(f"odd byte stream length {len(byte_seq)}; cannot pair into 16b words")
+    lines = []
+    for i in range(0, len(byte_seq), 2):
+        lo = byte_seq[i]
+        hi = byte_seq[i + 1]
+        word = (hi << 8) | lo
+        lines.append(f"{word:04x}")
+    return "\n".join(lines) + "\n"
+
+
+def build_case_vectors(
+    *,
+    out_features: int = OUT_FEATURES,
+    in_features: int = IN_FEATURES,
+    array_size: int = ARRAY_SIZE,
+    weight_addr: int = WEIGHT_ADDR,
+    input_addr: int = INPUT_ADDR,
+    result_addr: int = RESULT_ADDR,
+    prog_depth: int = 1024,
+    seed: int | None = None,
+    out_dir: Path = OUT_DIR,
+    prefix: str = "scheduler",
+) -> dict:
+    """Build a deterministic blocked-FC scheduler case artifact."""
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    if seed is None:
+        seed = 0xC0DE + out_features * 31 + in_features
+    rng = np.random.default_rng(seed)
+    w = rng.integers(low=-8, high=8, size=(out_features, in_features), dtype=np.int8)
+    x = rng.integers(low=-8, high=8, size=in_features, dtype=np.int8)
+
+    naive = lower_blocked_fc_program_utpu(
+        w,
+        x,
+        out_features,
+        in_features,
+        array_size,
+        False,
+        True,
+        weight_addr,
+        input_addr,
+        result_addr,
+        prog_depth=prog_depth,
+    )
+    sched = lower_blocked_fc_program_scheduled(
+        w,
+        x,
+        out_features,
+        in_features,
+        array_size,
+        False,
+        True,
+        weight_addr,
+        input_addr,
+        result_addr,
+    )
+
+    rn = simulate_program_bytes(naive["program"], array_size=array_size)
+    rs = simulate_program_bytes(sched["program"], array_size=array_size)
+
+    if not rn.halted or not rs.halted:
+        raise RuntimeError("one of the simulator runs did not halt cleanly")
+    if rn.fetch_bytes != rs.fetch_bytes:
+        raise RuntimeError("scheduler invariant broken: fetch_bytes differ between naive and scheduled")
+
+    naive_mem = out_dir / f"{prefix}_naive.mem"
+    sched_mem = out_dir / f"{prefix}_sched.mem"
+    expected_svh = out_dir / f"{prefix}_expected.svh"
+    expected_bytes_svh = out_dir / f"{prefix}_expected_bytes.svh"
+    naive_mem.write_text(_bytes_to_mem_text(naive["program"]), encoding="utf-8")
+    sched_mem.write_text(_bytes_to_mem_text(sched["program"]), encoding="utf-8")
+
+    naive_words = int(naive["program_instruction_words"])
+    sched_words = int(sched["program_instruction_words"])
+    naive_cycles = int(rn.cycle_count_sequential)
+    sched_cycles = int(rs.cycle_count_sequential)
+    cycles_saved = int(naive_cycles - sched_cycles)
+    fetch_bytes_n = len(rn.fetch_bytes)
+    sim_reduction_permille = int(round(1000.0 * cycles_saved / naive_cycles))
+
+    header_lines = [
+        "// Auto-generated by firmware/host/generate_scheduler_rtl_test_vectors.py",
+        "// Phase 7 remediation P4.1 - scheduler RTL cycle cross-check.",
+        "// DO NOT EDIT - regenerate via the script above.",
+        f"`define SCHED_OUT_FEATURES {out_features}",
+        f"`define SCHED_IN_FEATURES  {in_features}",
+        f"`define SCHED_ARRAY_SIZE   {array_size}",
+        f"`define SCHED_NAIVE_WORDS  {naive_words}",
+        f"`define SCHED_SCHED_WORDS  {sched_words}",
+        f"`define SCHED_NAIVE_CYCLES {naive_cycles}",
+        f"`define SCHED_SCHED_CYCLES {sched_cycles}",
+        f"`define SCHED_CYCLES_SAVED {cycles_saved}",
+        f"`define SCHED_SIM_REDUCTION_PERMILLE {sim_reduction_permille}",
+        "`define SCHED_TOL_PERMILLE 20",
+        f"`define SCHED_FETCH_N      {fetch_bytes_n}",
+        f"`define SCHED_NAIVE_MEM    \"{naive_mem.as_posix()}\"",
+        f"`define SCHED_SCHED_MEM    \"{sched_mem.as_posix()}\"",
+    ]
+    for idx, b in enumerate(rn.fetch_bytes):
+        header_lines.append(f"`define SCHED_FETCH_BYTE_{idx} 8'h{b:02x}")
+    header_lines.append("")
+    expected_svh.write_text("\n".join(header_lines), encoding="utf-8")
+
+    bytes_lines = [
+        "// Auto-generated by firmware/host/generate_scheduler_rtl_test_vectors.py",
+        "// Fetch-byte initializer for rtl/tb/tb_scheduler_cycles.sv.",
+        "initial begin",
+    ]
+    for idx, b in enumerate(rn.fetch_bytes):
+        bytes_lines.append(f"    fetch_expected[{idx}] = 8'h{b:02x};")
+    bytes_lines.append("end")
+    expected_bytes_svh.write_text("\n".join(bytes_lines) + "\n", encoding="utf-8")
+
+    return {
+        "shape": {"out_features": int(out_features), "in_features": int(in_features)},
+        "array_size": int(array_size),
+        "weight_addr": int(weight_addr),
+        "input_addr": int(input_addr),
+        "result_addr": int(result_addr),
+        "naive_words": naive_words,
+        "sched_words": sched_words,
+        "naive_cycles": naive_cycles,
+        "sched_cycles": sched_cycles,
+        "cycles_saved": cycles_saved,
+        "reduction_permille": sim_reduction_permille,
+        "fetch_bytes_n": fetch_bytes_n,
+        "expected_fetch_bytes": [int(b) for b in rn.fetch_bytes],
+        "fetch_bytes_invariant_simulator": list(rn.fetch_bytes) == list(rs.fetch_bytes),
+        "paths": {
+            "naive_mem": str(naive_mem),
+            "sched_mem": str(sched_mem),
+            "expected_svh": str(expected_svh),
+            "expected_bytes_svh": str(expected_bytes_svh),
+        },
+        "seed": int(seed),
+    }
+
+
+def main() -> int:
+    case = build_case_vectors()
+    print(
+        f"[generate_scheduler_rtl_test_vectors] shape={OUT_FEATURES}x{IN_FEATURES} "
+        f"naive=({case['naive_words']} words, {case['naive_cycles']} cycles) "
+        f"sched=({case['sched_words']} words, {case['sched_cycles']} cycles) "
+        f"cycles_saved={case['cycles_saved']} "
+        f"sim_reduction_permille={case['reduction_permille']} "
+        f"fetch_bytes={case['fetch_bytes_n']}"
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
