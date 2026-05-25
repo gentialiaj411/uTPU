@@ -1,0 +1,150 @@
+{
+  "backend": "numpy_reference",
+  "environment": {
+    "machine": "AMD64",
+    "numpy": "2.4.6",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "python": "3.11.9"
+  },
+  "generated_at": "2026-05-25T03:29:06Z",
+  "methodology": {
+    "cache_state": "warm: same input tensor reused across samples after warmup",
+    "clock_note": "Wall-clock via time.perf_counter; no CPU-clock pinning. Median + p10/p90 reported to make per-sample noise visible. Median throughput delta is the headline metric.",
+    "metric": "median wall-clock latency over `timed_iters` samples after warmup",
+    "seed": 48879,
+    "timed_iters": 15,
+    "warmup_iters": 3
+  },
+  "phase": "phase_2_generalized_fusion",
+  "regime_note": "CPU NumPy reference path. Reflects what fusion buys at the IR / interpreter layer (fewer Python-level ops, fewer intermediate allocations, fewer materialised tensors). A CUDA-backend run on a GPU host would produce a separate, comparably-scoped entry.",
+  "summary": {
+    "all_correctness_within_tolerance": true,
+    "max_throughput_delta_pct": 31.87302826041607,
+    "mean_throughput_delta_pct": 5.386245407693104,
+    "median_throughput_delta_pct": -0.3546393692784042,
+    "min_throughput_delta_pct": -15.359652668058354,
+    "workload_count": 3
+  },
+  "workloads": [
+    {
+      "correctness": {
+        "max_abs_error": 0.0,
+        "max_rel_error": 0.0,
+        "tolerance_abs": 0.0001,
+        "tolerance_rel": 0.0001,
+        "within_tolerance": true
+      },
+      "description": "3-layer MLP (256x256) with ReLU between layers; activation fusion target",
+      "fused_latency_us": {
+        "max_us": 490.79999735113233,
+        "mean_us": 388.4599990366648,
+        "median_us": 367.00000055134296,
+        "min_us": 348.5000052023679,
+        "stdev_us": 41.55174635409498
+      },
+      "input_dtype": "float32",
+      "input_shape": [
+        64,
+        256
+      ],
+      "notes": "Fused path eliminates 3 intermediate ReLU tensors and 3 op-dispatch overheads",
+      "op_count_fused": 3,
+      "op_count_reduction": 3,
+      "op_count_reduction_pct": 50.0,
+      "op_count_unfused": 6,
+      "rule_name": "linear_relu_fusion",
+      "seed": 48879,
+      "speedup": 1.4678474243982407,
+      "throughput_delta_pct": 31.87302826041607,
+      "unfused_latency_us": {
+        "max_us": 821.0000014514662,
+        "mean_us": 541.4866682258435,
+        "median_us": 538.7000055634417,
+        "min_us": 389.50000453041866,
+        "stdev_us": 97.4047968783411
+      },
+      "workload": "linear_relu_mlp_3x256"
+    },
+    {
+      "correctness": {
+        "max_abs_error": 0.0,
+        "max_rel_error": 0.0,
+        "tolerance_abs": 0.0001,
+        "tolerance_rel": 0.0001,
+        "within_tolerance": true
+      },
+      "description": "Pre-softmax scale + softmax over (8,128,128); attention-style fusion target",
+      "fused_latency_us": {
+        "max_us": 725.8999976329505,
+        "mean_us": 618.5133315739222,
+        "median_us": 639.899997622706,
+        "min_us": 527.5000003166497,
+        "stdev_us": 64.93996060971152
+      },
+      "input_dtype": "float32",
+      "input_shape": [
+        8,
+        128,
+        128
+      ],
+      "notes": "Fused SCALED_SOFTMAX folds the scalar multiply into the softmax exponentiation",
+      "op_count_fused": 1,
+      "op_count_reduction": 1,
+      "op_count_reduction_pct": 50.0,
+      "op_count_unfused": 2,
+      "rule_name": "scale_softmax_fusion",
+      "seed": 48879,
+      "speedup": 0.8668542049770643,
+      "throughput_delta_pct": -15.359652668058354,
+      "unfused_latency_us": {
+        "max_us": 580.5000037071295,
+        "mean_us": 550.7200000768838,
+        "median_us": 554.7000037040561,
+        "min_us": 513.3999948156998,
+        "stdev_us": 18.331910354333527
+      },
+      "workload": "scale_softmax_attention_8x128x128"
+    },
+    {
+      "correctness": {
+        "max_abs_error": 7.152557373046875e-07,
+        "max_rel_error": 0.04669603524229075,
+        "tolerance_abs": 0.0001,
+        "tolerance_rel": 0.0001,
+        "within_tolerance": true
+      },
+      "description": "Conv2d(16\u219232,k=3,p=1) + BatchNorm2d, ResNet-style; weight-fold fusion target",
+      "fused_latency_us": {
+        "max_us": 78390.69999317871,
+        "mean_us": 77459.10666659863,
+        "median_us": 77337.49999897555,
+        "min_us": 76657.30000007898,
+        "stdev_us": 447.89259929788045
+      },
+      "input_dtype": "float32",
+      "input_shape": [
+        1,
+        16,
+        32,
+        32
+      ],
+      "notes": "BN is folded into Conv weights at compile time; eliminates the BN forward pass at runtime",
+      "op_count_fused": 1,
+      "op_count_reduction": 1,
+      "op_count_reduction_pct": 50.0,
+      "op_count_unfused": 2,
+      "rule_name": "conv_bn_fusion",
+      "seed": 48879,
+      "speedup": 0.9964661387703918,
+      "throughput_delta_pct": -0.3546393692784042,
+      "unfused_latency_us": {
+        "max_us": 78056.1999999918,
+        "mean_us": 77131.9200017994,
+        "median_us": 77064.20000613434,
+        "min_us": 76698.10000516009,
+        "stdev_us": 333.69319422309655
+      },
+      "workload": "conv_bn_resnet_block_1x16x32x32"
+    }
+  ]
+}

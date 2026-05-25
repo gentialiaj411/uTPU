@@ -100,7 +100,7 @@ RTL_STUBS := rtl/tb/xpm_memory_sdpram_stub.sv
 # .github/workflows/ci.yml so docs/agents never drift.
 # ---------------------------
 test-host:
-	python -m pytest firmware/host/test_fx_importer.py firmware/host/test_pytorch_compiler.py firmware/host/test_torch_compile_backend.py firmware/host/test_compiled_runtime_validation.py firmware/host/test_footprint_baseline.py firmware/host/test_compiler_smoke.py firmware/host/test_graph_passes.py firmware/host/test_reference_interpreter.py firmware/host/test_isa_simulator.py firmware/host/test_rtl_sim_artifact.py firmware/host/test_transformer_integration.py firmware/host/test_cost_model_regression.py firmware/host/test_cost_model_selection.py firmware/host/test_multi_pe_sim.py firmware/host/test_real_model_ops.py firmware/host/test_real_model_end_to_end.py -v
+	python -m pytest firmware/host/test_fx_importer.py firmware/host/test_pytorch_compiler.py firmware/host/test_torch_compile_backend.py firmware/host/test_compiled_runtime_validation.py firmware/host/test_footprint_baseline.py firmware/host/test_compiler_smoke.py firmware/host/test_graph_passes.py firmware/host/test_reference_interpreter.py firmware/host/test_isa_simulator.py firmware/host/test_rtl_sim_artifact.py firmware/host/test_transformer_integration.py firmware/host/test_cost_model_regression.py firmware/host/test_cost_model_selection.py firmware/host/test_fusion_benchmark.py firmware/host/test_multi_pe_sim.py firmware/host/test_real_model_ops.py firmware/host/test_real_model_end_to_end.py -v
 
 sim-units:
 	mkdir -p "$(SIM_OUT)"
@@ -187,6 +187,8 @@ repro-host:
 	@echo "[repro-host] cost-model selection (Phase 1) -> bench/results/cost_model_selection.json"
 	$(PYTHON) firmware/host/run_cost_model_selection.py \
 		--output-json bench/results/cost_model_selection.json
+	@echo "[repro-host] fusion payoff (Phase 2) -> bench/results/fusion_payoff.json"
+	$(PYTHON) firmware/host/run_fusion_benchmark.py
 	@echo "[repro-host] done. CUDA-only artifact (ResNet-18) is regenerated via 'make repro-cuda'."
 
 repro-cuda:

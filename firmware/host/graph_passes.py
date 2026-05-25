@@ -2,7 +2,7 @@ import copy
 import json
 import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 import numpy as np
 
@@ -355,61 +355,314 @@ def shape_inference_pass(graph: GraphIR) -> GraphIR:
     return inferred
 
 
-def conv_bn_fusion_pass(graph: GraphIR) -> GraphIR:
-    """Fold Conv2d + BatchNorm2d into a single Conv2d for inference graphs."""
-    op_by_name: Dict[str, OpNode] = {op.name: op for op in graph.ops}
-    skip: Set[str] = set()
-    fused_ops: List[OpNode] = []
+# ---------------------------------------------------------------------------
+# Generalized producer-consumer fusion engine (Phase 2).
+#
+# Existing fusion passes (`conv_bn_fusion`, `linear_relu_fusion`,
+# `scale_softmax_fusion`) are kept as named pass entries in `GraphPassManager`
+# so the pass-pipeline dump and downstream tests see the same shape. Each
+# fusion pass is now a thin wrapper that registers one `FusionRule` with a
+# `FusionEngine`. Rules describe **legality** (producer/consumer adjacency,
+# shape/dtype/attribute predicates) and **rewrite** (the replacement ops
+# plus a value-rename map). The engine walks the IR in topological order,
+# fuses every legal producer-consumer pair, rewires downstream consumers,
+# and re-registers value metadata via `_rebuild_graph_with_ops`.
+#
+# The engine intentionally does NOT change pass ordering or
+# `memory_planning` / `backend_legality` placement. Adding a new fusion
+# is now: define a `FusionRule`, register it in the appropriate pass entry,
+# and (optionally) add a parity test.
+# ---------------------------------------------------------------------------
 
-    def _consumers_of(value_name: str) -> List[str]:
-        value = graph.values.get(value_name)
-        if value is None:
-            return []
-        return list(value.consumers)
 
-    for op in graph.ops:
-        if op.name in skip:
-            continue
-        if op.op != OpKind.CONV2D:
-            fused_ops.append(copy.deepcopy(op))
-            continue
+@dataclass(frozen=True)
+class FusionRewrite:
+    """Replacement returned by a `FusionRule.rewrite`. The engine removes
+    the matched producer + consumer ops and splices `new_ops` in at the
+    producer's index. `value_aliases` maps old value names (produced by the
+    removed consumer) to the value names produced by `new_ops`, so the
+    engine can rewire downstream ops + graph outputs that referenced the
+    consumer's outputs."""
 
-        conv_out = op.outputs[0]
-        consumers = _consumers_of(conv_out)
-        if len(consumers) != 1:
-            fused_ops.append(copy.deepcopy(op))
-            continue
+    new_ops: Tuple[OpNode, ...]
+    value_aliases: Dict[str, str] = field(default_factory=dict)
 
-        bn_op = op_by_name.get(consumers[0])
-        if bn_op is None or bn_op.op != OpKind.BATCH_NORM or bn_op.inputs[0] != conv_out:
-            fused_ops.append(copy.deepcopy(op))
-            continue
 
-        w_fold, b_fold = fold_conv_bn_weights(
-            conv_weight=op.attrs["weight"],
-            conv_bias=op.attrs.get("bias"),
-            bn_weight=bn_op.attrs["weight"],
-            bn_bias=bn_op.attrs["bias"],
-            bn_running_mean=bn_op.attrs["running_mean"],
-            bn_running_var=bn_op.attrs["running_var"],
-            bn_eps=float(bn_op.attrs.get("eps", 1e-5)),
-        )
-        fused = copy.deepcopy(op)
-        fused.attrs = dict(op.attrs)
-        fused.attrs["weight"] = w_fold
-        fused.attrs["bias"] = b_fold
-        fused.attrs["bn_fused"] = True
-        bn_out = bn_op.outputs[0]
-        for downstream in graph.ops:
-            if downstream.name in skip:
+@dataclass(frozen=True)
+class FusionRule:
+    """A legality-driven producer-consumer fusion rule.
+
+    `legality(producer, consumer, graph)` returns `None` when the pair is
+    legal to fuse, or a short reason string explaining why it is not.
+    `rewrite(producer, consumer, graph)` returns a `FusionRewrite`.
+
+    The engine guarantees, *before* calling `legality`:
+    - `producer.op == producer_op`
+    - `consumer.op == consumer_op`
+    - `producer.outputs` has at least one value
+    - the producer's first output has exactly one consumer in `graph`
+    - `consumer.inputs[0] == producer.outputs[0]` (consumer takes the
+      producer's primary output as its primary input)
+
+    Rules therefore only need to encode the *additional* predicates they
+    care about (dtype matches, missing attrs, multi-consumer beyond the
+    primary input, etc.).
+    """
+
+    name: str
+    producer_op: str
+    consumer_op: str
+    legality: Callable[[OpNode, OpNode, GraphIR], Optional[str]]
+    rewrite: Callable[[OpNode, OpNode, GraphIR], FusionRewrite]
+    description: str = ""
+
+
+@dataclass
+class FusionApplication:
+    rule_name: str
+    producer_name: str
+    consumer_name: str
+    aliased_values: Dict[str, str] = field(default_factory=dict)
+
+
+@dataclass
+class FusionEngineResult:
+    graph: GraphIR
+    applications: List[FusionApplication] = field(default_factory=list)
+
+
+class FusionEngine:
+    """Runs each registered `FusionRule` over the graph in registration
+    order. A rule may fire any number of times per pass; rules run
+    sequentially (rule N sees the output of rule N-1) so chains like
+    `Linear -> ReLU -> ?` can compose with later rules if registered.
+    """
+
+    def __init__(self, rules: List[FusionRule]):
+        self.rules: List[FusionRule] = list(rules)
+
+    def run(self, graph: GraphIR) -> FusionEngineResult:
+        current = _clone_graph(graph)
+        applications: List[FusionApplication] = []
+        for rule in self.rules:
+            current, rule_apps = self._apply_rule_to_fixpoint(current, rule)
+            applications.extend(rule_apps)
+        return FusionEngineResult(graph=current, applications=applications)
+
+    def _apply_rule_to_fixpoint(
+        self, graph: GraphIR, rule: FusionRule
+    ) -> Tuple[GraphIR, List[FusionApplication]]:
+        """A rule may match multiple times in a single graph; one pass over
+        the op list is sufficient because each match consumes its own
+        producer + consumer and the remaining ops do not change op kinds.
+        """
+        op_by_name: Dict[str, OpNode] = {op.name: op for op in graph.ops}
+        consumed: Set[str] = set()
+        new_op_list: List[OpNode] = []
+        global_aliases: Dict[str, str] = {}
+        applications: List[FusionApplication] = []
+
+        for op in graph.ops:
+            if op.name in consumed:
                 continue
-            downstream.inputs = [
-                fused.outputs[0] if inp == bn_out else inp for inp in downstream.inputs
-            ]
-        fused_ops.append(fused)
-        skip.add(bn_op.name)
+            if op.op != rule.producer_op or not op.outputs:
+                new_op_list.append(copy.deepcopy(op))
+                continue
 
-    return _rebuild_graph_with_ops(graph, fused_ops)
+            producer_out = op.outputs[0]
+            producer_value = graph.values.get(producer_out)
+            if producer_value is None or len(producer_value.consumers) != 1:
+                new_op_list.append(copy.deepcopy(op))
+                continue
+
+            consumer = op_by_name.get(producer_value.consumers[0])
+            if (
+                consumer is None
+                or consumer.op != rule.consumer_op
+                or not consumer.inputs
+                or consumer.inputs[0] != producer_out
+            ):
+                new_op_list.append(copy.deepcopy(op))
+                continue
+
+            reason = rule.legality(op, consumer, graph)
+            if reason is not None:
+                new_op_list.append(copy.deepcopy(op))
+                continue
+
+            rewrite = rule.rewrite(op, consumer, graph)
+            for new_op in rewrite.new_ops:
+                new_op_list.append(copy.deepcopy(new_op))
+            consumed.add(consumer.name)
+            global_aliases.update(rewrite.value_aliases)
+            applications.append(
+                FusionApplication(
+                    rule_name=rule.name,
+                    producer_name=op.name,
+                    consumer_name=consumer.name,
+                    aliased_values=dict(rewrite.value_aliases),
+                )
+            )
+
+        if global_aliases:
+            for op in new_op_list:
+                op.inputs = [global_aliases.get(inp, inp) for inp in op.inputs]
+            # Rename graph outputs BEFORE the rebuild so stale value
+            # metadata for the consumer's outputs is not re-registered in
+            # the new graph.
+            aliased_graph = _clone_graph(graph)
+            aliased_graph.outputs = [
+                global_aliases.get(o, o) for o in aliased_graph.outputs
+            ]
+            new_graph = _rebuild_graph_with_ops(aliased_graph, new_op_list)
+        else:
+            new_graph = _rebuild_graph_with_ops(graph, new_op_list)
+        return new_graph, applications
+
+
+# --- Registered legality / rewrite functions --------------------------------
+
+
+def _legality_linear_relu(
+    producer: OpNode, consumer: OpNode, graph: GraphIR
+) -> Optional[str]:
+    if not producer.outputs or not consumer.outputs:
+        return "missing_outputs"
+    if "weight" not in producer.attrs or "in_features" not in producer.attrs:
+        return "linear_missing_attrs"
+    return None
+
+
+def _rewrite_linear_relu(
+    producer: OpNode, consumer: OpNode, graph: GraphIR
+) -> FusionRewrite:
+    attrs = dict(producer.attrs)
+    attrs["fused_activation"] = "relu"
+    fused = OpNode(
+        name=f"{producer.name}_relu_fused",
+        op=OpKind.LINEAR_RELU,
+        inputs=list(producer.inputs),
+        outputs=list(consumer.outputs),
+        attrs=attrs,
+    )
+    return FusionRewrite(new_ops=(fused,), value_aliases={})
+
+
+def _legality_scale_softmax(
+    producer: OpNode, consumer: OpNode, graph: GraphIR
+) -> Optional[str]:
+    if not producer.outputs or not consumer.outputs:
+        return "missing_outputs"
+    return None
+
+
+def _rewrite_scale_softmax(
+    producer: OpNode, consumer: OpNode, graph: GraphIR
+) -> FusionRewrite:
+    fused = OpNode(
+        name=f"{producer.name}_softmax_fused",
+        op=OpKind.SCALED_SOFTMAX,
+        inputs=list(producer.inputs),
+        outputs=list(consumer.outputs),
+        attrs={
+            "scale": float(producer.attrs.get("scale", 1.0)),
+            "causal_mask": bool(consumer.attrs.get("causal_mask", False)),
+        },
+    )
+    return FusionRewrite(new_ops=(fused,), value_aliases={})
+
+
+_CONV_BN_REQUIRED_BN_ATTRS = ("weight", "bias", "running_mean", "running_var")
+
+
+def _legality_conv_bn(
+    producer: OpNode, consumer: OpNode, graph: GraphIR
+) -> Optional[str]:
+    if not producer.outputs or not consumer.outputs:
+        return "missing_outputs"
+    if "weight" not in producer.attrs:
+        return "conv_missing_weight"
+    for key in _CONV_BN_REQUIRED_BN_ATTRS:
+        if consumer.attrs.get(key) is None:
+            return f"bn_missing_{key}"
+    return None
+
+
+def _rewrite_conv_bn(
+    producer: OpNode, consumer: OpNode, graph: GraphIR
+) -> FusionRewrite:
+    w_fold, b_fold = fold_conv_bn_weights(
+        conv_weight=producer.attrs["weight"],
+        conv_bias=producer.attrs.get("bias"),
+        bn_weight=consumer.attrs["weight"],
+        bn_bias=consumer.attrs["bias"],
+        bn_running_mean=consumer.attrs["running_mean"],
+        bn_running_var=consumer.attrs["running_var"],
+        bn_eps=float(consumer.attrs.get("eps", 1e-5)),
+    )
+    fused_attrs = dict(producer.attrs)
+    fused_attrs["weight"] = w_fold
+    fused_attrs["bias"] = b_fold
+    fused_attrs["bn_fused"] = True
+    fused = OpNode(
+        name=producer.name,
+        op=OpKind.CONV2D,
+        inputs=list(producer.inputs),
+        outputs=list(producer.outputs),
+        attrs=fused_attrs,
+    )
+    return FusionRewrite(
+        new_ops=(fused,),
+        value_aliases={consumer.outputs[0]: producer.outputs[0]},
+    )
+
+
+LINEAR_RELU_FUSION_RULE = FusionRule(
+    name="linear_relu_fusion",
+    producer_op=OpKind.LINEAR,
+    consumer_op=OpKind.RELU,
+    legality=_legality_linear_relu,
+    rewrite=_rewrite_linear_relu,
+    description="Fuse LINEAR -> RELU into LINEAR_RELU when LINEAR has a single consumer.",
+)
+
+
+SCALE_SOFTMAX_FUSION_RULE = FusionRule(
+    name="scale_softmax_fusion",
+    producer_op=OpKind.SCALE,
+    consumer_op=OpKind.SOFTMAX,
+    legality=_legality_scale_softmax,
+    rewrite=_rewrite_scale_softmax,
+    description="Fuse SCALE -> SOFTMAX into SCALED_SOFTMAX when SCALE has a single consumer.",
+)
+
+
+CONV_BN_FUSION_RULE = FusionRule(
+    name="conv_bn_fusion",
+    producer_op=OpKind.CONV2D,
+    consumer_op=OpKind.BATCH_NORM,
+    legality=_legality_conv_bn,
+    rewrite=_rewrite_conv_bn,
+    description="Fold CONV2D -> BATCH_NORM into a single CONV2D with adjusted weight/bias.",
+)
+
+
+# Public registry: the canonical fusion rule set in registration order. Callers
+# that want a custom subset can build their own list and pass it to FusionEngine.
+DEFAULT_FUSION_RULES: Tuple[FusionRule, ...] = (
+    CONV_BN_FUSION_RULE,
+    LINEAR_RELU_FUSION_RULE,
+    SCALE_SOFTMAX_FUSION_RULE,
+)
+
+
+def conv_bn_fusion_pass(graph: GraphIR) -> GraphIR:
+    """Fold Conv2d + BatchNorm2d into a single Conv2d for inference graphs.
+
+    Thin wrapper over `FusionEngine` registering the `CONV_BN_FUSION_RULE`.
+    Preserves the public function signature for backward compatibility.
+    """
+    return FusionEngine([CONV_BN_FUSION_RULE]).run(graph).graph
 
 
 def attention_decomposition_pass(graph: GraphIR) -> GraphIR:
@@ -498,80 +751,19 @@ def attention_decomposition_pass(graph: GraphIR) -> GraphIR:
 
 
 def linear_relu_fusion_pass(graph: GraphIR) -> GraphIR:
-    current = _clone_graph(graph)
-    op_by_name = {op.name: op for op in current.ops}
-    skip_ops: Set[str] = set()
-    fused_ops: List[OpNode] = []
+    """Fuse LINEAR -> RELU into LINEAR_RELU.
 
-    for op in current.ops:
-        if op.name in skip_ops:
-            continue
-        if op.op != OpKind.LINEAR:
-            fused_ops.append(copy.deepcopy(op))
-            continue
-
-        out_name = op.outputs[0] if op.outputs else None
-        out_value = current.values.get(out_name) if out_name is not None else None
-        if out_value is None or len(out_value.consumers) != 1:
-            fused_ops.append(copy.deepcopy(op))
-            continue
-
-        relu_name = out_value.consumers[0]
-        relu = op_by_name.get(relu_name)
-        if relu is None or relu.op != OpKind.RELU:
-            fused_ops.append(copy.deepcopy(op))
-            continue
-
-        attrs = dict(op.attrs)
-        attrs["fused_activation"] = "relu"
-        fused_ops.append(
-            OpNode(
-                name=f"{op.name}_relu_fused",
-                op=OpKind.LINEAR_RELU,
-                inputs=list(op.inputs),
-                outputs=list(relu.outputs),
-                attrs=attrs,
-            )
-        )
-        skip_ops.add(relu.name)
-
-    return _rebuild_graph_with_ops(current, fused_ops)
+    Thin wrapper over `FusionEngine` registering the `LINEAR_RELU_FUSION_RULE`.
+    """
+    return FusionEngine([LINEAR_RELU_FUSION_RULE]).run(graph).graph
 
 
 def scale_softmax_fusion_pass(graph: GraphIR) -> GraphIR:
-    current = _clone_graph(graph)
-    op_by_name = {op.name: op for op in current.ops}
-    skip_ops: Set[str] = set()
-    fused_ops: List[OpNode] = []
-    for op in current.ops:
-        if op.name in skip_ops:
-            continue
-        if op.op != OpKind.SCALE:
-            fused_ops.append(copy.deepcopy(op))
-            continue
-        out_name = op.outputs[0] if op.outputs else None
-        out_value = current.values.get(out_name) if out_name is not None else None
-        if out_value is None or len(out_value.consumers) != 1:
-            fused_ops.append(copy.deepcopy(op))
-            continue
-        consumer = op_by_name.get(out_value.consumers[0])
-        if consumer is None or consumer.op != OpKind.SOFTMAX:
-            fused_ops.append(copy.deepcopy(op))
-            continue
-        fused_ops.append(
-            OpNode(
-                name=f"{op.name}_softmax_fused",
-                op=OpKind.SCALED_SOFTMAX,
-                inputs=list(op.inputs),
-                outputs=list(consumer.outputs),
-                attrs={
-                    "scale": float(op.attrs.get("scale", 1.0)),
-                    "causal_mask": bool(consumer.attrs.get("causal_mask", False)),
-                },
-            )
-        )
-        skip_ops.add(consumer.name)
-    return _rebuild_graph_with_ops(current, fused_ops)
+    """Fuse SCALE -> SOFTMAX into SCALED_SOFTMAX.
+
+    Thin wrapper over `FusionEngine` registering the `SCALE_SOFTMAX_FUSION_RULE`.
+    """
+    return FusionEngine([SCALE_SOFTMAX_FUSION_RULE]).run(graph).graph
 
 
 def dead_code_elimination_pass(graph: GraphIR) -> GraphIR:
