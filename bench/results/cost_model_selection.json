@@ -1,0 +1,721 @@
+{
+  "calibration_timestamp_utc": "2026-05-24T04:52:20.912612+00:00",
+  "cost_model_coefficients": {
+    "cta_memory_us_per_kib": 0.45270084669953725,
+    "idle_thread_ratio_us": 0.611316707850233,
+    "intercept_us": 6.083269763496125,
+    "large_k_unroll_gain_us": 8.545357923107805e-30,
+    "large_out_small_k_wave_tpb_efficiency_us": 1.686016889614964,
+    "memory_us_per_kib": 0.015118496966772829,
+    "small_out_idle_penalty_us": 3.2852836345549576e-10,
+    "small_out_tpb_interaction_us": 0.0026615584041157197,
+    "small_out_unroll_interaction_us": 0.3076633207927769,
+    "small_out_unroll_penalty_us": 4.6634820689398216e-05,
+    "tile_tail_penalty_us": 0.5,
+    "underoccupancy_penalty_us": 0.7415848582817517,
+    "unroll_gain_us": 2.2762092074996075e-25,
+    "unroll_k_tail_penalty_us": 0.4,
+    "unroll_shape_interaction_us": 7.870544019749061e-24,
+    "wave_tpb_interaction_us": 2.988537955887788e-18
+  },
+  "generated_at_utc": "2026-05-25T03:20:13.456707+00:00",
+  "methodology": {
+    "api": "firmware/host/cost_model.py::select",
+    "candidate_set": "every schedule with measurements for the shape (16 schedules per shape on the standard 4x4 grid)",
+    "notes": "Calibration coefficients are loaded from the same file the runtime uses (cuda_autotuner.load_cost_model_target).",
+    "oracle": "min median measured CUDA-event latency per shape over calibration replicates",
+    "regret_pct": "(measured(chosen) - measured(oracle)) / measured(oracle) * 100",
+    "scope": "blocked-FC schedule selection on CUDA; no fused-vs-unfused or backend-class decision",
+    "top1_accuracy": "fraction of shapes where the cost-model choice equals the oracle schedule"
+  },
+  "per_shape": [
+    {
+      "candidates_considered": 16,
+      "chosen_measured_latency_us_median": 7.192249991931021,
+      "chosen_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 1
+      },
+      "confidence": 0.0023791697277050217,
+      "is_top1": false,
+      "margin_pct": 0.011910022245415302,
+      "oracle_measured_latency_us_median": 6.838999921455979,
+      "oracle_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 2
+      },
+      "predicted_latency_us": 7.194214906534143,
+      "regret_pct": 5.165229924433706,
+      "runner_up_predicted_latency_us": 7.195071739129895,
+      "runner_up_schedule": {
+        "threads_per_block": 256,
+        "unroll_factor": 1
+      },
+      "shape": {
+        "array_size": 16,
+        "in_features": 16,
+        "out_features": 16
+      }
+    },
+    {
+      "candidates_considered": 16,
+      "chosen_measured_latency_us_median": 7.0599999744445086,
+      "chosen_schedule": {
+        "threads_per_block": 256,
+        "unroll_factor": 1
+      },
+      "confidence": 0.0,
+      "is_top1": false,
+      "margin_pct": 0.0,
+      "oracle_measured_latency_us_median": 6.759499898180366,
+      "oracle_schedule": {
+        "threads_per_block": 256,
+        "unroll_factor": 8
+      },
+      "predicted_latency_us": 6.626367018988137,
+      "regret_pct": 4.445596283610221,
+      "runner_up_predicted_latency_us": 6.626367018988137,
+      "runner_up_schedule": {
+        "threads_per_block": 256,
+        "unroll_factor": 2
+      },
+      "shape": {
+        "array_size": 16,
+        "in_features": 16,
+        "out_features": 64
+      }
+    },
+    {
+      "candidates_considered": 16,
+      "chosen_measured_latency_us_median": 6.999249919317663,
+      "chosen_schedule": {
+        "threads_per_block": 256,
+        "unroll_factor": 1
+      },
+      "confidence": 0.0,
+      "is_top1": false,
+      "margin_pct": 0.0,
+      "oracle_measured_latency_us_median": 6.7827500170096755,
+      "oracle_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 1
+      },
+      "predicted_latency_us": 5.924419710051613,
+      "regret_pct": 3.191919232834058,
+      "runner_up_predicted_latency_us": 5.924419710051613,
+      "runner_up_schedule": {
+        "threads_per_block": 256,
+        "unroll_factor": 2
+      },
+      "shape": {
+        "array_size": 16,
+        "in_features": 16,
+        "out_features": 256
+      }
+    },
+    {
+      "candidates_considered": 16,
+      "chosen_measured_latency_us_median": 6.872750003822148,
+      "chosen_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 1
+      },
+      "confidence": 0.0,
+      "is_top1": false,
+      "margin_pct": 0.0,
+      "oracle_measured_latency_us_median": 6.685249973088503,
+      "oracle_schedule": {
+        "threads_per_block": 256,
+        "unroll_factor": 4
+      },
+      "predicted_latency_us": 6.52470243959585,
+      "regret_pct": 2.8046824200804306,
+      "runner_up_predicted_latency_us": 6.52470243959585,
+      "runner_up_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 2
+      },
+      "shape": {
+        "array_size": 16,
+        "in_features": 16,
+        "out_features": 512
+      }
+    },
+    {
+      "candidates_considered": 16,
+      "chosen_measured_latency_us_median": 6.828000070527196,
+      "chosen_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 1
+      },
+      "confidence": 0.04998289896343566,
+      "is_top1": false,
+      "margin_pct": 0.2563764672922397,
+      "oracle_measured_latency_us_median": 6.740500102750957,
+      "oracle_schedule": {
+        "threads_per_block": 256,
+        "unroll_factor": 8
+      },
+      "predicted_latency_us": 7.318479419695506,
+      "regret_pct": 1.2981227867725735,
+      "runner_up_predicted_latency_us": 7.337242278691231,
+      "runner_up_schedule": {
+        "threads_per_block": 256,
+        "unroll_factor": 1
+      },
+      "shape": {
+        "array_size": 16,
+        "in_features": 32,
+        "out_features": 16
+      }
+    },
+    {
+      "candidates_considered": 16,
+      "chosen_measured_latency_us_median": 7.3112500831484795,
+      "chosen_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 1
+      },
+      "confidence": 0.0,
+      "is_top1": false,
+      "margin_pct": 0.0,
+      "oracle_measured_latency_us_median": 6.76725001540035,
+      "oracle_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 2
+      },
+      "predicted_latency_us": 7.0583356714814,
+      "regret_pct": 8.038716857071023,
+      "runner_up_predicted_latency_us": 7.0583356714814,
+      "runner_up_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 2
+      },
+      "shape": {
+        "array_size": 16,
+        "in_features": 32,
+        "out_features": 64
+      }
+    },
+    {
+      "candidates_considered": 16,
+      "chosen_measured_latency_us_median": 6.845999974757433,
+      "chosen_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 1
+      },
+      "confidence": 0.0,
+      "is_top1": true,
+      "margin_pct": 0.0,
+      "oracle_measured_latency_us_median": 6.845999974757433,
+      "oracle_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 1
+      },
+      "predicted_latency_us": 6.743244043223632,
+      "regret_pct": 0.0,
+      "runner_up_predicted_latency_us": 6.743244043223632,
+      "runner_up_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 2
+      },
+      "shape": {
+        "array_size": 16,
+        "in_features": 32,
+        "out_features": 256
+      }
+    },
+    {
+      "candidates_considered": 16,
+      "chosen_measured_latency_us_median": 6.822500028647482,
+      "chosen_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 1
+      },
+      "confidence": 0.0,
+      "is_top1": true,
+      "margin_pct": 0.0,
+      "oracle_measured_latency_us_median": 6.822500028647482,
+      "oracle_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 1
+      },
+      "predicted_latency_us": 6.879310515924587,
+      "regret_pct": 0.0,
+      "runner_up_predicted_latency_us": 6.879310515924587,
+      "runner_up_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 2
+      },
+      "shape": {
+        "array_size": 16,
+        "in_features": 32,
+        "out_features": 512
+      }
+    },
+    {
+      "candidates_considered": 16,
+      "chosen_measured_latency_us_median": 7.140250061638653,
+      "chosen_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 1
+      },
+      "confidence": 0.13432380818661904,
+      "is_top1": false,
+      "margin_pct": 0.7212217639903743,
+      "oracle_measured_latency_us_median": 6.649500108323991,
+      "oracle_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 8
+      },
+      "predicted_latency_us": 7.567008446018233,
+      "regret_pct": 7.380253332131394,
+      "runner_up_predicted_latency_us": 7.621583357813907,
+      "runner_up_schedule": {
+        "threads_per_block": 256,
+        "unroll_factor": 1
+      },
+      "shape": {
+        "array_size": 16,
+        "in_features": 64,
+        "out_features": 16
+      }
+    },
+    {
+      "candidates_considered": 16,
+      "chosen_measured_latency_us_median": 6.902499939315021,
+      "chosen_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 1
+      },
+      "confidence": 0.0,
+      "is_top1": true,
+      "margin_pct": 0.0,
+      "oracle_measured_latency_us_median": 6.902499939315021,
+      "oracle_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 1
+      },
+      "predicted_latency_us": 7.555892866604055,
+      "regret_pct": 0.0,
+      "runner_up_predicted_latency_us": 7.555892866604055,
+      "runner_up_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 2
+      },
+      "shape": {
+        "array_size": 16,
+        "in_features": 64,
+        "out_features": 64
+      }
+    },
+    {
+      "candidates_considered": 16,
+      "chosen_measured_latency_us_median": 7.080500014126301,
+      "chosen_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 1
+      },
+      "confidence": 0.0,
+      "is_top1": false,
+      "margin_pct": 0.0,
+      "oracle_measured_latency_us_median": 7.017250056378543,
+      "oracle_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 4
+      },
+      "predicted_latency_us": 7.331512220146924,
+      "regret_pct": 0.9013496346801045,
+      "runner_up_predicted_latency_us": 7.331512220146924,
+      "runner_up_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 2
+      },
+      "shape": {
+        "array_size": 16,
+        "in_features": 64,
+        "out_features": 256
+      }
+    },
+    {
+      "candidates_considered": 16,
+      "chosen_measured_latency_us_median": 7.174500031396747,
+      "chosen_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 1
+      },
+      "confidence": 0.0,
+      "is_top1": false,
+      "margin_pct": 0.0,
+      "oracle_measured_latency_us_median": 7.130999932996929,
+      "oracle_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 4
+      },
+      "predicted_latency_us": 7.588526668582062,
+      "regret_pct": 0.610014006570552,
+      "runner_up_predicted_latency_us": 7.588526668582062,
+      "runner_up_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 2
+      },
+      "shape": {
+        "array_size": 16,
+        "in_features": 64,
+        "out_features": 512
+      }
+    },
+    {
+      "candidates_considered": 16,
+      "chosen_measured_latency_us_median": 7.513000047765672,
+      "chosen_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 1
+      },
+      "confidence": 0.17374235917522363,
+      "is_top1": false,
+      "margin_pct": 0.9542432013235834,
+      "oracle_measured_latency_us_median": 7.475999998860061,
+      "oracle_schedule": {
+        "threads_per_block": 256,
+        "unroll_factor": 4
+      },
+      "predicted_latency_us": 8.064066498663689,
+      "regret_pct": 0.4949177221943927,
+      "runner_up_predicted_latency_us": 8.1410173049774,
+      "runner_up_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 2
+      },
+      "shape": {
+        "array_size": 16,
+        "in_features": 128,
+        "out_features": 16
+      }
+    },
+    {
+      "candidates_considered": 16,
+      "chosen_measured_latency_us_median": 8.826750097796321,
+      "chosen_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 1
+      },
+      "confidence": 0.0,
+      "is_top1": true,
+      "margin_pct": 0.0,
+      "oracle_measured_latency_us_median": 8.826750097796321,
+      "oracle_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 1
+      },
+      "predicted_latency_us": 8.551007256849365,
+      "regret_pct": 0.0,
+      "runner_up_predicted_latency_us": 8.551007256849365,
+      "runner_up_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 2
+      },
+      "shape": {
+        "array_size": 16,
+        "in_features": 128,
+        "out_features": 64
+      }
+    },
+    {
+      "candidates_considered": 16,
+      "chosen_measured_latency_us_median": 8.998499950394034,
+      "chosen_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 1
+      },
+      "confidence": 0.0,
+      "is_top1": false,
+      "margin_pct": 0.0,
+      "oracle_measured_latency_us_median": 8.582999929785728,
+      "oracle_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 4
+      },
+      "predicted_latency_us": 8.508048573993507,
+      "regret_pct": 4.840964977366355,
+      "runner_up_predicted_latency_us": 8.508048573993507,
+      "runner_up_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 2
+      },
+      "shape": {
+        "array_size": 16,
+        "in_features": 128,
+        "out_features": 256
+      }
+    },
+    {
+      "candidates_considered": 16,
+      "chosen_measured_latency_us_median": 8.778250077739358,
+      "chosen_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 1
+      },
+      "confidence": 0.0,
+      "is_top1": false,
+      "margin_pct": 0.0,
+      "oracle_measured_latency_us_median": 8.57175001874566,
+      "oracle_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 4
+      },
+      "predicted_latency_us": 9.00695897389701,
+      "regret_pct": 2.409077009269983,
+      "runner_up_predicted_latency_us": 9.00695897389701,
+      "runner_up_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 2
+      },
+      "shape": {
+        "array_size": 16,
+        "in_features": 128,
+        "out_features": 512
+      }
+    },
+    {
+      "candidates_considered": 16,
+      "chosen_measured_latency_us_median": 8.96025006659329,
+      "chosen_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 1
+      },
+      "confidence": 0.15625369113704712,
+      "is_top1": false,
+      "margin_pct": 0.8495170574295557,
+      "oracle_measured_latency_us_median": 8.711999980732799,
+      "oracle_schedule": {
+        "threads_per_block": 128,
+        "unroll_factor": 1
+      },
+      "predicted_latency_us": 9.058182603954595,
+      "regret_pct": 2.8495188981808237,
+      "runner_up_predicted_latency_us": 9.135133410268306,
+      "runner_up_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 2
+      },
+      "shape": {
+        "array_size": 16,
+        "in_features": 256,
+        "out_features": 16
+      }
+    },
+    {
+      "candidates_considered": 16,
+      "chosen_measured_latency_us_median": 11.732999933883548,
+      "chosen_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 1
+      },
+      "confidence": 0.0,
+      "is_top1": false,
+      "margin_pct": 0.0,
+      "oracle_measured_latency_us_median": 11.18899998255074,
+      "oracle_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 2
+      },
+      "predicted_latency_us": 10.541236037339987,
+      "regret_pct": 4.861917527760981,
+      "runner_up_predicted_latency_us": 10.541236037339987,
+      "runner_up_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 2
+      },
+      "shape": {
+        "array_size": 16,
+        "in_features": 256,
+        "out_features": 64
+      }
+    },
+    {
+      "candidates_considered": 16,
+      "chosen_measured_latency_us_median": 11.31899980828166,
+      "chosen_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 1
+      },
+      "confidence": 0.0,
+      "is_top1": false,
+      "margin_pct": 0.0,
+      "oracle_measured_latency_us_median": 11.032000184059143,
+      "oracle_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 2
+      },
+      "predicted_latency_us": 10.861121281686676,
+      "regret_pct": 2.601519392985703,
+      "runner_up_predicted_latency_us": 10.861121281686676,
+      "runner_up_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 2
+      },
+      "shape": {
+        "array_size": 16,
+        "in_features": 256,
+        "out_features": 256
+      }
+    },
+    {
+      "candidates_considered": 16,
+      "chosen_measured_latency_us_median": 11.808749986812472,
+      "chosen_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 1
+      },
+      "confidence": 0.0,
+      "is_top1": false,
+      "margin_pct": 0.0,
+      "oracle_measured_latency_us_median": 11.253999779000878,
+      "oracle_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 8
+      },
+      "predicted_latency_us": 11.84382358452691,
+      "regret_pct": 4.929360393686131,
+      "runner_up_predicted_latency_us": 11.84382358452691,
+      "runner_up_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 2
+      },
+      "shape": {
+        "array_size": 16,
+        "in_features": 256,
+        "out_features": 512
+      }
+    },
+    {
+      "candidates_considered": 16,
+      "chosen_measured_latency_us_median": 11.31574995815754,
+      "chosen_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 1
+      },
+      "confidence": 0.13005273220307667,
+      "is_top1": false,
+      "margin_pct": 0.6966134044907347,
+      "oracle_measured_latency_us_median": 10.826250305399299,
+      "oracle_schedule": {
+        "threads_per_block": 128,
+        "unroll_factor": 1
+      },
+      "predicted_latency_us": 11.046414814536412,
+      "regret_pct": 4.521414515181826,
+      "runner_up_predicted_latency_us": 11.123365620850123,
+      "runner_up_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 2
+      },
+      "shape": {
+        "array_size": 16,
+        "in_features": 512,
+        "out_features": 16
+      }
+    },
+    {
+      "candidates_considered": 16,
+      "chosen_measured_latency_us_median": 17.5887499935925,
+      "chosen_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 1
+      },
+      "confidence": 0.0,
+      "is_top1": true,
+      "margin_pct": 0.0,
+      "oracle_measured_latency_us_median": 17.5887499935925,
+      "oracle_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 1
+      },
+      "predicted_latency_us": 14.521693598321226,
+      "regret_pct": 0.0,
+      "runner_up_predicted_latency_us": 14.521693598321226,
+      "runner_up_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 2
+      },
+      "shape": {
+        "array_size": 16,
+        "in_features": 512,
+        "out_features": 64
+      }
+    },
+    {
+      "candidates_considered": 16,
+      "chosen_measured_latency_us_median": 17.89875002577901,
+      "chosen_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 1
+      },
+      "confidence": 0.0,
+      "is_top1": true,
+      "margin_pct": 0.0,
+      "oracle_measured_latency_us_median": 17.89875002577901,
+      "oracle_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 1
+      },
+      "predicted_latency_us": 15.567266697073013,
+      "regret_pct": 0.0,
+      "runner_up_predicted_latency_us": 15.567266697073013,
+      "runner_up_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 2
+      },
+      "shape": {
+        "array_size": 16,
+        "in_features": 512,
+        "out_features": 256
+      }
+    },
+    {
+      "candidates_considered": 16,
+      "chosen_measured_latency_us_median": 18.02299963310361,
+      "chosen_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 1
+      },
+      "confidence": 0.0,
+      "is_top1": true,
+      "margin_pct": 0.0,
+      "oracle_measured_latency_us_median": 18.02299963310361,
+      "oracle_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 1
+      },
+      "predicted_latency_us": 17.517552805786707,
+      "regret_pct": 0.0,
+      "runner_up_predicted_latency_us": 17.517552805786707,
+      "runner_up_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 2
+      },
+      "shape": {
+        "array_size": 16,
+        "in_features": 512,
+        "out_features": 512
+      }
+    }
+  ],
+  "source_calibration_json": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\reports\\cost_model_calibration.json",
+  "summary": {
+    "max_regret_pct": 8.038716857071023,
+    "mean_confidence": 0.0269472774747128,
+    "mean_margin_pct": 0.14541174653216263,
+    "mean_regret_pct": 2.5560239547837607,
+    "median_confidence": 0.0,
+    "median_regret_pct": 2.505298201127843,
+    "p95_regret_pct": 7.380253332131394,
+    "shape_count": 24,
+    "top1_accuracy": 0.2916666666666667,
+    "within_10pct_fraction": 1.0,
+    "within_1pct_fraction": 0.4166666666666667,
+    "within_5pct_fraction": 0.875
+  },
+  "version": 1
+}

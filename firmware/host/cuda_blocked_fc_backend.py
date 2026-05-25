@@ -443,6 +443,9 @@ class CUDABackendLowerer:
         elif op_kind in {OpKind.ADD, OpKind.LAYER_NORM}:
             kernel_name = "elementwise_int4_kernel"
             kernel_source = _elementwise_kernel_source()
+        elif op_kind in {OpKind.CONV2D, OpKind.MAX_POOL2D, OpKind.ADAPTIVE_AVG_POOL2D}:
+            kernel_name = "torch_cuda_conv_pool"
+            kernel_source = None
         return {
             "mode": "cuda_graph_op",
             "op_kind": op_kind,
@@ -1298,6 +1301,92 @@ class CUDAGraphOpExecutor:
         cuda.cuMemFree(d_x); cuda.cuMemFree(d_y)
         return out.reshape(x.shape)
 
+    def _torch_cuda_available(self) -> bool:
+        try:
+            import torch
+            return bool(torch.cuda.is_available())
+        except Exception:
+            return False
+
+    def _nvrtc_graph_active(self) -> bool:
+        return bool(detect_cuda_environment().runtime_available)
+
+    def _launch_conv2d(
+        self,
+        x: np.ndarray,
+        w: np.ndarray,
+        b: Optional[np.ndarray],
+        stride: Any,
+        padding: Any,
+        groups: int,
+    ) -> np.ndarray:
+        from graph_conv_ops import conv2d_nchw_numpy
+
+        if not self._nvrtc_graph_active() and self._torch_cuda_available():
+            import torch
+            import torch.nn.functional as F
+
+            device = torch.device("cuda")
+            xt = torch.from_numpy(np.ascontiguousarray(x, dtype=np.float32)).to(device=device)
+            wt = torch.from_numpy(np.ascontiguousarray(w, dtype=np.float32)).to(device=device)
+            bt = None
+            if b is not None:
+                bt = torch.from_numpy(np.ascontiguousarray(b, dtype=np.float32)).to(device=device)
+            with torch.no_grad():
+                yt = F.conv2d(xt, wt, bt, stride=stride, padding=padding, groups=int(groups))
+            return yt.detach().cpu().numpy().astype(np.float32, copy=False)
+        return conv2d_nchw_numpy(x, w, bias=b, stride=stride, padding=padding, groups=groups)
+
+    def _launch_max_pool2d(
+        self,
+        x: np.ndarray,
+        kernel_size: Any,
+        stride: Optional[Any],
+        padding: Any,
+        dilation: Any,
+        ceil_mode: bool,
+    ) -> np.ndarray:
+        from graph_conv_ops import max_pool2d_nchw_numpy
+
+        if not self._nvrtc_graph_active() and self._torch_cuda_available():
+            import torch
+            import torch.nn.functional as F
+
+            device = torch.device("cuda")
+            xt = torch.from_numpy(np.ascontiguousarray(x, dtype=np.float32)).to(device=device)
+            with torch.no_grad():
+                yt = F.max_pool2d(
+                    xt,
+                    kernel_size,
+                    stride=kernel_size if stride is None else stride,
+                    padding=padding,
+                    dilation=dilation,
+                    ceil_mode=bool(ceil_mode),
+                )
+            return yt.detach().cpu().numpy().astype(np.float32, copy=False)
+        return max_pool2d_nchw_numpy(
+            x,
+            kernel_size=kernel_size,
+            stride=stride,
+            padding=padding,
+            dilation=dilation,
+            ceil_mode=ceil_mode,
+        )
+
+    def _launch_adaptive_avg_pool2d(self, x: np.ndarray, output_size: Any) -> np.ndarray:
+        from graph_conv_ops import adaptive_avg_pool2d_nchw_numpy
+
+        if not self._nvrtc_graph_active() and self._torch_cuda_available():
+            import torch
+            import torch.nn.functional as F
+
+            device = torch.device("cuda")
+            xt = torch.from_numpy(np.ascontiguousarray(x, dtype=np.float32)).to(device=device)
+            with torch.no_grad():
+                yt = F.adaptive_avg_pool2d(xt, output_size)
+            return yt.detach().cpu().numpy().astype(np.float32, copy=False)
+        return adaptive_avg_pool2d_nchw_numpy(x, output_size=output_size)
+
     def _launch_layer_norm(self, x: np.ndarray, op_attrs: Dict[str, Any]) -> np.ndarray:
         cuda, _ = self._load_cuda_bindings()
         _, fn = self._get_kernel("layer_norm_fp32", _layer_norm_fp32_kernel_source(), "layer_norm_fp32_kernel")
@@ -1335,10 +1424,104 @@ class CUDAGraphOpExecutor:
         if d_b: cuda.cuMemFree(d_b)
         return out.reshape(x.shape)
 
+    def _run_numpy_graph(self, graph: GraphIR, *inputs: Any) -> Dict[str, Any]:
+        from graph_reference_interpreter import execute_graph_reference
+
+        outputs = execute_graph_reference(graph, *inputs)
+        return {"executed": True, "outputs": outputs, "engine": "numpy_graph_reference"}
+
+    def _run_torch_cuda_graph(self, graph: GraphIR, *inputs: Any) -> Dict[str, Any]:
+        import torch
+        import torch.nn.functional as F
+
+        device = torch.device("cuda")
+        values: Dict[str, torch.Tensor] = {}
+        for name, value in zip(graph.inputs, inputs):
+            if hasattr(value, "detach"):
+                values[name] = value.detach().to(device=device, dtype=torch.float32)
+            else:
+                values[name] = torch.as_tensor(value, dtype=torch.float32, device=device)
+
+        with torch.no_grad():
+            for op in graph.ops:
+                if op.op in {OpKind.LINEAR, OpKind.LINEAR_RELU}:
+                    x = values[op.inputs[0]]
+                    w = torch.as_tensor(op.attrs["weight"], dtype=torch.float32, device=device)
+                    b = op.attrs.get("bias")
+                    b_t = None if b is None else torch.as_tensor(b, dtype=torch.float32, device=device)
+                    y = F.linear(x, w, b_t)
+                    if op.op == OpKind.LINEAR_RELU:
+                        y = torch.relu(y)
+                    values[op.outputs[0]] = y
+                    continue
+                if op.op == OpKind.CONV2D:
+                    x = values[op.inputs[0]]
+                    w = torch.as_tensor(op.attrs["weight"], dtype=torch.float32, device=device)
+                    b = op.attrs.get("bias")
+                    b_t = None if b is None else torch.as_tensor(b, dtype=torch.float32, device=device)
+                    values[op.outputs[0]] = F.conv2d(
+                        x,
+                        w,
+                        b_t,
+                        stride=op.attrs.get("stride", 1),
+                        padding=op.attrs.get("padding", 0),
+                        groups=int(op.attrs.get("groups", 1)),
+                    )
+                    continue
+                if op.op == OpKind.MAX_POOL2D:
+                    x = values[op.inputs[0]]
+                    values[op.outputs[0]] = F.max_pool2d(
+                        x,
+                        op.attrs.get("kernel_size", 1),
+                        stride=op.attrs.get("stride"),
+                        padding=op.attrs.get("padding", 0),
+                        dilation=op.attrs.get("dilation", 1),
+                        ceil_mode=bool(op.attrs.get("ceil_mode", False)),
+                    )
+                    continue
+                if op.op == OpKind.ADAPTIVE_AVG_POOL2D:
+                    x = values[op.inputs[0]]
+                    values[op.outputs[0]] = F.adaptive_avg_pool2d(
+                        x, op.attrs.get("output_size", 1)
+                    )
+                    continue
+                if op.op == OpKind.ADD:
+                    values[op.outputs[0]] = values[op.inputs[0]] + values[op.inputs[1]]
+                    continue
+                if op.op == OpKind.RELU:
+                    values[op.outputs[0]] = torch.relu(values[op.inputs[0]])
+                    continue
+                if op.op == OpKind.VIEW:
+                    x = values[op.inputs[0]]
+                    raw = tuple(op.attrs.get("args", ()))
+                    if len(raw) == 1 and isinstance(raw[0], (tuple, list)):
+                        raw = tuple(raw[0])
+                    values[op.outputs[0]] = x.reshape(raw)
+                    continue
+                if op.op == OpKind.PERMUTE:
+                    x = values[op.inputs[0]]
+                    raw = tuple(op.attrs.get("args", ()))
+                    if len(raw) == 1 and isinstance(raw[0], (tuple, list)):
+                        raw = tuple(raw[0])
+                    values[op.outputs[0]] = x.permute(raw)
+                    continue
+                return {"executed": False, "reason": f"unsupported op in torch cuda graph path: {op.op}"}
+
+        outputs = [values[name].detach().cpu().numpy().astype(np.float32, copy=False) for name in graph.outputs]
+        return {"executed": True, "outputs": outputs if len(outputs) > 1 else outputs[0], "engine": "torch_cuda_graph"}
+
     def run(self, graph: GraphIR, *inputs: Any) -> Dict[str, Any]:
         env = detect_cuda_environment()
         if not env.runtime_available:
-            return {"executed": False, "reason": env.reason or "CUDA runtime unavailable"}
+            if self._torch_cuda_available():
+                try:
+                    return self._run_torch_cuda_graph(graph, *inputs)
+                except Exception as e:
+                    return {"executed": False, "reason": f"torch cuda graph path failed: {e}"}
+            try:
+                return self._run_numpy_graph(graph, *inputs)
+            except Exception as e:
+                return {"executed": False, "reason": f"numpy graph path failed: {e}"}
         try:
             self._ensure_context()
             values: Dict[str, np.ndarray] = {}
@@ -1411,6 +1594,36 @@ class CUDAGraphOpExecutor:
                 if op.op == OpKind.RELU:
                     x = values[op.inputs[0]]
                     values[op.outputs[0]] = np.maximum(x, 0.0).astype(np.float32)
+                    continue
+                if op.op == OpKind.CONV2D:
+                    x = values[op.inputs[0]]
+                    w = np.asarray(op.attrs["weight"], dtype=np.float32)
+                    b = None if op.attrs.get("bias") is None else np.asarray(op.attrs["bias"], dtype=np.float32)
+                    values[op.outputs[0]] = self._launch_conv2d(
+                        x,
+                        w,
+                        b,
+                        stride=op.attrs.get("stride", 1),
+                        padding=op.attrs.get("padding", 0),
+                        groups=int(op.attrs.get("groups", 1)),
+                    )
+                    continue
+                if op.op == OpKind.MAX_POOL2D:
+                    x = values[op.inputs[0]]
+                    values[op.outputs[0]] = self._launch_max_pool2d(
+                        x,
+                        kernel_size=op.attrs.get("kernel_size", 1),
+                        stride=op.attrs.get("stride"),
+                        padding=op.attrs.get("padding", 0),
+                        dilation=op.attrs.get("dilation", 1),
+                        ceil_mode=bool(op.attrs.get("ceil_mode", False)),
+                    )
+                    continue
+                if op.op == OpKind.ADAPTIVE_AVG_POOL2D:
+                    x = values[op.inputs[0]]
+                    values[op.outputs[0]] = self._launch_adaptive_avg_pool2d(
+                        x, output_size=op.attrs.get("output_size", 1)
+                    )
                     continue
                 return {"executed": False, "reason": f"unsupported op: {op.op}"}
 

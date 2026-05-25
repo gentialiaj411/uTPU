@@ -235,6 +235,10 @@ module tb_fused_compressed_program;
     end
 
     initial begin
+`ifdef DUMP_VCD
+        $dumpfile("build/sim_iverilog/tb_fused_compressed_program.vcd");
+        $dumpvars(0, tb_fused_compressed_program);
+`endif
         trace_fd = $fopen("build/reports/rtl_fused_trace.log", "w");
         if (trace_fd == 0) begin
             $display("TRACE_OPEN_FAIL");

@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from graph_ir import GraphIR, OpKind, OpNode
 
@@ -22,6 +22,14 @@ class RuntimeOpPlan:
     weight_buffer: Optional[str] = None
     bias_buffer: Optional[str] = None
     apply_relu: bool = False
+    # Phase 1: cost-model-selected CUDA blocked-FC schedule for this op
+    # (LINEAR / LINEAR_RELU only, target == "cuda", known shape). `None`
+    # means the cost model did not commit a choice (unknown shape, not a
+    # blocked-FC op, or non-CUDA target). The backend is free to ignore
+    # this hint; it is recorded for provenance and downstream selection
+    # consumers.
+    cuda_schedule: Optional[Dict[str, int]] = None
+    cuda_schedule_provenance: Optional[Dict[str, Any]] = None
 
 
 @dataclass
@@ -52,11 +60,74 @@ def _buffer_for_value(graph: GraphIR, name: str, kind: str, source: Optional[str
     )
 
 
-def build_graph_runtime_plan(graph: GraphIR, target: str) -> GraphRuntimePlan:
-    plan = GraphRuntimePlan(graph_name=graph.name, target=(target or "cuda").strip().lower())
+_DEFAULT_CUDA_SCHEDULE_GRID: Tuple[Dict[str, int], ...] = tuple(
+    {"threads_per_block": t, "unroll_factor": u}
+    for t in (32, 64, 128, 256)
+    for u in (1, 2, 4, 8)
+)
+
+
+def _default_cuda_schedule_selector(
+    out_features: int,
+    in_features: int,
+    array_size: int,
+) -> Optional[Dict[str, Any]]:
+    """Default cost-model selection: pick a CUDA blocked-FC schedule for the op.
+
+    Imported lazily to avoid a circular dependency between graph_runtime_plan
+    and the calibrated cost-model target loader.
+    """
+    from cost_model import select as cost_model_select  # local to avoid cycles
+    try:
+        from cuda_autotuner import load_cost_model_target
+        target = load_cost_model_target()
+    except Exception:
+        target = "cuda"
+
+    shape = {
+        "out_features": int(out_features),
+        "in_features": int(in_features),
+        "batch": 1,
+        "array_size": int(array_size),
+        "apply_quant": True,
+    }
+    choice = cost_model_select(shape, _DEFAULT_CUDA_SCHEDULE_GRID, target=target)
+    return {
+        "schedule": dict(choice.schedule),
+        "provenance": {
+            "selector": "cost_model.select",
+            "candidates_considered": int(choice.candidates_considered),
+            "predicted_latency_us": float(choice.predicted_latency_us),
+            "runner_up_schedule": dict(choice.runner_up_schedule) if choice.runner_up_schedule else None,
+            "runner_up_predicted_latency_us": (
+                float(choice.runner_up_predicted_latency_us)
+                if choice.runner_up_predicted_latency_us is not None
+                else None
+            ),
+            "margin_pct": float(choice.margin_pct),
+            "confidence": float(choice.confidence),
+            "target_name": choice.target_name,
+            "rank": int(choice.rank),
+        },
+    }
+
+
+def build_graph_runtime_plan(
+    graph: GraphIR,
+    target: str,
+    cuda_schedule_selector: Optional[Callable[[int, int, int], Optional[Dict[str, Any]]]] = None,
+) -> GraphRuntimePlan:
+    target_name = (target or "cuda").strip().lower()
+    plan = GraphRuntimePlan(graph_name=graph.name, target=target_name)
     plan.memory_plan = dict(graph.metadata.get("memory_plan", {}))
     op_by_name: Dict[str, OpNode] = {op.name: op for op in graph.ops}
     consumed_relu = set()
+
+    # Default cost-model selector is wired only on CUDA. Caller may pass an
+    # explicit selector (e.g. for tests, or to point at a different cost
+    # model). Passing `lambda *_: None` disables the hint entirely.
+    if cuda_schedule_selector is None and target_name == "cuda":
+        cuda_schedule_selector = _default_cuda_schedule_selector
 
     for input_name in graph.inputs:
         plan.input_buffers.append(_buffer_for_value(graph, input_name, kind="input"))
@@ -79,6 +150,9 @@ def build_graph_runtime_plan(graph: GraphIR, target: str) -> GraphRuntimePlan:
             OpKind.BATCHED_MATMUL,
             OpKind.SCALE,
             OpKind.SCALED_SOFTMAX,
+            OpKind.CONV2D,
+            OpKind.MAX_POOL2D,
+            OpKind.ADAPTIVE_AVG_POOL2D,
         }:
             plan.unsupported_ops.append(f"Runtime does not support op '{op.name}' kind '{op.op}'")
             continue
@@ -117,6 +191,27 @@ def build_graph_runtime_plan(graph: GraphIR, target: str) -> GraphRuntimePlan:
                     )
                 )
 
+            cuda_schedule: Optional[Dict[str, int]] = None
+            cuda_schedule_provenance: Optional[Dict[str, Any]] = None
+            if cuda_schedule_selector is not None:
+                weight_shape = tuple(op.attrs["weight"].shape)
+                if len(weight_shape) == 2:
+                    out_features = int(weight_shape[0])
+                    in_features = int(weight_shape[1])
+                    array_size = int(op.attrs.get("array_size", 16))
+                    try:
+                        choice_dict = cuda_schedule_selector(out_features, in_features, array_size)
+                    except Exception as exc:
+                        choice_dict = None
+                        cuda_schedule_provenance = {
+                            "selector_error": f"{type(exc).__name__}: {exc}",
+                        }
+                    if choice_dict is not None:
+                        cuda_schedule = dict(choice_dict.get("schedule", {})) or None
+                        provenance = choice_dict.get("provenance")
+                        if provenance is not None:
+                            cuda_schedule_provenance = dict(provenance)
+
             plan.ops.append(
                 RuntimeOpPlan(
                     graph_op=op.name,
@@ -126,6 +221,8 @@ def build_graph_runtime_plan(graph: GraphIR, target: str) -> GraphRuntimePlan:
                     weight_buffer=weight_name,
                     bias_buffer=bias_name if op.attrs.get("bias") is not None else None,
                     apply_relu=apply_relu,
+                    cuda_schedule=cuda_schedule,
+                    cuda_schedule_provenance=cuda_schedule_provenance,
                 )
             )
         else:

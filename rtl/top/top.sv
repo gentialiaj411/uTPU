@@ -39,6 +39,7 @@ module top #(
     localparam logic [7:0] MAGIC_UPLOAD = 8'hA1; // host: begin program upload
     localparam logic [7:0] MAGIC_START  = 8'hA2; // host: start execution
     localparam logic [7:0] MAGIC_REARM  = 8'hA3; // host: re-arm from HALT
+    localparam logic [7:0] MAGIC_READ_PERF = 8'hA4; // host: stream perf counters
 
     // -----------------------------------------------------------------------
     // Controller registers
@@ -125,6 +126,12 @@ module top #(
     logic        buffer_done_dddd;
     logic        buffer_done_ddddd;
     logic        tx_selftest_sent;
+    logic [63:0] perf_cycle_counter;
+    logic [63:0] perf_busy_counter;
+    logic [63:0] perf_program_count;
+    logic [191:0] perf_snapshot;
+    logic         perf_stream_active;
+    logic [4:0]   perf_stream_idx;
 
     // -----------------------------------------------------------------------
     // Instruction BRAM + program counter
@@ -336,6 +343,20 @@ module top #(
             current_state <= RESET_STATE;
         else
             current_state <= next_state;
+    end
+
+    always_ff @(posedge clk) begin
+        if (rst_int) begin
+            perf_cycle_counter <= '0;
+            perf_busy_counter <= '0;
+            perf_program_count <= '0;
+        end else begin
+            perf_cycle_counter <= perf_cycle_counter + 1'b1;
+            if (compute_en)
+                perf_busy_counter <= perf_busy_counter + 1'b1;
+            if (current_state == DECODE_STATE && opcode == HALT_OP)
+                perf_program_count <= perf_program_count + 1'b1;
+        end
     end
 
     // One-cycle buffer_done delay (BRAM read latency alignment)
@@ -565,6 +586,9 @@ module top #(
                 bstore_base_addr <= '0;
                 bstore_data_word <= '0;
                 load_is_weights  <= 1'b0;
+                perf_snapshot    <= '0;
+                perf_stream_active <= 1'b0;
+                perf_stream_idx  <= '0;
                 for (int ai = 0; ai < ARRAY_SIZE; ai++)
                     acc_partial_sums[ai] <= '0;
 `ifdef ICARUS
@@ -624,9 +648,21 @@ module top #(
                             end
                         end
 
-                        WAIT_START_STATE: ; // transition handled by next_state on MAGIC_START
+                        WAIT_START_STATE: begin
+                            if (rx_fifo_to_mem == MAGIC_READ_PERF) begin
+                                perf_snapshot <= {perf_cycle_counter, perf_busy_counter, perf_program_count};
+                                perf_stream_active <= 1'b1;
+                                perf_stream_idx <= '0;
+                            end
+                        end
 
-                        HALT_STATE: ; // transition handled by next_state on MAGIC_REARM
+                        HALT_STATE: begin
+                            if (rx_fifo_to_mem == MAGIC_READ_PERF) begin
+                                perf_snapshot <= {perf_cycle_counter, perf_busy_counter, perf_program_count};
+                                perf_stream_active <= 1'b1;
+                                perf_stream_idx <= '0;
+                            end
+                        end
                     endcase
 
                 end else if (~rx_pending && ~rx_we && ~rx_empty) begin
@@ -1005,6 +1041,15 @@ module top #(
             if (rx_valid && ~tx_full) begin
                 tx_we    <= 1'b1;
                 tx_wdata <= rx_to_fifo;
+            end
+        end else if (perf_stream_active && ~tx_full) begin
+            tx_we    <= 1'b1;
+            tx_wdata <= perf_snapshot[191 - (perf_stream_idx * 8) -: 8];
+            if (perf_stream_idx == 5'd23) begin
+                perf_stream_active <= 1'b0;
+                perf_stream_idx    <= '0;
+            end else begin
+                perf_stream_idx <= perf_stream_idx + 1'b1;
             end
         end else if (DEBUG_STORE_ACK && store_ack_pending && ~tx_full) begin
             tx_we             <= 1'b1;

@@ -85,6 +85,68 @@ def _linear_attrs(module: Any) -> Dict[str, Any]:
     }
 
 
+def _conv2d_attrs(module: Any) -> Dict[str, Any]:
+    weight = module.weight.detach().cpu().numpy()
+    bias = module.bias.detach().cpu().numpy() if module.bias is not None else None
+    return {
+        "module": module,
+        "weight": weight,
+        "bias": bias,
+        "stride": tuple(int(v) for v in module.stride),
+        "padding": tuple(int(v) for v in module.padding),
+        "dilation": tuple(int(v) for v in module.dilation),
+        "groups": int(module.groups),
+        "in_channels": int(module.in_channels),
+        "out_channels": int(module.out_channels),
+        "kernel_size": tuple(int(v) for v in module.kernel_size),
+    }
+
+
+def _batch_norm_attrs(module: Any) -> Dict[str, Any]:
+    return {
+        "module": module,
+        "weight": module.weight.detach().cpu().numpy(),
+        "bias": module.bias.detach().cpu().numpy(),
+        "running_mean": module.running_mean.detach().cpu().numpy(),
+        "running_var": module.running_var.detach().cpu().numpy(),
+        "eps": float(module.eps),
+        "num_features": int(module.num_features),
+    }
+
+
+def _int_pair(value: Any) -> Tuple[int, int]:
+    if isinstance(value, (tuple, list)):
+        if len(value) == 1:
+            v = int(value[0])
+            return v, v
+        return int(value[0]), int(value[1])
+    v = int(value)
+    return v, v
+
+
+def _max_pool_attrs(module: Any) -> Dict[str, Any]:
+    return {
+        "module": module,
+        "kernel_size": _int_pair(module.kernel_size),
+        "stride": _int_pair(module.stride) if module.stride is not None else None,
+        "padding": _int_pair(module.padding),
+        "dilation": _int_pair(module.dilation),
+        "ceil_mode": bool(module.ceil_mode),
+    }
+
+
+def _adaptive_avg_pool_attrs(module: Any) -> Dict[str, Any]:
+    out = module.output_size
+    if isinstance(out, int):
+        output_size = (int(out), int(out))
+    else:
+        output_size = tuple(int(v) for v in out)
+    return {
+        "module": module,
+        "output_size": output_size,
+    }
+
+
 def _is_relu_function(target: Any, torch: Any, F: Any) -> bool:
     return target in {torch.relu, F.relu}
 
@@ -95,6 +157,10 @@ def _is_add_function(target: Any, torch: Any) -> bool:
 
 def _is_view_method(target: Any) -> bool:
     return target in {"view", "reshape", "flatten"}
+
+
+def _is_flatten_function(target: Any, torch: Any) -> bool:
+    return target in {torch.flatten}
 
 
 def _is_permute_method(target: Any) -> bool:
@@ -158,6 +224,62 @@ def import_fx_graph_module(fx_module: Any, name: Optional[str] = None) -> GraphI
                         inputs=[input_name],
                         outputs=[node.name],
                         attrs={"target": str(node.target), "inplace": bool(module.inplace)},
+                    )
+                )
+                node_to_value[node] = node.name
+                continue
+            if isinstance(module, nn.Conv2d):
+                input_name = _single_node_arg(node)
+                graph.add_value(node.name, shape=shape, dtype=dtype, producer=node.name)
+                graph.add_op(
+                    OpNode(
+                        name=node.name,
+                        op=OpKind.CONV2D,
+                        inputs=[input_name],
+                        outputs=[node.name],
+                        attrs={**_conv2d_attrs(module), "target": str(node.target)},
+                    )
+                )
+                node_to_value[node] = node.name
+                continue
+            if isinstance(module, nn.BatchNorm2d):
+                input_name = _single_node_arg(node)
+                graph.add_value(node.name, shape=shape, dtype=dtype, producer=node.name)
+                graph.add_op(
+                    OpNode(
+                        name=node.name,
+                        op=OpKind.BATCH_NORM,
+                        inputs=[input_name],
+                        outputs=[node.name],
+                        attrs={**_batch_norm_attrs(module), "target": str(node.target)},
+                    )
+                )
+                node_to_value[node] = node.name
+                continue
+            if isinstance(module, nn.MaxPool2d):
+                input_name = _single_node_arg(node)
+                graph.add_value(node.name, shape=shape, dtype=dtype, producer=node.name)
+                graph.add_op(
+                    OpNode(
+                        name=node.name,
+                        op=OpKind.MAX_POOL2D,
+                        inputs=[input_name],
+                        outputs=[node.name],
+                        attrs={**_max_pool_attrs(module), "target": str(node.target)},
+                    )
+                )
+                node_to_value[node] = node.name
+                continue
+            if isinstance(module, nn.AdaptiveAvgPool2d):
+                input_name = _single_node_arg(node)
+                graph.add_value(node.name, shape=shape, dtype=dtype, producer=node.name)
+                graph.add_op(
+                    OpNode(
+                        name=node.name,
+                        op=OpKind.ADAPTIVE_AVG_POOL2D,
+                        inputs=[input_name],
+                        outputs=[node.name],
+                        attrs={**_adaptive_avg_pool_attrs(module), "target": str(node.target)},
                     )
                 )
                 node_to_value[node] = node.name
@@ -235,6 +357,23 @@ def import_fx_graph_module(fx_module: Any, name: Optional[str] = None) -> GraphI
                         inputs=[input_name],
                         outputs=[node.name],
                         attrs={"target": str(node.target)},
+                    )
+                )
+                node_to_value[node] = node.name
+                continue
+            if _is_flatten_function(node.target, torch):
+                input_name = _single_node_arg(node)
+                graph.add_value(node.name, shape=shape, dtype=dtype, producer=node.name)
+                graph.add_op(
+                    OpNode(
+                        name=node.name,
+                        op=OpKind.VIEW,
+                        inputs=[input_name],
+                        outputs=[node.name],
+                        attrs={
+                            "target": "flatten",
+                            "args": _normalize_view_args(node, shape, node_to_value, meta_values),
+                        },
                     )
                 )
                 node_to_value[node] = node.name

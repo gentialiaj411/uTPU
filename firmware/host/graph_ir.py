@@ -15,6 +15,10 @@ class OpKind:
     BATCHED_MATMUL = "batched_matmul"
     SCALE = "scale"
     SCALED_SOFTMAX = "scaled_softmax"
+    CONV2D = "conv2d"
+    BATCH_NORM = "batch_norm"
+    MAX_POOL2D = "max_pool2d"
+    ADAPTIVE_AVG_POOL2D = "adaptive_avg_pool2d"
 
 
 @dataclass

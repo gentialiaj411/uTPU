@@ -55,15 +55,22 @@ launch_runs impl_1 -to_step write_bitstream -jobs 4
 wait_on_run impl_1
 
 # Program device
-open_hw_manager
-connect_hw_server
-open_hw_target
-set hw_device [lindex [get_hw_devices] 0]
-current_hw_device $hw_device
-refresh_hw_device $hw_device
+if {![info exists do_program]} {
+    set do_program 0
+}
+if {$do_program} {
+    open_hw_manager
+    connect_hw_server
+    open_hw_target
+    set hw_device [lindex [get_hw_devices] 0]
+    current_hw_device $hw_device
+    refresh_hw_device $hw_device
 
-set bitfile [file join $proj_dir $proj_name.runs impl_1 ${top_name}.bit]
-set_property PROGRAM.FILE $bitfile $hw_device
-program_hw_devices $hw_device
+    set bitfile [file join $proj_dir $proj_name.runs impl_1 ${top_name}.bit]
+    set_property PROGRAM.FILE $bitfile $hw_device
+    program_hw_devices $hw_device
 
-puts "Programmed $hw_device with $bitfile"
+    puts "Programmed $hw_device with $bitfile"
+} else {
+    puts "Skipping hardware programming step (set do_program=1 to enable)."
+}

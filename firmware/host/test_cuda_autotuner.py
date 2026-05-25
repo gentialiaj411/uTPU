@@ -188,6 +188,7 @@ def test_pruning_policy_can_keep_more_than_top_k_on_ties():
             "small_out_idle_penalty_us": 0.0,
             "large_k_unroll_gain_us": 0.0,
             "small_out_unroll_penalty_us": 0.0,
+            "large_out_small_k_wave_tpb_efficiency_us": 0.0,
         },
     }
     selected, _pruned, meta = select_pruned_candidates(128, 128, 16, candidates, top_k=2, target=target)
@@ -216,6 +217,7 @@ def test_ranking_is_deterministic_under_prediction_ties():
             "small_out_idle_penalty_us": 0.0,
             "large_k_unroll_gain_us": 0.0,
             "small_out_unroll_penalty_us": 0.0,
+            "large_out_small_k_wave_tpb_efficiency_us": 0.0,
         },
     }
     ranked = rank_candidates_by_cost_model(128, 128, 16, candidates, target=target)
@@ -306,6 +308,7 @@ def test_load_cost_model_target_reads_schedule_aware_coefficients():
         "small_out_idle_penalty_us": 0.3,
         "large_k_unroll_gain_us": 0.25,
         "small_out_unroll_penalty_us": 0.2,
+        "large_out_small_k_wave_tpb_efficiency_us": 0.25,
     }
     path = _temp_cache_path()
     with open(path, "w", encoding="utf-8") as f:
@@ -322,6 +325,7 @@ def test_load_cost_model_target_reads_schedule_aware_coefficients():
     assert loaded["small_out_idle_penalty_us"] == coeffs["small_out_idle_penalty_us"]
     assert loaded["large_k_unroll_gain_us"] == coeffs["large_k_unroll_gain_us"]
     assert loaded["small_out_unroll_penalty_us"] == coeffs["small_out_unroll_penalty_us"]
+    assert loaded["large_out_small_k_wave_tpb_efficiency_us"] == coeffs["large_out_small_k_wave_tpb_efficiency_us"]
 
 
 def test_backward_compatible_coeff_loading_with_missing_new_terms():

@@ -134,6 +134,8 @@ def test_full_pass_pipeline_on_sample_mlp():
 
     assert [record.pass_name for record in result.records] == [
         "shape_inference",
+        "conv_bn_fusion",
+        "shape_inference_post_fold",
         "attention_decomposition",
         "linear_relu_fusion",
         "scale_softmax_fusion",

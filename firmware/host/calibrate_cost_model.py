@@ -123,6 +123,10 @@ def _feature_terms(shape: Dict[str, Any], schedule: Dict[str, int]) -> Dict[str,
     small_out_idle_penalty = small_out_ratio * idle_thread_ratio
     large_k_unroll_gain = unroll_log2 * math.log2(1.0 + (float(in_padded) / 128.0))
     small_out_unroll_penalty = small_out_ratio * unroll_log2
+    small_k_ratio = max(0.0, 1.0 - (float(in_padded) / 256.0))
+    large_out_small_k_wave_tpb_efficiency = (
+        tpb_norm * math.log2(1.0 + (float(out_padded) / 128.0)) / max(1.0, waves) * small_k_ratio
+    )
 
     return {
         "memory_kib": float(memory_kib),
@@ -142,6 +146,7 @@ def _feature_terms(shape: Dict[str, Any], schedule: Dict[str, int]) -> Dict[str,
         "small_out_idle_penalty": float(small_out_idle_penalty),
         "large_k_unroll_gain": float(large_k_unroll_gain),
         "small_out_unroll_penalty": float(small_out_unroll_penalty),
+        "large_out_small_k_wave_tpb_efficiency": float(large_out_small_k_wave_tpb_efficiency),
         "in_padded": float(in_padded),
         "out_padded": float(out_padded),
         "cta_rows": float(cta_rows),
@@ -173,6 +178,7 @@ def _fit_coefficients(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
         "small_out_idle_penalty_us": 0.3,
         "large_k_unroll_gain_us": 0.25,
         "small_out_unroll_penalty_us": 0.2,
+        "large_out_small_k_wave_tpb_efficiency_us": 0.25,
     }
     feature_key_for_coeff = {
         "memory_us_per_kib": "memory_kib",
@@ -189,6 +195,7 @@ def _fit_coefficients(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
         "small_out_idle_penalty_us": "small_out_idle_penalty",
         "large_k_unroll_gain_us": "large_k_unroll_gain",
         "small_out_unroll_penalty_us": "small_out_unroll_penalty",
+        "large_out_small_k_wave_tpb_efficiency_us": "large_out_small_k_wave_tpb_efficiency",
     }
     active_coeffs = []
     fixed_coeffs = []
@@ -262,6 +269,7 @@ def _fit_coefficients(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
             lat += coeffs["small_out_idle_penalty_us"] * float(f["small_out_idle_penalty"])
             lat -= coeffs["large_k_unroll_gain_us"] * float(f["large_k_unroll_gain"])
             lat += coeffs["small_out_unroll_penalty_us"] * float(f["small_out_unroll_penalty"])
+            lat -= coeffs["large_out_small_k_wave_tpb_efficiency_us"] * float(f["large_out_small_k_wave_tpb_efficiency"])
             preds.append(max(lat, eps))
         return np.asarray(preds, dtype=np.float64)
 
@@ -307,7 +315,7 @@ def _fit_coefficients(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
         "fit_nfev": int(fit.nfev),
         "fit_cost": float(fit.cost),
         "fit_l2_delta_from_p0": moved,
-        "model_form": "intercept + cta_memory_kib + total_memory_kib + underoccupancy + tile_tail - unroll_gain + unroll_k_tail_penalty - unroll_shape_interaction + small_out_tpb_interaction + small_out_unroll_interaction + idle_thread_ratio + wave_tpb_interaction + small_out_idle_penalty - large_k_unroll_gain + small_out_unroll_penalty",
+        "model_form": "intercept + cta_memory_kib + total_memory_kib + underoccupancy + tile_tail - unroll_gain + unroll_k_tail_penalty - unroll_shape_interaction + small_out_tpb_interaction + small_out_unroll_interaction + idle_thread_ratio + wave_tpb_interaction + small_out_idle_penalty - large_k_unroll_gain + small_out_unroll_penalty - large_out_small_k_wave_tpb_efficiency",
         "fit_initial_guess": p0,
         "fit_active_coefficients": ["intercept_us"] + list(active_coeffs),
         "fit_fixed_coefficients": list(fixed_coeffs),

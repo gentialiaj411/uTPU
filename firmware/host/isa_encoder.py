@@ -9,9 +9,29 @@ OPCODE_LOAD = 0b011 #3 - load data into PE array
 OPCODE_HALT = 0b100 #4 - stop execution
 OPCODE_NOP = 0b101 #7 - no operation
 OPCODE_BSTORE = 0b110 #6 - burst store sequential 16-bit words to buffer
+OPCODE_DTYPE = 0b111 #7 - multi-PE / dataflow extensions (sim-validated; not in current RTL)
+
+DTYPE_SUBOP_BUFFER_XFER = 0b00
+DTYPE_SUBOP_BARRIER = 0b01
+DTYPE_SUBOP_ACC_ADD = 0b10
+DTYPE_SUBOP_PE_SELECT = 0b11
+
+# Legacy no-op: PE routing uses D-type PE_SELECT, not address bits.
+PE_ID_SHIFT = 12
 
 INSTRUCTION_WIDTH = 16
 ADDRESS_WIDTH = 9
+
+
+def tag_pe(instruction: int, pe_id: int) -> int:
+  """Tag an encoded 16-bit instruction word with target PE id (0 or 1)."""
+  if pe_id not in (0, 1):
+    raise ValueError(f"pe_id must be 0 or 1, got {pe_id}")
+  return int(instruction) & ~(1 << PE_ID_SHIFT) | ((int(pe_id) & 1) << PE_ID_SHIFT)
+
+
+def pe_id_from_word(word: int) -> int:
+  return (int(word) >> PE_ID_SHIFT) & 1
 
 #convert list of [-8,7] ints into 16 bit value
 def int4To16(values: List[int]) -> int:
@@ -134,6 +154,56 @@ def encodeNop() -> bytes:
     instruction = OPCODE_NOP
     return instructionToBytes(instruction)
 
+def encodePeSelect(pe_id: int) -> bytes:
+  if pe_id not in (0, 1):
+    raise ValueError(f"pe_id must be 0 or 1, got {pe_id}")
+  header = OPCODE_DTYPE | (DTYPE_SUBOP_PE_SELECT << 5) | ((int(pe_id) & 1) << 3)
+  return instructionToBytes(header)
+
+
+def encodeDType(subop: int, pe_id: int = 0) -> int:
+  if subop not in (DTYPE_SUBOP_BUFFER_XFER, DTYPE_SUBOP_BARRIER, DTYPE_SUBOP_ACC_ADD, DTYPE_SUBOP_PE_SELECT):
+    raise ValueError(f"unsupported D-type subop: {subop}")
+  return OPCODE_DTYPE | ((int(subop) & 0x3) << 5)
+
+
+def encodeBufferXfer(
+  src_addr: int,
+  dst_addr: int,
+  count: int,
+  src_pe: int = 0,
+  dst_pe: int = 1,
+) -> bytes:
+  """Copy count buffer words from src_pe[src_addr:] to dst_pe[dst_addr:]."""
+  src_addr = encodeAddress(src_addr)
+  dst_addr = encodeAddress(dst_addr)
+  if count <= 0 or count > 0x7F:
+    raise ValueError(f"buffer xfer count must be in 1..127, got {count}")
+  header = encodeDType(DTYPE_SUBOP_BUFFER_XFER, pe_id=0)
+  header |= (int(dst_pe) & 1) << 3
+  header |= (int(src_pe) & 1) << 4
+  header |= (src_addr << 7)
+  trailer = (dst_addr & 0x1FF) | ((int(count) & 0x7F) << 9)
+  return instructionToBytes(header) + instructionToBytes(trailer)
+
+
+def encodeBarrier(barrier_id: int = 0) -> bytes:
+  barrier_id = encodeAddress(barrier_id)
+  header = encodeDType(DTYPE_SUBOP_BARRIER)
+  header |= (barrier_id << 7)
+  return instructionToBytes(header)
+
+
+def encodeAccAdd(src_pe: int, dst_pe: int = 0) -> bytes:
+  """Add src_pe accumulator lanes into dst_pe accumulator (sim merge primitive)."""
+  if src_pe == dst_pe:
+    raise ValueError("ACC_ADD requires distinct src_pe and dst_pe")
+  header = encodeDType(DTYPE_SUBOP_ACC_ADD)
+  header |= (int(dst_pe) & 1) << 3
+  header |= (int(src_pe) & 1) << 4
+  return instructionToBytes(header)
+
+
 def encodeBurstStore(addr: int, words: List[int]) -> bytes:
     addr = encodeAddress(addr)
     if len(words) == 0:
@@ -197,6 +267,22 @@ class ISAEncoder:
     # add BURST_STORE instruction sequence
     def burst_store(self, addr: int, words: List[int]) -> "ISAEncoder":
         self.instructions.append(encodeBurstStore(addr, words))
+        return self
+
+    def buffer_xfer(self, src_addr: int, dst_addr: int, count: int, src_pe: int = 0, dst_pe: int = 1) -> "ISAEncoder":
+        self.instructions.append(encodeBufferXfer(src_addr, dst_addr, count, src_pe=src_pe, dst_pe=dst_pe))
+        return self
+
+    def barrier(self, barrier_id: int = 0) -> "ISAEncoder":
+        self.instructions.append(encodeBarrier(barrier_id))
+        return self
+
+    def acc_add(self, src_pe: int, dst_pe: int = 0) -> "ISAEncoder":
+        self.instructions.append(encodeAccAdd(src_pe, dst_pe=dst_pe))
+        return self
+
+    def pe_select(self, pe_id: int) -> "ISAEncoder":
+        self.instructions.append(encodePeSelect(pe_id))
         return self
     
     #get program as bytes

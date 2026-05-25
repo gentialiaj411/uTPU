@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 import numpy as np
 
+from graph_conv_ops import fold_conv_bn_weights
 from graph_ir import GraphIR, OpKind, OpNode
 
 _BACKEND_SUPPORTED_OPS: Dict[str, Set[str]] = {
@@ -22,6 +23,9 @@ _BACKEND_SUPPORTED_OPS: Dict[str, Set[str]] = {
         OpKind.BATCHED_MATMUL,
         OpKind.SCALE,
         OpKind.SCALED_SOFTMAX,
+        OpKind.CONV2D,
+        OpKind.MAX_POOL2D,
+        OpKind.ADAPTIVE_AVG_POOL2D,
     },
     "utpu": {OpKind.LINEAR, OpKind.LINEAR_RELU},
 }
@@ -267,8 +271,145 @@ def shape_inference_pass(graph: GraphIR) -> GraphIR:
             in_value = inferred.get_value(op.inputs[0])
             out_value.shape = in_value.shape
             out_value.dtype = in_value.dtype or out_value.dtype
+            continue
+
+        if op.op == OpKind.CONV2D:
+            in_value = inferred.get_value(op.inputs[0])
+            in_shape = in_value.shape
+            w = op.attrs.get("weight")
+            if in_shape is not None and w is not None:
+                _, _, h_in, w_in = in_shape
+                _, _, kh, kw = np.asarray(w).shape
+                stride = op.attrs.get("stride", 1)
+                padding = op.attrs.get("padding", 0)
+                if isinstance(padding, (tuple, list)):
+                    pad_h = int(padding[0]) if len(padding) == 1 else int(padding[0])
+                    pad_w = pad_h if len(padding) == 1 else int(padding[1])
+                else:
+                    pad_h = pad_w = int(padding)
+                if isinstance(stride, (tuple, list)):
+                    sh = int(stride[0]) if len(stride) == 1 else int(stride[0])
+                    sw = sh if len(stride) == 1 else int(stride[1])
+                else:
+                    sh = sw = int(stride)
+                h_out = (int(h_in) + 2 * pad_h - kh) // sh + 1
+                w_out = (int(w_in) + 2 * pad_w - kw) // sw + 1
+                c_out = int(np.asarray(w).shape[0])
+                out_value.shape = tuple(in_shape[:-3]) + (c_out, h_out, w_out)
+            out_value.dtype = in_value.dtype or out_value.dtype
+            continue
+
+        if op.op == OpKind.MAX_POOL2D:
+            in_value = inferred.get_value(op.inputs[0])
+            in_shape = in_value.shape
+            if in_shape is not None:
+                _, _, h_in, w_in = in_shape
+                k = op.attrs.get("kernel_size", 1)
+                kh, kw = (int(k), int(k)) if not isinstance(k, (tuple, list)) else (int(k[0]), int(k[1]))
+                stride = op.attrs.get("stride")
+                if stride is None:
+                    sh, sw = kh, kw
+                elif not isinstance(stride, (tuple, list)):
+                    sh = sw = int(stride)
+                else:
+                    sh = int(stride[0]) if len(stride) == 1 else int(stride[0])
+                    sw = sh if len(stride) == 1 else int(stride[1])
+                padding = op.attrs.get("padding", 0)
+                if not isinstance(padding, (tuple, list)):
+                    pad_h = pad_w = int(padding)
+                else:
+                    pad_h = int(padding[0]) if len(padding) == 1 else int(padding[0])
+                    pad_w = pad_h if len(padding) == 1 else int(padding[1])
+                h_pad = int(h_in) + 2 * pad_h
+                w_pad = int(w_in) + 2 * pad_w
+                h_out = (h_pad - kh) // sh + 1
+                w_out = (w_pad - kw) // sw + 1
+                if bool(op.attrs.get("ceil_mode", False)):
+                    if (h_pad - kh) % sh != 0:
+                        h_out += 1
+                    if (w_pad - kw) % sw != 0:
+                        w_out += 1
+                out_value.shape = tuple(in_shape[:-2]) + (h_out, w_out)
+            out_value.dtype = in_value.dtype or out_value.dtype
+            continue
+
+        if op.op == OpKind.ADAPTIVE_AVG_POOL2D:
+            in_value = inferred.get_value(op.inputs[0])
+            in_shape = in_value.shape
+            out_size = op.attrs.get("output_size", 1)
+            if in_shape is not None:
+                if not isinstance(out_size, (tuple, list)):
+                    oh = ow = int(out_size)
+                else:
+                    oh = int(out_size[0]) if len(out_size) == 1 else int(out_size[0])
+                    ow = oh if len(out_size) == 1 else int(out_size[1])
+                out_value.shape = tuple(in_shape[:-2]) + (oh, ow)
+            out_value.dtype = in_value.dtype or out_value.dtype
+            continue
+
+        if op.op == OpKind.BATCH_NORM:
+            in_value = inferred.get_value(op.inputs[0])
+            out_value.shape = in_value.shape
+            out_value.dtype = in_value.dtype or out_value.dtype
 
     return inferred
+
+
+def conv_bn_fusion_pass(graph: GraphIR) -> GraphIR:
+    """Fold Conv2d + BatchNorm2d into a single Conv2d for inference graphs."""
+    op_by_name: Dict[str, OpNode] = {op.name: op for op in graph.ops}
+    skip: Set[str] = set()
+    fused_ops: List[OpNode] = []
+
+    def _consumers_of(value_name: str) -> List[str]:
+        value = graph.values.get(value_name)
+        if value is None:
+            return []
+        return list(value.consumers)
+
+    for op in graph.ops:
+        if op.name in skip:
+            continue
+        if op.op != OpKind.CONV2D:
+            fused_ops.append(copy.deepcopy(op))
+            continue
+
+        conv_out = op.outputs[0]
+        consumers = _consumers_of(conv_out)
+        if len(consumers) != 1:
+            fused_ops.append(copy.deepcopy(op))
+            continue
+
+        bn_op = op_by_name.get(consumers[0])
+        if bn_op is None or bn_op.op != OpKind.BATCH_NORM or bn_op.inputs[0] != conv_out:
+            fused_ops.append(copy.deepcopy(op))
+            continue
+
+        w_fold, b_fold = fold_conv_bn_weights(
+            conv_weight=op.attrs["weight"],
+            conv_bias=op.attrs.get("bias"),
+            bn_weight=bn_op.attrs["weight"],
+            bn_bias=bn_op.attrs["bias"],
+            bn_running_mean=bn_op.attrs["running_mean"],
+            bn_running_var=bn_op.attrs["running_var"],
+            bn_eps=float(bn_op.attrs.get("eps", 1e-5)),
+        )
+        fused = copy.deepcopy(op)
+        fused.attrs = dict(op.attrs)
+        fused.attrs["weight"] = w_fold
+        fused.attrs["bias"] = b_fold
+        fused.attrs["bn_fused"] = True
+        bn_out = bn_op.outputs[0]
+        for downstream in graph.ops:
+            if downstream.name in skip:
+                continue
+            downstream.inputs = [
+                fused.outputs[0] if inp == bn_out else inp for inp in downstream.inputs
+            ]
+        fused_ops.append(fused)
+        skip.add(bn_op.name)
+
+    return _rebuild_graph_with_ops(graph, fused_ops)
 
 
 def attention_decomposition_pass(graph: GraphIR) -> GraphIR:
@@ -644,6 +785,8 @@ class GraphPassManager:
         records: List[PassRecord] = []
         passes = [
             ("shape_inference", shape_inference_pass),
+            ("conv_bn_fusion", conv_bn_fusion_pass),
+            ("shape_inference_post_fold", shape_inference_pass),
             ("attention_decomposition", attention_decomposition_pass),
             ("linear_relu_fusion", linear_relu_fusion_pass),
             ("scale_softmax_fusion", scale_softmax_fusion_pass),

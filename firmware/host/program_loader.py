@@ -27,6 +27,7 @@ from cuda_blocked_fc_backend import CUDABlockedFCExecutor
 MAGIC_UPLOAD = 0xA1   # begin program upload
 MAGIC_START  = 0xA2   # start execution
 MAGIC_REARM  = 0xA3   # re-arm from HALT (optional, requires hardware reset otherwise)
+MAGIC_READ_PERF = 0xA4  # read 3x64-bit perf counters (cycle, busy, program_count)
 
 
 class ProgramLoader:
@@ -119,6 +120,19 @@ class ProgramLoader:
         Alternative: assert hardware reset line."""
         self.uart.send_bytes_to_chip(bytes([MAGIC_REARM]))
         self._log("Re-arm signal sent")
+
+    def readPerfCounters(self, timeout: float = 0.5) -> Dict[str, int]:
+        """Read cycle, busy, and program counters over UART."""
+        self.uart.flush_input()
+        self.uart.send_bytes_to_chip(bytes([MAGIC_READ_PERF]))
+        payload = self.uart.receive_exact(24, timeout=timeout)
+        if len(payload) != 24:
+            raise RuntimeError(f"Expected 24 perf bytes, received {len(payload)}")
+        return {
+            "cycle_counter": int.from_bytes(payload[0:8], byteorder="big", signed=False),
+            "busy_counter": int.from_bytes(payload[8:16], byteorder="big", signed=False),
+            "program_count": int.from_bytes(payload[16:24], byteorder="big", signed=False),
+        }
 
     # ------------------------------------------------------------------
     # Array helpers (unchanged)
@@ -765,6 +779,46 @@ class ProgramLoader:
         fc2_apply_relu: bool = False,
         apply_quant: bool = True,
         result_addr: int = BUFFER_SECTION_C,
+        num_pe: int = 1,
+    ) -> Dict[str, Any]:
+        """
+        Build one fused compressed program:
+        FC1 accumulate/finalize (no host fetch) -> FC2 consume FC1 output buffer -> final fetch -> HALT.
+
+        ``num_pe=2`` emits a dual-PE FC1 K-split schedule when FC1 has >=2 K-blocks.
+        """
+        if int(num_pe) == 2:
+            return self._build_full_inference_program_compressed_fused_2pe(
+                fc1_weights_int4=fc1_weights_int4,
+                fc2_weights_int4=fc2_weights_int4,
+                input_activations_int4=input_activations_int4,
+                array_size=array_size,
+                fc1_apply_relu=fc1_apply_relu,
+                fc2_apply_relu=fc2_apply_relu,
+                apply_quant=apply_quant,
+                result_addr=result_addr,
+            )
+        return self._build_full_inference_program_compressed_fused_1pe(
+            fc1_weights_int4=fc1_weights_int4,
+            fc2_weights_int4=fc2_weights_int4,
+            input_activations_int4=input_activations_int4,
+            array_size=array_size,
+            fc1_apply_relu=fc1_apply_relu,
+            fc2_apply_relu=fc2_apply_relu,
+            apply_quant=apply_quant,
+            result_addr=result_addr,
+        )
+
+    def _build_full_inference_program_compressed_fused_1pe(
+        self,
+        fc1_weights_int4,
+        fc2_weights_int4,
+        input_activations_int4,
+        array_size: Optional[int] = None,
+        fc1_apply_relu: bool = True,
+        fc2_apply_relu: bool = False,
+        apply_quant: bool = True,
+        result_addr: int = BUFFER_SECTION_C,
     ) -> Dict[str, Any]:
         """
         Build one fused compressed program:
@@ -904,8 +958,163 @@ class ProgramLoader:
             "fc2_out_blocks": int(fc2_out_blocks),
             "fc2_in_blocks": int(fc2_in_blocks),
             "mode": "compressed_fused",
+            "num_pe": 1,
             "breakdown": breakdown,
             "executable_on_current_fpga_path": bool(apply_quant),
+        }
+
+    def _build_full_inference_program_compressed_fused_2pe(
+        self,
+        fc1_weights_int4,
+        fc2_weights_int4,
+        input_activations_int4,
+        array_size: Optional[int] = None,
+        fc1_apply_relu: bool = True,
+        fc2_apply_relu: bool = False,
+        apply_quant: bool = True,
+        result_addr: int = BUFFER_SECTION_C,
+    ) -> Dict[str, Any]:
+        base = self._build_full_inference_program_compressed_fused_1pe(
+            fc1_weights_int4=fc1_weights_int4,
+            fc2_weights_int4=fc2_weights_int4,
+            input_activations_int4=input_activations_int4,
+            array_size=array_size,
+            fc1_apply_relu=fc1_apply_relu,
+            fc2_apply_relu=fc2_apply_relu,
+            apply_quant=apply_quant,
+            result_addr=result_addr,
+        )
+        a = array_size or self.default_array_size
+        fc1_w = np.asarray(fc1_weights_int4, dtype=np.int8)
+        fc2_w = np.asarray(fc2_weights_int4, dtype=np.int8)
+        x = np.asarray(input_activations_int4, dtype=np.int8).flatten()
+        fc1_out, fc1_in = fc1_w.shape
+        fc2_out, fc2_in = fc2_w.shape
+        fc1_in_blocks = math.ceil(fc1_in / a)
+        if fc1_in_blocks < 2:
+            return {
+                **base,
+                "num_pe": 1,
+                "mode": "compressed_fused",
+                "multi_pe_requested": True,
+                "multi_pe_schedule_emitted": False,
+                "multi_pe_fallback_reason": "FC1 has fewer than two K-blocks; 2-PE schedule requires K-split",
+            }
+
+        fc1_out_blocks = math.ceil(fc1_out / a)
+        fc2_out_blocks = math.ceil(fc2_out / a)
+        fc2_in_blocks = math.ceil(fc2_in / a)
+        fc1_w_pad = np.zeros((fc1_out_blocks * a, fc1_in_blocks * a), dtype=np.int8)
+        fc1_w_pad[:fc1_out, :fc1_in] = fc1_w
+        x_pad = np.zeros(fc1_in_blocks * a, dtype=np.int8)
+        x_pad[:fc1_in] = x
+        fc2_w_pad = np.zeros((fc2_out_blocks * a, fc2_in_blocks * a), dtype=np.int8)
+        fc2_w_pad[:fc2_out, :fc2_in] = fc2_w
+
+        split = fc1_in_blocks // 2
+        pe0_k_blocks = list(range(0, split if split > 0 else 1))
+        pe1_k_blocks = list(range(split if split > 0 else 1, fc1_in_blocks))
+        if not pe0_k_blocks or not pe1_k_blocks:
+            return {
+                **base,
+                "num_pe": 1,
+                "mode": "compressed_fused",
+                "multi_pe_requested": True,
+                "multi_pe_schedule_emitted": False,
+                "multi_pe_fallback_reason": "unable to partition FC1 K-blocks across two PEs",
+            }
+
+        e = ISAEncoder()
+        fc1_input_words = self._pack_int4_words(x_pad)
+        e.burst_store(self.BUFFER_SECTION_A, fc1_input_words)
+        e.buffer_xfer(
+            src_addr=self.BUFFER_SECTION_A,
+            dst_addr=self.BUFFER_SECTION_A,
+            count=len(fc1_input_words),
+            src_pe=0,
+            dst_pe=1,
+        )
+
+        def _emit_fc1_k_blocks(pe_id: int, k_blocks: List[int]) -> None:
+            e.pe_select(pe_id)
+            for ob in range(fc1_out_blocks):
+                out_base_addr = result_addr + ob * (a // 4)
+                o0 = ob * a
+                o1 = o0 + a
+                for ib in k_blocks:
+                    i0 = ib * a
+                    i1 = i0 + a
+                    weight_words = self._pack_int4_words(fc1_w_pad[o0:o1, i0:i1])
+                    e.burst_store(self.BUFFER_SECTION_B, weight_words)
+                    e.loadWeights(self.BUFFER_SECTION_B)
+                    e.loadInputs(self.BUFFER_SECTION_A + (4 * ib))
+                    e.run(
+                        out_base_addr,
+                        compute=True,
+                        quantize=False,
+                        relu=False,
+                        acc_clear=(ib == k_blocks[0]),
+                    )
+
+        _emit_fc1_k_blocks(0, pe0_k_blocks)
+        _emit_fc1_k_blocks(1, pe1_k_blocks)
+        e.pe_select(0)
+        e.barrier(barrier_id=0)
+        e.acc_add(src_pe=1, dst_pe=0)
+
+        for ob in range(fc1_out_blocks):
+            out_base_addr = result_addr + ob * (a // 4)
+            e.instructions.append(
+                self._encode_finalize_no_fetch_op(out_base_addr, apply_quant=apply_quant, apply_relu=fc1_apply_relu)
+            )
+
+        for ob in range(fc2_out_blocks):
+            out_base_addr = result_addr + ob * (a // 4)
+            o0 = ob * a
+            o1 = o0 + a
+            for ib in range(fc2_in_blocks):
+                i0 = ib * a
+                i1 = i0 + a
+                e.instructions.append(
+                    self._encode_accumulate_op_compressed_from_buffer(
+                        fc2_w_pad[o0:o1, i0:i1],
+                        input_base_addr=result_addr,
+                        out_base_addr=out_base_addr,
+                        acc_clear=(ib == 0),
+                    )
+                )
+            e.run(out_base_addr, compute=False, quantize=apply_quant, relu=fc2_apply_relu, acc_clear=False)
+            needed_words = math.ceil(fc2_out / 4)
+            for widx in range(needed_words):
+                addr = out_base_addr + widx
+                e.fetch(addr, top_half=False)
+                e.fetch(addr, top_half=True)
+
+        e.halt()
+        program = e.getProgram()
+        words = len(program) // 2
+        return {
+            "program": program,
+            "program_instruction_words": int(words),
+            "fits_instruction_bram": bool(words <= 1024),
+            "array_size": int(a),
+            "fc1_out_blocks": int(fc1_out_blocks),
+            "fc1_in_blocks": int(fc1_in_blocks),
+            "fc2_out_blocks": int(fc2_out_blocks),
+            "fc2_in_blocks": int(fc2_in_blocks),
+            "mode": "compressed_fused_2pe",
+            "num_pe": 2,
+            "multi_pe_requested": True,
+            "multi_pe_schedule_emitted": True,
+            "multi_pe_fc1_k_split": {
+                "pe0_k_blocks": pe0_k_blocks,
+                "pe1_k_blocks": pe1_k_blocks,
+            },
+            "executable_on_current_fpga_path": False,
+            "multi_pe_sim_only": True,
+            "blockers": [
+                "2-PE schedule is simulator-validated only; current RTL is single-PE.",
+            ],
         }
 
     # ------------------------------------------------------------------

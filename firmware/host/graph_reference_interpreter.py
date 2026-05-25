@@ -3,6 +3,11 @@ from typing import Any, Dict, Tuple
 
 import numpy as np
 
+from graph_conv_ops import (
+    adaptive_avg_pool2d_nchw_numpy,
+    conv2d_nchw_numpy,
+    max_pool2d_nchw_numpy,
+)
 from graph_ir import GraphIR, OpKind
 
 
@@ -205,6 +210,40 @@ class GraphReferenceInterpreter:
                     tri = np.triu(np.ones((x.shape[-2], x.shape[-1]), dtype=bool), k=1)
                     x = np.where(tri, -1e9, x)
                 values[op.outputs[0]] = _stable_softmax(x * s, axis=-1).astype(np.float32, copy=False)
+                continue
+
+            if op.op == OpKind.CONV2D:
+                x = _as_float32(values[op.inputs[0]])
+                w = _as_float32(op.attrs["weight"])
+                b = op.attrs.get("bias")
+                b_arr = _as_float32(b) if b is not None else None
+                values[op.outputs[0]] = conv2d_nchw_numpy(
+                    x,
+                    w,
+                    bias=b_arr,
+                    stride=op.attrs.get("stride", 1),
+                    padding=op.attrs.get("padding", 0),
+                    groups=int(op.attrs.get("groups", 1)),
+                )
+                continue
+
+            if op.op == OpKind.MAX_POOL2D:
+                x = _as_float32(values[op.inputs[0]])
+                values[op.outputs[0]] = max_pool2d_nchw_numpy(
+                    x,
+                    kernel_size=op.attrs.get("kernel_size", 1),
+                    stride=op.attrs.get("stride"),
+                    padding=op.attrs.get("padding", 0),
+                    dilation=op.attrs.get("dilation", 1),
+                    ceil_mode=bool(op.attrs.get("ceil_mode", False)),
+                )
+                continue
+
+            if op.op == OpKind.ADAPTIVE_AVG_POOL2D:
+                x = _as_float32(values[op.inputs[0]])
+                values[op.outputs[0]] = adaptive_avg_pool2d_nchw_numpy(
+                    x, output_size=op.attrs.get("output_size", 1)
+                )
                 continue
 
             raise GraphReferenceInterpreterError(f"Unsupported op '{op.op}' in reference interpreter")
