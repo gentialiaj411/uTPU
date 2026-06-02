@@ -1,7 +1,7 @@
 `timescale 1ns/1ps
-`include "build/test_vectors/fused_expected.svh"
+`include "build/test_vectors/fused_residual_expected.svh"
 
-module tb_fused_compressed_program;
+module tb_fused_residual_program;
     logic clk = 0;
     logic rst = 0;
     logic rx = 1'b1;
@@ -12,7 +12,7 @@ module tb_fused_compressed_program;
     always #(CLK_PERIOD/2) clk = ~clk;
 
     localparam int TB_ARRAY_SIZE = 16;
-    localparam int TB_BUFFER_SIZE = 512;
+    localparam int TB_BUFFER_SIZE = 4096;
     localparam int TB_FIFO_WIDTH = 256;
     localparam int TB_FIFO_PTR_W = $clog2(TB_FIFO_WIDTH);
     localparam logic [7:0] MAGIC_UPLOAD = 8'hA1;
@@ -22,7 +22,8 @@ module tb_fused_compressed_program;
     top #(
         .ARRAY_SIZE(TB_ARRAY_SIZE),
         .BUFFER_SIZE(TB_BUFFER_SIZE),
-        .FIFO_WIDTH(TB_FIFO_WIDTH)
+        .FIFO_WIDTH(TB_FIFO_WIDTH),
+        .EXT_ADDR_EN(1)
     ) dut (
         .clk(clk), .rst(rst), .rx(rx), .tx(tx), .led_rst(led_rst)
     );
@@ -34,22 +35,14 @@ module tb_fused_compressed_program;
     integer trace_fd;
     int first_failure_cycle = -1;
     reg [15:0] first_failure_instruction = 16'h0000;
-    integer first_failure_stage = 0; // 0 none, 1 upload, 2 start, 3 bstore, 4 load, 5 run, 6 finalize, 7 fetch
+    integer first_failure_stage = 0;
 
     byte case1_expected [0:`CASE1_FETCH_N-1];
-    byte case2_expected [0:`CASE2_FETCH_N-1];
-    byte case3_expected [0:`CASE3_FETCH_N-1];
     byte case1_actual [0:63];
-    byte case2_actual [0:63];
-    byte case3_actual [0:63];
     int case1_actual_n;
-    int case2_actual_n;
-    int case3_actual_n;
     bit case1_passed;
-    bit case2_passed;
-    bit case3_passed;
 
-    reg [15:0] case_mem [0:1023];
+    reg [15:0] case_mem [0:4095];
 
     task automatic CHECK(input string name, input bit cond);
         tests++;
@@ -83,7 +76,6 @@ module tb_fused_compressed_program;
     task automatic stream_program(input int words);
         int i;
         logic [15:0] w;
-        // Re-arm if needed, then upload + length.
         push_rx_byte(MAGIC_REARM);
         push_rx_byte(MAGIC_UPLOAD);
         push_rx_byte(words[7:0]);
@@ -126,8 +118,7 @@ module tb_fused_compressed_program;
         input string case_name,
         input string mem_path,
         input int prog_words,
-        input int exp_n,
-        input int case_id
+        input int exp_n
     );
         int i;
         bit halted;
@@ -138,34 +129,28 @@ module tb_fused_compressed_program;
         bit saw_wait_start;
 
         $display("---- %s ----", case_name);
-        for (i = 0; i < 1024; i++) case_mem[i] = 16'h0000;
+        for (i = 0; i < 4096; i++) case_mem[i] = 16'h0000;
         $readmemh(mem_path, case_mem);
 
         stream_program(prog_words);
-        wait_wait_start(200000, saw_wait_start);
+        wait_wait_start(300000, saw_wait_start);
         CHECK({case_name, " reached WAIT_START"}, saw_wait_start);
         if (!saw_wait_start) mark_failure(1);
         push_rx_byte(MAGIC_START);
 
         local_count = 0;
-        while (local_count < exp_n && cycle_ctr < 500000) begin
+        while (local_count < exp_n && cycle_ctr < 800000) begin
             @(posedge clk);
-            // Capture actual transmitted UART FIFO bytes, not pending shadow registers.
             if (dut.tx_we) begin
-                // Ignore one-time self-test AA and any non-fetch noise.
                 if (dut.tx_wdata !== 8'hAA) begin
-                    if (case_id == 1) case1_actual[local_count] = dut.tx_wdata;
-                    else if (case_id == 2) case2_actual[local_count] = dut.tx_wdata;
-                    else case3_actual[local_count] = dut.tx_wdata;
+                    case1_actual[local_count] = dut.tx_wdata;
                     local_count = local_count + 1;
                 end
             end
         end
-        if (case_id == 1) case1_actual_n = local_count;
-        else if (case_id == 2) case2_actual_n = local_count;
-        else case3_actual_n = local_count;
+        case1_actual_n = local_count;
 
-        wait_halt(20000, halted);
+        wait_halt(50000, halted);
         CHECK({case_name, " HALT reached"}, halted);
         if (!halted) mark_failure(2);
         CHECK({case_name, " fetch byte count"}, local_count == exp_n);
@@ -173,16 +158,8 @@ module tb_fused_compressed_program;
 
         mismatch_count = 0;
         for (i = 0; i < exp_n; i++) begin
-            if (case_id == 1) begin
-                exp_byte = case1_expected[i];
-                act_byte = case1_actual[i];
-            end else if (case_id == 2) begin
-                exp_byte = case2_expected[i];
-                act_byte = case2_actual[i];
-            end else begin
-                exp_byte = case3_expected[i];
-                act_byte = case3_actual[i];
-            end
+            exp_byte = case1_expected[i];
+            act_byte = case1_actual[i];
             CHECK($sformatf("%s byte %0d", case_name, i), act_byte === exp_byte);
             if (act_byte !== exp_byte) begin
                 mismatch_count = mismatch_count + 1;
@@ -191,15 +168,11 @@ module tb_fused_compressed_program;
         end
 
         $display("%s byte mismatches: %0d / %0d", case_name, mismatch_count, exp_n);
-        if (case_id == 1) case1_passed = halted && (local_count == exp_n) && (mismatch_count == 0);
-        else if (case_id == 2) case2_passed = halted && (local_count == exp_n) && (mismatch_count == 0);
-        else case3_passed = halted && (local_count == exp_n) && (mismatch_count == 0);
+        case1_passed = halted && (local_count == exp_n) && (mismatch_count == 0);
     endtask
 
     always @(posedge clk) begin
         cycle_ctr <= cycle_ctr + 1;
-
-        // Instruction-level trace.
         if (dut.current_state == dut.DECODE_STATE ||
             dut.current_state == dut.BSTORE_FETCH_COUNT_STATE ||
             dut.current_state == dut.BSTORE_FETCH_DATA_STATE ||
@@ -208,47 +181,26 @@ module tb_fused_compressed_program;
             dut.current_state == dut.COMPUTE_STATE ||
             dut.current_state == dut.FETCH_BUFFER_STATE) begin
             $fdisplay(trace_fd,
-                "cycle=%0d state=%0d pc=%0d instr=%04h opcode=%0d cdone=%0d bcount=%0d bidx=%0d baddr=%0d bdata=%04h load_addr=%0d run[c=%0d q=%0d r=%0d clr=%0d ld=%0d] m0=%0d ci0=[%0d,%0d,%0d,%0d] ci_col0=[%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d,%0d] ci240=[%0d,%0d,%0d,%0d] co=[%0d,%0d,%0d,%0d] pcc=%0d pd0=%0d pr0=%0d pra0=%0d pe_w0=%0d pe_w15=%0d pe_prod0=%0d pe_ps0=%0d row_ps=[%0d,%0d,%0d,%0d] row15_c=[%0d,%0d,%0d,%0d] run_cap0=%0d ctb0=%0d acc0=%0d acc1=%0d fetch_addr=%0d tx_pending=%0d tx_data=%02h ub_re=%0d ub_done=%0d ub_rc=%0d ub_base=%0d ub_row=%0d ub_d0=%04h",
+                "cycle=%0d state=%0d pc=%0d instr=%04h opcode=%0d cdone=%0d bcount=%0d bidx=%0d baddr=%0d bdata=%04h load_addr=%0d run[c=%0d q=%0d r=%0d clr=%0d] m0=%0d ci0=[%0d,%0d,%0d,%0d] co=[%0d,%0d,%0d,%0d] ub_re=%0d ub_done=%0d ub_rc=%0d ub_base=%0d ub_row=%0d",
                 cycle_ctr, dut.current_state, dut.pc, dut.instruction, dut.opcode,
                 dut.compute_done,
                 dut.bstore_count, dut.bstore_index, dut.address, dut.bstore_data_word,
-                dut.address, dut.compute_en, dut.quantizer_en, dut.relu_en, dut.acc_clear_en, dut.compute_load_en,
+                dut.address, dut.compute_en, dut.quantizer_en, dut.relu_en, dut.acc_clear_en,
                 dut.mem_to_compute[0],
                 dut.compute_in[0], dut.compute_in[1], dut.compute_in[2], dut.compute_in[3],
-                dut.compute_in[0], dut.compute_in[16], dut.compute_in[32], dut.compute_in[48],
-                dut.compute_in[64], dut.compute_in[80], dut.compute_in[96], dut.compute_in[112],
-                dut.compute_in[128], dut.compute_in[144], dut.compute_in[160], dut.compute_in[176],
-                dut.compute_in[192], dut.compute_in[208], dut.compute_in[224], dut.compute_in[240],
-                dut.compute_in[240], dut.compute_in[241], dut.compute_in[242], dut.compute_in[243],
                 dut.compute_out[0], dut.compute_out[1], dut.compute_out[2], dut.compute_out[3],
-                dut.u_pe_array.cycle_count, dut.u_pe_array.datas_in[0], dut.u_pe_array.results[0], dut.u_pe_array.results_arr[0],
-                dut.u_pe_array.u_pe_array.gen_rows[0].gen_cols[0].gen_top_row.u_pe.weight,
-                dut.u_pe_array.u_pe_array.gen_rows[15].gen_cols[0].gen_non_top_row.u_pe.weight,
-                dut.u_pe_array.u_pe_array.gen_rows[0].gen_cols[0].gen_top_row.u_pe.prod,
-                dut.u_pe_array.u_pe_array.gen_rows[0].gen_cols[0].gen_top_row.u_pe.partial_sum_out,
-                dut.u_pe_array.u_pe_array.accumulators[0][0],
-                dut.u_pe_array.u_pe_array.accumulators[1][0],
-                dut.u_pe_array.u_pe_array.accumulators[2][0],
-                dut.u_pe_array.u_pe_array.accumulators[15][0],
-                dut.u_pe_array.u_pe_array.accumulators[15][0],
-                dut.u_pe_array.u_pe_array.accumulators[15][1],
-                dut.u_pe_array.u_pe_array.accumulators[15][2],
-                dut.u_pe_array.u_pe_array.accumulators[15][3],
-                dut.run_capture_sums[0],
-                dut.compute_to_buffer[0],
-                dut.acc_partial_sums[0], dut.acc_partial_sums[1], dut.address, dut.tx_pending, dut.tx_pending_data,
                 dut.u_unified_buffer.re, dut.u_unified_buffer.done, dut.u_unified_buffer.read_compute_d,
-                dut.u_unified_buffer.base_bank, dut.u_unified_buffer.base_row, dut.u_unified_buffer.bank_dout[0]
+                dut.u_unified_buffer.base_bank, dut.u_unified_buffer.base_row
             );
         end
     end
 
     initial begin
 `ifdef DUMP_VCD
-        $dumpfile("build/sim_iverilog/tb_fused_compressed_program.vcd");
-        $dumpvars(0, tb_fused_compressed_program);
+        $dumpfile("build/sim_iverilog/tb_fused_residual_program.vcd");
+        $dumpvars(0, tb_fused_residual_program);
 `endif
-        trace_fd = $fopen("build/reports/rtl_fused_trace.log", "w");
+        trace_fd = $fopen("build/reports/rtl_fused_residual_trace.log", "w");
         if (trace_fd == 0) begin
             $display("TRACE_OPEN_FAIL");
             $finish;
@@ -262,31 +214,11 @@ module tb_fused_compressed_program;
         case1_expected[5] = `CASE1_EXP_BYTE_5;
         case1_expected[6] = `CASE1_EXP_BYTE_6;
         case1_expected[7] = `CASE1_EXP_BYTE_7;
-        case2_expected[0] = `CASE2_EXP_BYTE_0;
-        case2_expected[1] = `CASE2_EXP_BYTE_1;
-        case2_expected[2] = `CASE2_EXP_BYTE_2;
-        case2_expected[3] = `CASE2_EXP_BYTE_3;
-        case2_expected[4] = `CASE2_EXP_BYTE_4;
-        case2_expected[5] = `CASE2_EXP_BYTE_5;
-        case2_expected[6] = `CASE2_EXP_BYTE_6;
-        case2_expected[7] = `CASE2_EXP_BYTE_7;
-        case3_expected[0] = `CASE3_EXP_BYTE_0;
-        case3_expected[1] = `CASE3_EXP_BYTE_1;
-        case3_expected[2] = `CASE3_EXP_BYTE_2;
-        case3_expected[3] = `CASE3_EXP_BYTE_3;
-        case3_expected[4] = `CASE3_EXP_BYTE_4;
-        case3_expected[5] = `CASE3_EXP_BYTE_5;
-        case3_expected[6] = `CASE3_EXP_BYTE_6;
-        case3_expected[7] = `CASE3_EXP_BYTE_7;
         case1_actual_n = 0;
-        case2_actual_n = 0;
-        case3_actual_n = 0;
         case1_passed = 1'b0;
-        case2_passed = 1'b0;
-        case3_passed = 1'b0;
 
         $display("=================================================");
-        $display("fused compressed RTL decode/control testbench");
+        $display("fused residual RTL decode/control testbench");
         $display("=================================================");
 
         rst <= 0;
@@ -294,28 +226,22 @@ module tb_fused_compressed_program;
         rst <= 1;
         wait_cycles(20);
 
-        run_case(`CASE1_NAME, `CASE1_MEM, `CASE1_WORDS, `CASE1_FETCH_N, 1);
-        run_case(`CASE2_NAME, `CASE2_MEM, `CASE2_WORDS, `CASE2_FETCH_N, 2);
-        run_case(`CASE3_NAME, `CASE3_MEM, `CASE3_WORDS, `CASE3_FETCH_N, 3);
+        run_case(`CASE1_NAME, `CASE1_MEM, `CASE1_WORDS, `CASE1_FETCH_N);
 
         $display("CASE1_ACTUAL_BYTES=%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x", case1_actual[0], case1_actual[1], case1_actual[2], case1_actual[3], case1_actual[4], case1_actual[5], case1_actual[6], case1_actual[7]);
-        $display("CASE2_ACTUAL_BYTES=%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x", case2_actual[0], case2_actual[1], case2_actual[2], case2_actual[3], case2_actual[4], case2_actual[5], case2_actual[6], case2_actual[7]);
-        $display("CASE3_ACTUAL_BYTES=%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x", case3_actual[0], case3_actual[1], case3_actual[2], case3_actual[3], case3_actual[4], case3_actual[5], case3_actual[6], case3_actual[7]);
         $display("CASE1_PASS=%0d", case1_passed);
-        $display("CASE2_PASS=%0d", case2_passed);
-        $display("CASE3_PASS=%0d", case3_passed);
         $display("FIRST_FAILURE_STAGE=%0d", first_failure_stage);
         $display("FIRST_FAILURE_CYCLE=%0d", first_failure_cycle);
         $display("FIRST_FAILURE_INSTRUCTION=%04h", first_failure_instruction);
         $display("TOTAL_CYCLES=%0d", cycle_ctr);
-        $display("TRACE_LOG_PATH=build/reports/rtl_fused_trace.log");
+        $display("TRACE_LOG_PATH=build/reports/rtl_fused_residual_trace.log");
 
         $display("=================================================");
         $display("DONE tests=%0d errors=%0d", tests, errors);
         $display("=================================================");
         if (errors != 0) begin
             $fclose(trace_fd);
-            $fatal(1, "tb_fused_compressed_program FAILED");
+            $fatal(1, "tb_fused_residual_program FAILED");
         end
         $fclose(trace_fd);
         $display("TB_RESULT: PASS");

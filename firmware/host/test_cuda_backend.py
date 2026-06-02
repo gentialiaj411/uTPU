@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from lowering_types import BlockedFCLoweringRequest
 from backend_lowering import create_backend_lowerer
@@ -23,7 +24,7 @@ def _sample_request():
     )
 
 
-def run_all():
+def test_cuda_blocked_fc_lowering_metadata():
     req = _sample_request()
     lowerer = create_backend_lowerer("cuda")
     lowered = lowerer.lower_blocked_fc(req)
@@ -33,6 +34,9 @@ def run_all():
     assert lowered["memory_scopes"]["inputs"] == "shared"
     assert lowered["memory_scopes"]["accum"] == "register"
 
+
+def test_cuda_blocked_fc_execute_or_skip():
+    req = _sample_request()
     executor = CUDABlockedFCExecutor(verbose=False)
     result = executor.execute(req)
     env = detect_cuda_environment()
@@ -45,6 +49,30 @@ def run_all():
         assert "numpy_reference_output" in result
         assert "reason" in result
 
+
+def test_smem_kernel_bit_exact_vs_naive():
+    env = detect_cuda_environment()
+    if not env.runtime_available:
+        pytest.skip(env.reason or "CUDA runtime unavailable")
+
+    req = _sample_request()
+    executor = CUDABlockedFCExecutor(verbose=False)
+    naive = executor.execute(req, schedule_params={"use_smem": False})
+    smem = executor.execute(req, schedule_params={"use_smem": True})
+    assert naive["executed"] is True
+    assert smem["executed"] is True
+    assert int(naive["max_abs_diff_vs_numpy_reference"]) == 0
+    assert int(smem["max_abs_diff_vs_numpy_reference"]) == 0
+    assert naive["output_unpadded"] == smem["output_unpadded"]
+    assert smem.get("kernel_name") == "blocked_fc_int4_smem_kernel"
+
+
+def run_all():
+    test_cuda_blocked_fc_lowering_metadata()
+    test_cuda_blocked_fc_execute_or_skip()
+    env = detect_cuda_environment()
+    if env.runtime_available:
+        test_smem_kernel_bit_exact_vs_naive()
     print("test_cuda_backend: PASS")
 
 

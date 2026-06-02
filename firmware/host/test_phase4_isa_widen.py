@@ -171,6 +171,15 @@ def test_extended_address_run_emits_two_words():
     assert out[2:] == bytes([0x00, 0x20])
 
 
+def test_extended_address_run_with_residual_emits_three_words():
+    cfg = IsaConfig(address_width=14)
+    out = encodeRun(0x2000, residual_en=True, residual_addr=0x1234, cfg=cfg)
+    # word1: residual bit set alongside the default RUN flags.
+    assert out[:2] == bytes([0xBA, 0x00])
+    assert out[2:4] == bytes([0x00, 0x20])
+    assert out[4:6] == bytes([0x34, 0x12])
+
+
 def test_extended_address_fetch_emits_two_words():
     cfg = IsaConfig(address_width=14)
     out = encodeFetch(0x1000, top_half=False, cfg=cfg)

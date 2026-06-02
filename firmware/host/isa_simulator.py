@@ -208,6 +208,7 @@ class UTPUISASimulator:
             "store": 0,
             "fetch": 0,
             "run": 0,
+            "residual_add": 0,
             "load": 0,
             "halt": 0,
             "nop": 0,
@@ -310,11 +311,27 @@ class UTPUISASimulator:
             self._redundant_store_bytes += 2
         self._last_store_value[key] = masked
 
-    def _run_finalize(self, pe_id: int, result_addr: int, quantize: bool, relu: bool) -> None:
+    def _run_finalize(
+        self,
+        pe_id: int,
+        result_addr: int,
+        quantize: bool,
+        relu: bool,
+        residual_addr: Optional[int] = None,
+    ) -> None:
         pe = self._pe(pe_id)
+        residual_values = [0 for _ in range(self.array_size)]
+        if residual_addr is not None:
+            items_per_word = self.cfg.items_per_word
+            words_needed = self.array_size // items_per_word
+            flat: List[int] = []
+            for offset in range(words_needed):
+                flat.extend(_unpack_compute_word(self._read_word(pe_id, residual_addr + offset), self.cfg))
+            residual_values = flat[: self.array_size]
         outputs = [0 for _ in range(self.array_size)]
         for i, acc in enumerate(pe.acc_partial_sums):
-            q = _clip_to_width(acc, self.cfg.compute_data_width) if quantize else int(acc)
+            combined = int(acc) + int(residual_values[i])
+            q = _clip_to_width(combined, self.cfg.compute_data_width) if quantize else int(combined)
             if relu and q < 0:
                 q = q >> self.alpha_shift
             outputs[i] = q
@@ -456,13 +473,33 @@ class UTPUISASimulator:
                 quantize = bool((instruction >> 4) & 0x1)
                 relu = bool((instruction >> 5) & 0x1)
                 acc_clear = bool((instruction >> 6) & 0x1)
+                residual_en = bool((instruction >> 7) & 0x1) if extended_addr else False
+                residual_addr = None
+                if residual_en:
+                    residual_addr = consume_addr_word()
                 if compute and not quantize and not relu:
                     self._run_accumulate(pe_id, acc_clear=acc_clear)
                 elif (not compute) and quantize:
-                    self._run_finalize(pe_id, result_addr, quantize=quantize, relu=relu)
+                    self._run_finalize(
+                        pe_id,
+                        result_addr,
+                        quantize=quantize,
+                        relu=relu,
+                        residual_addr=residual_addr,
+                    )
+                    if residual_en:
+                        self.executed_ops["residual_add"] += 1
                 elif compute and quantize:
                     self._run_accumulate(pe_id, acc_clear=True)
-                    self._run_finalize(pe_id, result_addr, quantize=quantize, relu=relu)
+                    self._run_finalize(
+                        pe_id,
+                        result_addr,
+                        quantize=quantize,
+                        relu=relu,
+                        residual_addr=residual_addr,
+                    )
+                    if residual_en:
+                        self.executed_ops["residual_add"] += 1
                 else:
                     raise ValueError(
                         "unsupported RUN mode: "

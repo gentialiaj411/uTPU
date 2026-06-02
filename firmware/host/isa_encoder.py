@@ -251,6 +251,8 @@ def encodeRun(
     quantize_en: bool = True,
     relu_en: bool = True,
     acc_clear_en: bool = False,
+    residual_en: bool = False,
+    residual_addr: Optional[int] = None,
     cfg: Optional[IsaConfig] = None,
 ) -> bytes:
     """RUN encoding.
@@ -264,19 +266,35 @@ def encodeRun(
         bits 7-15: result address
 
     Extended format (cfg.address_width > 9):
-        word1 = opcode | flags (bits 3..6); bits 7..15 unused (zero)
+        word1 = opcode | flags (bits 3..6); bit 7 marks residual-en when used
         word2 = result address (low ``address_width`` bits)
+        word3 = residual address when ``residual_en`` is set
+
+    Residual add is a default-off extension. It is only legal in the
+    extended-address format so the legacy 9-bit opcode layout remains
+    byte-identical.
     """
     cfg = _resolve_cfg(cfg)
     result_addr = encodeAddress(result_addr, cfg)
+    if residual_en and not cfg.extended_address:
+        raise ValueError("residual_en requires extended-address RUN encoding")
+    if residual_en:
+        if residual_addr is None:
+            raise ValueError("residual_en=True requires residual_addr")
+        residual_addr = encodeAddress(residual_addr, cfg)
+    residual_flag = ((1 if residual_en else 0) << 7) if cfg.extended_address else 0
     header = (
         OPCODE_RUN
         | ((1 if compute_en else 0) << 3)
         | ((1 if quantize_en else 0) << 4)
         | ((1 if relu_en else 0) << 5)
         | ((1 if acc_clear_en else 0) << 6)
+        | residual_flag
     )
-    return _emit_with_addr(header, result_addr, cfg)
+    program = _emit_with_addr(header, result_addr, cfg)
+    if residual_en:
+        program += instructionToBytes(residual_addr)
+    return program
 
 
 def encodeFetch(addr: int, top_half: bool = True, cfg: Optional[IsaConfig] = None) -> bytes:
@@ -437,9 +455,20 @@ class ISAEncoder:
         quantize: bool = True,
         relu: bool = True,
         acc_clear: bool = False,
+        residual_en: bool = False,
+        residual_addr: Optional[int] = None,
     ) -> "ISAEncoder":
         self.instructions.append(
-            encodeRun(result_addr, compute, quantize, relu, acc_clear, cfg=self.cfg)
+            encodeRun(
+                result_addr,
+                compute,
+                quantize,
+                relu,
+                acc_clear,
+                residual_en=residual_en,
+                residual_addr=residual_addr,
+                cfg=self.cfg,
+            )
         )
         return self
 

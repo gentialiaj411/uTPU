@@ -81,25 +81,30 @@ def _iverilog_run(repo_root: str) -> Tuple[bool, str, str]:
 
 
 def _build_metrics(vectors: Dict[str, Any]) -> Dict[str, Any]:
-    c1 = vectors["cases"][0]
-    c2 = vectors["cases"][1]
+    cases = vectors["cases"]
+    program_words = {f"case{idx}": case["program_words"] for idx, case in enumerate(cases, start=1)}
+    bstore_count = {f"case{idx}": case["bstore_count"] for idx, case in enumerate(cases, start=1)}
+    load_count = {f"case{idx}": case["load_count"] for idx, case in enumerate(cases, start=1)}
+    run_count = {f"case{idx}": case["run_count"] for idx, case in enumerate(cases, start=1)}
+    fetch_count = {f"case{idx}": case["fetch_count"] for idx, case in enumerate(cases, start=1)}
+    halt_count = {f"case{idx}": case["halt_count"] for idx, case in enumerate(cases, start=1)}
+    expected_outputs = {f"case{idx}": case["expected_outputs"] for idx, case in enumerate(cases, start=1)}
+    expected_fetch_bytes = {f"case{idx}": case["expected_fetch_bytes"] for idx, case in enumerate(cases, start=1)}
+    actual_fetch_bytes = {f"case{idx}": None for idx in range(1, len(cases) + 1)}
+    case_pass = {f"case{idx}": False for idx in range(1, len(cases) + 1)}
     return {
         "array_size": vectors["array_size"],
-        "case_count": len(vectors["cases"]),
-        "program_words": {"case1": c1["program_words"], "case2": c2["program_words"]},
-        "bstore_count": {"case1": c1["bstore_count"], "case2": c2["bstore_count"]},
-        "load_count": {"case1": c1["load_count"], "case2": c2["load_count"]},
-        "run_count": {"case1": c1["run_count"], "case2": c2["run_count"]},
-        "fetch_count": {"case1": c1["fetch_count"], "case2": c2["fetch_count"]},
-        "halt_count": {"case1": c1["halt_count"], "case2": c2["halt_count"]},
-        "expected_outputs": {"case1": c1["expected_outputs"], "case2": c2["expected_outputs"]},
-        "expected_fetch_bytes": {
-            "case1": c1["expected_fetch_bytes"],
-            "case2": c2["expected_fetch_bytes"],
-        },
-        "actual_fetch_bytes": {"case1": None, "case2": None},
-        "case1_passed": False,
-        "case2_passed": False,
+        "case_count": len(cases),
+        "program_words": program_words,
+        "bstore_count": bstore_count,
+        "load_count": load_count,
+        "run_count": run_count,
+        "fetch_count": fetch_count,
+        "halt_count": halt_count,
+        "expected_outputs": expected_outputs,
+        "expected_fetch_bytes": expected_fetch_bytes,
+        "actual_fetch_bytes": actual_fetch_bytes,
+        "case_passed": case_pass,
         "first_failure_stage": None,
         "first_failure_cycle": None,
         "first_failure_instruction": None,
@@ -114,25 +119,14 @@ def _build_metrics(vectors: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _parse_sim_markers(sim_log: str, metrics: Dict[str, Any]) -> None:
-    def _parse_bytes(tag: str) -> Optional[List[int]]:
-        m = re.search(rf"{tag}=([0-9a-fA-F]{{2}}),([0-9a-fA-F]{{2}})", sim_log)
-        if not m:
-            return None
-        return [int(m.group(1), 16), int(m.group(2), 16)]
-
-    c1_act = _parse_bytes("CASE1_ACTUAL_BYTES")
-    c2_act = _parse_bytes("CASE2_ACTUAL_BYTES")
-    if c1_act is not None:
-        metrics["actual_fetch_bytes"]["case1"] = c1_act
-    if c2_act is not None:
-        metrics["actual_fetch_bytes"]["case2"] = c2_act
-
-    m = re.search(r"CASE1_PASS=(\d+)", sim_log)
-    if m:
-        metrics["case1_passed"] = (int(m.group(1)) == 1)
-    m = re.search(r"CASE2_PASS=(\d+)", sim_log)
-    if m:
-        metrics["case2_passed"] = (int(m.group(1)) == 1)
+    for case_idx in range(1, int(metrics["case_count"]) + 1):
+        bytes_match = re.search(rf"CASE{case_idx}_ACTUAL_BYTES=([0-9a-fA-F,]+)", sim_log)
+        if bytes_match:
+            parts = bytes_match.group(1).split(",")
+            metrics["actual_fetch_bytes"][f"case{case_idx}"] = [int(p, 16) for p in parts if p]
+        pass_match = re.search(rf"CASE{case_idx}_PASS=(\d+)", sim_log)
+        if pass_match:
+            metrics["case_passed"][f"case{case_idx}"] = (int(pass_match.group(1)) == 1)
 
     m = re.search(r"FIRST_FAILURE_STAGE=(\d+)", sim_log)
     if m:
@@ -154,6 +148,11 @@ def main() -> int:
     parser.add_argument("--output-md", required=True)
     args = parser.parse_args()
 
+    run_rtl_fused_sim(args.output_json, args.output_md)
+    return 0
+
+
+def run_rtl_fused_sim(output_json: str, output_md: str) -> Dict[str, Any]:
     root = _repo_root()
     os.chdir(root)
 
@@ -176,8 +175,8 @@ def main() -> int:
         metrics["rtl_sim_passed"] = False
         metrics["fused_compressed_path_rtl_validated"] = False
 
-    os.makedirs(os.path.dirname(args.output_json), exist_ok=True)
-    with open(args.output_json, "w", encoding="utf-8") as f:
+    os.makedirs(os.path.dirname(output_json), exist_ok=True)
+    with open(output_json, "w", encoding="utf-8") as f:
         json.dump(metrics, f, indent=2)
 
     md = [
@@ -187,20 +186,17 @@ def main() -> int:
         f"- rtl_sim_executed: {metrics['rtl_sim_executed']}",
         f"- rtl_sim_passed: {metrics['rtl_sim_passed']}",
         f"- fused_compressed_path_rtl_validated: {metrics['fused_compressed_path_rtl_validated']}",
-        f"- case1 program_words: {metrics['program_words']['case1']}",
-        f"- case2 program_words: {metrics['program_words']['case2']}",
-        f"- case1_passed: {metrics['case1_passed']}",
-        f"- case2_passed: {metrics['case2_passed']}",
+        f"- case_count: {metrics['case_count']}",
+        f"- case_passed: {metrics['case_passed']}",
         f"- first_failure_stage: {metrics['first_failure_stage']}",
         f"- first_failure_cycle: {metrics['first_failure_cycle']}",
         f"- first_failure_instruction: {metrics['first_failure_instruction']}",
         f"- total_cycles: {metrics['total_cycles']}",
-        f"- expected_fetch_bytes.case1: {metrics['expected_fetch_bytes']['case1']}",
-        f"- actual_fetch_bytes.case1: {metrics['actual_fetch_bytes']['case1']}",
-        f"- expected_fetch_bytes.case2: {metrics['expected_fetch_bytes']['case2']}",
-        f"- actual_fetch_bytes.case2: {metrics['actual_fetch_bytes']['case2']}",
         f"- trace_log_path: {metrics['trace_log_path']}",
     ]
+    for case_key in sorted(metrics["expected_fetch_bytes"].keys()):
+        md.append(f"- expected_fetch_bytes.{case_key}: {metrics['expected_fetch_bytes'][case_key]}")
+        md.append(f"- actual_fetch_bytes.{case_key}: {metrics['actual_fetch_bytes'][case_key]}")
     if not metrics["rtl_sim_executed"]:
         md.extend([
             "",
@@ -218,7 +214,7 @@ def main() -> int:
         ])
     if sim_log:
         md.extend(["", "## Simulator Log", "```text", sim_log.strip(), "```"])
-    with open(args.output_md, "w", encoding="utf-8") as f:
+    with open(output_md, "w", encoding="utf-8") as f:
         f.write("\n".join(md) + "\n")
 
     print(json.dumps({
@@ -226,10 +222,10 @@ def main() -> int:
         "simulator_used": metrics["simulator_used"],
         "rtl_sim_executed": metrics["rtl_sim_executed"],
         "rtl_sim_passed": metrics["rtl_sim_passed"],
-        "metrics_json": args.output_json,
-        "report_md": args.output_md,
+        "metrics_json": output_json,
+        "report_md": output_md,
     }, indent=2))
-    return 0
+    return metrics
 
 
 if __name__ == "__main__":

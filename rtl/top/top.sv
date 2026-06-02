@@ -301,15 +301,16 @@ module top #(
         FETCH_ADDRESS_STATE,   // 12 buffer read→controller for address-mode STORE
         FETCH_BUFFER_STATE,    // 13 FETCH_OP: buffer→TX
         LOAD_STATE,            // 14 LOAD_OP: buffer→compute_in
-        COMPUTE_STATE,         // 15 systolic compute
-        COMPUTE_WRITEBACK_STATE, // 16 write results back to buffer
-        STORE_STATE,           // 17 write store_val to buffer
-        HALT_STATE,            // 18 terminal; exits on 0xA3
-        BSTORE_FETCH_COUNT_STATE, // 19 read burst count
-        BSTORE_FETCH_DATA_STATE,  // 20 read burst data word
-        BSTORE_WRITE_STATE,       // 21 write burst data word
-        EXT_ADDR_FETCH_STATE,     // 22 (EXT_ADDR_EN=1) issue BRAM read for address word; pc++
-        EXT_ADDR_LATCH_STATE      // 23 (EXT_ADDR_EN=1) latch address word, route to target state
+        RESIDUAL_FETCH_STATE,   // 15 residual buffer fetch for widened RUN path
+        COMPUTE_STATE,         // 16 systolic compute
+        COMPUTE_WRITEBACK_STATE, // 17 write results back to buffer
+        STORE_STATE,           // 18 write store_val to buffer
+        HALT_STATE,            // 19 terminal; exits on 0xA3
+        BSTORE_FETCH_COUNT_STATE, // 20 read burst count
+        BSTORE_FETCH_DATA_STATE,  // 21 read burst data word
+        BSTORE_WRITE_STATE,       // 22 write burst data word
+        EXT_ADDR_FETCH_STATE,     // 23 (EXT_ADDR_EN=1) issue BRAM read for address word; pc++
+        EXT_ADDR_LATCH_STATE      // 24 (EXT_ADDR_EN=1) latch address word, route to target state
     } state_e;
 
     state_e current_state, next_state;
@@ -333,6 +334,10 @@ module top #(
     logic [BUFFER_WORD_SIZE-1:0] bstore_data_word;
     logic                        load_clear_pending;
     logic                        load_is_weights;
+    logic                        residual_en;
+    logic [ADDRESS_SIZE-1:0]     residual_source_addr;
+    logic                        run_residual_addr_stage;
+    logic signed [COMPUTE_DATA_WIDTH-1:0] residual_in [NUM_COMPUTE_LANES-1:0];
     // Phase 4: latched opcode for routing the EXT_ADDR_LATCH_STATE -> target
     // state in 2-word extended-address mode. Only used when EXT_ADDR_EN=1.
     opcode_e                     pending_opcode;
@@ -505,6 +510,15 @@ module top #(
                     next_state = FETCH_BRAM_STATE;
 `endif
 
+            RESIDUAL_FETCH_STATE:
+`ifdef ICARUS
+                if (buffer_done)
+                    next_state = COMPUTE_STATE;
+`else
+                if (buffer_done)
+                    next_state = COMPUTE_STATE;
+`endif
+
             COMPUTE_STATE:
                 if (~compute_en && quantizer_en) begin
                     next_state = COMPUTE_WRITEBACK_STATE;
@@ -546,7 +560,14 @@ module top #(
             EXT_ADDR_LATCH_STATE:
                 case (pending_opcode)
                     FETCH_OP: next_state = FETCH_BUFFER_STATE;
-                    RUN_OP:   next_state = COMPUTE_STATE;
+                    RUN_OP: begin
+                        if (residual_en && ~run_residual_addr_stage)
+                            next_state = EXT_ADDR_FETCH_STATE;
+                        else if (residual_en && run_residual_addr_stage)
+                            next_state = RESIDUAL_FETCH_STATE;
+                        else
+                            next_state = COMPUTE_STATE;
+                    end
                     LOAD_OP:  next_state = LOAD_STATE;
                     BSTORE_OP:next_state = BSTORE_FETCH_COUNT_STATE;
                     default:  next_state = FETCH_BRAM_STATE;
@@ -629,6 +650,11 @@ module top #(
                 bstore_base_addr <= '0;
                 bstore_data_word <= '0;
                 load_is_weights  <= 1'b0;
+                residual_en      <= 1'b0;
+                residual_source_addr <= '0;
+                run_residual_addr_stage <= 1'b0;
+                for (int ai = 0; ai < NUM_COMPUTE_LANES; ai++)
+                    residual_in[ai] <= '0;
                 perf_snapshot    <= '0;
                 perf_stream_active <= 1'b0;
                 perf_stream_idx  <= '0;
@@ -741,6 +767,8 @@ module top #(
             // -----------------------------------------------------------------
             DECODE_STATE: begin
                 pending_opcode <= opcode;
+                residual_en <= 1'b0;
+                run_residual_addr_stage <= 1'b0;
                 case (opcode)
                     STORE_OP: begin
                         address_indicator <= instruction[4];
@@ -758,6 +786,8 @@ module top #(
                         quantizer_en        <= instruction[4];
                         relu_en             <= instruction[5];
                         acc_clear_en        <= instruction[6];
+                        residual_en         <= EXT_ADDR_EN ? instruction[7] : 1'b0;
+                        run_residual_addr_stage <= 1'b0;
                         if (!EXT_ADDR_EN) begin
                             address             <= instruction[BUFFER_WORD_SIZE-1:BUFFER_WORD_SIZE-ADDRESS_SIZE];
                             compute_result_addr <= instruction[BUFFER_WORD_SIZE-1:BUFFER_WORD_SIZE-ADDRESS_SIZE];
@@ -788,8 +818,17 @@ module top #(
             EXT_ADDR_LATCH_STATE: begin
                 // bram_rd_data holds the address word.
                 address <= bram_rd_data[ADDRESS_SIZE-1:0];
-                if (pending_opcode == RUN_OP)
-                    compute_result_addr <= bram_rd_data[ADDRESS_SIZE-1:0];
+                if (pending_opcode == RUN_OP) begin
+                    if (residual_en && ~run_residual_addr_stage) begin
+                        compute_result_addr <= bram_rd_data[ADDRESS_SIZE-1:0];
+                        run_residual_addr_stage <= 1'b1;
+                    end else if (residual_en && run_residual_addr_stage) begin
+                        residual_source_addr <= bram_rd_data[ADDRESS_SIZE-1:0];
+                        run_residual_addr_stage <= 1'b0;
+                    end else begin
+                        compute_result_addr <= bram_rd_data[ADDRESS_SIZE-1:0];
+                    end
+                end
                 if (pending_opcode == BSTORE_OP)
                     bstore_base_addr <= bram_rd_data[ADDRESS_SIZE-1:0];
             end
@@ -911,6 +950,30 @@ module top #(
                 end
             end
 
+            RESIDUAL_FETCH_STATE: begin
+                compute_en        <= 1'b0;
+                buffer_re         <= 1'b1;
+                buffer_compute_en <= 1'b1;
+                compute_load_en   <= 1'b0;
+                address           <= residual_source_addr;
+                if (buffer_done) begin
+`ifdef ICARUS
+                    for (int bi = 0; bi < (NUM_COMPUTE_LANES/ITEMS_IN_SLOT); bi++) begin
+                        for (int li = 0; li < ITEMS_IN_SLOT; li++) begin
+                            residual_in[(bi*ITEMS_IN_SLOT)+li] <=
+                                u_unified_buffer.bank_dout[bi][(COMPUTE_DATA_WIDTH*li) +: COMPUTE_DATA_WIDTH];
+                        end
+                    end
+`else
+                    for (int ci = 0; ci < NUM_COMPUTE_LANES; ci++) begin
+                        residual_in[ci] <= mem_to_compute[ci];
+                    end
+`endif
+                    buffer_re         <= 1'b0;
+                    buffer_compute_en <= 1'b0;
+                end
+            end
+
             // -----------------------------------------------------------------
             COMPUTE_STATE: begin
                 compute_start <= compute_en;
@@ -1008,18 +1071,28 @@ module top #(
                     for (int ai = 0; ai < ARRAY_SIZE; ai++) begin
 `ifdef ICARUS
                         logic signed [31:0] acc_val;
+                        logic signed [31:0] residual_val;
                         acc_val = acc_partial_sums[ai];
                         if (^acc_partial_sums[ai] === 1'bx)
                             acc_val = 32'sd0;
+                        residual_val = residual_en ? $signed(residual_in[ai]) : 32'sd0;
+                        if (residual_en && (^residual_in[ai] === 1'bx))
+                            residual_val = 32'sd0;
+                        acc_val = acc_val + residual_val;
                         if (relu_en && (quantize_clip_int4(acc_val) < 0))
                             compute_to_buffer[ai] <= quantize_clip_int4(acc_val) >>> ALPHA;
                         else
                             compute_to_buffer[ai] <= quantize_clip_int4(acc_val);
 `else
-                        if (relu_en && (quantize_clip_int4(acc_partial_sums[ai]) < 0))
-                            compute_to_buffer[ai] <= quantize_clip_int4(acc_partial_sums[ai]) >>> ALPHA;
+                        logic signed [31:0] acc_val;
+                        logic signed [31:0] residual_val;
+                        acc_val = acc_partial_sums[ai];
+                        residual_val = residual_en ? $signed(residual_in[ai]) : 32'sd0;
+                        acc_val = acc_val + residual_val;
+                        if (relu_en && (quantize_clip_int4(acc_val) < 0))
+                            compute_to_buffer[ai] <= quantize_clip_int4(acc_val) >>> ALPHA;
                         else
-                            compute_to_buffer[ai] <= quantize_clip_int4(acc_partial_sums[ai]);
+                            compute_to_buffer[ai] <= quantize_clip_int4(acc_val);
 `endif
                     end
                 end

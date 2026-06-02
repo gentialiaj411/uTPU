@@ -325,7 +325,7 @@ class ProgramLoader:
         )
 
     def _encode_accumulate_op(self, weight_block, input_block, out_base_addr: int, acc_clear: bool) -> bytes:
-        e = ISAEncoder()
+        e = ISAEncoder(cfg=self.cfg)
         self._encode_store_tensor_ops(e, self.BUFFER_SECTION_B, weight_block)
         e.loadWeights(self.BUFFER_SECTION_B)
         self._encode_store_tensor_ops(e, self.BUFFER_SECTION_A, input_block)
@@ -344,7 +344,7 @@ class ProgramLoader:
         return words
 
     def _encode_accumulate_op_compressed(self, weight_block, input_block, out_base_addr: int, acc_clear: bool) -> bytes:
-        e = ISAEncoder()
+        e = ISAEncoder(cfg=self.cfg)
         w_words = self._pack_int4_words(weight_block)
         i_words = self._pack_int4_words(input_block)
         e.burst_store(self.BUFFER_SECTION_B, w_words)
@@ -354,18 +354,47 @@ class ProgramLoader:
         e.run(out_base_addr, compute=True, quantize=False, relu=False, acc_clear=acc_clear)
         return e.getProgram()
 
-    def _encode_finalize_fetch_op(self, out_base_addr: int, array_size: int, apply_quant: bool, apply_relu: bool) -> bytes:
-        e = ISAEncoder()
-        e.run(out_base_addr, compute=False, quantize=apply_quant, relu=apply_relu, acc_clear=False)
+    def _encode_finalize_fetch_op(
+        self,
+        out_base_addr: int,
+        array_size: int,
+        apply_quant: bool,
+        apply_relu: bool,
+        residual_addr: Optional[int] = None,
+    ) -> bytes:
+        e = ISAEncoder(cfg=self.cfg)
+        e.run(
+            out_base_addr,
+            compute=False,
+            quantize=apply_quant,
+            relu=apply_relu,
+            acc_clear=False,
+            residual_en=residual_addr is not None,
+            residual_addr=residual_addr,
+        )
         for widx in range(array_size // 4):
             addr = out_base_addr + widx
             e.fetch(addr, top_half=False)
             e.fetch(addr, top_half=True)
         return e.getProgram()
 
-    def _encode_finalize_no_fetch_op(self, out_base_addr: int, apply_quant: bool, apply_relu: bool) -> bytes:
-        e = ISAEncoder()
-        e.run(out_base_addr, compute=False, quantize=apply_quant, relu=apply_relu, acc_clear=False)
+    def _encode_finalize_no_fetch_op(
+        self,
+        out_base_addr: int,
+        apply_quant: bool,
+        apply_relu: bool,
+        residual_addr: Optional[int] = None,
+    ) -> bytes:
+        e = ISAEncoder(cfg=self.cfg)
+        e.run(
+            out_base_addr,
+            compute=False,
+            quantize=apply_quant,
+            relu=apply_relu,
+            acc_clear=False,
+            residual_en=residual_addr is not None,
+            residual_addr=residual_addr,
+        )
         return e.getProgram()
 
     def _encode_store_tensor_ops(self, encoder: ISAEncoder, base_addr: int, data) -> None:
@@ -385,7 +414,7 @@ class ProgramLoader:
         out_base_addr: int,
         acc_clear: bool
     ) -> bytes:
-        e = ISAEncoder()
+        e = ISAEncoder(cfg=self.cfg)
         w_words = self._pack_int4_words(weight_block)
         e.burst_store(self.BUFFER_SECTION_B, w_words)
         e.loadWeights(self.BUFFER_SECTION_B)
@@ -464,7 +493,7 @@ class ProgramLoader:
             if op_words + 1 > max_words_per_segment:
                 raise ValueError(f"Single op too large for segment budget: {op_words}+HALT > {max_words_per_segment}")
             if cur_words + op_words + 1 > max_words_per_segment:
-                seg_enc = ISAEncoder()
+                seg_enc = ISAEncoder(cfg=self.cfg)
                 for sop in cur_ops:
                     seg_enc.instructions.append(sop["bytes"])
                 seg_enc.halt()
@@ -480,7 +509,7 @@ class ProgramLoader:
             cur_words += op_words
 
         if cur_ops:
-            seg_enc = ISAEncoder()
+            seg_enc = ISAEncoder(cfg=self.cfg)
             for sop in cur_ops:
                 seg_enc.instructions.append(sop["bytes"])
             seg_enc.halt()
@@ -744,7 +773,7 @@ class ProgramLoader:
         x_pad = np.zeros(in_padded, dtype=np.int8)
         x_pad[:in_features] = x
 
-        e = ISAEncoder()
+        e = ISAEncoder(cfg=self.cfg)
         for ob in range(out_blocks):
             out_base_addr = result_addr + ob * (a // 4)
             o0 = ob * a
@@ -783,16 +812,19 @@ class ProgramLoader:
         fc1_weights_int4,
         fc2_weights_int4,
         input_activations_int4,
+        residual_input_int4=None,
         array_size: Optional[int] = None,
         fc1_apply_relu: bool = True,
         fc2_apply_relu: bool = False,
         apply_quant: bool = True,
         result_addr: int = BUFFER_SECTION_C,
+        residual_addr: int = BUFFER_SECTION_D,
         num_pe: int = 1,
     ) -> Dict[str, Any]:
         """
         Build one fused compressed program:
         FC1 accumulate/finalize (no host fetch) -> FC2 consume FC1 output buffer -> final fetch -> HALT.
+        Optionally adds a residual skip from ``residual_input_int4`` into the FC1 finalize step.
 
         ``num_pe=2`` emits a dual-PE FC1 K-split schedule when FC1 has >=2 K-blocks.
         """
@@ -801,21 +833,25 @@ class ProgramLoader:
                 fc1_weights_int4=fc1_weights_int4,
                 fc2_weights_int4=fc2_weights_int4,
                 input_activations_int4=input_activations_int4,
+                residual_input_int4=residual_input_int4,
                 array_size=array_size,
                 fc1_apply_relu=fc1_apply_relu,
                 fc2_apply_relu=fc2_apply_relu,
                 apply_quant=apply_quant,
                 result_addr=result_addr,
+                residual_addr=residual_addr,
             )
         return self._build_full_inference_program_compressed_fused_1pe(
             fc1_weights_int4=fc1_weights_int4,
             fc2_weights_int4=fc2_weights_int4,
             input_activations_int4=input_activations_int4,
+            residual_input_int4=residual_input_int4,
             array_size=array_size,
             fc1_apply_relu=fc1_apply_relu,
             fc2_apply_relu=fc2_apply_relu,
             apply_quant=apply_quant,
             result_addr=result_addr,
+            residual_addr=residual_addr,
         )
 
     def _build_full_inference_program_compressed_fused_1pe(
@@ -823,11 +859,13 @@ class ProgramLoader:
         fc1_weights_int4,
         fc2_weights_int4,
         input_activations_int4,
+        residual_input_int4=None,
         array_size: Optional[int] = None,
         fc1_apply_relu: bool = True,
         fc2_apply_relu: bool = False,
         apply_quant: bool = True,
         result_addr: int = BUFFER_SECTION_C,
+        residual_addr: int = BUFFER_SECTION_D,
     ) -> Dict[str, Any]:
         """
         Build one fused compressed program:
@@ -837,11 +875,18 @@ class ProgramLoader:
         fc1_w = np.asarray(fc1_weights_int4, dtype=np.int8)
         fc2_w = np.asarray(fc2_weights_int4, dtype=np.int8)
         x = np.asarray(input_activations_int4, dtype=np.int8).flatten()
+        residual = None if residual_input_int4 is None else np.asarray(residual_input_int4, dtype=np.int8).flatten()
 
         fc1_out, fc1_in = fc1_w.shape
         fc2_out, fc2_in = fc2_w.shape
         if x.shape[0] != fc1_in:
             raise ValueError(f"input activation length mismatch: expected {fc1_in}, got {x.shape[0]}")
+        if residual is not None and residual.shape[0] != fc1_out:
+            raise ValueError(
+                f"residual length mismatch: expected {fc1_out}, got {residual.shape[0]}"
+            )
+        if residual is not None and not self.cfg.extended_address:
+            raise ValueError("residual skip requires widened ISA encoding (address_width > 9)")
         if fc2_in > a:
             raise ValueError(f"FC2 input dim {fc2_in} exceeds array_size {a}; fused path assumes single FC2 input block")
 
@@ -859,7 +904,7 @@ class ProgramLoader:
         fc2_w_pad = np.zeros((fc2_out_blocks * a, fc2_in_blocks * a), dtype=np.int8)
         fc2_w_pad[:fc2_out, :fc2_in] = fc2_w
 
-        e = ISAEncoder()
+        e = ISAEncoder(cfg=self.cfg)
         breakdown = {
             "fc1_weight_bstore_words": 0,
             "fc1_activation_bstore_words": 0,
@@ -867,6 +912,7 @@ class ProgramLoader:
             "fc1_run_words": 0,
             "fc1_fetch_words": 0,
             "fc1_halt_words": 0,
+            "fc1_residual_bstore_words": 0,
             "fc2_weight_bstore_words": 0,
             "fc2_activation_bstore_words": 0,
             "fc2_load_words": 0,
@@ -879,10 +925,18 @@ class ProgramLoader:
         fc1_input_words = self._pack_int4_words(x_pad)
         e.burst_store(self.BUFFER_SECTION_A, fc1_input_words)
         breakdown["fc1_activation_bstore_words"] += 2 + len(fc1_input_words)
+        if residual is not None:
+            residual_pad = np.zeros(fc1_out_blocks * a, dtype=np.int8)
+            residual_pad[:fc1_out] = residual
+            residual_words = self._pack_int4_words(residual_pad)
+            e.burst_store(residual_addr, residual_words)
+            breakdown["fc1_residual_bstore_words"] += 2 + len(residual_words)
+        residual_block_words = a // self.cfg.items_per_word
 
         # FC1: group two K-block weight tiles per burst to reduce BSTORE headers.
         for ob in range(fc1_out_blocks):
             out_base_addr = result_addr + ob * (a // 4)
+            residual_block_addr = residual_addr + ob * residual_block_words
             o0 = ob * a
             o1 = o0 + a
             ib = 0
@@ -917,7 +971,14 @@ class ProgramLoader:
                     breakdown["fc1_run_words"] += 1
                 ib += group
             # finalize FC1 but do not fetch to host
-            e.instructions.append(self._encode_finalize_no_fetch_op(out_base_addr, apply_quant=apply_quant, apply_relu=fc1_apply_relu))
+                e.instructions.append(
+                    self._encode_finalize_no_fetch_op(
+                        out_base_addr,
+                        apply_quant=apply_quant,
+                        apply_relu=fc1_apply_relu,
+                        residual_addr=(residual_block_addr if residual is not None else None),
+                    )
+                )
             breakdown["fc1_run_words"] += 1
 
         # FC2 consume FC1 output directly from buffer C (no FC2 activation BSTORE)
@@ -977,22 +1038,35 @@ class ProgramLoader:
         fc1_weights_int4,
         fc2_weights_int4,
         input_activations_int4,
+        residual_input_int4=None,
         array_size: Optional[int] = None,
         fc1_apply_relu: bool = True,
         fc2_apply_relu: bool = False,
         apply_quant: bool = True,
         result_addr: int = BUFFER_SECTION_C,
+        residual_addr: int = BUFFER_SECTION_D,
     ) -> Dict[str, Any]:
         base = self._build_full_inference_program_compressed_fused_1pe(
             fc1_weights_int4=fc1_weights_int4,
             fc2_weights_int4=fc2_weights_int4,
             input_activations_int4=input_activations_int4,
+            residual_input_int4=residual_input_int4,
             array_size=array_size,
             fc1_apply_relu=fc1_apply_relu,
             fc2_apply_relu=fc2_apply_relu,
             apply_quant=apply_quant,
             result_addr=result_addr,
+            residual_addr=residual_addr,
         )
+        if residual_input_int4 is not None:
+            return {
+                **base,
+                "num_pe": 1,
+                "mode": "compressed_fused",
+                "multi_pe_requested": True,
+                "multi_pe_schedule_emitted": False,
+                "multi_pe_fallback_reason": "residual skip path currently uses the 1-PE schedule",
+            }
         a = array_size or self.default_array_size
         fc1_w = np.asarray(fc1_weights_int4, dtype=np.int8)
         fc2_w = np.asarray(fc2_weights_int4, dtype=np.int8)
@@ -1033,7 +1107,7 @@ class ProgramLoader:
                 "multi_pe_fallback_reason": "unable to partition FC1 K-blocks across two PEs",
             }
 
-        e = ISAEncoder()
+        e = ISAEncoder(cfg=self.cfg)
         fc1_input_words = self._pack_int4_words(x_pad)
         e.burst_store(self.BUFFER_SECTION_A, fc1_input_words)
         e.buffer_xfer(
@@ -1074,7 +1148,12 @@ class ProgramLoader:
         for ob in range(fc1_out_blocks):
             out_base_addr = result_addr + ob * (a // 4)
             e.instructions.append(
-                self._encode_finalize_no_fetch_op(out_base_addr, apply_quant=apply_quant, apply_relu=fc1_apply_relu)
+                self._encode_finalize_no_fetch_op(
+                    out_base_addr,
+                    apply_quant=apply_quant,
+                    apply_relu=fc1_apply_relu,
+                    residual_addr=(residual_addr if residual_input_int4 is not None else None),
+                )
             )
 
         for ob in range(fc2_out_blocks):

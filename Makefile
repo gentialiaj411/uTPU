@@ -92,9 +92,12 @@ RTL_STUBS := rtl/tb/xpm_memory_sdpram_stub.sv
 
 .PHONY: sim-units sim-all sim-perf clean-sim bench test-host \
         sim-iverilog-fused sim-iverilog-perf sim-iverilog-phase4-widen \
-        sim-iverilog-scheduler-cross-check \
+        sim-iverilog-scheduler-cross-check sim-iverilog-latency \
         sim-iverilog-all clean-sim-iverilog \
-        repro repro-host repro-cuda
+        repro repro-host repro-cuda \
+        fuzz fuzz-discovery superopt latency-determinism \
+        megakernel-recompute-aggregate nsight-compute-profile \
+        cublas-baseline-recompute-aggregate
 
 # ---------------------------
 # HOST REGRESSION (single source of truth for the CI test list)
@@ -102,7 +105,7 @@ RTL_STUBS := rtl/tb/xpm_memory_sdpram_stub.sv
 # .github/workflows/ci.yml so docs/agents never drift.
 # ---------------------------
 test-host:
-	python -m pytest firmware/host/test_fx_importer.py firmware/host/test_pytorch_compiler.py firmware/host/test_torch_compile_backend.py firmware/host/test_compiled_runtime_validation.py firmware/host/test_compiled_runtime_schedule_source.py firmware/host/test_footprint_baseline.py firmware/host/test_compiler_smoke.py firmware/host/test_graph_passes.py firmware/host/test_reference_interpreter.py firmware/host/test_isa_simulator.py firmware/host/test_rtl_sim_artifact.py firmware/host/test_transformer_integration.py firmware/host/test_cost_model_regression.py firmware/host/test_cost_model_selection.py firmware/host/test_fusion_benchmark.py firmware/host/test_tiling_controller.py firmware/host/test_multi_pe_sim.py firmware/host/test_real_model_ops.py firmware/host/test_real_model_end_to_end.py firmware/host/test_phase4_isa_widen.py firmware/host/test_scheduler_allocator.py firmware/host/test_cublas_baseline.py firmware/host/test_cost_model_heldout.py firmware/host/test_selection_ab.py firmware/host/test_board_fit_audit.py firmware/host/test_scheduler_rtl_crosscheck.py firmware/host/test_scheduler_rtl_crosscheck_bigmlp.py firmware/host/test_p4_2_vivado_reports.py firmware/host/test_diff_oracle.py firmware/host/test_region_fusion.py firmware/host/test_megakernel_benchmark.py -v
+	python -m pytest firmware/host/test_fx_importer.py firmware/host/test_pytorch_compiler.py firmware/host/test_torch_compile_backend.py firmware/host/test_compiled_runtime_validation.py firmware/host/test_compiled_runtime_schedule_source.py firmware/host/test_footprint_baseline.py firmware/host/test_compiler_smoke.py firmware/host/test_graph_passes.py firmware/host/test_reference_interpreter.py firmware/host/test_isa_simulator.py firmware/host/test_rtl_sim_artifact.py firmware/host/test_rtl_residual_sim_artifact.py firmware/host/test_transformer_integration.py firmware/host/test_cost_model_regression.py firmware/host/test_cost_model_selection.py firmware/host/test_fusion_benchmark.py firmware/host/test_tiling_controller.py firmware/host/test_multi_pe_sim.py firmware/host/test_real_model_ops.py firmware/host/test_real_model_end_to_end.py firmware/host/test_phase4_isa_widen.py firmware/host/test_scheduler_allocator.py firmware/host/test_cublas_baseline.py firmware/host/test_cost_model_heldout.py firmware/host/test_selection_ab.py firmware/host/test_board_fit_audit.py firmware/host/test_scheduler_rtl_crosscheck.py firmware/host/test_scheduler_rtl_crosscheck_bigmlp.py firmware/host/test_p4_2_vivado_reports.py firmware/host/test_diff_oracle.py firmware/host/test_region_fusion.py firmware/host/test_megakernel_benchmark.py firmware/host/test_fuzzer.py firmware/host/test_egraph.py firmware/host/test_latency_analysis.py firmware/host/test_nsight_compute_profile.py -v
 
 sim-units:
 	mkdir -p "$(SIM_OUT)"
@@ -158,7 +161,19 @@ sim-iverilog-perf:
 	"$(VVP)" "$(SIM_IVERILOG_OUT)/tb_perf_counters.out"
 	@echo "[sim-iverilog-perf] VCD: $(SIM_IVERILOG_OUT)/tb_perf_counters.vcd"
 
-sim-iverilog-all: sim-iverilog-fused sim-iverilog-perf sim-iverilog-phase4-widen sim-iverilog-scheduler-cross-check
+sim-iverilog-all: sim-iverilog-fused sim-iverilog-perf sim-iverilog-phase4-widen sim-iverilog-scheduler-cross-check sim-iverilog-latency
+
+# Task 4: deterministic-latency RTL data-independence sweep. Drives
+# rtl/tb/tb_latency_determinism.sv across 5 adversarial input
+# distributions, asserts RTL cycle variance == 0 across them, and
+# populates bench/results/latency_determinism.json::data_independence
+# rtl_cycle_invariant=true. This target runs the full iverilog path
+# (5 compile+run trials, ~10s); `make repro-host` uses the stub-mode
+# (--skip-iverilog) regen for cross-platform CI.
+sim-iverilog-latency:
+	mkdir -p "$(SIM_IVERILOG_OUT)" build/test_vectors build/reports bench/results
+	$(PYTHON) firmware/host/run_latency_determinism.py \
+		--output bench/results/latency_determinism.json
 
 # Phase 7 remediation P4.1: scheduler RTL cycle cross-check.
 # Generates two programs (naive + scheduled) for (M=32, K=32) and
@@ -240,6 +255,8 @@ repro-host:
 	$(PYTHON) firmware/host/run_cost_model_heldout.py
 	@echo "[repro-host] cuBLAS baseline schema/stub (Phase 7) -> bench/results/cublas_baseline.json"
 	$(PYTHON) firmware/host/run_cublas_baseline.py
+	@echo "[repro-host] cuBLAS baseline recompute aggregate (Phase 7 v1.2; surfaces cuBLASLt IMMA INT8 GEMM gap slots WITHOUT re-running CUDA) -> bench/results/cublas_baseline.json"
+	-$(PYTHON) firmware/host/run_cublas_baseline.py --recompute-aggregate-only || true
 	@echo "[repro-host] selection A/B schema/stub (Phase 7 remediation P2.2) -> bench/results/selection_ab.json"
 	$(PYTHON) firmware/host/run_selection_ab.py
 	@echo "[repro-host] board-fit audit (Phase 7 remediation P3) -> bench/results/board_fit_audit.json"
@@ -248,6 +265,16 @@ repro-host:
 	-$(PYTHON) firmware/host/run_scheduler_rtl_crosscheck.py || true
 	@echo "[repro-host] megakernel payoff stub (Task 1; populated on CUDA hosts via repro-cuda) -> bench/results/megakernel_payoff.json"
 	$(PYTHON) firmware/host/run_megakernel_benchmark.py
+	@echo "[repro-host] megakernel recompute aggregate (Task 1 v1.1; surfaces launch-count reduction + cuda_graphs_op_by_op arm slots WITHOUT re-running CUDA) -> bench/results/megakernel_payoff.json"
+	$(PYTHON) firmware/host/run_megakernel_benchmark.py --recompute-aggregate-only --output bench/results/megakernel_payoff.json
+	@echo "[repro-host] Nsight Compute occupancy/bottleneck profile stub (Task 1 v1.1; populated on WSL2 + CUDA via 'make nsight-compute-profile') -> bench/results/nsight_compute_profile.json"
+	$(PYTHON) firmware/host/run_nsight_compute_profile.py --skip-ncu
+	@echo "[repro-host] superopt payoff (Task 3 equality-saturation; 4 planted + 512 random graphs; isa_cycle_model) -> bench/results/superopt_payoff.json"
+	$(PYTHON) firmware/host/run_superopt_benchmark.py --num-random-graphs 512 --seed-start 0 --cost-function isa_cycle_model --output bench/results/superopt_payoff.json
+	@echo "[repro-host] fuzzer report ci_seeded (Task 2; cuda_megakernel relation skips on non-CUDA hosts) -> bench/results/fuzzer_report.json"
+	$(PYTHON) firmware/host/run_fuzzer.py --mode ci_seeded --seed 1234 --num-graphs 64
+	@echo "[repro-host] latency determinism (Task 4; static-only stub on hosts without iverilog) -> bench/results/latency_determinism.json"
+	$(PYTHON) firmware/host/run_latency_determinism.py --skip-iverilog
 	@echo "[repro-host] done. CUDA-only artifacts (ResNet-18, populated cuBLAS baseline, populated selection A/B, populated megakernel payoff) regenerate via 'make repro-cuda'."
 
 repro-cuda:
@@ -255,12 +282,71 @@ repro-cuda:
 	@echo "[repro-cuda] ResNet-18 end-to-end (requires CUDA + Linux/WSL2) -> bench/results/real_model_end_to_end.json"
 	$(PYTHON) firmware/host/run_real_model_end_to_end.py --output bench/results/real_model_end_to_end.json
 	$(PYTHON) -m pytest firmware/host/test_real_model_ops.py firmware/host/test_real_model_end_to_end.py -q
-	@echo "[repro-cuda] cuBLAS baseline (Phase 7, populated) -> bench/results/cublas_baseline.json"
+	@echo "[repro-cuda] cuBLAS baseline (Phase 7 v1.2; populated with cuBLAS GEMV + cuBLASLt IMMA INT8 GEMM + Inductor arms) -> bench/results/cublas_baseline.json"
 	$(PYTHON) firmware/host/run_cublas_baseline.py --warmup 10 --iters 50
 	@echo "[repro-cuda] selection A/B (Phase 7 remediation P2.2, populated) -> bench/results/selection_ab.json"
 	$(PYTHON) firmware/host/run_selection_ab.py --warmup 10 --iters 50
-	@echo "[repro-cuda] megakernel payoff (Task 1, populated) -> bench/results/megakernel_payoff.json"
+	@echo "[repro-cuda] megakernel payoff (Task 1 + v1.1: 6 workloads incl. 1024^2 / 4096^2 arith-bound; 4 arms incl. cuda_graphs_op_by_op) -> bench/results/megakernel_payoff.json"
 	$(PYTHON) firmware/host/run_megakernel_benchmark.py --warmup 10 --iters 50
+	@echo "[repro-cuda] Nsight Compute occupancy/bottleneck profile (Task 1 v1.1, populated) -> bench/results/nsight_compute_profile.json"
+	$(PYTHON) firmware/host/run_nsight_compute_profile.py
 
 repro: repro-host
 	@echo "[repro] host artifacts regenerated. For ResNet-18 + populated cuBLAS baseline (CUDA), run: make repro-cuda"
+
+# ---------------------------
+# Fuzzer (Task 2 / `utpu_upgrade_plan.md` §4).
+# `fuzz`           : short deterministic ci_seeded gate (regenerates fuzzer_report.json
+#                    with 64 seeds, no minimization writes — same as repro-host).
+# `fuzz-discovery` : long discovery run (10k seeds), commits any minimized real-bug repros
+#                    to firmware/host/fuzz/repros/. Honest claim: zero real bugs found in v1
+#                    development; running discovery is how new bugs would surface.
+# ---------------------------
+fuzz:
+	mkdir -p bench/results
+	$(PYTHON) firmware/host/run_fuzzer.py --mode ci_seeded --seed 1234 --num-graphs 64
+
+superopt:
+	mkdir -p bench/results
+	$(PYTHON) firmware/host/run_superopt_benchmark.py --num-random-graphs 512 --seed-start 0 --cost-function isa_cycle_model --output bench/results/superopt_payoff.json
+
+fuzz-discovery:
+	mkdir -p bench/results firmware/host/fuzz/repros
+	$(PYTHON) firmware/host/run_fuzzer.py --mode discovery --seed 1234 --num-graphs 10000 --write-repros
+
+# Task 4 — deterministic-latency static analysis standalone target.
+# Stub mode (no iverilog needed) for cross-platform repro.
+# For the full RTL data-independence arm, run `make sim-iverilog-latency`.
+latency-determinism:
+	mkdir -p bench/results
+	$(PYTHON) firmware/host/run_latency_determinism.py --skip-iverilog \
+		--output bench/results/latency_determinism.json
+
+# Task 1 v1.1 — recompute the aggregate block of megakernel_payoff.json from
+# the existing per-arm timings + launch counts WITHOUT re-running CUDA. Use
+# when the aggregate schema changed (e.g. launch-count fields added) but the
+# raw per-arm data is still current. For a full re-run from scratch on a
+# CUDA host, use `make repro-cuda`.
+megakernel-recompute-aggregate:
+	$(PYTHON) firmware/host/run_megakernel_benchmark.py --recompute-aggregate-only \
+		--output bench/results/megakernel_payoff.json
+
+# Phase 7 v1.2 — recompute the aggregate block of cublas_baseline.json from
+# the existing per-shape timings WITHOUT re-running CUDA. Surfaces the
+# cuBLASLt IMMA INT8 GEMM gap slots (gap_vs_cublaslt_int8_pct_median) on
+# legacy artifacts; on a host without live IMMA data the IMMA gap fields
+# collapse to None (no fabrication). For a full re-run from scratch on a
+# CUDA host, use `make repro-cuda`.
+cublas-baseline-recompute-aggregate:
+	$(PYTHON) firmware/host/run_cublas_baseline.py --recompute-aggregate-only \
+		--output bench/results/cublas_baseline.json
+
+# Task 1 v1.1 — Nsight Compute occupancy / bottleneck profile of the
+# fused_region kernel on the 4 locked launch-bound workloads. Requires
+# `ncu` (Nsight Compute CLI) on PATH and a CUDA device. On hosts without
+# ncu, emits a stub artifact via `--skip-ncu` (the same path repro-host
+# uses).
+nsight-compute-profile:
+	mkdir -p bench/results
+	$(PYTHON) firmware/host/run_nsight_compute_profile.py \
+		--output bench/results/nsight_compute_profile.json

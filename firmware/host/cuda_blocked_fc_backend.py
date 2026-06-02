@@ -18,23 +18,31 @@ from compiler_abstractions import (
 DEFAULT_CUDA_SCHEDULE_PARAMS = {
     "threads_per_block": 128,
     "unroll_factor": 1,
+    "use_smem": False,
 }
 
+# Typical per-block shared memory cap (bytes); larger ``in_padded`` falls back to global x.
+SMEM_INPUT_BYTES_LIMIT = 48 * 1024
 
-def normalize_cuda_schedule_params(schedule_params: Optional[Dict[str, Any]] = None) -> Dict[str, int]:
+
+def normalize_cuda_schedule_params(schedule_params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     params = dict(DEFAULT_CUDA_SCHEDULE_PARAMS)
     if schedule_params:
         params.update(schedule_params)
     threads = int(params.get("threads_per_block", 128))
     unroll = int(params.get("unroll_factor", 1))
+    use_smem = bool(params.get("use_smem", False))
     if threads <= 0 or threads > 1024:
         raise ValueError(f"threads_per_block must be in 1..1024, got {threads}")
     if unroll not in (1, 2, 4, 8):
         raise ValueError(f"unroll_factor must be one of 1, 2, 4, 8, got {unroll}")
-    return {
+    out: Dict[str, Any] = {
         "threads_per_block": threads,
         "unroll_factor": unroll,
     }
+    if use_smem:
+        out["use_smem"] = True
+    return out
 
 
 def _cuda_kernel_source(schedule_params: Optional[Dict[str, Any]] = None) -> str:
@@ -69,6 +77,54 @@ void blocked_fc_int4_kernel(
     int in_padded,
     int out_elems
 ) {
+    int row = blockIdx.x * blockDim.x + threadIdx.x;
+    if (row >= out_elems) return;
+    int acc = 0;
+    const signed char* wrow = w + row * in_padded;
+""" + loop_body + r"""
+    accum[row] = acc;
+}
+"""
+
+
+def _cuda_smem_kernel_source(schedule_params: Optional[Dict[str, Any]] = None) -> str:
+    params = normalize_cuda_schedule_params(schedule_params)
+    unroll = params["unroll_factor"]
+    if unroll == 1:
+        loop_body = """
+    for (int k = 0; k < in_padded; ++k) {
+        acc += (int)wrow[k] * (int)smem_x[k];
+    }
+"""
+    else:
+        terms = "\n".join(
+            f"        acc += (int)wrow[k + {i}] * (int)smem_x[k + {i}];"
+            for i in range(unroll)
+        )
+        loop_body = f"""
+    int k = 0;
+    for (; k + {unroll - 1} < in_padded; k += {unroll}) {{
+{terms}
+    }}
+    for (; k < in_padded; ++k) {{
+        acc += (int)wrow[k] * (int)smem_x[k];
+    }}
+"""
+    return r"""
+extern "C" __global__
+void blocked_fc_int4_smem_kernel(
+    const signed char* __restrict__ w,
+    const signed char* __restrict__ x,
+    signed int* __restrict__ accum,
+    int in_padded,
+    int out_elems
+) {
+    extern __shared__ signed char smem_x[];
+    for (int i = threadIdx.x; i < in_padded; i += blockDim.x) {
+        smem_x[i] = x[i];
+    }
+    __syncthreads();
+
     int row = blockIdx.x * blockDim.x + threadIdx.x;
     if (row >= out_elems) return;
     int acc = 0;
@@ -519,33 +575,62 @@ class CUDABlockedFCExecutor:
         self._check_cuda(err, "cuCtxCreate")
         return (time.perf_counter() - t0) * 1000.0
 
-    def _kernel_key(self, request: BlockedFCLoweringRequest, schedule, schedule_params: Dict[str, int]) -> tuple:
+    def _kernel_key(
+        self,
+        request: BlockedFCLoweringRequest,
+        schedule,
+        schedule_params: Dict[str, Any],
+        *,
+        kernel_name: str,
+    ) -> tuple:
         return (
-            "blocked_fc_int4_kernel",
+            kernel_name,
             int(request.out_features),
             int(request.in_features),
             int(schedule.in_padded),
             int(schedule.out_padded),
             int(schedule_params["threads_per_block"]),
             int(schedule_params["unroll_factor"]),
+            bool(schedule_params.get("use_smem", False)),
             "int4_i32",
             "cuda",
         )
+
+    def _resolve_blocked_fc_kernel(
+        self,
+        schedule,
+        schedule_params: Dict[str, Any],
+    ) -> tuple[str, str, bool]:
+        """Return (kernel_name, nvrtc_source_fn_key, smem_fallback)."""
+        use_smem = bool(schedule_params.get("use_smem", False))
+        in_padded = int(schedule.in_padded)
+        smem_bytes = in_padded * int(np.dtype(np.int8).itemsize)
+        if use_smem and smem_bytes <= SMEM_INPUT_BYTES_LIMIT:
+            return "blocked_fc_int4_smem_kernel", "smem", False
+        return "blocked_fc_int4_kernel", "naive", bool(use_smem)
 
     def _get_kernel(
         self,
         request: BlockedFCLoweringRequest,
         schedule,
         schedule_params: Optional[Dict[str, Any]] = None,
-    ) -> tuple[Any, float, float, bool]:
+    ) -> tuple[Any, float, float, bool, str, bool]:
         cuda, nvrtc = self._load_cuda_bindings()
         setup_ms = self._ensure_context()
         params = normalize_cuda_schedule_params(schedule_params)
-        key = self._kernel_key(request, schedule, params)
+        kernel_name, variant, smem_fallback = self._resolve_blocked_fc_kernel(schedule, params)
+        key = self._kernel_key(
+            request, schedule, params, kernel_name=kernel_name
+        )
         if key in self._kernel_cache:
-            return self._kernel_cache[key]["fn"], 0.0, setup_ms, True
+            entry = self._kernel_cache[key]
+            return entry["fn"], 0.0, setup_ms, True, kernel_name, smem_fallback
 
-        src = _cuda_kernel_source(params).encode("utf-8")
+        if variant == "smem":
+            src_text = _cuda_smem_kernel_source(params)
+        else:
+            src_text = _cuda_kernel_source(params)
+        src = src_text.encode("utf-8")
         t_compile0 = time.perf_counter()
         err, prog = nvrtc.nvrtcCreateProgram(src, b"blocked_fc.cu", 0, [], [])
         self._check_nvrtc(err, "nvrtcCreateProgram")
@@ -570,12 +655,12 @@ class CUDABlockedFCExecutor:
         t_setup0 = time.perf_counter()
         err, mod = cuda.cuModuleLoadData(bytes(ptx))
         self._check_cuda(err, "cuModuleLoadData")
-        err, fn = cuda.cuModuleGetFunction(mod, b"blocked_fc_int4_kernel")
+        err, fn = cuda.cuModuleGetFunction(mod, kernel_name.encode("utf-8"))
         self._check_cuda(err, "cuModuleGetFunction")
         setup_ms += (time.perf_counter() - t_setup0) * 1000.0
 
-        self._kernel_cache[key] = {"module": mod, "fn": fn}
-        return fn, compile_ms, setup_ms, False
+        self._kernel_cache[key] = {"module": mod, "fn": fn, "kernel_name": kernel_name}
+        return fn, compile_ms, setup_ms, False, kernel_name, smem_fallback
 
     def _get_elementwise_kernel(self) -> tuple[Any, float, float, bool]:
         cuda, nvrtc = self._load_cuda_bindings()
@@ -730,7 +815,12 @@ class CUDABlockedFCExecutor:
             w_pad = ref["weights_padded"]
             x_pad = ref["inputs_padded"]
             out_elems = schedule.out_padded
-            fn, compile_ms, setup_ms, kernel_cache_hit = self._get_kernel(request, schedule, params)
+            fn, compile_ms, setup_ms, kernel_cache_hit, kernel_name, smem_fallback = (
+                self._get_kernel(request, schedule, params)
+            )
+            shared_mem_bytes = 0
+            if kernel_name == "blocked_fc_int4_smem_kernel":
+                shared_mem_bytes = int(schedule.in_padded) * int(np.dtype(np.int8).itemsize)
 
             w_nbytes = int(w_pad.size)
             x_nbytes = int(x_pad.size)
@@ -768,7 +858,7 @@ class CUDABlockedFCExecutor:
                 fn,
                 blocks, 1, 1,
                 threads, 1, 1,
-                0,
+                shared_mem_bytes,
                 0,
                 kernel_args,
                 0,
@@ -791,7 +881,9 @@ class CUDABlockedFCExecutor:
             return {
                 "executed": True,
                 "backend": "cuda",
-                "kernel_name": "blocked_fc_int4_kernel",
+                "kernel_name": kernel_name,
+                "smem_fallback": bool(smem_fallback),
+                "shared_mem_bytes": int(shared_mem_bytes),
                 "schedule_params": dict(params),
                 "compile_time_ms": float(compile_ms),
                 "setup_time_ms": float(setup_ms),

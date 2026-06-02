@@ -4,8 +4,9 @@ from typing import Dict, List
 
 import numpy as np
 
-from program_loader import ProgramLoader
+from isa_encoder import IsaConfig
 from isa_simulator import simulate_mem_file
+from program_loader import ProgramLoader
 
 
 def _clip_int4(x: int) -> int:
@@ -26,7 +27,7 @@ def _pack_int4_fetch_bytes(vals: np.ndarray) -> List[int]:
     out = []
     flat = vals.astype(np.int8).tolist()
     for i in range(0, len(flat), 4):
-        chunk = flat[i:i + 4]
+        chunk = flat[i : i + 4]
         while len(chunk) < 4:
             chunk.append(0)
         lo = (chunk[0] & 0xF) | ((chunk[1] & 0xF) << 4)
@@ -35,15 +36,17 @@ def _pack_int4_fetch_bytes(vals: np.ndarray) -> List[int]:
     return out
 
 
-def _fc_block_reference(
+def _residual_fc_reference(
     fc1_w: np.ndarray,
     fc2_w: np.ndarray,
     x: np.ndarray,
+    residual: np.ndarray,
     fc1_relu: bool,
     fc2_relu: bool,
     alpha_shift: int = 2,
 ) -> Dict[str, List[int]]:
     fc1_acc = np.matmul(fc1_w.astype(np.int32), x.astype(np.int32))
+    fc1_acc = fc1_acc + residual.astype(np.int32)
     fc1_q = np.array([_clip_int4(int(v)) for v in fc1_acc], dtype=np.int8)
     if fc1_relu:
         fc1_q = np.array([_leaky_relu_shift_int4(int(v), alpha_shift) for v in fc1_q], dtype=np.int8)
@@ -66,124 +69,94 @@ def _write_program_mem(path: str, program: bytes) -> None:
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         for i in range(0, len(program), 2):
-            word = int.from_bytes(program[i:i + 2], byteorder="little", signed=False)
+            word = int.from_bytes(program[i : i + 2], byteorder="little", signed=False)
             f.write(f"{word:04x}\n")
 
 
-def _count_ops(program: bytes) -> Dict[str, int]:
-    counts = {"bstore_count": 0, "load_count": 0, "run_count": 0, "fetch_count": 0, "halt_count": 0}
-    words = [int.from_bytes(program[i:i + 2], "little") for i in range(0, len(program), 2)]
-    i = 0
-    while i < len(words):
-        op = words[i] & 0x7
-        if op == 0b110:
-            counts["bstore_count"] += 1
-            burst_n = words[i + 1]
-            i += 2 + burst_n
-        elif op == 0b011:
-            counts["load_count"] += 1
-            i += 1
-        elif op == 0b010:
-            counts["run_count"] += 1
-            i += 1
-        elif op == 0b001:
-            counts["fetch_count"] += 1
-            i += 1
-        elif op == 0b100:
-            counts["halt_count"] += 1
-            i += 1
-        elif op == 0b000:
-            i += 3
-        else:
-            i += 1
-    return counts
-
-
-def _build_case(loader: ProgramLoader, name: str, fc1_w: np.ndarray, fc2_w: np.ndarray, x: np.ndarray) -> Dict:
+def _build_case(loader: ProgramLoader, name: str, fc1_w: np.ndarray, fc2_w: np.ndarray, x: np.ndarray, residual: np.ndarray) -> Dict:
     fused = loader.build_full_inference_program_compressed_fused(
         fc1_weights_int4=fc1_w,
         fc2_weights_int4=fc2_w,
         input_activations_int4=x,
+        residual_input_int4=residual,
         array_size=16,
         fc1_apply_relu=True,
         fc2_apply_relu=False,
         apply_quant=True,
+        result_addr=ProgramLoader.BUFFER_SECTION_C,
+        residual_addr=ProgramLoader.BUFFER_SECTION_D,
     )
-    ref = _fc_block_reference(fc1_w, fc2_w, x, fc1_relu=True, fc2_relu=False)
-    op_counts = _count_ops(fused["program"])
-    words = len(fused["program"]) // 2
-
-    mem_path = os.path.join("build", "test_vectors", f"{name}_fused_program.mem")
+    ref = _residual_fc_reference(fc1_w, fc2_w, x, residual, fc1_relu=True, fc2_relu=False)
+    mem_path = os.path.join("build", "test_vectors", f"{name}_fused_residual_program.mem")
     _write_program_mem(mem_path, fused["program"])
-    isa = simulate_mem_file(mem_path, array_size=16)
+    isa = simulate_mem_file(
+        mem_path,
+        array_size=16,
+        buffer_size=4096,
+        cfg=loader.cfg,
+        accumulator_data_width=32,
+    )
     if not isa.halted:
         raise RuntimeError(f"ISA simulator did not halt for {name}")
     if isa.fetch_bytes != ref["fc2_fetch_bytes"]:
         raise RuntimeError(
             f"Oracle mismatch for {name}: reference bytes {ref['fc2_fetch_bytes']} != ISA bytes {isa.fetch_bytes}"
         )
-
     return {
         "name": name,
         "program_mem": mem_path,
-        "program_words": words,
+        "program_words": len(fused["program"]) // 2,
         "expected_outputs": ref["fc2_int4"],
         "expected_fetch_bytes": ref["fc2_fetch_bytes"],
         "expected_fc1_int4": ref["fc1_int4"],
         "expected_fc1_int32": ref["fc1_int32"],
         "expected_fc2_int32": ref["fc2_int32"],
-        **op_counts,
+        "residual_int4": residual.astype(np.int8).tolist(),
     }
 
 
 def _write_svh(summary: Dict, path: str) -> None:
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
-        f.write("// Auto-generated by generate_fused_rtl_test_vectors.py\n")
+        f.write("// Auto-generated by generate_fused_residual_rtl_test_vectors.py\n")
         f.write(f"`define CASE_COUNT {len(summary['cases'])}\n")
         for case_idx, case in enumerate(summary["cases"], start=1):
             case_mem = case["program_mem"].replace("\\", "/")
             f.write(f'`define CASE{case_idx}_NAME "{case["name"]}"\n')
             f.write(f'`define CASE{case_idx}_MEM "{case_mem}"\n')
-            f.write(f'`define CASE{case_idx}_WORDS {case["program_words"]}\n')
-            f.write(f'`define CASE{case_idx}_FETCH_N {len(case["expected_fetch_bytes"])}\n')
+            f.write(f"`define CASE{case_idx}_WORDS {case['program_words']}\n")
+            f.write(f"`define CASE{case_idx}_FETCH_N {len(case['expected_fetch_bytes'])}\n")
             for byte_idx, val in enumerate(case["expected_fetch_bytes"]):
                 f.write(f"`define CASE{case_idx}_EXP_BYTE_{byte_idx} 8'h{val:02x}\n")
 
 
-def generate_vectors(output_json: str = os.path.join("build", "test_vectors", "fused_expected.json")) -> Dict:
-    loader = ProgramLoader(uart=None, verbose=False)
-
-    rng = np.random.default_rng(20260601)
+def generate_vectors(output_json: str = os.path.join("build", "test_vectors", "fused_residual_expected.json")) -> Dict:
+    cfg = IsaConfig(address_width=12, compute_data_width=4)
+    loader = ProgramLoader(uart=None, verbose=False, cfg=cfg)
+    rng = np.random.default_rng(20260602)
 
     def _rand_int4(shape: tuple[int, ...]) -> np.ndarray:
         return rng.integers(-2, 3, size=shape, dtype=np.int8)
 
-    # Fixed, deterministic fused FC1->ReLU->FC2 cases that fit pynqz2_baseline.
-    # Shapes are (in_dim, hidden_dim) with fc2 out_dim fixed at 16 and
-    # hidden_dim <= array_size because the current fused path consumes a
-    # single FC2 input block.
-    case_specs = [
-        ("case1_16x16", 16, 16),
-        ("case2_32x16", 32, 16),
-        ("case3_32x8", 32, 8),
-    ]
-    built_cases = []
-    for case_name, in_dim, hidden_dim in case_specs:
-        fc1_w = _rand_int4((hidden_dim, in_dim))
-        fc2_w = _rand_int4((16, hidden_dim))
-        x = _rand_int4((in_dim,))
-        built_cases.append(_build_case(loader, case_name, fc1_w, fc2_w, x))
+    fc1_w = _rand_int4((16, 16))
+    fc2_w = _rand_int4((16, 16))
+    x = _rand_int4((16,))
+    residual = _rand_int4((16,))
+    case = _build_case(loader, "case1_16x16_residual", fc1_w, fc2_w, x, residual)
 
     summary = {
         "array_size": 16,
-        "seed": 20260601,
-        "cases": built_cases,
+        "seed": 20260602,
+        "cases": [case],
+        "cfg": {
+            "address_width": cfg.address_width,
+            "compute_data_width": cfg.compute_data_width,
+        },
     }
     os.makedirs(os.path.dirname(output_json), exist_ok=True)
     with open(output_json, "w", encoding="utf-8") as f:
         json.dump(summary, f, indent=2)
-    _write_svh(summary, os.path.join("build", "test_vectors", "fused_expected.svh"))
+    _write_svh(summary, os.path.join("build", "test_vectors", "fused_residual_expected.svh"))
     return summary
 
 

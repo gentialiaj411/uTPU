@@ -31,12 +31,14 @@ _RANK_TIE_ABS_EPS_US = 1e-3
 class CUDABlockedFCScheduleParams:
     threads_per_block: int = 128
     unroll_factor: int = 1
+    use_smem: bool = False
 
-    def to_dict(self) -> Dict[str, int]:
+    def to_dict(self) -> Dict[str, Any]:
         return normalize_cuda_schedule_params(
             {
                 "threads_per_block": self.threads_per_block,
                 "unroll_factor": self.unroll_factor,
+                "use_smem": self.use_smem,
             }
         )
 
@@ -46,12 +48,18 @@ class CUDATuningSearchSpace:
     threads_per_block: Tuple[int, ...] = (32, 64, 128, 256)
     unroll_factor: Tuple[int, ...] = (1, 2, 4, 8)
 
-    def candidates(self) -> List[CUDABlockedFCScheduleParams]:
+    def candidates(self, *, include_smem_variants: bool = False) -> List[CUDABlockedFCScheduleParams]:
+        smem_values = (False, True) if include_smem_variants else (False,)
         return [
-            CUDABlockedFCScheduleParams(threads_per_block=t, unroll_factor=u)
+            CUDABlockedFCScheduleParams(threads_per_block=t, unroll_factor=u, use_smem=use_smem)
             for t in self.threads_per_block
             for u in self.unroll_factor
+            for use_smem in smem_values
         ]
+
+    def schedule_candidates(self) -> List[CUDABlockedFCScheduleParams]:
+        """Full autotuner grid including ``use_smem`` True/False for each schedule."""
+        return self.candidates(include_smem_variants=True)
 
     def schema(self) -> Dict[str, Any]:
         return {
@@ -64,6 +72,11 @@ class CUDATuningSearchSpace:
                 "type": "int",
                 "values": list(self.unroll_factor),
                 "description": "Manual unroll factor for the inner K loop in the generated NVRTC kernel.",
+            },
+            "use_smem": {
+                "type": "bool",
+                "values": [False, True],
+                "description": "Load input vector x into shared memory once per block (GEMV).",
             },
         }
 
@@ -214,6 +227,7 @@ def rank_candidates_by_cost_model(
             int(item["tie_bucket"]),
             item["schedule"]["threads_per_block"],
             item["schedule"]["unroll_factor"],
+            int(bool(item["schedule"].get("use_smem", False))),
             float(item["predicted_latency_us"]),
         )
     )
@@ -246,7 +260,8 @@ def select_pruned_candidates(
     }
     if top_k is None or int(top_k) <= 0 or int(top_k) >= len(normalized):
         return normalized, [], policy_meta
-    small_space_threshold = max(6, int(top_k))
+    smem_variants = len({bool(c.get("use_smem", False)) for c in normalized})
+    small_space_threshold = max(6, int(top_k)) * max(1, smem_variants)
     policy_meta["small_space_threshold"] = int(small_space_threshold)
     if len(normalized) <= small_space_threshold:
         return normalized, [], policy_meta
@@ -276,7 +291,12 @@ def select_pruned_candidates(
             seen_unroll.add(unroll)
             unroll_family_kept += 1
     thread_family_kept = 0
-    keep_thread_diversity = len(keep) <= k and min(int(out_features), int(in_features)) <= 16
+    unique_thread_blocks = {
+        int(item["schedule"]["threads_per_block"]) for item in keep
+    }
+    keep_thread_diversity = (
+        len(unique_thread_blocks) <= k and min(int(out_features), int(in_features)) <= 16
+    )
     if keep_thread_diversity:
         seen_threads = {int(item["schedule"]["threads_per_block"]) for item in keep}
         for item in ranked:
@@ -288,7 +308,11 @@ def select_pruned_candidates(
     keep_schedules = []
     seen_schedule = set()
     for item in keep:
-        key = (int(item["schedule"]["threads_per_block"]), int(item["schedule"]["unroll_factor"]))
+        key = (
+            int(item["schedule"]["threads_per_block"]),
+            int(item["schedule"]["unroll_factor"]),
+            int(bool(item["schedule"].get("use_smem", False))),
+        )
         if key in seen_schedule:
             continue
         seen_schedule.add(key)
@@ -296,7 +320,12 @@ def select_pruned_candidates(
     pruned = [
         item
         for item in ranked
-        if (int(item["schedule"]["threads_per_block"]), int(item["schedule"]["unroll_factor"])) not in seen_schedule
+        if (
+            int(item["schedule"]["threads_per_block"]),
+            int(item["schedule"]["unroll_factor"]),
+            int(bool(item["schedule"].get("use_smem", False))),
+        )
+        not in seen_schedule
     ]
     policy_meta["tie_margin_kept_count"] = int(tie_kept)
     policy_meta["unroll_family_kept_count"] = int(unroll_family_kept)
@@ -429,7 +458,7 @@ def tune_blocked_fc_shape(
     request = _make_request(out_features, in_features, array_size, seed=seed)
     target = _target_id(executor)
     space = search_space or default_search_space()
-    all_candidates = [c.to_dict() for c in space.candidates()]
+    all_candidates = [c.to_dict() for c in space.schedule_candidates()]
     if max_candidates is not None:
         all_candidates = all_candidates[: int(max_candidates)]
     target_model = cost_model_target if cost_model_target is not None else load_cost_model_target(cost_model_path)
