@@ -71,11 +71,15 @@ def _iverilog_run(repo_root: str) -> Tuple[bool, str, str]:
     srcs_abs = [os.path.join(repo_root, s) for s in srcs]
     compile_cmd = [iv_bin, "-g2012", "-DICARUS", "-o", out_vvp] + srcs_abs
     run_cmd = [vv_bin, out_vvp]
+    env = os.environ.copy()
+    env["TMP"] = build_dir
+    env["TEMP"] = build_dir
+    env["TMPDIR"] = build_dir
 
-    c = subprocess.run(compile_cmd, cwd=repo_root, capture_output=True, text=True)
+    c = subprocess.run(compile_cmd, cwd=repo_root, capture_output=True, text=True, stdin=subprocess.DEVNULL, env=env)
     if c.returncode != 0:
         return False, "compile_failed", (c.stdout or "") + "\n" + (c.stderr or "")
-    r = subprocess.run(run_cmd, cwd=repo_root, capture_output=True, text=True)
+    r = subprocess.run(run_cmd, cwd=repo_root, capture_output=True, text=True, stdin=subprocess.DEVNULL, env=env)
     ok = (r.returncode == 0) and ("TB_RESULT: PASS" in (r.stdout or ""))
     return ok, "executed", (r.stdout or "") + "\n" + (r.stderr or "")
 

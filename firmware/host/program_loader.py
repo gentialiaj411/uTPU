@@ -887,9 +887,6 @@ class ProgramLoader:
             )
         if residual is not None and not self.cfg.extended_address:
             raise ValueError("residual skip requires widened ISA encoding (address_width > 9)")
-        if fc2_in > a:
-            raise ValueError(f"FC2 input dim {fc2_in} exceeds array_size {a}; fused path assumes single FC2 input block")
-
         # FC1 padded views
         fc1_out_blocks = math.ceil(fc1_out / a)
         fc1_in_blocks = math.ceil(fc1_in / a)
@@ -989,9 +986,10 @@ class ProgramLoader:
             for ib in range(fc2_in_blocks):
                 i0 = ib * a
                 i1 = i0 + a
+                input_base_addr = result_addr + ib * (a // self.cfg.items_per_word)
                 op_chunk = self._encode_accumulate_op_compressed_from_buffer(
                     fc2_w_pad[o0:o1, i0:i1],
-                    input_base_addr=result_addr,  # FC1 finalized output lives here
+                    input_base_addr=input_base_addr,  # FC1 finalized output block stream
                     out_base_addr=out_base_addr,
                     acc_clear=(ib == 0)
                 )
@@ -1163,10 +1161,11 @@ class ProgramLoader:
             for ib in range(fc2_in_blocks):
                 i0 = ib * a
                 i1 = i0 + a
+                input_base_addr = result_addr + ib * (a // self.cfg.items_per_word)
                 e.instructions.append(
                     self._encode_accumulate_op_compressed_from_buffer(
                         fc2_w_pad[o0:o1, i0:i1],
-                        input_base_addr=result_addr,
+                        input_base_addr=input_base_addr,
                         out_base_addr=out_base_addr,
                         acc_clear=(ib == 0),
                     )
