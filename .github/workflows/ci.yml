@@ -24,7 +24,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
           python -m pip install cupy-cuda12x || true
-          python -m pip install pytest
+          python -m pip install pytest scipy
 
       - name: Best-effort pipeline inspect
         run: python examples/inspect_compiler_pipeline.py || true
