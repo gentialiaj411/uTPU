@@ -230,19 +230,41 @@ def _emit_with_addr(header_no_addr: int, addr: int, cfg: IsaConfig) -> bytes:
     return instructionToBytes(header_no_addr | (addr << 7))
 
 
-def encodeLoad(addr: int, is_weights: bool, cfg: Optional[IsaConfig] = None) -> bytes:
+def _encode_batch_count_header_bits(batch_count: int, *, cfg: IsaConfig) -> int:
+    batch = int(batch_count)
+    if batch < 1 or batch > 64:
+        raise ValueError(f"batch_count must be in [1, 64], got {batch_count}")
+    if batch != 1 and not cfg.extended_address:
+        raise ValueError("batch_count > 1 requires extended-address encoding")
+    return ((batch - 1) & 0xFF) << 8 if cfg.extended_address else 0
+
+
+def encodeLoad(
+    addr: int,
+    is_weights: bool,
+    cfg: Optional[IsaConfig] = None,
+    batch_count: int = 1,
+) -> bytes:
     cfg = _resolve_cfg(cfg)
     addr = encodeAddress(addr, cfg)
+    if is_weights and int(batch_count) != 1:
+        raise ValueError("weight loads do not accept batch_count > 1")
     header = OPCODE_LOAD | ((1 if is_weights else 0) << 3)
+    if not is_weights:
+        header |= _encode_batch_count_header_bits(batch_count, cfg=cfg)
     return _emit_with_addr(header, addr, cfg)
 
 
 def encodeLoadWeights(addr: int, cfg: Optional[IsaConfig] = None) -> bytes:
-    return encodeLoad(addr, is_weights=True, cfg=cfg)
+    return encodeLoad(addr, is_weights=True, cfg=cfg, batch_count=1)
 
 
-def encodeLoadInputs(addr: int, cfg: Optional[IsaConfig] = None) -> bytes:
-    return encodeLoad(addr, is_weights=False, cfg=cfg)
+def encodeLoadInputs(
+    addr: int,
+    cfg: Optional[IsaConfig] = None,
+    batch_count: int = 1,
+) -> bytes:
+    return encodeLoad(addr, is_weights=False, cfg=cfg, batch_count=batch_count)
 
 
 def encodeRun(
@@ -253,6 +275,7 @@ def encodeRun(
     acc_clear_en: bool = False,
     residual_en: bool = False,
     residual_addr: Optional[int] = None,
+    batch_count: int = 1,
     cfg: Optional[IsaConfig] = None,
 ) -> bytes:
     """RUN encoding.
@@ -266,7 +289,8 @@ def encodeRun(
         bits 7-15: result address
 
     Extended format (cfg.address_width > 9):
-        word1 = opcode | flags (bits 3..6); bit 7 marks residual-en when used
+        word1 = opcode | flags (bits 3..6); bit 7 marks residual-en when used;
+                bits 8..15 encode ``batch_count - 1`` for batched GEMM
         word2 = result address (low ``address_width`` bits)
         word3 = residual address when ``residual_en`` is set
 
@@ -278,6 +302,7 @@ def encodeRun(
     result_addr = encodeAddress(result_addr, cfg)
     if residual_en and not cfg.extended_address:
         raise ValueError("residual_en requires extended-address RUN encoding")
+    batch_bits = _encode_batch_count_header_bits(batch_count, cfg=cfg)
     if residual_en:
         if residual_addr is None:
             raise ValueError("residual_en=True requires residual_addr")
@@ -290,6 +315,7 @@ def encodeRun(
         | ((1 if relu_en else 0) << 5)
         | ((1 if acc_clear_en else 0) << 6)
         | residual_flag
+        | batch_bits
     )
     program = _emit_with_addr(header, result_addr, cfg)
     if residual_en:
@@ -444,8 +470,8 @@ class ISAEncoder:
         self.instructions.append(encodeLoadWeights(addr, cfg=self.cfg))
         return self
 
-    def loadInputs(self, addr: int) -> "ISAEncoder":
-        self.instructions.append(encodeLoadInputs(addr, cfg=self.cfg))
+    def loadInputs(self, addr: int, batch_count: int = 1) -> "ISAEncoder":
+        self.instructions.append(encodeLoadInputs(addr, cfg=self.cfg, batch_count=batch_count))
         return self
 
     def run(
@@ -457,6 +483,7 @@ class ISAEncoder:
         acc_clear: bool = False,
         residual_en: bool = False,
         residual_addr: Optional[int] = None,
+        batch_count: int = 1,
     ) -> "ISAEncoder":
         self.instructions.append(
             encodeRun(
@@ -467,6 +494,7 @@ class ISAEncoder:
                 acc_clear,
                 residual_en=residual_en,
                 residual_addr=residual_addr,
+                batch_count=batch_count,
                 cfg=self.cfg,
             )
         )

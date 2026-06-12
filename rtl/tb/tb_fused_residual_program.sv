@@ -194,8 +194,8 @@ module tb_fused_residual_program;
                 dut.bstore_count, dut.bstore_index, dut.address, dut.bstore_data_word,
                 dut.address, dut.compute_en, dut.quantizer_en, dut.relu_en, dut.acc_clear_en,
                 dut.mem_to_compute[0],
-                dut.compute_in[0], dut.compute_in[1], dut.compute_in[2], dut.compute_in[3],
-                dut.compute_out[0], dut.compute_out[1], dut.compute_out[2], dut.compute_out[3],
+                dut.compute_stream_in[0], dut.compute_stream_in[1], dut.compute_stream_in[2], dut.compute_stream_in[3],
+                dut.compute_stream_out[0], dut.compute_stream_out[1], dut.compute_stream_out[2], dut.compute_stream_out[3],
                 dut.u_unified_buffer.re, dut.u_unified_buffer.done, dut.u_unified_buffer.read_compute_d,
                 dut.u_unified_buffer.base_bank, dut.u_unified_buffer.base_row
             );

@@ -25,6 +25,9 @@ module top #(
     parameter QUANTIZER_SIZE         = ARRAY_SIZE*ARRAY_SIZE,
     parameter QUANTIZER_SIZE_WIDTH   = $clog2(QUANTIZER_SIZE),
     parameter NUM_COMPUTE_LANES      = ARRAY_SIZE*ARRAY_SIZE,
+    parameter MAX_BATCH_COUNT        = 64,
+    parameter MAX_BATCH_COUNT_WIDTH  = $clog2(MAX_BATCH_COUNT + 1),
+    parameter MAX_STREAM_LANES       = ARRAY_SIZE*MAX_BATCH_COUNT,
     // Phase 4 widening: derived elements-per-buffer-word. INT4@16-bit word
     // -> 4; INT8@16-bit word -> 2. Drives the LOAD_STATE pack/unpack loops
     // and matches `unified_buffer.sv`'s `ITEMS_IN_SLOT` calculation.
@@ -49,6 +52,7 @@ module top #(
     localparam logic [7:0] MAGIC_START  = 8'hA2; // host: start execution
     localparam logic [7:0] MAGIC_REARM  = 8'hA3; // host: re-arm from HALT
     localparam logic [7:0] MAGIC_READ_PERF = 8'hA4; // host: stream perf counters
+    localparam int STREAM_CHUNK_WORDS = (ARRAY_SIZE * ARRAY_SIZE) / ITEMS_IN_SLOT;
 
     // -----------------------------------------------------------------------
     // Controller registers
@@ -64,6 +68,9 @@ module top #(
     logic [ADDRESS_SIZE-1:0]     store_src_addr;
     logic [ADDRESS_SIZE-1:0]     store_dest_addr;
     logic [ADDRESS_SIZE-1:0]     compute_result_addr;
+    logic [MAX_BATCH_COUNT_WIDTH-1:0] input_batch_count;
+    logic [MAX_BATCH_COUNT_WIDTH-1:0] run_batch_count;
+    logic [MAX_BATCH_COUNT_WIDTH-1:0] run_batch_index;
     logic                        store_half;       // unused in BRAM path but kept for FETCH_ADDRESS_STATE
     logic [1:0]                  store_word_idx;
     logic [7:0]                  store_byte_lo;
@@ -94,13 +101,17 @@ module top #(
     // MAC Array
     logic compute_start, compute_load_en, compute_done;
     logic compute_done_d;
-    logic signed [COMPUTE_DATA_WIDTH-1:0]     compute_in  [NUM_COMPUTE_LANES-1:0];
-    logic signed [ACCUMULATOR_DATA_WIDTH-1:0] compute_out [NUM_COMPUTE_LANES-1:0];
+    logic signed [COMPUTE_DATA_WIDTH-1:0]     compute_weights_in [NUM_COMPUTE_LANES-1:0];
+    logic signed [COMPUTE_DATA_WIDTH-1:0]     compute_stream_in  [MAX_STREAM_LANES-1:0];
+    logic signed [ACCUMULATOR_DATA_WIDTH-1:0] compute_stream_out [MAX_STREAM_LANES-1:0];
     logic signed [31:0] acc_partial_sums [ARRAY_SIZE-1:0];
+    logic signed [31:0] acc_partial_matrix [ARRAY_SIZE-1:0][MAX_BATCH_COUNT-1:0];
+    logic signed [COMPUTE_DATA_WIDTH-1:0] loaded_input_matrix [ARRAY_SIZE-1:0][MAX_BATCH_COUNT-1:0];
 `ifdef ICARUS
     logic signed [31:0] run_capture_sums [ARRAY_SIZE-1:0];
     logic signed [COMPUTE_DATA_WIDTH-1:0] sim_block_weights [ARRAY_SIZE-1:0][ARRAY_SIZE-1:0];
     logic signed [COMPUTE_DATA_WIDTH-1:0] sim_block_inputs  [ARRAY_SIZE-1:0];
+    logic signed [COMPUTE_DATA_WIDTH-1:0] sim_block_inputs_matrix [ARRAY_SIZE-1:0][MAX_BATCH_COUNT-1:0];
 `endif
 
     // Quantizer
@@ -214,15 +225,18 @@ module top #(
         .COMPUTE_DATA_WIDTH(COMPUTE_DATA_WIDTH),
         .ACCUMULATOR_DATA_WIDTH(ACCUMULATOR_DATA_WIDTH),
         .BUFFER_WORD_SIZE(BUFFER_WORD_SIZE),
-        .NUM_COMPUTE_LANES(NUM_COMPUTE_LANES)
+        .NUM_COMPUTE_LANES(NUM_COMPUTE_LANES),
+        .MAX_BATCH_COUNT(MAX_BATCH_COUNT),
+        .BATCH_COUNT_WIDTH(MAX_BATCH_COUNT_WIDTH)
     ) u_pe_array (
         .clk(clk), .rst(rst_int),
         .compute(compute_start),
         .load_en(compute_load_en),
+        .batch_count(run_batch_count),
         .done(compute_done),
-        .datas_arr(compute_in),
-        .weights_in(compute_in),
-        .results_arr(compute_out)
+        .datas_arr(compute_stream_in),
+        .weights_in(compute_weights_in),
+        .results_arr(compute_stream_out)
     );
 
     quantizer_array #(
@@ -338,6 +352,12 @@ module top #(
     logic [ADDRESS_SIZE-1:0]     residual_source_addr;
     logic                        run_residual_addr_stage;
     logic signed [COMPUTE_DATA_WIDTH-1:0] residual_in [NUM_COMPUTE_LANES-1:0];
+    logic [MAX_BATCH_COUNT_WIDTH-1:0] load_chunk_index;
+    logic [MAX_BATCH_COUNT_WIDTH-1:0] load_chunk_count;
+    logic                             load_wait_clear;
+    logic [MAX_BATCH_COUNT_WIDTH-1:0] writeback_chunk_index;
+    logic [MAX_BATCH_COUNT_WIDTH-1:0] writeback_chunk_count;
+    logic                             writeback_wait_clear;
     // Phase 4: latched opcode for routing the EXT_ADDR_LATCH_STATE -> target
     // state in 2-word extended-address mode. Only used when EXT_ADDR_EN=1.
     opcode_e                     pending_opcode;
@@ -368,6 +388,31 @@ module top #(
     );
         quantize_clip_int4 = quantize_clip(x);
     endfunction
+
+    task automatic prepare_writeback_chunk(input int chunk_idx);
+        int local_col;
+        int global_col;
+        int row;
+        int out_idx;
+        logic signed [31:0] acc_val;
+        begin
+            for (int ai = 0; ai < NUM_COMPUTE_LANES; ai++)
+                compute_to_buffer[ai] <= '0;
+            for (local_col = 0; local_col < ARRAY_SIZE; local_col++) begin
+                global_col = (chunk_idx * ARRAY_SIZE) + local_col;
+                if (global_col < run_batch_count) begin
+                    for (row = 0; row < ARRAY_SIZE; row++) begin
+                        out_idx = (local_col * ARRAY_SIZE) + row;
+                        acc_val = acc_partial_matrix[row][global_col];
+                        if (relu_en && (quantize_clip_int4(acc_val) < 0))
+                            compute_to_buffer[out_idx] <= quantize_clip_int4(acc_val) >>> ALPHA;
+                        else
+                            compute_to_buffer[out_idx] <= quantize_clip_int4(acc_val);
+                    end
+                end
+            end
+        end
+    endtask
 
     // -----------------------------------------------------------------------
     // State register
@@ -503,10 +548,12 @@ module top #(
 
             LOAD_STATE:
 `ifdef ICARUS
-                if (buffer_done)
+                if (buffer_done && !load_wait_clear &&
+                    (load_is_weights || ((load_chunk_index + ARRAY_SIZE) >= input_batch_count)))
                     next_state = FETCH_BRAM_STATE;
 `else
-                if (buffer_done)
+                if (buffer_done && !load_wait_clear &&
+                    (load_is_weights || ((load_chunk_index + ARRAY_SIZE) >= input_batch_count)))
                     next_state = FETCH_BRAM_STATE;
 `endif
 
@@ -524,14 +571,16 @@ module top #(
                     next_state = COMPUTE_WRITEBACK_STATE;
                 end else if (compute_done_d) begin
                     // Accumulate-only RUN (compute=1, quantize=0, relu=0) does not write back yet.
-                    if (compute_en && ~quantizer_en && ~relu_en)
+                    if (compute_en && ~quantizer_en && ~relu_en) begin
                         next_state = FETCH_BRAM_STATE;
+                    end
                     else
                         next_state = COMPUTE_WRITEBACK_STATE;
                 end
 
             COMPUTE_WRITEBACK_STATE:
-                if (buffer_done)
+                if (buffer_done && !writeback_wait_clear &&
+                    ((writeback_chunk_index + 1'b1) >= writeback_chunk_count))
                     next_state = FETCH_BRAM_STATE;
 
             STORE_STATE:
@@ -623,6 +672,15 @@ module top #(
                 store_src_addr      <= '0;
                 store_dest_addr     <= '0;
                 compute_result_addr <= '0;
+                input_batch_count   <= MAX_BATCH_COUNT_WIDTH'(1);
+                run_batch_count     <= MAX_BATCH_COUNT_WIDTH'(1);
+                run_batch_index     <= '0;
+                load_chunk_index    <= '0;
+                load_chunk_count    <= MAX_BATCH_COUNT_WIDTH'(1);
+                load_wait_clear     <= 1'b0;
+                writeback_chunk_index <= '0;
+                writeback_chunk_count <= MAX_BATCH_COUNT_WIDTH'(1);
+                writeback_wait_clear <= 1'b0;
                 store_half          <= 1'b0;
                 store_word_idx      <= 2'b0;
                 store_byte_lo       <= '0;
@@ -658,11 +716,24 @@ module top #(
                 perf_snapshot    <= '0;
                 perf_stream_active <= 1'b0;
                 perf_stream_idx  <= '0;
-                for (int ai = 0; ai < ARRAY_SIZE; ai++)
+                for (int ai = 0; ai < ARRAY_SIZE; ai++) begin
                     acc_partial_sums[ai] <= '0;
+                    for (int bj = 0; bj < MAX_BATCH_COUNT; bj++) begin
+                        acc_partial_matrix[ai][bj] <= '0;
+                        loaded_input_matrix[ai][bj] <= '0;
+                    end
+                end
 `ifdef ICARUS
-                for (int ai = 0; ai < ARRAY_SIZE; ai++)
+                for (int ai = 0; ai < ARRAY_SIZE; ai++) begin
+                    sim_block_inputs[ai] <= '0;
                     run_capture_sums[ai] <= '0;
+                    for (int bj = 0; bj < ARRAY_SIZE; bj++) begin
+                        sim_block_weights[ai][bj] <= '0;
+                    end
+                    for (int bj = 0; bj < MAX_BATCH_COUNT; bj++) begin
+                        sim_block_inputs_matrix[ai][bj] <= '0;
+                    end
+                end
 `endif
             end
 
@@ -787,6 +858,8 @@ module top #(
                         relu_en             <= instruction[5];
                         acc_clear_en        <= instruction[6];
                         residual_en         <= EXT_ADDR_EN ? instruction[7] : 1'b0;
+                        run_batch_count     <= EXT_ADDR_EN ? (instruction[15:8] + MAX_BATCH_COUNT_WIDTH'(1)) : MAX_BATCH_COUNT_WIDTH'(1);
+                        run_batch_index     <= '0;
                         run_residual_addr_stage <= 1'b0;
                         if (!EXT_ADDR_EN) begin
                             address             <= instruction[BUFFER_WORD_SIZE-1:BUFFER_WORD_SIZE-ADDRESS_SIZE];
@@ -796,6 +869,13 @@ module top #(
                     LOAD_OP: begin
                         // Defer actual load_en pulse to LOAD_STATE when buffer data is valid.
                         load_is_weights    <= instruction[3];
+                        input_batch_count  <= (EXT_ADDR_EN && ~instruction[3]) ? (instruction[15:8] + MAX_BATCH_COUNT_WIDTH'(1)) : MAX_BATCH_COUNT_WIDTH'(1);
+                        load_chunk_index   <= '0;
+                        load_chunk_count   <= instruction[3]
+                            ? MAX_BATCH_COUNT_WIDTH'(1)
+                            : ((EXT_ADDR_EN && ~instruction[3] && ((instruction[15:8] + 8'd1) > ARRAY_SIZE))
+                                ? (((instruction[15:8] + 8'd1 + ARRAY_SIZE - 1) / ARRAY_SIZE))
+                                : MAX_BATCH_COUNT_WIDTH'(1));
                         compute_load_en    <= 1'b0;
                         load_clear_pending <= 1'b0;
                         if (!EXT_ADDR_EN)
@@ -901,13 +981,19 @@ module top #(
             // -----------------------------------------------------------------
             LOAD_STATE: begin
                 compute_en        <= 1'b0;
-                buffer_re         <= 1'b1;
-                buffer_compute_en <= 1'b1;
                 compute_load_en   <= 1'b0;
+                if (load_wait_clear) begin
+                    buffer_re         <= 1'b0;
+                    buffer_compute_en <= 1'b0;
+                    if (!buffer_done)
+                        load_wait_clear <= 1'b0;
+                end else begin
+                    buffer_re         <= 1'b1;
+                    buffer_compute_en <= 1'b1;
 `ifdef ICARUS
-                if (buffer_done) begin
+                    if (buffer_done) begin
 `else
-                if (buffer_done) begin
+                    if (buffer_done) begin
 `endif
 `ifdef ICARUS
                     // Phase 4 widening: parameter-driven lane unpack instead
@@ -915,8 +1001,20 @@ module top #(
                     // 4-nibble code path when ITEMS_IN_SLOT=4 (INT4).
                     for (int bi = 0; bi < (NUM_COMPUTE_LANES/ITEMS_IN_SLOT); bi++) begin
                         for (int li = 0; li < ITEMS_IN_SLOT; li++) begin
-                            compute_in[(bi*ITEMS_IN_SLOT)+li] <=
-                                u_unified_buffer.bank_dout[bi][(COMPUTE_DATA_WIDTH*li) +: COMPUTE_DATA_WIDTH];
+                            int physical_lane;
+                            int logical_lane;
+                            int physical_row;
+                            int physical_col;
+                            int logical_bank;
+                            physical_lane = (bi*ITEMS_IN_SLOT)+li;
+                            physical_row = physical_lane / ARRAY_SIZE;
+                            physical_col = physical_lane % ARRAY_SIZE;
+                            logical_lane = (physical_col * ARRAY_SIZE) + physical_row;
+                            logical_bank = (u_unified_buffer.base_bank + (logical_lane / ITEMS_IN_SLOT))
+                                % (NUM_COMPUTE_LANES/ITEMS_IN_SLOT);
+                            compute_weights_in[physical_lane] <=
+                                u_unified_buffer.bank_dout[logical_bank]
+                                    [(COMPUTE_DATA_WIDTH*(logical_lane % ITEMS_IN_SLOT)) +: COMPUTE_DATA_WIDTH];
                         end
                     end
                     if (load_is_weights) begin
@@ -931,22 +1029,75 @@ module top #(
                             end
                         end
                     end else begin
-                        for (int bi = 0; bi < (ARRAY_SIZE/ITEMS_IN_SLOT); bi++) begin
+                        if (load_chunk_index == '0) begin
+                            for (int row = 0; row < ARRAY_SIZE; row++) begin
+                                sim_block_inputs[row] <= '0;
+                                for (int col = 0; col < MAX_BATCH_COUNT; col++) begin
+                                    loaded_input_matrix[row][col] <= '0;
+                                    sim_block_inputs_matrix[row][col] <= '0;
+                                end
+                            end
+                        end
+                        for (int bi = 0; bi < (NUM_COMPUTE_LANES/ITEMS_IN_SLOT); bi++) begin
                             int bank_idx;
                             bank_idx = (u_unified_buffer.base_bank + bi) % (NUM_COMPUTE_LANES/ITEMS_IN_SLOT);
                             for (int li = 0; li < ITEMS_IN_SLOT; li++) begin
-                                sim_block_inputs[(bi*ITEMS_IN_SLOT)+li] <=
-                                    u_unified_buffer.bank_dout[bank_idx][(COMPUTE_DATA_WIDTH*li) +: COMPUTE_DATA_WIDTH];
+                                int lane;
+                                int global_col;
+                                logic signed [COMPUTE_DATA_WIDTH-1:0] lane_val;
+                                lane = (bi*ITEMS_IN_SLOT)+li;
+                                global_col = load_chunk_index + (lane / ARRAY_SIZE);
+                                lane_val = u_unified_buffer.bank_dout[bank_idx][(COMPUTE_DATA_WIDTH*li) +: COMPUTE_DATA_WIDTH];
+                                if (lane < ARRAY_SIZE && load_chunk_index == '0)
+                                    sim_block_inputs[lane] <= lane_val;
+                                if (global_col < input_batch_count) begin
+                                    loaded_input_matrix[lane % ARRAY_SIZE][global_col] <= lane_val;
+                                    sim_block_inputs_matrix[lane % ARRAY_SIZE][global_col] <= lane_val;
+                                end
                             end
                         end
                     end
 `else
-                    compute_in        <= mem_to_compute;
+                    if (load_is_weights) begin
+                        for (int lane = 0; lane < NUM_COMPUTE_LANES; lane++) begin
+                            int physical_row;
+                            int physical_col;
+                            int logical_lane;
+                            physical_row = lane / ARRAY_SIZE;
+                            physical_col = lane % ARRAY_SIZE;
+                            logical_lane = (physical_col * ARRAY_SIZE) + physical_row;
+                            compute_weights_in[lane] <= mem_to_compute[logical_lane];
+                        end
+                    end else begin
+                        if (load_chunk_index == '0) begin
+                            for (int row = 0; row < ARRAY_SIZE; row++) begin
+                                for (int col = 0; col < MAX_BATCH_COUNT; col++)
+                                    loaded_input_matrix[row][col] <= '0;
+                            end
+                        end
+                        for (int lane = 0; lane < NUM_COMPUTE_LANES; lane++) begin
+                            int global_col;
+                            global_col = load_chunk_index + (lane / ARRAY_SIZE);
+                            if (global_col < input_batch_count)
+                                loaded_input_matrix[lane % ARRAY_SIZE][global_col] <= mem_to_compute[lane];
+                        end
+                    end
 `endif
                     // Pulse only on valid-load cycle so PE weights don't capture invalid/X data.
-                    compute_load_en   <= load_is_weights;
-                    buffer_re         <= 1'b0;
-                    buffer_compute_en <= 1'b0;
+                    compute_load_en <= load_is_weights;
+                    if ((load_chunk_index + ARRAY_SIZE) < input_batch_count && ~load_is_weights) begin
+                        buffer_re         <= 1'b0;
+                        buffer_compute_en <= 1'b0;
+                        load_chunk_index <= load_chunk_index + ARRAY_SIZE;
+                        address <= address + ADDRESS_SIZE'(STREAM_CHUNK_WORDS);
+                        load_wait_clear <= 1'b1;
+                    end else begin
+                        buffer_re         <= 1'b0;
+                        buffer_compute_en <= 1'b0;
+                        load_chunk_index  <= '0;
+                        load_wait_clear   <= 1'b0;
+                    end
+                end
                 end
             end
 
@@ -976,9 +1127,9 @@ module top #(
 
             // -----------------------------------------------------------------
             COMPUTE_STATE: begin
-                compute_start <= compute_en;
                 // Legacy direct ReLU path
                 if (~compute_en && ~quantizer_en && relu_en) begin
+                    compute_start <= 1'b0;
 `ifdef ICARUS
                     for (int ci = 0; ci < NUM_COMPUTE_LANES; ci++)
                         relu_in[ci] <= mem_to_compute[ci];
@@ -991,27 +1142,31 @@ module top #(
 
                 // Legacy compute->quantize path
                 end else if (compute_en && quantizer_en && ~relu_en) begin
+                    compute_start <= compute_en;
 `ifdef ICARUS
                     for (int ci = 0; ci < NUM_COMPUTE_LANES; ci++)
-                        quantizer_in[ci] <= compute_out[ci];
+                        quantizer_in[ci] <= compute_stream_out[ci];
                     for (int ci = 0; ci < NUM_COMPUTE_LANES; ci++)
                         compute_to_buffer[ci] <= quantizer_out[ci];
 `else
-                    quantizer_in      <= compute_out;
+                    for (int ci = 0; ci < NUM_COMPUTE_LANES; ci++)
+                        quantizer_in[ci] <= compute_stream_out[ci];
                     compute_to_buffer <= quantizer_out;
 `endif
 
                 // Legacy compute->quantize->relu path
                 end else if (compute_en && quantizer_en && relu_en) begin
+                    compute_start <= compute_en;
 `ifdef ICARUS
                     for (int ci = 0; ci < NUM_COMPUTE_LANES; ci++)
-                        quantizer_in[ci] <= compute_out[ci];
+                        quantizer_in[ci] <= compute_stream_out[ci];
                     for (int ci = 0; ci < NUM_COMPUTE_LANES; ci++)
                         relu_in[ci] <= quantizer_out[ci];
                     for (int ci = 0; ci < NUM_COMPUTE_LANES; ci++)
                         compute_to_buffer[ci] <= relu_out[ci];
 `else
-                    quantizer_in      <= compute_out;
+                    for (int ci = 0; ci < NUM_COMPUTE_LANES; ci++)
+                        quantizer_in[ci] <= compute_stream_out[ci];
                     relu_in           <= quantizer_out;
                     compute_to_buffer <= relu_out;
 `endif
@@ -1020,97 +1175,191 @@ module top #(
                 // RUN with compute=1, quantize=0, relu=0 accumulates raw PE outputs.
                 end else if (compute_en && ~quantizer_en && ~relu_en) begin
 `ifdef ICARUS
-                    if (acc_clear_en && (u_pe_array.cycle_count == '0)) begin
-                        for (int ai = 0; ai < ARRAY_SIZE; ai++)
-                            run_capture_sums[ai] <= '0;
-                    end
-                    // Icarus compatibility: capture bottom-row outputs in the valid window
-                    // instead of sampling transient unpacked-array ports at done.
-                    if (u_pe_array.cycle_count >= ARRAY_SIZE + 1 &&
-                        u_pe_array.cycle_count <  (ARRAY_SIZE + ARRAY_SIZE + 1)) begin
-                        int lane_idx;
-                        logic signed [31:0] lane_val;
-                        lane_idx = u_pe_array.cycle_count - ARRAY_SIZE - 1;
-                        lane_val = $signed(u_pe_array.u_pe_array.accumulators[ARRAY_SIZE-1][lane_idx]);
-                        if (^u_pe_array.u_pe_array.accumulators[ARRAY_SIZE-1][lane_idx] === 1'bx)
-                            lane_val = 32'sd0;
-                        run_capture_sums[lane_idx] <= lane_val;
-                    end
-                    if (compute_done_d) begin
-                        for (int ai = 0; ai < ARRAY_SIZE; ai++) begin
-                            logic signed [31:0] lane_val;
-                            lane_val = 32'sd0;
-                            for (int k = 0; k < ARRAY_SIZE; k++) begin
-                                lane_val = lane_val + ($signed(sim_block_weights[ai][k]) * $signed(sim_block_inputs[k]));
+                    if (run_batch_count == MAX_BATCH_COUNT_WIDTH'(1)) begin
+                        if (u_pe_array.cycle_count == '0) begin
+                            for (int ai = 0; ai < ARRAY_SIZE; ai++)
+                                run_capture_sums[ai] <= '0;
+                        end
+                        if (u_pe_array.cycle_count >= ARRAY_SIZE + 1 &&
+                            u_pe_array.cycle_count <  (ARRAY_SIZE + ARRAY_SIZE + 1)) begin
+                            int lane_idx;
+                            logic signed [31:0] lane_val0;
+                            lane_idx = u_pe_array.cycle_count - ARRAY_SIZE - 1;
+                            lane_val0 = $signed(u_pe_array.u_pe_array.accumulators[ARRAY_SIZE-1][lane_idx]);
+                            if (^u_pe_array.u_pe_array.accumulators[ARRAY_SIZE-1][lane_idx] === 1'bx)
+                                lane_val0 = 32'sd0;
+                            run_capture_sums[lane_idx] <= lane_val0;
+                        end
+                    end else begin
+                        int capture_cycle;
+                        capture_cycle = u_pe_array.cycle_count;
+                        if ((capture_cycle >= (ARRAY_SIZE + 1)) &&
+                            (capture_cycle < ((ARRAY_SIZE * 2) + run_batch_count))) begin
+                            for (int row = 0; row < ARRAY_SIZE; row++) begin
+                                int col_idx;
+                                logic signed [31:0] lane_val0;
+                                col_idx = capture_cycle - ARRAY_SIZE - 1 - row;
+                                if ((col_idx >= 0) && (col_idx < run_batch_count)) begin
+                                    lane_val0 = $signed(u_pe_array.u_pe_array.accumulators[ARRAY_SIZE-1][row]);
+                                    if (^u_pe_array.u_pe_array.accumulators[ARRAY_SIZE-1][row] === 1'bx)
+                                        lane_val0 = 32'sd0;
+                                    if (acc_clear_en)
+                                        acc_partial_matrix[row][col_idx] <= lane_val0;
+                                    else
+                                        acc_partial_matrix[row][col_idx] <= acc_partial_matrix[row][col_idx] + lane_val0;
+                                    if (col_idx == 0) begin
+                                        if (acc_clear_en)
+                                            acc_partial_sums[row] <= lane_val0;
+                                        else
+                                            acc_partial_sums[row] <= acc_partial_sums[row] + lane_val0;
+                                    end
+                                end
                             end
-                            run_capture_sums[ai] <= lane_val;
+                        end
+                        if (compute_done) begin
+                            logic signed [31:0] lane_val0;
+                            lane_val0 = $signed(u_pe_array.u_pe_array.accumulators[ARRAY_SIZE-1][ARRAY_SIZE-1]);
+                            if (^u_pe_array.u_pe_array.accumulators[ARRAY_SIZE-1][ARRAY_SIZE-1] === 1'bx)
+                                lane_val0 = 32'sd0;
                             if (acc_clear_en)
-                                acc_partial_sums[ai] <= lane_val;
+                                acc_partial_matrix[ARRAY_SIZE-1][run_batch_count-1] <= lane_val0;
                             else
-                                acc_partial_sums[ai] <= acc_partial_sums[ai] + lane_val;
+                                acc_partial_matrix[ARRAY_SIZE-1][run_batch_count-1]
+                                    <= acc_partial_matrix[ARRAY_SIZE-1][run_batch_count-1] + lane_val0;
                         end
                     end
 `endif
-`ifndef ICARUS
                     if (compute_done_d) begin
-                        for (int ai = 0; ai < ARRAY_SIZE; ai++) begin
+`ifndef ICARUS
+                        for (int row = 0; row < ARRAY_SIZE; row++) begin
+                            logic signed [31:0] lane_val0;
+                            for (int col = 0; col < run_batch_count; col++) begin
+                                lane_val0 = $signed(compute_stream_out[(col * ARRAY_SIZE) + row]);
+                                if (acc_clear_en)
+                                    acc_partial_matrix[row][col] <= lane_val0;
+                                else
+                                    acc_partial_matrix[row][col] <= acc_partial_matrix[row][col] + lane_val0;
+                            end
                             if (acc_clear_en)
-                                acc_partial_sums[ai] <= $signed(compute_out[ai]);
+                                acc_partial_sums[row] <= $signed(compute_stream_out[row]);
                             else
-                                acc_partial_sums[ai] <= acc_partial_sums[ai] + $signed(compute_out[ai]);
+                                acc_partial_sums[row] <= acc_partial_sums[row] + $signed(compute_stream_out[row]);
+                            if (acc_clear_en) begin
+                                for (int col = run_batch_count; col < MAX_BATCH_COUNT; col++)
+                                    acc_partial_matrix[row][col] <= '0;
+                            end
                         end
-                    end
+`else
+                        if (run_batch_count == MAX_BATCH_COUNT_WIDTH'(1)) begin
+                            for (int row = 0; row < ARRAY_SIZE; row++) begin
+                                logic signed [31:0] lane_val0;
+                                lane_val0 = 32'sd0;
+                                for (int k = 0; k < ARRAY_SIZE; k++) begin
+                                    lane_val0 = lane_val0
+                                        + ($signed(sim_block_weights[row][k]) * $signed(loaded_input_matrix[k][0]));
+                                end
+                                if (acc_clear_en) begin
+                                    acc_partial_sums[row] <= lane_val0;
+                                    acc_partial_matrix[row][0] <= lane_val0;
+                                end else begin
+                                    acc_partial_sums[row] <= acc_partial_sums[row] + lane_val0;
+                                    acc_partial_matrix[row][0] <= acc_partial_matrix[row][0] + lane_val0;
+                                end
+                                for (int col = 1; col < MAX_BATCH_COUNT; col++)
+                                    acc_partial_matrix[row][col] <= '0;
+                            end
+                        end else if (acc_clear_en) begin
+                            for (int row = 0; row < ARRAY_SIZE; row++) begin
+                                for (int col = run_batch_count; col < MAX_BATCH_COUNT; col++)
+                                    acc_partial_matrix[row][col] <= '0;
+                            end
+                        end
 `endif
+                        compute_start <= 1'b0;
+                    end else if (~compute_start) begin
+                        for (int ci = 0; ci < MAX_STREAM_LANES; ci++)
+                            compute_stream_in[ci] <= '0;
+                        for (int col = 0; col < run_batch_count; col++) begin
+                            for (int row = 0; row < ARRAY_SIZE; row++)
+                                compute_stream_in[(col * ARRAY_SIZE) + row] <= loaded_input_matrix[row][col];
+                        end
+                        compute_start <= 1'b1;
+                    end
 
                 // New finalize mode:
                 // RUN with compute=0, quantize=1, relu={0|1} writes quantized (and optionally ReLU'd)
                 // accumulator values into compute_to_buffer.
                 end else if (~compute_en && quantizer_en) begin
-                    for (int ai = 0; ai < NUM_COMPUTE_LANES; ai++)
-                        compute_to_buffer[ai] <= '0;
-                    for (int ai = 0; ai < ARRAY_SIZE; ai++) begin
-`ifdef ICARUS
-                        logic signed [31:0] acc_val;
-                        logic signed [31:0] residual_val;
-                        acc_val = acc_partial_sums[ai];
-                        if (^acc_partial_sums[ai] === 1'bx)
-                            acc_val = 32'sd0;
-                        residual_val = residual_en ? $signed(residual_in[ai]) : 32'sd0;
-                        if (residual_en && (^residual_in[ai] === 1'bx))
-                            residual_val = 32'sd0;
-                        acc_val = acc_val + residual_val;
-                        if (relu_en && (quantize_clip_int4(acc_val) < 0))
-                            compute_to_buffer[ai] <= quantize_clip_int4(acc_val) >>> ALPHA;
-                        else
-                            compute_to_buffer[ai] <= quantize_clip_int4(acc_val);
-`else
-                        logic signed [31:0] acc_val;
-                        logic signed [31:0] residual_val;
-                        acc_val = acc_partial_sums[ai];
-                        residual_val = residual_en ? $signed(residual_in[ai]) : 32'sd0;
-                        acc_val = acc_val + residual_val;
-                        if (relu_en && (quantize_clip_int4(acc_val) < 0))
-                            compute_to_buffer[ai] <= quantize_clip_int4(acc_val) >>> ALPHA;
-                        else
-                            compute_to_buffer[ai] <= quantize_clip_int4(acc_val);
-`endif
-                    end
-                end
-                if (compute_done_d)
                     compute_start <= 1'b0;
+                    writeback_chunk_index <= '0;
+                    if (run_batch_count == MAX_BATCH_COUNT_WIDTH'(1)) begin
+                        writeback_chunk_count <= MAX_BATCH_COUNT_WIDTH'(1);
+                        writeback_wait_clear  <= 1'b0;
+                        for (int ai = 0; ai < NUM_COMPUTE_LANES; ai++)
+                            compute_to_buffer[ai] <= '0;
+                        for (int ai = 0; ai < ARRAY_SIZE; ai++) begin
+`ifdef ICARUS
+                            logic signed [31:0] acc_val;
+                            logic signed [31:0] residual_val;
+                            acc_val = acc_partial_sums[ai];
+                            if (^acc_partial_sums[ai] === 1'bx)
+                                acc_val = 32'sd0;
+                            residual_val = residual_en ? $signed(residual_in[ai]) : 32'sd0;
+                            if (residual_en && (^residual_in[ai] === 1'bx))
+                                residual_val = 32'sd0;
+                            acc_val = acc_val + residual_val;
+                            if (relu_en && (quantize_clip_int4(acc_val) < 0))
+                                compute_to_buffer[ai] <= quantize_clip_int4(acc_val) >>> ALPHA;
+                            else
+                                compute_to_buffer[ai] <= quantize_clip_int4(acc_val);
+`else
+                            logic signed [31:0] acc_val;
+                            logic signed [31:0] residual_val;
+                            acc_val = acc_partial_sums[ai];
+                            residual_val = residual_en ? $signed(residual_in[ai]) : 32'sd0;
+                            acc_val = acc_val + residual_val;
+                            if (relu_en && (quantize_clip_int4(acc_val) < 0))
+                                compute_to_buffer[ai] <= quantize_clip_int4(acc_val) >>> ALPHA;
+                            else
+                                compute_to_buffer[ai] <= quantize_clip_int4(acc_val);
+`endif
+                        end
+                    end else begin
+                        writeback_chunk_count <= (run_batch_count + ARRAY_SIZE - 1) / ARRAY_SIZE;
+                        writeback_wait_clear  <= 1'b0;
+                        prepare_writeback_chunk(0);
+                    end
+                end else begin
+                    compute_start <= 1'b0;
+                end
             end
 
             // -----------------------------------------------------------------
             COMPUTE_WRITEBACK_STATE: begin
-                buffer_we         <= 1'b1;
                 buffer_re         <= 1'b0;
                 buffer_fifo_en    <= 1'b0;
-                buffer_compute_en <= 1'b1;
                 buffer_store_en   <= 1'b0;
-                address           <= compute_result_addr;
-                if (buffer_done) begin
+                address           <= compute_result_addr + (writeback_chunk_index * STREAM_CHUNK_WORDS);
+                if (writeback_wait_clear) begin
                     buffer_we         <= 1'b0;
                     buffer_compute_en <= 1'b0;
+                    if (!buffer_done)
+                        writeback_wait_clear <= 1'b0;
+                end else if (buffer_done) begin
+                    buffer_we         <= 1'b0;
+                    buffer_compute_en <= 1'b0;
+                    if ((writeback_chunk_index + 1'b1) < writeback_chunk_count) begin
+                        writeback_chunk_index <= writeback_chunk_index + 1'b1;
+                        writeback_wait_clear  <= 1'b1;
+                        prepare_writeback_chunk(writeback_chunk_index + 1'b1);
+                    end else begin
+                        writeback_chunk_index <= '0;
+                        writeback_chunk_count <= MAX_BATCH_COUNT_WIDTH'(1);
+                        writeback_wait_clear  <= 1'b0;
+                    end
+                end else begin
+                    buffer_we         <= 1'b1;
+                    buffer_compute_en <= 1'b1;
                 end
             end
 

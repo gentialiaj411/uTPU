@@ -142,15 +142,19 @@ class _PEState:
     buffer: List[int]
     weights: List[List[int]]
     inputs: List[int]
+    input_matrix: List[List[int]]
     acc_partial_sums: List[int]
+    acc_partial_matrix: List[List[int]]
 
     @classmethod
-    def create(cls, array_size: int, buffer_size: int) -> "_PEState":
+    def create(cls, array_size: int, buffer_size: int, max_batch_size: int) -> "_PEState":
         return cls(
             buffer=[0] * buffer_size,
             weights=[[0 for _ in range(array_size)] for _ in range(array_size)],
             inputs=[0 for _ in range(array_size)],
             acc_partial_sums=[0 for _ in range(array_size)],
+            input_matrix=[[0 for _ in range(max_batch_size)] for _ in range(array_size)],
+            acc_partial_matrix=[[0 for _ in range(max_batch_size)] for _ in range(array_size)],
         )
 
 
@@ -174,6 +178,7 @@ class UTPUISASimulator:
         num_pe: int = 1,
         accumulator_data_width: int = 16,
         cfg: Optional[IsaConfig] = None,
+        max_batch_size: int = 64,
     ):
         cfg = cfg if cfg is not None else DEFAULT_CFG
         if array_size <= 0:
@@ -195,6 +200,7 @@ class UTPUISASimulator:
         self.num_pe = int(num_pe)
         self.cfg = cfg
         self.accumulator_data_width = int(accumulator_data_width)
+        self.max_batch_size = int(max_batch_size)
         self.reset()
 
     # ------------------------------------------------------------------
@@ -202,7 +208,7 @@ class UTPUISASimulator:
     # ------------------------------------------------------------------
 
     def reset(self) -> None:
-        self.pes = [_PEState.create(self.array_size, self.buffer_size) for _ in range(self.num_pe)]
+        self.pes = [_PEState.create(self.array_size, self.buffer_size, self.max_batch_size) for _ in range(self.num_pe)]
         self.fetch_bytes: List[int] = []
         self.executed_ops = {
             "store": 0,
@@ -210,6 +216,8 @@ class UTPUISASimulator:
             "run": 0,
             "residual_add": 0,
             "load": 0,
+            "load_weights": 0,
+            "load_inputs": 0,
             "halt": 0,
             "nop": 0,
             "bstore": 0,
@@ -231,6 +239,8 @@ class UTPUISASimulator:
         self._redundant_store_bytes = 0
         self._last_store_value: Dict[Tuple[int, int], int] = {}
         self._compute_runs = 0
+        self._total_macs = 0
+        self._loaded_input_batch_count = 1
 
     @property
     def buffer(self) -> List[int]:
@@ -272,26 +282,69 @@ class UTPUISASimulator:
             start = row * self.array_size
             pe.weights[row] = flat[start:start + self.array_size]
 
-    def _load_inputs(self, pe_id: int, addr: int) -> None:
+    def _load_inputs(self, pe_id: int, addr: int, batch_count: int = 1) -> None:
         pe = self._pe(pe_id)
         items_per_word = self.cfg.items_per_word
-        words_needed = self.array_size // items_per_word
+        if int(batch_count) > int(self.max_batch_size):
+            raise ValueError(
+                f"batch_count={batch_count} exceeds simulator max_batch_size={self.max_batch_size}"
+            )
+        if int(batch_count) == 1:
+            words_needed = self.array_size // items_per_word
+        else:
+            words_needed = (self.array_size * int(batch_count)) // items_per_word
         flat: List[int] = []
         for offset in range(words_needed):
             flat.extend(_unpack_compute_word(self._read_word(pe_id, addr + offset), self.cfg))
         pe.inputs = flat[: self.array_size]
-
-    def _run_accumulate(self, pe_id: int, acc_clear: bool) -> None:
-        pe = self._pe(pe_id)
         for row in range(self.array_size):
-            lane_val = 0
-            for k in range(self.array_size):
-                lane_val += pe.weights[row][k] * pe.inputs[k]
-            if acc_clear:
-                pe.acc_partial_sums[row] = lane_val
-            else:
-                pe.acc_partial_sums[row] += lane_val
+            for col in range(self.max_batch_size):
+                pe.input_matrix[row][col] = 0
+        if int(batch_count) == 1:
+            for row in range(self.array_size):
+                pe.input_matrix[row][0] = pe.inputs[row]
+        else:
+            expected = self.array_size * int(batch_count)
+            padded = flat[:expected] + [0] * max(0, expected - len(flat))
+            for col in range(int(batch_count)):
+                for row in range(self.array_size):
+                    pe.input_matrix[row][col] = int(padded[col * self.array_size + row])
+        self._loaded_input_batch_count = int(batch_count)
+
+    def _run_accumulate(self, pe_id: int, acc_clear: bool, batch_count: int = 1) -> None:
+        pe = self._pe(pe_id)
+        batch = int(batch_count)
+        if batch == 1:
+            for row in range(self.array_size):
+                lane_val = 0
+                for k in range(self.array_size):
+                    lane_val += pe.weights[row][k] * pe.inputs[k]
+                if acc_clear:
+                    pe.acc_partial_sums[row] = lane_val
+                    pe.acc_partial_matrix[row][0] = lane_val
+                else:
+                    pe.acc_partial_sums[row] += lane_val
+                    pe.acc_partial_matrix[row][0] += lane_val
+            for row in range(self.array_size):
+                for col in range(1, self.max_batch_size):
+                    pe.acc_partial_matrix[row][col] = 0
+        else:
+            for row in range(self.array_size):
+                for col in range(batch):
+                    lane_val = 0
+                    for k in range(self.array_size):
+                        lane_val += pe.weights[row][k] * pe.input_matrix[k][col]
+                    if acc_clear:
+                        pe.acc_partial_matrix[row][col] = lane_val
+                    else:
+                        pe.acc_partial_matrix[row][col] += lane_val
+                for col in range(batch, self.max_batch_size):
+                    if acc_clear:
+                        pe.acc_partial_matrix[row][col] = 0
+            for row in range(self.array_size):
+                pe.acc_partial_sums[row] = pe.acc_partial_matrix[row][0]
         self._compute_runs += 1
+        self._total_macs += int(self.array_size) * int(self.array_size) * int(batch)
 
     def _record_host_store(self, pe_id: int, addr: int, value: int) -> None:
         """Record a host-emitted STORE/BSTORE write for reload accounting.
@@ -318,8 +371,12 @@ class UTPUISASimulator:
         quantize: bool,
         relu: bool,
         residual_addr: Optional[int] = None,
+        batch_count: int = 1,
     ) -> None:
         pe = self._pe(pe_id)
+        batch = int(batch_count)
+        if batch > 1 and residual_addr is not None:
+            raise ValueError("batched finalize does not currently support residual add")
         residual_values = [0 for _ in range(self.array_size)]
         if residual_addr is not None:
             items_per_word = self.cfg.items_per_word
@@ -328,21 +385,28 @@ class UTPUISASimulator:
             for offset in range(words_needed):
                 flat.extend(_unpack_compute_word(self._read_word(pe_id, residual_addr + offset), self.cfg))
             residual_values = flat[: self.array_size]
-        outputs = [0 for _ in range(self.array_size)]
-        for i, acc in enumerate(pe.acc_partial_sums):
-            combined = int(acc) + int(residual_values[i])
-            q = _clip_to_width(combined, self.cfg.compute_data_width) if quantize else int(combined)
-            if relu and q < 0:
-                q = q >> self.alpha_shift
-            outputs[i] = q
+        outputs = [0 for _ in range(self.array_size * self.array_size)]
+        if batch == 1:
+            for i, acc in enumerate(pe.acc_partial_sums):
+                combined = int(acc) + int(residual_values[i])
+                q = _clip_to_width(combined, self.cfg.compute_data_width) if quantize else int(combined)
+                if relu and q < 0:
+                    q = q >> self.alpha_shift
+                outputs[i] = q
+        else:
+            padded_cols = ((batch + self.array_size - 1) // self.array_size) * self.array_size
+            outputs = [0 for _ in range(self.array_size * padded_cols)]
+            for col in range(batch):
+                for row in range(self.array_size):
+                    combined = int(pe.acc_partial_matrix[row][col])
+                    q = _clip_to_width(combined, self.cfg.compute_data_width) if quantize else int(combined)
+                    if relu and q < 0:
+                        q = q >> self.alpha_shift
+                    outputs[col * self.array_size + row] = q
 
-        # Pad output region to the same finalize footprint as the RTL
-        # (always writes ``array_size * array_size`` elements regardless of
-        # how many lanes carry meaningful values). Matches
-        # ``lower_blocked_fc_program_utpu`` + ``unified_buffer.sv``.
         items_per_word = self.cfg.items_per_word
-        padded = outputs + [0] * (self.array_size * self.array_size - self.array_size)
-        for word_idx in range((self.array_size * self.array_size) // items_per_word):
+        padded = list(outputs)
+        for word_idx in range(len(padded) // items_per_word):
             chunk = padded[word_idx * items_per_word : (word_idx + 1) * items_per_word]
             self._write_word(pe_id, result_addr + word_idx, _pack_compute_word(chunk, self.cfg))
 
@@ -457,11 +521,18 @@ class UTPUISASimulator:
                     addr = consume_addr_word()
                 else:
                     addr = self._legacy_addr(instruction)
+                load_batch_count = (((instruction >> 8) & 0xFF) + 1) if extended_addr and (((instruction >> 3) & 0x1) == 0) else 1
                 if (instruction >> 3) & 0x1:
                     self._load_weights(pe_id, addr)
                 else:
-                    self._load_inputs(pe_id, addr)
+                    self._load_inputs(pe_id, addr, batch_count=load_batch_count)
                 self.executed_ops["load"] += 1
+                if (instruction >> 3) & 0x1:
+                    self.executed_ops.setdefault("load_weights", 0)
+                    self.executed_ops["load_weights"] += 1
+                else:
+                    self.executed_ops.setdefault("load_inputs", 0)
+                    self.executed_ops["load_inputs"] += 1
                 self._record_cycle(pe_id)
 
             elif opcode == OPCODE_RUN:
@@ -474,11 +545,17 @@ class UTPUISASimulator:
                 relu = bool((instruction >> 5) & 0x1)
                 acc_clear = bool((instruction >> 6) & 0x1)
                 residual_en = bool((instruction >> 7) & 0x1) if extended_addr else False
+                run_batch_count = (((instruction >> 8) & 0xFF) + 1) if extended_addr else 1
+                if run_batch_count != int(self._loaded_input_batch_count):
+                    raise ValueError(
+                        f"RUN batch_count={run_batch_count} does not match last LOAD_INPUTS "
+                        f"batch_count={self._loaded_input_batch_count}"
+                    )
                 residual_addr = None
                 if residual_en:
                     residual_addr = consume_addr_word()
                 if compute and not quantize and not relu:
-                    self._run_accumulate(pe_id, acc_clear=acc_clear)
+                    self._run_accumulate(pe_id, acc_clear=acc_clear, batch_count=run_batch_count)
                 elif (not compute) and quantize:
                     self._run_finalize(
                         pe_id,
@@ -486,17 +563,19 @@ class UTPUISASimulator:
                         quantize=quantize,
                         relu=relu,
                         residual_addr=residual_addr,
+                        batch_count=run_batch_count,
                     )
                     if residual_en:
                         self.executed_ops["residual_add"] += 1
                 elif compute and quantize:
-                    self._run_accumulate(pe_id, acc_clear=True)
+                    self._run_accumulate(pe_id, acc_clear=True, batch_count=run_batch_count)
                     self._run_finalize(
                         pe_id,
                         result_addr,
                         quantize=quantize,
                         relu=relu,
                         residual_addr=residual_addr,
+                        batch_count=run_batch_count,
                     )
                     if residual_en:
                         self.executed_ops["residual_add"] += 1
@@ -589,10 +668,11 @@ class UTPUISASimulator:
 
         nonzero_buffer = {i: w for i, w in enumerate(self.pes[fetch_pe].buffer) if w != 0}
         parallel_estimate = self._parallel_cycle_estimate() + sum(self._current_section.values())
-        total_macs = int(self._compute_runs) * int(self.array_size) * int(self.array_size)
+        total_macs = int(self._total_macs)
         cycles_total = int(self._cycle_count_sequential)
         cycles_per_mac = (cycles_total / total_macs) if total_macs > 0 else 0.0
-        array_utilization = (int(self._compute_runs) / cycles_total) if cycles_total > 0 else 0.0
+        denom = cycles_total * int(self.array_size) * int(self.array_size)
+        array_utilization = (total_macs / denom) if denom > 0 else 0.0
         return ISASimulationResult(
             halted=halted,
             pc=pc,

@@ -91,7 +91,7 @@ RTL_DESIGN := \
 RTL_STUBS := rtl/tb/xpm_memory_sdpram_stub.sv
 
 .PHONY: sim-units sim-all sim-perf clean-sim bench test-host \
-        sim-iverilog-fused sim-iverilog-perf sim-iverilog-phase4-widen \
+        sim-iverilog-fused sim-iverilog-perf sim-iverilog-batched sim-iverilog-phase4-widen \
         sim-iverilog-scheduler-cross-check sim-iverilog-latency \
         sim-iverilog-all clean-sim-iverilog \
         repro repro-host repro-cuda \
@@ -105,7 +105,7 @@ RTL_STUBS := rtl/tb/xpm_memory_sdpram_stub.sv
 # .github/workflows/ci.yml so docs/agents never drift.
 # ---------------------------
 test-host:
-	python -m pytest firmware/host/test_fx_importer.py firmware/host/test_pytorch_compiler.py firmware/host/test_torch_compile_backend.py firmware/host/test_compiled_runtime_validation.py firmware/host/test_compiled_runtime_schedule_source.py firmware/host/test_footprint_baseline.py firmware/host/test_compiler_smoke.py firmware/host/test_graph_passes.py firmware/host/test_reference_interpreter.py firmware/host/test_isa_simulator.py firmware/host/test_rtl_sim_artifact.py firmware/host/test_rtl_residual_sim_artifact.py firmware/host/test_mnist_utpu_demo.py firmware/host/test_transformer_integration.py firmware/host/test_cost_model_regression.py firmware/host/test_cost_model_selection.py firmware/host/test_fusion_benchmark.py firmware/host/test_tiling_controller.py firmware/host/test_multi_pe_sim.py firmware/host/test_real_model_ops.py firmware/host/test_real_model_end_to_end.py firmware/host/test_phase4_isa_widen.py firmware/host/test_scheduler_allocator.py firmware/host/test_cublas_baseline.py firmware/host/test_cost_model_heldout.py firmware/host/test_selection_ab.py firmware/host/test_board_fit_audit.py firmware/host/test_scheduler_rtl_crosscheck.py firmware/host/test_scheduler_rtl_crosscheck_bigmlp.py firmware/host/test_p4_2_vivado_reports.py firmware/host/test_diff_oracle.py firmware/host/test_region_fusion.py firmware/host/test_megakernel_benchmark.py firmware/host/test_fuzzer.py firmware/host/test_egraph.py firmware/host/test_latency_analysis.py firmware/host/test_nsight_compute_profile.py -v
+	python -m pytest firmware/host/test_fx_importer.py firmware/host/test_pytorch_compiler.py firmware/host/test_torch_compile_backend.py firmware/host/test_compiled_runtime_validation.py firmware/host/test_compiled_runtime_schedule_source.py firmware/host/test_footprint_baseline.py firmware/host/test_compiler_smoke.py firmware/host/test_graph_passes.py firmware/host/test_reference_interpreter.py firmware/host/test_isa_simulator.py firmware/host/test_batched_gemm.py firmware/host/test_batched_gemm_rtl_artifact.py firmware/host/test_batched_gemm_rtl_sweep.py firmware/host/test_systolic_characterization.py firmware/host/test_rtl_sim_artifact.py firmware/host/test_rtl_residual_sim_artifact.py firmware/host/test_mnist_utpu_demo.py firmware/host/test_transformer_integration.py firmware/host/test_cost_model_regression.py firmware/host/test_cost_model_selection.py firmware/host/test_fusion_benchmark.py firmware/host/test_tiling_controller.py firmware/host/test_multi_pe_sim.py firmware/host/test_real_model_ops.py firmware/host/test_real_model_end_to_end.py firmware/host/test_phase4_isa_widen.py firmware/host/test_scheduler_allocator.py firmware/host/test_cublas_baseline.py firmware/host/test_cost_model_heldout.py firmware/host/test_selection_ab.py firmware/host/test_board_fit_audit.py firmware/host/test_scheduler_rtl_crosscheck.py firmware/host/test_scheduler_rtl_crosscheck_bigmlp.py firmware/host/test_p4_2_vivado_reports.py firmware/host/test_diff_oracle.py firmware/host/test_region_fusion.py firmware/host/test_megakernel_benchmark.py firmware/host/test_fuzzer.py firmware/host/test_egraph.py firmware/host/test_latency_analysis.py firmware/host/test_nsight_compute_profile.py -v
 
 sim-units:
 	mkdir -p "$(SIM_OUT)"
@@ -161,7 +161,16 @@ sim-iverilog-perf:
 	"$(VVP)" "$(SIM_IVERILOG_OUT)/tb_perf_counters.out"
 	@echo "[sim-iverilog-perf] VCD: $(SIM_IVERILOG_OUT)/tb_perf_counters.vcd"
 
-sim-iverilog-all: sim-iverilog-fused sim-iverilog-perf sim-iverilog-phase4-widen sim-iverilog-scheduler-cross-check sim-iverilog-latency
+sim-iverilog-batched:
+	mkdir -p "$(SIM_IVERILOG_OUT)" build/test_vectors build/reports
+	$(PYTHON) firmware/host/generate_batched_gemm_rtl_vectors.py > /dev/null
+	"$(IVERILOG)" -g2012 -DICARUS -DDUMP_VCD \
+		-o "$(SIM_IVERILOG_OUT)/tb_batched_gemm.out" \
+		rtl/tb/tb_batched_gemm.sv $(RTL_STUBS) $(RTL_DESIGN)
+	"$(VVP)" "$(SIM_IVERILOG_OUT)/tb_batched_gemm.out"
+	@echo "[sim-iverilog-batched] VCD: $(SIM_IVERILOG_OUT)/tb_batched_gemm.vcd"
+
+sim-iverilog-all: sim-iverilog-fused sim-iverilog-perf sim-iverilog-batched sim-iverilog-phase4-widen sim-iverilog-scheduler-cross-check sim-iverilog-latency
 
 # Task 4: deterministic-latency RTL data-independence sweep. Drives
 # rtl/tb/tb_latency_determinism.sv across 5 adversarial input
@@ -232,6 +241,10 @@ repro-host:
 	$(PYTHON) firmware/host/run_cost_model_regression.py
 	@echo "[repro-host] multi-PE ISA sim -> bench/results/multi_pe_sim.json"
 	$(PYTHON) firmware/host/run_multi_pe_sim_benchmark.py
+	@echo "[repro-host] batched GEMM correctness (Phase 0) -> bench/results/batched_gemm_correctness.json"
+	$(PYTHON) firmware/host/run_batched_gemm_correctness.py
+	@echo "[repro-host] systolic characterization (Phase 1; stub on hosts without iverilog) -> bench/results/systolic_characterization.json"
+	$(PYTHON) firmware/host/run_systolic_characterization.py
 	@echo "[repro-host] ISA <-> RTL bitmatch (iverilog) -> build/reports/isa_rtl_bitmatch_report.json"
 	$(PYTHON) firmware/host/run_isa_rtl_bitmatch.py \
 		--output-json build/reports/isa_rtl_bitmatch_report.json \
