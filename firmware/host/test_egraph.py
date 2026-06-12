@@ -37,6 +37,7 @@ if _HERE not in sys.path:
 
 from egraph import (
     DEFAULT_REWRITES,
+    BATCHED_MATMUL_ASSOCIATION,
     EGraph,
     ENode,
     Rewrite,
@@ -45,6 +46,7 @@ from egraph import (
     cuda_cost_model_cost,
     extract_min_cost,
     isa_cycle_cost,
+    matmul_flop_cost,
     op_count_cost,
     saturate,
 )
@@ -58,6 +60,7 @@ from egraph.graph_ir_lang import (
 )
 from egraph.rewrites import (
     ADD_COMMUTATIVITY,
+    LINEAR_FUSION,
     LINEAR_RELU_FUSION,
     PERMUTE_INVOLUTION,
     SCALE_IDENTITY,
@@ -140,6 +143,34 @@ def _build_double_scale_graph(scale_a: float, scale_b: float) -> GraphIR:
     g.add_op(OpNode(name="s2", op=OpKind.SCALE, inputs=["t1"], outputs=["t2"],
                     attrs={"scale": scale_b}))
     g.outputs = ["t2"]
+    return g
+
+
+def _build_linear_fusion_graph() -> GraphIR:
+    g = GraphIR(name="linear_fusion_chain", inputs=["x"])
+    g.add_value("x", shape=(1, 2), dtype="float32")
+    w1 = np.random.RandomState(0).randn(100, 2).astype(np.float32)
+    w2 = np.random.RandomState(1).randn(2, 100).astype(np.float32)
+    g.add_op(OpNode(name="lin1", op=OpKind.LINEAR, inputs=["x"], outputs=["h1"],
+                    attrs={"weight": w1, "in_features": 2, "out_features": 100}))
+    g.add_value("h1", shape=(1, 100), dtype="float32")
+    g.add_op(OpNode(name="lin2", op=OpKind.LINEAR, inputs=["h1"], outputs=["y"],
+                    attrs={"weight": w2, "in_features": 100, "out_features": 2}))
+    g.add_value("y", shape=(1, 2), dtype="float32")
+    g.outputs = ["y"]
+    return g
+
+
+def _build_bmm_association_graph() -> GraphIR:
+    g = GraphIR(name="bmm_association_chain", inputs=["a", "b", "c"])
+    g.add_value("a", shape=(100, 2), dtype="float32")
+    g.add_value("b", shape=(2, 100), dtype="float32")
+    g.add_value("c", shape=(100, 2), dtype="float32")
+    g.add_op(OpNode(name="m1", op=OpKind.BATCHED_MATMUL, inputs=["a", "b"], outputs=["t1"], attrs={}))
+    g.add_value("t1", shape=(100, 100), dtype="float32")
+    g.add_op(OpNode(name="m2", op=OpKind.BATCHED_MATMUL, inputs=["t1", "c"], outputs=["y"], attrs={}))
+    g.add_value("y", shape=(100, 2), dtype="float32")
+    g.outputs = ["y"]
     return g
 
 
@@ -275,6 +306,77 @@ def test_add_commutativity_is_a_no_op_cost_wise() -> None:
     g.outputs = ["y"]
     out = _saturate_and_extract(g)
     assert len(out.ops) == 1 and out.ops[0].op == OpKind.ADD
+
+
+def test_matmul_flop_cost_counts_linear_and_batched_matmul_shapes() -> None:
+    linear_graph = _build_linear_fusion_graph()
+    eg = EGraph()
+    linear_terms = lift_graph_ir(linear_graph)
+    linear_roots = [insert_term_into_egraph(eg, t, {}) for t in linear_terms]
+    linear_total = extract_min_cost(eg, linear_roots, cost_fn=matmul_flop_cost).total_cost
+    assert linear_total == pytest.approx(800.0)
+
+    bmm_graph = _build_bmm_association_graph()
+    eg = EGraph()
+    bmm_terms = lift_graph_ir(bmm_graph)
+    bmm_roots = [insert_term_into_egraph(eg, t, {}) for t in bmm_terms]
+    bmm_total = extract_min_cost(eg, bmm_roots, cost_fn=matmul_flop_cost).total_cost
+    assert bmm_total == pytest.approx(80000.0)
+
+
+def test_linear_fusion_reduces_flops_and_passes_float_equivalence() -> None:
+    g = _build_linear_fusion_graph()
+    eg = EGraph()
+    terms = lift_graph_ir(g)
+    root_ids = [insert_term_into_egraph(eg, t, {}) for t in terms]
+    stats = saturate(eg, DEFAULT_REWRITES)
+    assert stats.rule_fire_counts.get("linear_fusion", 0) >= 1
+    extraction = extract_min_cost(eg, root_ids, cost_fn=matmul_flop_cost)
+    out = lower_term_to_graph_ir(extraction.roots, source_graph=g)
+    assert extraction.total_cost == pytest.approx(8.0)
+    assert sum(1 for op in out.ops if op.op == OpKind.LINEAR) == 1
+    diff = diff_two_graphs(g, out, [np.random.RandomState(7).randn(1, 2).astype(np.float32)])
+    assert diff["match"], f"float-tolerant gate rejected a fused linear chain: {diff}"
+
+
+def test_linear_fusion_strict_bit_exact_gate_rejects_drift() -> None:
+    g = _build_linear_fusion_graph()
+    eg = EGraph()
+    terms = lift_graph_ir(g)
+    root_ids = [insert_term_into_egraph(eg, t, {}) for t in terms]
+    saturate(eg, DEFAULT_REWRITES)
+    extraction = extract_min_cost(eg, root_ids, cost_fn=matmul_flop_cost)
+    out = lower_term_to_graph_ir(extraction.roots, source_graph=g)
+    strict_diff = None
+    for seed in range(8):
+        inputs = [np.random.RandomState(seed).randn(1, 2).astype(np.float32)]
+        diff = diff_two_graphs(g, out, inputs, rtol=0.0, atol=0.0)
+        if not diff["match"]:
+            strict_diff = diff
+            break
+    assert strict_diff is not None, "expected at least one strict bit-exact mismatch after reassociation"
+
+
+def test_batched_matmul_association_reduces_flops_and_fires() -> None:
+    g = _build_bmm_association_graph()
+    eg = EGraph()
+    terms = lift_graph_ir(g)
+    root_ids = [insert_term_into_egraph(eg, t, {}) for t in terms]
+    stats = saturate(eg, DEFAULT_REWRITES)
+    assert stats.rule_fire_counts.get("batched_matmul_association", 0) >= 1
+    extraction = extract_min_cost(eg, root_ids, cost_fn=matmul_flop_cost)
+    out = lower_term_to_graph_ir(extraction.roots, source_graph=g)
+    assert extraction.total_cost == pytest.approx(1600.0)
+    diff = diff_two_graphs(
+        g,
+        out,
+        [
+            np.random.RandomState(11).randn(100, 2).astype(np.float32),
+            np.random.RandomState(12).randn(2, 100).astype(np.float32),
+            np.random.RandomState(13).randn(100, 2).astype(np.float32),
+        ],
+    )
+    assert diff["match"], f"float-tolerant gate rejected a reassociated matmul chain: {diff}"
 
 
 # ---------------------------------------------------------------------------
@@ -422,7 +524,7 @@ def test_run_superopt_benchmark_emits_required_schema_keys(tmp_path) -> None:
         "graphs_evaluated", "results", "aggregate", "planted_phase_ordering_wins",
         "natural_phase_ordering_wins", "saturation_config",
         "rewrite_rules_registered", "equivalence_check", "environment",
-        "git_sha", "generated_at_unix",
+        "git_sha", "generated_at_unix", "realistic_corpus",
     ):
         assert key in artifact, f"missing top-level key: {key!r}"
     agg = artifact["aggregate"]
@@ -433,8 +535,26 @@ def test_run_superopt_benchmark_emits_required_schema_keys(tmp_path) -> None:
         "median_pipeline_cost", "median_egraph_cost",
     ):
         assert key in agg, f"missing aggregate key: {key!r}"
+    realistic = artifact["realistic_corpus"]
+    for key in (
+        "status", "schema_version", "corpus_name", "cost_function", "target_backend",
+        "graphs_evaluated", "results", "aggregate", "class_breakdown",
+        "rewrites_rejected_by_equivalence_gate", "rewrite_rules_registered",
+        "equivalence_check", "generated_at_unix",
+    ):
+        assert key in realistic, f"missing realistic corpus key: {key!r}"
+    ragg = realistic["aggregate"]
+    for key in (
+        "win_rate_pct", "flop_reduction_pct_median_on_wins",
+        "flop_reduction_pct_max_on_wins", "isa_cycle_reduction_pct_median_on_wins",
+        "isa_cycle_reduction_pct_max_on_wins", "num_phase_ordering_wins",
+        "num_extractions_rejected_by_equiv_check", "num_graphs_evaluated",
+        "median_pipeline_flops", "median_egraph_flops",
+        "median_pipeline_isa_cycles", "median_egraph_isa_cycles",
+    ):
+        assert key in ragg, f"missing realistic aggregate key: {key!r}"
     assert artifact["status"] == "ok"
-    assert artifact["schema_version"] == 1
+    assert artifact["schema_version"] == 2
     assert isinstance(artifact["results"], list)
     assert artifact["graphs_evaluated"] >= 1
 
@@ -498,6 +618,7 @@ def _required_artifact_keys() -> List[str]:
         "planted_phase_ordering_wins", "natural_phase_ordering_wins",
         "saturation_config", "rewrite_rules_registered",
         "equivalence_check", "environment", "git_sha", "generated_at_unix",
+        "realistic_corpus",
     ]
 
 
@@ -509,7 +630,7 @@ def test_committed_artifact_schema_lock_if_present() -> None:
         artifact = json.load(f)
     for key in _required_artifact_keys():
         assert key in artifact, f"committed superopt_payoff.json missing key {key!r}"
-    assert artifact["schema_version"] == 1
+    assert artifact["schema_version"] == 2
     assert artifact["status"] == "ok"
     aggregate = artifact["aggregate"]
     nrej = aggregate["num_extractions_rejected_by_equiv_check"]
@@ -518,11 +639,69 @@ def test_committed_artifact_schema_lock_if_present() -> None:
         f"expected at least 4 planted phase-ordering wins in committed artifact, got {wins}"
     )
     assert nrej >= 0
+    assert "realistic_corpus" in artifact
+    realistic = artifact["realistic_corpus"]
+    assert realistic["schema_version"] == 2
+    assert realistic["corpus_name"] == "realistic"
+    assert realistic["aggregate"]["win_rate_pct"] >= 0.0
     for r in artifact["results"]:
         if r["phase_ordering_win"]:
             assert r["extracted_equiv_verified"], (
                 f"win {r['graph_name']!r} must be equiv-verified (honesty contract)"
             )
+
+
+def test_run_superopt_benchmark_realistic_corpus_has_measured_wins(tmp_path) -> None:
+    from run_superopt_benchmark import run_superopt_benchmark
+
+    out = tmp_path / "superopt_payoff.json"
+    artifact = run_superopt_benchmark(
+        output_path=str(out),
+        seed_start=0,
+        num_random_graphs=0,
+        include_planted=False,
+    )
+    realistic = artifact["realistic_corpus"]
+    results = realistic["results"]
+    by_name = {r["graph_name"]: r for r in results}
+
+    attention = by_name["attention_cross_t32_s128_d16_v8"]
+    assert attention["phase_ordering_win"]
+    assert attention["flop_reduction_pct"] > 70.0
+    assert attention["extracted_equiv_verified"]
+
+    mlp = by_name["stacked_mlp_128_256_256_128"]
+    assert mlp["phase_ordering_win"]
+    assert mlp["flop_reduction_pct"] > 80.0
+    assert mlp["extracted_equiv_verified"]
+
+
+def test_realistic_corpus_aggregate_is_derivable_from_rows(tmp_path) -> None:
+    from run_superopt_benchmark import run_superopt_benchmark
+
+    out = tmp_path / "superopt_payoff.json"
+    artifact = run_superopt_benchmark(
+        output_path=str(out),
+        seed_start=0,
+        num_random_graphs=0,
+        include_planted=False,
+    )
+    realistic = artifact["realistic_corpus"]
+    rows = realistic["results"]
+    eval_rows = [r for r in rows if r["equiv_check_reason"] != "harness_exception"]
+    wins = [r for r in eval_rows if r["phase_ordering_win"]]
+    assert realistic["rewrites_rejected_by_equivalence_gate"] == sum(
+        1 for r in eval_rows if not r["extracted_equiv_verified"]
+    )
+    assert realistic["aggregate"]["num_graphs_evaluated"] == len(eval_rows)
+    expected_win_rate = 100.0 * len(wins) / len(eval_rows)
+    assert realistic["aggregate"]["win_rate_pct"] == pytest.approx(expected_win_rate)
+    flop_wins = [r["flop_reduction_pct"] for r in wins]
+    isa_wins = [r["isa_cycle_reduction_pct"] for r in wins]
+    assert realistic["aggregate"]["flop_reduction_pct_median_on_wins"] == pytest.approx(float(np.median(flop_wins)))
+    assert realistic["aggregate"]["flop_reduction_pct_max_on_wins"] == pytest.approx(float(max(flop_wins)))
+    assert realistic["aggregate"]["isa_cycle_reduction_pct_median_on_wins"] == pytest.approx(float(np.median(isa_wins)))
+    assert realistic["aggregate"]["isa_cycle_reduction_pct_max_on_wins"] == pytest.approx(float(max(isa_wins)))
 
 
 # ---------------------------------------------------------------------------

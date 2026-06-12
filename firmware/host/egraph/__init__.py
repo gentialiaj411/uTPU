@@ -18,6 +18,7 @@ from .egraph import ENode, EClassId, EGraph
 from .extract import (
     CostFunction,
     ExtractionResult,
+    matmul_flop_cost,
     extract_min_cost,
     isa_cycle_cost,
     cuda_cost_model_cost,
@@ -29,8 +30,10 @@ from .graph_ir_lang import (
     lower_term_to_graph_ir,
 )
 from .rewrites import (
+    BATCHED_MATMUL_ASSOCIATION,
     Rewrite,
     DEFAULT_REWRITES,
+    LINEAR_FUSION,
     apply_rewrite,
 )
 from .saturate import (
@@ -41,11 +44,13 @@ from .saturate import (
 
 __all__ = [
     "CostFunction",
+    "BATCHED_MATMUL_ASSOCIATION",
     "DEFAULT_REWRITES",
     "EClassId",
     "EGraph",
     "ENode",
     "ExtractionResult",
+    "LINEAR_FUSION",
     "Rewrite",
     "SaturationConfig",
     "SaturationStats",
@@ -54,6 +59,7 @@ __all__ = [
     "cuda_cost_model_cost",
     "extract_min_cost",
     "isa_cycle_cost",
+    "matmul_flop_cost",
     "lift_graph_ir",
     "lower_term_to_graph_ir",
     "op_count_cost",

@@ -44,6 +44,8 @@ from .egraph import EClassId, EGraph, ENode
 _INPUT_HEAD = "__input__"
 _PERSISTENT_HEAD = "__persistent__"
 _CONST_HEAD = "__const__"
+_INPUT_SHAPES_ATTR = "__input_shapes__"
+_OUTPUT_SHAPE_ATTR = "__output_shape__"
 
 
 _ATTR_KEY_DENYLIST: Tuple[str, ...] = (
@@ -191,10 +193,27 @@ def lift_graph_ir(graph: GraphIR) -> List[Term]:
         stack.append(value_name)
         child_terms = tuple(build(inp, stack) for inp in op.inputs)
         stack.pop()
+        input_shapes = tuple(
+            _canonicalize_attr_value(
+                graph.values[inp].shape if graph.values.get(inp) is not None else None
+            )
+            for inp in op.inputs
+        )
+        output_shapes = tuple(
+            _canonicalize_attr_value(
+                graph.values[out].shape if graph.values.get(out) is not None else None
+            )
+            for out in op.outputs
+        )
+        shape_attrs: List[Tuple[str, Any]] = []
+        if op.inputs:
+            shape_attrs.append((_INPUT_SHAPES_ATTR, input_shapes))
+        if op.outputs:
+            shape_attrs.append((_OUTPUT_SHAPE_ATTR, output_shapes))
         term = Term(
             head=op.op,
             children=child_terms,
-            attrs_key=_attrs_key_for_op(op),
+            attrs_key=_attrs_key_for_op(op) + tuple(shape_attrs),
             label=value_name,
         )
         for out in op.outputs:
@@ -309,6 +328,8 @@ def lower_term_to_graph_ir(
         out_name = fresh_val_name(prefix)
         op_attrs: Dict[str, Any] = {}
         for k, v in term.attrs_key:
+            if k in (_INPUT_SHAPES_ATTR, _OUTPUT_SHAPE_ATTR):
+                continue
             op_attrs[k] = _decanonicalize_attr_value(v)
         new_graph.add_op(OpNode(
             name=op_name,

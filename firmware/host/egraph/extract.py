@@ -42,9 +42,10 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from graph_ir import OpKind
+from .graph_ir_lang import _INPUT_SHAPES_ATTR, _OUTPUT_SHAPE_ATTR
 from .egraph import EClassId, EGraph, ENode
 from .graph_ir_lang import Term, _CONST_HEAD, _INPUT_HEAD, _PERSISTENT_HEAD
 
@@ -107,6 +108,97 @@ def cuda_cost_model_cost(node: ENode, _children_costs: Dict[EClassId, float]) ->
     if node.head == OpKind.SCALED_SOFTMAX:
         return weight * 0.82
     return float(weight) * 1.05
+
+
+def _shape_tuple(value: Any) -> Optional[Tuple[int, ...]]:
+    if value is None:
+        return None
+    if isinstance(value, tuple) and value and value[0] == "__ndarray__":
+        # Not a shape tuple, but allow canonical ndarray attrs to flow
+        # through when they happen to appear in a shape position.
+        return tuple(int(d) for d in value[2])
+    if isinstance(value, (list, tuple)):
+        out: List[int] = []
+        for dim in value:
+            if dim is None:
+                return None
+            try:
+                out.append(int(dim))
+            except (TypeError, ValueError):
+                return None
+        return tuple(out)
+    return None
+
+
+def _shape_product(shape: Optional[Tuple[int, ...]]) -> Optional[int]:
+    if shape is None:
+        return None
+    prod = 1
+    for dim in shape:
+        prod *= int(dim)
+    return int(prod)
+
+
+def _matmul_flops_from_shapes(lhs: Optional[Tuple[int, ...]], rhs: Optional[Tuple[int, ...]]) -> Optional[float]:
+    if lhs is None or rhs is None or len(lhs) < 2 or len(rhs) < 2:
+        return None
+    lhs_batch = tuple(int(d) for d in lhs[:-2])
+    rhs_batch = tuple(int(d) for d in rhs[:-2])
+    # Broadcast batch dimensions left-padded with 1s.
+    max_rank = max(len(lhs_batch), len(rhs_batch))
+    lhs_pad = (1,) * (max_rank - len(lhs_batch)) + lhs_batch
+    rhs_pad = (1,) * (max_rank - len(rhs_batch)) + rhs_batch
+    batch_dims: List[int] = []
+    for a, b in zip(lhs_pad, rhs_pad):
+        if a == 1:
+            batch_dims.append(int(b))
+        elif b == 1 or a == b:
+            batch_dims.append(int(a))
+        else:
+            return None
+    batch = 1
+    for dim in batch_dims:
+        batch *= int(dim)
+    m = int(lhs[-2])
+    k = int(lhs[-1])
+    n = int(rhs[-1])
+    return float(2 * batch * m * k * n)
+
+
+def matmul_flop_cost(node: ENode, _children_costs: Dict[EClassId, float]) -> float:
+    if node.head in (_INPUT_HEAD, _PERSISTENT_HEAD, _CONST_HEAD):
+        return 0.0
+    attrs = dict(node.attrs_key)
+    input_shapes_raw = attrs.get(_INPUT_SHAPES_ATTR)
+    output_shapes_raw = attrs.get(_OUTPUT_SHAPE_ATTR)
+    input_shapes: Tuple[Optional[Tuple[int, ...]], ...] = ()
+    output_shapes: Tuple[Optional[Tuple[int, ...]], ...] = ()
+    if isinstance(input_shapes_raw, tuple):
+        input_shapes = tuple(_shape_tuple(s) for s in input_shapes_raw)
+    if isinstance(output_shapes_raw, tuple):
+        output_shapes = tuple(_shape_tuple(s) for s in output_shapes_raw)
+
+    if node.head in (OpKind.LINEAR, OpKind.LINEAR_RELU):
+        if not input_shapes or output_shapes == ():
+            return math.inf
+        lhs = input_shapes[0]
+        rhs = output_shapes[0]
+        # For LINEAR, the output shape stores the batch prefix and output features.
+        if lhs is None or rhs is None or len(lhs) < 1 or len(rhs) < 1:
+            return math.inf
+        batch = _shape_product(lhs[:-1]) or 1
+        m = int(batch)
+        k = int(lhs[-1])
+        n = int(rhs[-1])
+        return float(2 * m * k * n)
+
+    if node.head == OpKind.BATCHED_MATMUL:
+        if len(input_shapes) < 2:
+            return math.inf
+        flops = _matmul_flops_from_shapes(input_shapes[0], input_shapes[1])
+        return float(flops) if flops is not None else math.inf
+
+    return 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -199,5 +291,6 @@ __all__ = [
     "cuda_cost_model_cost",
     "extract_min_cost",
     "isa_cycle_cost",
+    "matmul_flop_cost",
     "op_count_cost",
 ]

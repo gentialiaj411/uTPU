@@ -50,7 +50,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+import numpy as np
+
 from graph_ir import OpKind
+from .graph_ir_lang import (
+    _INPUT_SHAPES_ATTR,
+    _OUTPUT_SHAPE_ATTR,
+    _canonicalize_attr_value,
+    _decanonicalize_attr_value,
+)
 from .egraph import EClassId, EGraph, ENode
 
 
@@ -73,6 +81,74 @@ def _enodes_of(eg: EGraph, eid: EClassId) -> List[ENode]:
 
 def _attrs_dict(node: ENode) -> Dict[str, Any]:
     return dict(node.attrs_key)
+
+
+def _shape_tuple(value: Any) -> Optional[Tuple[int, ...]]:
+    if value is None:
+        return None
+    if isinstance(value, tuple) and value and value[0] == "__ndarray__":
+        return tuple(int(d) for d in value[2])
+    if isinstance(value, (list, tuple)):
+        out: List[int] = []
+        for dim in value:
+            if dim is None:
+                return None
+            try:
+                out.append(int(dim))
+            except (TypeError, ValueError):
+                return None
+        return tuple(out)
+    return None
+
+
+def _shape_list(raw: Any) -> Tuple[Optional[Tuple[int, ...]], ...]:
+    if not isinstance(raw, tuple):
+        return ()
+    return tuple(_shape_tuple(v) for v in raw)
+
+
+def _shape_meta(attrs: Dict[str, Any]) -> Tuple[Tuple[Optional[Tuple[int, ...]], ...], Tuple[Optional[Tuple[int, ...]], ...]]:
+    return _shape_list(attrs.get(_INPUT_SHAPES_ATTR)), _shape_list(attrs.get(_OUTPUT_SHAPE_ATTR))
+
+
+def _shape_meta_items(
+    input_shapes: Tuple[Optional[Tuple[int, ...]], ...],
+    output_shapes: Tuple[Optional[Tuple[int, ...]], ...],
+) -> List[Tuple[str, Any]]:
+    items: List[Tuple[str, Any]] = []
+    if input_shapes:
+        items.append((_INPUT_SHAPES_ATTR, input_shapes))
+    if output_shapes:
+        items.append((_OUTPUT_SHAPE_ATTR, output_shapes))
+    return items
+
+
+def _bmm_output_shape(lhs: Optional[Tuple[int, ...]], rhs: Optional[Tuple[int, ...]]) -> Optional[Tuple[int, ...]]:
+    if lhs is None or rhs is None or len(lhs) < 2 or len(rhs) < 2:
+        return None
+    lhs_batch = tuple(int(d) for d in lhs[:-2])
+    rhs_batch = tuple(int(d) for d in rhs[:-2])
+    max_rank = max(len(lhs_batch), len(rhs_batch))
+    lhs_pad = (1,) * (max_rank - len(lhs_batch)) + lhs_batch
+    rhs_pad = (1,) * (max_rank - len(rhs_batch)) + rhs_batch
+    batch: List[int] = []
+    for a, b in zip(lhs_pad, rhs_pad):
+        if a == 1:
+            batch.append(int(b))
+        elif b == 1 or a == b:
+            batch.append(int(a))
+        else:
+            return None
+    return tuple(batch + [int(lhs[-2]), int(rhs[-1])])
+
+
+def _maybe_array(value: Any) -> Optional[np.ndarray]:
+    if value is None:
+        return None
+    dec = _decanonicalize_attr_value(value)
+    if dec is None:
+        return None
+    return np.asarray(dec, dtype=np.float32)
 
 
 def _match_linear_relu_fusion(eg: EGraph, seed: EClassId) -> List[MatchBinding]:
@@ -112,6 +188,152 @@ LINEAR_RELU_FUSION = Rewrite(
     matcher=_match_linear_relu_fusion,
     builder=_build_linear_relu_fusion,
     description="relu(linear(x,w,b)) == linear_relu(x,w,b)",
+)
+
+
+def _match_linear_fusion(eg: EGraph, seed: EClassId) -> List[MatchBinding]:
+    """``linear(linear(x, W1, b1), W2, b2) -> linear(x, W2 @ W1, b')``."""
+    out: List[MatchBinding] = []
+    for node in _enodes_of(eg, seed):
+        if node.head != OpKind.LINEAR or len(node.children) != 1:
+            continue
+        outer_attrs = _attrs_dict(node)
+        if "weight" not in outer_attrs:
+            continue
+        if outer_attrs.get("dtype_quant") is not None:
+            continue
+        outer_input_shapes, outer_output_shapes = _shape_meta(outer_attrs)
+        inner = node.children[0]
+        for inner_node in _enodes_of(eg, inner):
+            if inner_node.head != OpKind.LINEAR or len(inner_node.children) != 1:
+                continue
+            inner_attrs = _attrs_dict(inner_node)
+            if "weight" not in inner_attrs:
+                continue
+            if inner_attrs.get("dtype_quant") is not None:
+                continue
+            inner_input_shapes, inner_output_shapes = _shape_meta(inner_attrs)
+            out.append({
+                "x": inner_node.children[0],
+                "inner_weight": inner_attrs["weight"],
+                "inner_bias": inner_attrs.get("bias"),
+                "outer_weight": outer_attrs["weight"],
+                "outer_bias": outer_attrs.get("bias"),
+                "input_shapes": inner_input_shapes,
+                "output_shapes": outer_output_shapes,
+            })
+    return out
+
+
+def _build_linear_fusion(eg: EGraph, binding: MatchBinding) -> EClassId:
+    inner_w = np.asarray(_decanonicalize_attr_value(binding["inner_weight"]), dtype=np.float32)
+    outer_w = np.asarray(_decanonicalize_attr_value(binding["outer_weight"]), dtype=np.float32)
+    fused_w = np.matmul(outer_w, inner_w).astype(np.float32, copy=False)
+
+    inner_b = _maybe_array(binding.get("inner_bias"))
+    outer_b = _maybe_array(binding.get("outer_bias"))
+    fused_b: Optional[np.ndarray] = None
+    if inner_b is not None:
+        b_term = np.matmul(inner_b.astype(np.float32, copy=False), outer_w.T.astype(np.float32, copy=False))
+        fused_b = b_term.astype(np.float32, copy=False)
+        if outer_b is not None:
+            fused_b = (fused_b + outer_b.astype(np.float32, copy=False)).astype(np.float32, copy=False)
+    elif outer_b is not None:
+        fused_b = outer_b.astype(np.float32, copy=False)
+
+    attrs: List[Tuple[str, Any]] = [
+        ("weight", fused_w),
+        ("in_features", int(fused_w.shape[1])),
+        ("out_features", int(fused_w.shape[0])),
+    ]
+    if fused_b is not None:
+        attrs.append(("bias", fused_b))
+    attrs.extend(_shape_meta_items(binding.get("input_shapes", ()), binding.get("output_shapes", ())))
+    return eg.add(ENode(
+        head=OpKind.LINEAR,
+        children=(binding["x"],),
+        attrs_key=tuple((str(k), _canonicalize_attr_value(v)) for k, v in attrs),
+    ))
+
+
+LINEAR_FUSION = Rewrite(
+    name="linear_fusion",
+    matcher=_match_linear_fusion,
+    builder=_build_linear_fusion,
+    description="linear(linear(x,W1,b1),W2,b2) == linear(x,W2@W1,b')",
+)
+
+
+def _match_batched_matmul_association(eg: EGraph, seed: EClassId) -> List[MatchBinding]:
+    """``matmul(matmul(A,B),C) == matmul(A,matmul(B,C))``."""
+    out: List[MatchBinding] = []
+    for node in _enodes_of(eg, seed):
+        if node.head != OpKind.BATCHED_MATMUL or len(node.children) != 2:
+            continue
+        outer_attrs = _attrs_dict(node)
+        outer_inputs, outer_outputs = _shape_meta(outer_attrs)
+        left = node.children[0]
+        right = node.children[1]
+        for inner_node in _enodes_of(eg, left):
+            if inner_node.head != OpKind.BATCHED_MATMUL or len(inner_node.children) != 2:
+                continue
+            inner_attrs = _attrs_dict(inner_node)
+            inner_inputs, inner_outputs = _shape_meta(inner_attrs)
+            a_shape = inner_inputs[0] if len(inner_inputs) >= 1 else None
+            b_shape = inner_inputs[1] if len(inner_inputs) >= 2 else None
+            c_shape = outer_inputs[1] if len(outer_inputs) >= 2 else None
+            if a_shape is None or b_shape is None or c_shape is None:
+                continue
+            bc_shape = _bmm_output_shape(b_shape, c_shape)
+            if bc_shape is None:
+                continue
+            rhs_shape = outer_outputs[0] if len(outer_outputs) >= 1 else None
+            if rhs_shape is None:
+                continue
+            out.append({
+                "a": inner_node.children[0],
+                "b": inner_node.children[1],
+                "c": right,
+                "left_input_shapes": inner_inputs,
+                "inner_output_shape": inner_outputs[0] if len(inner_outputs) >= 1 else None,
+                "rhs_input_shapes": outer_inputs,
+                "output_shapes": outer_outputs,
+            })
+    return out
+
+
+def _build_batched_matmul_association(eg: EGraph, binding: MatchBinding) -> EClassId:
+    inner_inputs = binding.get("left_input_shapes", ())
+    outer_outputs = binding.get("output_shapes", ())
+    b_shape = inner_inputs[1] if len(inner_inputs) >= 2 else None
+    c_shape = binding.get("rhs_input_shapes", ())
+    c_rhs = c_shape[1] if len(c_shape) >= 2 else None
+    inner_out = _bmm_output_shape(b_shape, c_rhs)
+    inner_attrs: List[Tuple[str, Any]] = _shape_meta_items(
+        (b_shape, c_rhs),
+        (inner_out,) if inner_out is not None else (),
+    )
+    inner_eid = eg.add(ENode(
+        head=OpKind.BATCHED_MATMUL,
+        children=(binding["b"], binding["c"]),
+        attrs_key=tuple((str(k), _canonicalize_attr_value(v)) for k, v in inner_attrs),
+    ))
+    outer_attrs: List[Tuple[str, Any]] = _shape_meta_items(
+        (binding.get("left_input_shapes", ())[0] if binding.get("left_input_shapes") else None, inner_out),
+        outer_outputs,
+    )
+    return eg.add(ENode(
+        head=OpKind.BATCHED_MATMUL,
+        children=(binding["a"], inner_eid),
+        attrs_key=tuple((str(k), _canonicalize_attr_value(v)) for k, v in outer_attrs),
+    ))
+
+
+BATCHED_MATMUL_ASSOCIATION = Rewrite(
+    name="batched_matmul_association",
+    matcher=_match_batched_matmul_association,
+    builder=_build_batched_matmul_association,
+    description="matmul(matmul(A,B),C) == matmul(A,matmul(B,C))",
 )
 
 
@@ -310,6 +532,8 @@ PERMUTE_INVOLUTION = Rewrite(
 
 DEFAULT_REWRITES: Tuple[Rewrite, ...] = (
     LINEAR_RELU_FUSION,
+    LINEAR_FUSION,
+    BATCHED_MATMUL_ASSOCIATION,
     SCALE_SOFTMAX_FUSION,
     SCALE_REASSOCIATION,
     SCALE_IDENTITY,
@@ -344,7 +568,9 @@ __all__ = [
     "ADD_COMMUTATIVITY",
     "Builder",
     "DEFAULT_REWRITES",
+    "BATCHED_MATMUL_ASSOCIATION",
     "LINEAR_RELU_FUSION",
+    "LINEAR_FUSION",
     "MatchBinding",
     "Matcher",
     "PERMUTE_INVOLUTION",

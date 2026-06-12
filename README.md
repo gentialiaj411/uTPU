@@ -4,33 +4,56 @@
 
 ![Compiler pipeline terminal preview](docs/inspect_compiler_pipeline_demo.svg)
 
-`uTPU` is a focused ML systems project: a small PyTorch MLP subset lowers into a custom Graph IR, then into either a generated CUDA blocked-FC kernel or a custom uTPU ISA/RTL path. The point is not broad framework coverage. The point is compiler passes, backend lowering, measurement discipline, autotuning, and hardware-style verification on one narrow workload family.
+For a full top-down tour and interview prep, see [WALKTHROUGH.md](WALKTHROUGH.md).
+
+`uTPU` is a focused ML systems project: PyTorch models lower into a custom Graph IR, then into generated CUDA kernels and/or custom uTPU ISA/RTL programs. The point is not broad framework coverage. The point is compiler passes, backend lowering, measurement discipline, autotuning, and hardware-style verification on narrow, explicit workload families.
 
 ## Scope
 
 Supported:
 
 - Batch-1 MLP-style `Linear -> ReLU -> Linear` flows.
+- Single-block transformer path: `Q/K/V linear -> attention -> output projection -> residual -> RMSNorm -> (optional MLP reuse)`.
 - Pass-based Graph IR: shape inference, Linear+ReLU fusion, dead-code elimination, liveness memory planning, backend legality.
+- Transformer pass pipeline: attention decomposition (`scaled_dot_product_attention` -> `permute + batched_matmul + scale + softmax + batched_matmul`) plus `scale+softmax` fusion.
 - INT4 blocked fully connected lowering for CUDA and uTPU program emission.
 - CUDA runtime execution through generated NVRTC kernels.
 - uTPU ISA generation plus Python ISA simulation and Verilog RTL simulation evidence.
+- `torch.compile` custom backend (`backend="utpu"`) that dispatches supported FX subgraphs through the existing CUDA / uTPU ISA pipeline and falls back to eager for unsupported ops.
+- **ResNet-18 (CUDA graph path):** FX import for `Conv2d`, `BatchNorm2d` (folded into conv), `MaxPool2d`, `AdaptiveAvgPool2d`, residual `add`, and `Linear`; end-to-end compile + execution through the Graph IR runtime. Evidence: [bench/results/real_model_end_to_end.json](bench/results/real_model_end_to_end.json), `firmware/host/test_real_model_end_to_end.py`.
 
 Not claimed:
 
-- General PyTorch compiler support.
-- Transformer support.
+- General PyTorch compiler support beyond the documented families (blocked-FC MLP, transformer blocks, ResNet-18 on CUDA).
+- Full GPT/BERT graph coverage.
 - Production `torch.compile` backend.
-- Physical board validation for Graph IR-generated programs.
 - End-to-end speedup over PyTorch/cuBLAS on tiny benchmarks.
 
 ## Evidence-Backed Claims
 
 - Compiler correctness: differential harness compares the NumPy Graph IR interpreter, CUDA compiled backend, uTPU quantized emulation, and a TorchInductor oracle when the local platform supports it. Evidence: [docs/EVIDENCE.md#differential-testing](docs/EVIDENCE.md#differential-testing), [firmware/host/differential_test_harness.py](firmware/host/differential_test_harness.py).
 
+- Real-model CUDA path: ResNet-18 lowers end-to-end through FX → Graph IR → graph-op execution (NVRTC kernels when `cuda-python` is available; otherwise Torch-CUDA or NumPy reference fallback as recorded in the artifact). Parity vs eager PyTorch is checked at `rtol=1e-3`, `atol=1e-3`. Evidence: [bench/results/real_model_end_to_end.json](bench/results/real_model_end_to_end.json).
+
 - CUDA performance engineering: calibrated CUDA-event data backs a schedule-aware analytical cost model and pruning policy for blocked-FC autotuning. The current measured-data replay profiles `4.92` of 16 schedules on average (`3.25x` search reduction), keeps every selected schedule within `1%` of exhaustive best, and lowers max replay regression from strict top-k's `5.90%` to `0.49%`. A small live CUDA smoke check also exercises exhaustive vs pruned tuning, but replay remains the primary quality claim. Evidence: [docs/EVIDENCE.md#cost-model-and-pruned-autotuner](docs/EVIDENCE.md#cost-model-and-pruned-autotuner), [firmware/host/cost_model.py](firmware/host/cost_model.py), [firmware/host/cuda_autotuner.py](firmware/host/cuda_autotuner.py).
 
 - Hardware verification: Python ISA simulator and Verilog RTL produce bit-identical fetch bytes on two compiled fused MLP programs. Evidence: [docs/EVIDENCE.md#python-isa-simulator--rtl-bitmatch](docs/EVIDENCE.md#python-isa-simulator--rtl-bitmatch), [firmware/host/isa_simulator.py](firmware/host/isa_simulator.py), [rtl/tb/tb_fused_compressed_program.sv](rtl/tb/tb_fused_compressed_program.sv).
+
+- Physical board validation: captured FPGA board execution is documented for the uTPU path, with UART capture replayed against the ISA simulator. Evidence: [docs/EVIDENCE.md](docs/EVIDENCE.md), `uTPU_upgrades.md`, `context/BATON.md`.
+
+- Cost-model **generalization on unseen shapes**: deterministic 80/20 train-test split partitioned by `(in_features, out_features)`; refit on TRAIN only, evaluated on 5 unseen TEST shapes. Held-out `log_R^2 = 0.926` (test/train ratio `0.995`), held-out `MAPE = 14.32%`, held-out selection-regret mean `5.21%` / max `11.90%`, within-10% `0.80`. Top-1 prediction is **not** claimed on unseen shapes; the supported claim is bounded regret. Evidence: [bench/results/cost_model_heldout.json](bench/results/cost_model_heldout.json), [firmware/host/run_cost_model_heldout.py](firmware/host/run_cost_model_heldout.py), [firmware/host/test_cost_model_heldout.py](firmware/host/test_cost_model_heldout.py).
+
+- Board-fit audit (Phase 7 remediation P3): the project no longer silently overflows the instruction BRAM. `bench/results/board_fit_audit.json` reports, for each of three reference RTL configurations (`pynqz2_baseline` `PROG_DEPTH=1024` shipping bitstream / `pynqz2_bram_max` `PROG_DEPTH=8192` synthesis bump / `vu13p_uram` `PROG_DEPTH=131072` URAM-class part), exactly which workloads fit. Today's bitstream admits `16x16`, `16x32`, `16x64`, `32x32` — the four tiny demos that constitute the credible "the bitstream-as-shipped runs" set. The 8192-word config admits 8/14 shapes (covers single-tile MLPs up to `(64, 128)`); the URAM config admits 12/14. Evidence: [bench/results/board_fit_audit.json](bench/results/board_fit_audit.json), [firmware/host/board_config.py](firmware/host/board_config.py), [firmware/host/run_board_fit_audit.py](firmware/host/run_board_fit_audit.py), [firmware/host/test_board_fit_audit.py](firmware/host/test_board_fit_audit.py).
+
+- Cost-model choice is the schedule the GPU actually runs (Phase 7 remediation P2). `CompiledMLPRuntime(schedule_source="cost_model")` consumes `RuntimeOpPlan.cuda_schedule` directly — 8 host tests in `test_compiled_runtime_schedule_source.py` fail the build if the executor silently re-searches. Wall-clock A/B on **WSL2 + RTX 5070 Laptop GPU**, cost-model-selected vs autotuner-oracle, **interleaved per iteration** (warmup=10, iters=50, `torch.cuda.synchronize` brackets, bit-exact INT4 output gate on both arms): **realized regret median `−0.10%`, max `+3.37%`, within-5% `1.00`, within-10% `1.00`** across all 24 calibrated shapes. Headline reframed from the weak top-1 (`29.2%`) to **bounded regret** (mean `2.56%` predicted / `+0.10%` realized) and held-out `log R² 0.926`. Evidence: [bench/results/selection_ab.json](bench/results/selection_ab.json), [firmware/host/run_selection_ab.py](firmware/host/run_selection_ab.py), [firmware/host/test_selection_ab.py](firmware/host/test_selection_ab.py).
+
+- Full-stack writeup with **measured numbers only** and a one-command repro: [docs/WRITEUP.md](docs/WRITEUP.md) (FX → Graph IR → passes → cost-model selection + generalization → CUDA NVRTC + uTPU ISA → scheduler/allocator → multi-PE sim → parameter-driven INT8 RTL → cuBLAS / Inductor baseline methodology). Reproducibility: [docs/REPRO.md](docs/REPRO.md), `make repro` (host artifacts, ~30 s) + `make sim-iverilog-all` (RTL bitmatch) + `make repro-cuda` (ResNet-18 + populated cuBLAS / Inductor baseline, requires CUDA).
+
+- Serious-library baseline (Phase 7) on **WSL2 + NVIDIA RTX 5070 Laptop GPU (sm_120) + Torch 2.11+cu130** across a locked 6-shape `(M, K)` GEMV grid with warmup=10 + iters=50 + median-of-N + `torch.cuda.synchronize` brackets. **Measured: uTPU NVRTC blocked-FC INT4 kernel is `+29.16%` slower than cuBLAS FP32 GEMV at the median** (range `−25.93%` to `+117.33%`); **uTPU is `−43.53%` faster than TorchInductor FP32 `nn.Linear` at the median** (dtype caveat applies). Apples-to-apples INT32 cuBLAS is unsupported on this Torch build (`addmv_impl_cuda`/`addmm_cuda` not implemented for Int); the harness falls back to FP32 cuBLAS and records `dtype_fallback_reason` per shape so the dtype mismatch is never silent. Evidence: [bench/results/cublas_baseline.json](bench/results/cublas_baseline.json), [firmware/host/run_cublas_baseline.py](firmware/host/run_cublas_baseline.py), [firmware/host/test_cublas_baseline.py](firmware/host/test_cublas_baseline.py).
+
+- CUDA fusion benchmark (Phase 7 remediation) on the same GPU times PyTorch eager vs `torch.compile(model, backend="inductor", fullgraph=True)` on the 3 fusion workloads. **Inductor fusion is NOT faster than eager at these tiny shapes**: median throughput delta `−65.21%` (Inductor compiled-kernel launch overhead dominates fusion savings). No GPU fusion speedup is claimed; the NumPy reference-path fusion benefit stands separately. Evidence: [bench/results/fusion_payoff.json](bench/results/fusion_payoff.json) (`cuda_fusion` section).
+
+- Scheduler RTL cycle cross-check (Phase 7 remediation P4.1): the Phase-5 scheduler's sim-only **4.67% cycle reduction** is reproduced by the synthesisable RTL FSM at the percentage level, and the scheduler's bit-exactness invariant holds at the RTL level. `rtl/tb/tb_scheduler_cycles.sv` streams naive + scheduled `(M=32, K=32)` blocked-FC programs through `top.sv` with shipping defaults (`PROG_DEPTH=1024`, `BUFFER_SIZE=512`, `ARRAY_SIZE=16`) and asserts: `RTL_sched_cycles < RTL_naive_cycles` ✓, `|RTL_reduction_permille − sim_reduction_permille| ≤ 20 permille (±2.0%)` ✓ (RTL 25 permille vs sim 26 permille, diff 1), `RTL_naive_fetch_bytes === RTL_scheduled_fetch_bytes` ✓ (all 16/16 bytes). Promotes `bench/results/scheduler_cycles.json::rtl_crosscheck.status` from `"TODO/VERIFY"` to `"RTL-verified"`. Evidence: [bench/results/scheduler_rtl_crosscheck.json](bench/results/scheduler_rtl_crosscheck.json), [firmware/host/run_scheduler_rtl_crosscheck.py](firmware/host/run_scheduler_rtl_crosscheck.py), [firmware/host/test_scheduler_rtl_crosscheck.py](firmware/host/test_scheduler_rtl_crosscheck.py), [rtl/tb/tb_scheduler_cycles.sv](rtl/tb/tb_scheduler_cycles.sv).
 
 ## Architecture
 
@@ -44,7 +67,7 @@ PyTorch module
        dead-code elimination
        liveness memory planning
        backend legality
-  -> blocked-FC schedule/request layer
+  -> blocked-FC + transformer-op lowering
   -> backend lowering
        CUDA: NVRTC kernel + schedule autotuner + cost model
        uTPU: ISA program words + Python ISA sim + Verilog RTL sim
@@ -68,10 +91,23 @@ CUDA backend: blocked_fc_int4_kernel executable=True/False depending on local CU
 uTPU ISA footprint: total_utpu_instruction_words=434
 ```
 
+## Visual Compiler Pipeline Demo
+
+```bash
+python examples/visualize_compiler_pipeline.py
+```
+
+This emits:
+
+- terminal summary from the actual compile run
+- `build/reports/compiler_pipeline_visual.json`
+- `build/reports/compiler_pipeline_visual.html`
+
 ## Reproduce The Key Evidence
 
 ```bash
 python -m pytest firmware/host/test_differential_harness.py -q
+python -m pytest firmware/host/test_transformer_integration.py -q
 python -m pytest firmware/host/test_isa_simulator.py -q
 python firmware/host/run_isa_rtl_bitmatch.py --output-json build/reports/isa_rtl_bitmatch_report.json --output-md build/reports/isa_rtl_bitmatch_report.md
 python firmware/host/evaluate_pruned_autotuner.py --top-k 4 --output-json build/reports/pruned_autotuner_report.json
@@ -80,7 +116,7 @@ python examples/inspect_compiler_pipeline.py
 
 For CUDA calibration and holdout validation, use the calibration scripts under `firmware/host/`; these generate local reports under `build/reports/`.
 
-Current GitHub Actions status: green on `main` at commit `a2384db` (run `26059965031`). The CI job runs the narrow host regression set and skips optional local artifacts, such as model weights or RTL metrics, when absent in a clean checkout.
+Current GitHub Actions status (run id + commit): see `CLAIMS_MATRIX.md`, which is the single source of truth for CI state. The CI job runs the narrow host regression set and skips optional local artifacts, such as model weights or RTL metrics, when absent in a clean checkout.
 
 ## Resume-Safe Wording
 
@@ -95,3 +131,6 @@ Current GitHub Actions status: green on `main` at commit `a2384db` (run `2605996
 - The TorchInductor oracle is wired into the differential harness, but the current Windows artifact records a platform skip (`WinError 50`). Rerun on a supported Linux/WSL TorchInductor stack before claiming TorchInductor pass coverage.
 
 - The uTPU differential backend in the compiler harness is software emulation. The separate ISA/RTL bitmatch claim is simulation-based, not board execution.
+
+- uTPU ISA emission remains linear-only today. Transformer ops and ResNet-18 conv/pool ops are lowered and executable in the CUDA/compiler graph path; on uTPU target they return explicit unsupported diagnostics per op.
+- Transformer and ResNet graph-op execution prefer NVRTC (`cuda-python`) or Torch-CUDA when available. When neither is available, ResNet end-to-end tests use the NumPy Graph IR reference executor (see `execution_backend` in `bench/results/real_model_end_to_end.json`).
