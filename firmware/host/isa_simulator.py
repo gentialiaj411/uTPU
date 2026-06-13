@@ -37,8 +37,10 @@ from isa_encoder import (
     DTYPE_SUBOP_BUFFER_XFER,
     DTYPE_SUBOP_PE_SELECT,
     IsaConfig,
+    NOP_SUBOP_REQUANT,
     OPCODE_DTYPE,
 )
+from requantization import requantize_value
 
 
 OPCODE_STORE = 0b000
@@ -241,6 +243,9 @@ class UTPUISASimulator:
         self._compute_runs = 0
         self._total_macs = 0
         self._loaded_input_batch_count = 1
+        self._requant_enable = False
+        self._requant_multiplier = 1
+        self._requant_right_shift = 0
 
     @property
     def buffer(self) -> List[int]:
@@ -389,7 +394,18 @@ class UTPUISASimulator:
         if batch == 1:
             for i, acc in enumerate(pe.acc_partial_sums):
                 combined = int(acc) + int(residual_values[i])
-                q = _clip_to_width(combined, self.cfg.compute_data_width) if quantize else int(combined)
+                if quantize:
+                    if self._requant_enable:
+                        q = requantize_value(
+                            combined,
+                            multiplier=self._requant_multiplier,
+                            right_shift=self._requant_right_shift,
+                            out_width=self.cfg.compute_data_width,
+                        )
+                    else:
+                        q = _clip_to_width(combined, self.cfg.compute_data_width)
+                else:
+                    q = int(combined)
                 if relu and q < 0:
                     q = q >> self.alpha_shift
                 outputs[i] = q
@@ -399,7 +415,18 @@ class UTPUISASimulator:
             for col in range(batch):
                 for row in range(self.array_size):
                     combined = int(pe.acc_partial_matrix[row][col])
-                    q = _clip_to_width(combined, self.cfg.compute_data_width) if quantize else int(combined)
+                    if quantize:
+                        if self._requant_enable:
+                            q = requantize_value(
+                                combined,
+                                multiplier=self._requant_multiplier,
+                                right_shift=self._requant_right_shift,
+                                out_width=self.cfg.compute_data_width,
+                            )
+                        else:
+                            q = _clip_to_width(combined, self.cfg.compute_data_width)
+                    else:
+                        q = int(combined)
                     if relu and q < 0:
                         q = q >> self.alpha_shift
                     outputs[col * self.array_size + row] = q
@@ -606,6 +633,13 @@ class UTPUISASimulator:
                 break
 
             elif opcode == OPCODE_NOP:
+                if extended_addr and ((instruction >> 3) & 0x1) == NOP_SUBOP_REQUANT:
+                    if pc + 1 >= len(words):
+                        raise ValueError("truncated REQUANT trailer")
+                    self._requant_multiplier = words[pc] & 0xFFFF
+                    self._requant_right_shift = words[pc + 1] & 0xFFFF
+                    self._requant_enable = bool((instruction >> 4) & 0x1)
+                    pc += 2
                 self.executed_ops["nop"] += 1
                 self._record_cycle(pe_id)
 

@@ -1,0 +1,171 @@
+{
+  "schema_version": 1,
+  "generated_at_utc": "2026-06-13T03:27:31Z",
+  "model_name": "mnist_14x14_196x256x10_mlp_ptq",
+  "dataset": {
+    "name": "mnist_14x14_local",
+    "train_size": 60000,
+    "test_size": 10000,
+    "input_dim": 196,
+    "num_classes": 10
+  },
+  "training": {
+    "seed": 42,
+    "epochs": 12,
+    "train_batch_size": 64,
+    "hidden_dim": 256,
+    "regime": "float_train_plus_symmetric_ptq_export"
+  },
+  "accuracy_sweep": {
+    "float_accuracy": 0.973,
+    "int8_accuracy": 0.9733,
+    "int4_accuracy": 0.5832,
+    "scope_note": "These accuracies come from the deployed integer contract end to end: int matmul accumulate, per-layer requant multiply in finalize, arithmetic right shift truncation, saturation to the compute width, then optional leaky-ReLU."
+  },
+  "quantization_contract": {
+    "rounding_mode": "arithmetic_right_shift_truncation",
+    "symmetric_zero_point": 0,
+    "requant_multiply_location": "Between blocked-FC layers in the lowered finalize RUN path: simulator _run_finalize, RTL quantizer.sv, then optional leaky-ReLU before the next layer consumes the outputs.",
+    "int8": {
+      "input_scale": 0.007874015748031496,
+      "fc1_weight_scale": 0.02161547893614281,
+      "fc1_output_scale": 0.10848079891655389,
+      "fc1_requant": {
+        "enable": true,
+        "multiplier": 52645,
+        "right_shift": 25,
+        "rounding_mode": "arithmetic_right_shift_truncation"
+      },
+      "fc2_weight_scale": 0.015417301748681255,
+      "fc2_output_scale": 0.5537805031603715,
+      "fc2_requant": {
+        "enable": true,
+        "multiplier": 50669,
+        "right_shift": 24,
+        "rounding_mode": "arithmetic_right_shift_truncation"
+      }
+    },
+    "int4": {
+      "input_scale": 0.14285714285714285,
+      "fc1_weight_scale": 0.3921665464128767,
+      "fc1_output_scale": 1.968151637486049,
+      "fc1_requant": {
+        "enable": true,
+        "multiplier": 3731,
+        "right_shift": 17,
+        "rounding_mode": "arithmetic_right_shift_truncation"
+      },
+      "fc2_weight_scale": 0.27971390315464567,
+      "fc2_output_scale": 10.04716055733817,
+      "fc2_requant": {
+        "enable": true,
+        "multiplier": 57455,
+        "right_shift": 20,
+        "rounding_mode": "arithmetic_right_shift_truncation"
+      }
+    }
+  },
+  "accelerator_validation": {
+    "deployed_bitwidth": 8,
+    "reference_semantics": "independent_scaled_integer_reference_for_lowered_batched_blocked_fc_program",
+    "batch_size": 4,
+    "evaluated_samples": 4,
+    "bit_exact_vs_reference": true,
+    "isa_bit_exact_vs_reference": true,
+    "isa_rtl_bitmatch": true,
+    "rtl_sim_executed": true,
+    "rtl_sim_passed": true,
+    "sample_labels": [
+      7,
+      2,
+      1,
+      0
+    ],
+    "scope_note": "The independent scaled integer reference is the top of the chain. The same lowered INT8 program then matches in the ISA simulator and again in iverilog RTL on the labeled B=4 subset."
+  },
+  "layer_program_words": {
+    "fc1": 103172,
+    "fc2": 7910
+  },
+  "board_fit": {
+    "max_layer_program_words": 103172,
+    "per_board": {
+      "pynqz2_baseline": {
+        "board": {
+          "name": "pynqz2_baseline",
+          "prog_depth": 1024,
+          "buffer_size": 1024,
+          "array_size": 16,
+          "data_width_bits": 8,
+          "notes": "Current RTL default (top.sv::PROG_DEPTH=1024 = 2 KiB). Only block_ops <= 4 workloads (e.g. 16x16, 16x32, 16x64, 32x32) fit; larger shapes overflow at ISA-encode time."
+        },
+        "fits_instruction_bram": false
+      },
+      "pynqz2_bram_max": {
+        "board": {
+          "name": "pynqz2_bram_max",
+          "prog_depth": 8192,
+          "buffer_size": 1024,
+          "array_size": 16,
+          "data_width_bits": 8,
+          "notes": "Pynq-Z2 with PROG_DEPTH bumped to 8192 (16 KiB BRAM for the instruction memory; Pynq-Z2 ships with ~280 KiB total). Synthesis change only (top.sv::PROG_DEPTH override); no board re-spin needed beyond a fresh bitstream."
+        },
+        "fits_instruction_bram": false
+      },
+      "vu13p_uram": {
+        "board": {
+          "name": "vu13p_uram",
+          "prog_depth": 131072,
+          "buffer_size": 4096,
+          "array_size": 16,
+          "data_width_bits": 8,
+          "notes": "Larger Xilinx Ultrascale+ part with the instruction memory placed in URAM (PROG_DEPTH=131072 = 256 KiB) and the unified buffer at 4096 words. Covers the full Phase 3 tiling-correctness shape grid in a single tile."
+        },
+        "fits_instruction_bram": true
+      }
+    },
+    "selected_board": "vu13p_uram"
+  },
+  "batched_utilization": {
+    "per_layer": {
+      "fc1": {
+        "shape": {
+          "out_features": 256,
+          "in_features": 196
+        },
+        "batch_size": 4,
+        "program_instruction_words": 103172,
+        "rtl_cycle_counter": null,
+        "rtl_busy_counter": null,
+        "busy_fraction": null,
+        "pe_occupancy": null,
+        "compute_busy_cycles": 0,
+        "compute_span_cycles": 0,
+        "compute_span_duty_cycle": null,
+        "scope_note": "Reported honestly, not headlined. The layer still pays inter-tile refill and load-to-array gaps; this metric is here to disclose that remaining control cost."
+      },
+      "fc2": {
+        "shape": {
+          "out_features": 10,
+          "in_features": 256
+        },
+        "batch_size": 4,
+        "program_instruction_words": 7910,
+        "rtl_cycle_counter": 72081,
+        "rtl_busy_counter": 673,
+        "busy_fraction": 0.009336718414006465,
+        "pe_occupancy": 0.05943536404160475,
+        "compute_busy_cycles": 673,
+        "compute_span_cycles": 22528,
+        "compute_span_duty_cycle": 0.029873934659090908,
+        "scope_note": "Reported honestly, not headlined. The layer still pays inter-tile refill and load-to-array gaps; this metric is here to disclose that remaining control cost."
+      }
+    },
+    "aggregate_note": "The requant multiply happens in the lowered program's finalize RUN path: the simulator applies multiply->arithmetic-right-shift->saturate before optional leaky-ReLU, and the RTL does the same in quantizer.sv. Utilization remains secondary to correctness and deployed accuracy."
+  },
+  "known_limitations": [
+    "Simulation only. P0 board execution remains open.",
+    "INT4 remains lower-accuracy than INT8 under the same per-layer symmetric contract.",
+    "Layer-level utilization remains control-bound for large multi-tile layers because the remaining load-to-array gaps are still serialized."
+  ]
+}

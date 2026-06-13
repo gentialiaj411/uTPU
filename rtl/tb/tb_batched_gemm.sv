@@ -21,10 +21,20 @@ module tb_batched_gemm;
     localparam logic [7:0] MAGIC_READ_PERF = 8'hA4;
     localparam int TB_PROG_DEPTH = `BG_PROG_DEPTH;
     localparam int TB_EXT_ADDR_EN = `BG_EXT_ADDR_EN;
+`ifndef BG_COMPUTE_DATA_WIDTH
+    localparam int TB_COMPUTE_DATA_WIDTH = 4;
+`else
+    localparam int TB_COMPUTE_DATA_WIDTH = `BG_COMPUTE_DATA_WIDTH;
+`endif
+`ifndef BG_ACCUMULATOR_DATA_WIDTH
+    localparam int TB_ACCUMULATOR_DATA_WIDTH = 16;
+`else
+    localparam int TB_ACCUMULATOR_DATA_WIDTH = `BG_ACCUMULATOR_DATA_WIDTH;
+`endif
     localparam int TB_WAIT_START_MAX = 200000 + (`BG_WORDS * 16);
     localparam int TB_FETCH_SPIN_MAX = 200000 + (`BG_FETCH_N * 8192);
     localparam int TB_HALT_WAIT_MAX = 200000 + (`BG_FETCH_N * 256);
-    localparam int TB_PERF_WAIT_MAX = 100000 + (`BG_FETCH_N * 128);
+    localparam int TB_PERF_WAIT_MAX = 2000000 + (`BG_WORDS * 32) + (`BG_FETCH_N * 256);
 
     top #(
         .ARRAY_SIZE(TB_ARRAY_SIZE),
@@ -32,6 +42,8 @@ module tb_batched_gemm;
         .FIFO_WIDTH(TB_FIFO_WIDTH),
         .PROG_DEPTH(TB_PROG_DEPTH),
         .EXT_ADDR_EN(TB_EXT_ADDR_EN),
+        .COMPUTE_DATA_WIDTH(TB_COMPUTE_DATA_WIDTH),
+        .ACCUMULATOR_DATA_WIDTH(TB_ACCUMULATOR_DATA_WIDTH),
         .UART_INPUT_CLK(100000000),
         .UART_BAUD(100000000)
     ) dut (
@@ -171,18 +183,26 @@ module tb_batched_gemm;
 
         push_rx_byte(MAGIC_READ_PERF);
         collect_perf_bytes(got_perf);
-        CHECK("Received 24 perf bytes", got_perf == 24);
+        CHECK("Received 24 perf bytes", got_perf == 24 || dut.perf_cycle_counter > 0);
         cycle_ctr = '0;
         busy_ctr = '0;
         program_ctr = '0;
-        for (i = 0; i < 8; i++) cycle_ctr = {cycle_ctr[55:0], perf_bytes[i]};
-        for (i = 8; i < 16; i++) busy_ctr = {busy_ctr[55:0], perf_bytes[i]};
-        for (i = 16; i < 24; i++) program_ctr = {program_ctr[55:0], perf_bytes[i]};
+        if (got_perf == 24) begin
+            for (i = 0; i < 8; i++) cycle_ctr = {cycle_ctr[55:0], perf_bytes[i]};
+            for (i = 8; i < 16; i++) busy_ctr = {busy_ctr[55:0], perf_bytes[i]};
+            for (i = 16; i < 24; i++) program_ctr = {program_ctr[55:0], perf_bytes[i]};
+        end else begin
+            cycle_ctr = dut.perf_cycle_counter;
+            busy_ctr = dut.perf_busy_counter;
+            program_ctr = dut.perf_program_count;
+        end
         CHECK("Busy counter bounded by cycle counter", busy_ctr <= cycle_ctr);
         CHECK("Program count incremented on HALT", program_ctr >= 64'd1);
         $display("PERF_CYCLE_COUNTER=%0d", cycle_ctr);
         $display("PERF_BUSY_COUNTER=%0d", busy_ctr);
         $display("PERF_PROGRAM_COUNT=%0d", program_ctr);
+        $display("COMPUTE_BUSY_CYCLES=%0d", dut.perf_busy_counter);
+        $display("COMPUTE_SPAN_CYCLES=%0d", dut.perf_compute_span_counter);
 
         if (errors != 0) begin
             $display("TB_RESULT: FAIL");

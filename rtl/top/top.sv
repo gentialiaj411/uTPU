@@ -52,6 +52,7 @@ module top #(
     localparam logic [7:0] MAGIC_START  = 8'hA2; // host: start execution
     localparam logic [7:0] MAGIC_REARM  = 8'hA3; // host: re-arm from HALT
     localparam logic [7:0] MAGIC_READ_PERF = 8'hA4; // host: stream perf counters
+    localparam logic [3:0] NOP_SUBOP_REQUANT = 4'b0001;
     localparam int STREAM_CHUNK_WORDS = (ARRAY_SIZE * ARRAY_SIZE) / ITEMS_IN_SLOT;
 
     // -----------------------------------------------------------------------
@@ -152,6 +153,10 @@ module top #(
     logic [191:0] perf_snapshot;
     logic         perf_stream_active;
     logic [4:0]   perf_stream_idx;
+    logic         perf_busy_active;
+    logic         perf_waiting_for_immediate_finalize;
+    logic         perf_span_measuring;
+    logic [63:0]  perf_compute_span_counter;
 
     // -----------------------------------------------------------------------
     // Instruction BRAM + program counter
@@ -246,6 +251,9 @@ module top #(
         .COMPUTE_DATA_WIDTH(COMPUTE_DATA_WIDTH)
     ) u_quantizer_array (
         .ins(quantizer_in),
+        .requant_enable(requant_finalize_enable),
+        .requant_multiplier(requant_multiplier_latched),
+        .requant_right_shift(requant_right_shift_latched),
         .results(quantizer_out)
     );
 
@@ -324,7 +332,10 @@ module top #(
         BSTORE_FETCH_DATA_STATE,  // 21 read burst data word
         BSTORE_WRITE_STATE,       // 22 write burst data word
         EXT_ADDR_FETCH_STATE,     // 23 (EXT_ADDR_EN=1) issue BRAM read for address word; pc++
-        EXT_ADDR_LATCH_STATE      // 24 (EXT_ADDR_EN=1) latch address word, route to target state
+        EXT_ADDR_LATCH_STATE,     // 24 (EXT_ADDR_EN=1) latch address word, route to target state
+        REQUANT_FETCH_MULT_STATE, // 25 read requant multiplier payload
+        REQUANT_FETCH_SHIFT_STATE,// 26 latch multiplier, read right-shift payload
+        REQUANT_LATCH_STATE       // 27 latch right-shift payload
     } state_e;
 
     state_e current_state, next_state;
@@ -358,6 +369,11 @@ module top #(
     logic [MAX_BATCH_COUNT_WIDTH-1:0] writeback_chunk_index;
     logic [MAX_BATCH_COUNT_WIDTH-1:0] writeback_chunk_count;
     logic                             writeback_wait_clear;
+    logic                        requant_enable_latched;
+    logic [15:0]                 requant_multiplier_latched;
+    logic [15:0]                 requant_right_shift_latched;
+    logic                        requant_finalize_enable;
+    assign requant_finalize_enable = requant_enable_latched && !compute_en && quantizer_en;
     // Phase 4: latched opcode for routing the EXT_ADDR_LATCH_STATE -> target
     // state in 2-word extended-address mode. Only used when EXT_ADDR_EN=1.
     opcode_e                     pending_opcode;
@@ -389,6 +405,38 @@ module top #(
         quantize_clip_int4 = quantize_clip(x);
     endfunction
 
+    function automatic logic signed [COMPUTE_DATA_WIDTH-1:0] apply_leaky_relu(
+        input logic signed [COMPUTE_DATA_WIDTH-1:0] x
+    );
+        if (x < 0)
+            apply_leaky_relu = x >>> ALPHA;
+        else
+            apply_leaky_relu = x;
+    endfunction
+
+    function automatic logic signed [COMPUTE_DATA_WIDTH-1:0] requantize_finalize_value(
+        input logic signed [ACCUMULATOR_DATA_WIDTH-1:0] acc,
+        input logic [15:0] multiplier,
+        input logic [15:0] right_shift
+    );
+        logic signed [ACCUMULATOR_DATA_WIDTH+16-1:0] product;
+        logic signed [ACCUMULATOR_DATA_WIDTH+16-1:0] shifted;
+        logic signed [ACCUMULATOR_DATA_WIDTH+16-1:0] hi;
+        logic signed [ACCUMULATOR_DATA_WIDTH+16-1:0] lo;
+        begin
+            product = $signed(acc) * $signed({1'b0, multiplier});
+            shifted = (right_shift != 16'd0) ? (product >>> right_shift) : product;
+            hi = ($signed(1) <<< (COMPUTE_DATA_WIDTH-1)) - 1;
+            lo = -($signed(1) <<< (COMPUTE_DATA_WIDTH-1));
+            if (shifted > hi)
+                requantize_finalize_value = hi[COMPUTE_DATA_WIDTH-1:0];
+            else if (shifted < lo)
+                requantize_finalize_value = lo[COMPUTE_DATA_WIDTH-1:0];
+            else
+                requantize_finalize_value = shifted[COMPUTE_DATA_WIDTH-1:0];
+        end
+    endfunction
+
     task automatic prepare_writeback_chunk(input int chunk_idx);
         int local_col;
         int global_col;
@@ -396,18 +444,25 @@ module top #(
         int out_idx;
         logic signed [31:0] acc_val;
         begin
-            for (int ai = 0; ai < NUM_COMPUTE_LANES; ai++)
-                compute_to_buffer[ai] <= '0;
+            for (int ai = 0; ai < NUM_COMPUTE_LANES; ai++) begin
+                if (requant_enable_latched)
+                    quantizer_in[ai] <= '0;
+                else
+                    compute_to_buffer[ai] <= '0;
+            end
             for (local_col = 0; local_col < ARRAY_SIZE; local_col++) begin
                 global_col = (chunk_idx * ARRAY_SIZE) + local_col;
                 if (global_col < run_batch_count) begin
                     for (row = 0; row < ARRAY_SIZE; row++) begin
                         out_idx = (local_col * ARRAY_SIZE) + row;
                         acc_val = acc_partial_matrix[row][global_col];
-                        if (relu_en && (quantize_clip_int4(acc_val) < 0))
+                        if (requant_enable_latched) begin
+                            quantizer_in[out_idx] <= acc_val[ACCUMULATOR_DATA_WIDTH-1:0];
+                        end else if (relu_en && (quantize_clip_int4(acc_val) < 0)) begin
                             compute_to_buffer[out_idx] <= quantize_clip_int4(acc_val) >>> ALPHA;
-                        else
+                        end else begin
                             compute_to_buffer[out_idx] <= quantize_clip_int4(acc_val);
+                        end
                     end
                 end
             end
@@ -429,10 +484,16 @@ module top #(
             perf_cycle_counter <= '0;
             perf_busy_counter <= '0;
             perf_program_count <= '0;
+            perf_busy_active <= 1'b0;
+            perf_waiting_for_immediate_finalize <= 1'b0;
+            perf_span_measuring <= 1'b0;
+            perf_compute_span_counter <= '0;
         end else begin
             perf_cycle_counter <= perf_cycle_counter + 1'b1;
-            if (compute_en)
+            if (perf_busy_active)
                 perf_busy_counter <= perf_busy_counter + 1'b1;
+            if (perf_span_measuring)
+                perf_compute_span_counter <= perf_compute_span_counter + 1'b1;
             if (current_state == DECODE_STATE && opcode == HALT_OP)
                 perf_program_count <= perf_program_count + 1'b1;
         end
@@ -516,7 +577,12 @@ module top #(
                     LOAD_OP:  next_state = EXT_ADDR_EN ? EXT_ADDR_FETCH_STATE : LOAD_STATE;
                     HALT_OP:  next_state = HALT_STATE;
                     BSTORE_OP:next_state = EXT_ADDR_EN ? EXT_ADDR_FETCH_STATE : BSTORE_FETCH_COUNT_STATE;
-                    NOP:      next_state = FETCH_BRAM_STATE;
+                    NOP: begin
+                        if (EXT_ADDR_EN && instruction[3])
+                            next_state = REQUANT_FETCH_MULT_STATE;
+                        else
+                            next_state = FETCH_BRAM_STATE;
+                    end
                     default:  next_state = FETCH_BRAM_STATE;
                 endcase
 
@@ -622,6 +688,15 @@ module top #(
                     default:  next_state = FETCH_BRAM_STATE;
                 endcase
 
+            REQUANT_FETCH_MULT_STATE:
+                next_state = REQUANT_FETCH_SHIFT_STATE;
+
+            REQUANT_FETCH_SHIFT_STATE:
+                next_state = REQUANT_LATCH_STATE;
+
+            REQUANT_LATCH_STATE:
+                next_state = FETCH_BRAM_STATE;
+
             // HALT: re-arm on 0xA3, otherwise stay
             HALT_STATE:
                 if (rx_rvalid && rx_fifo_to_mem == MAGIC_REARM)
@@ -711,11 +786,18 @@ module top #(
                 residual_en      <= 1'b0;
                 residual_source_addr <= '0;
                 run_residual_addr_stage <= 1'b0;
+                requant_enable_latched <= 1'b0;
+                requant_multiplier_latched <= 16'd1;
+                requant_right_shift_latched <= 16'd0;
                 for (int ai = 0; ai < NUM_COMPUTE_LANES; ai++)
                     residual_in[ai] <= '0;
                 perf_snapshot    <= '0;
                 perf_stream_active <= 1'b0;
                 perf_stream_idx  <= '0;
+                perf_busy_active <= 1'b0;
+                perf_waiting_for_immediate_finalize <= 1'b0;
+                perf_span_measuring <= 1'b0;
+                perf_compute_span_counter <= '0;
                 for (int ai = 0; ai < ARRAY_SIZE; ai++) begin
                     acc_partial_sums[ai] <= '0;
                     for (int bj = 0; bj < MAX_BATCH_COUNT; bj++) begin
@@ -833,6 +915,15 @@ module top #(
             FETCH_BRAM_WAIT_STATE: begin
                 // bram_rd_data is valid this cycle (1-cycle BRAM latency)
                 instruction <= bram_rd_data;
+                if (perf_waiting_for_immediate_finalize) begin
+                    if (!(
+                        (opcode_e'(bram_rd_data[OPCODE_WIDTH-1:0]) == RUN_OP) &&
+                        (bram_rd_data[3] == 1'b0) &&
+                        (bram_rd_data[4] == 1'b1)
+                    ))
+                        perf_busy_active <= 1'b0;
+                    perf_waiting_for_immediate_finalize <= 1'b0;
+                end
             end
 
             // -----------------------------------------------------------------
@@ -864,6 +955,13 @@ module top #(
                         if (!EXT_ADDR_EN) begin
                             address             <= instruction[BUFFER_WORD_SIZE-1:BUFFER_WORD_SIZE-ADDRESS_SIZE];
                             compute_result_addr <= instruction[BUFFER_WORD_SIZE-1:BUFFER_WORD_SIZE-ADDRESS_SIZE];
+                        end
+                        if (instruction[3]) begin
+                            perf_busy_active <= 1'b1;
+                            perf_span_measuring <= 1'b1;
+                        end else if (instruction[4]) begin
+                            perf_busy_active <= 1'b0;
+                            perf_span_measuring <= 1'b0;
                         end
                     end
                     LOAD_OP: begin
@@ -911,6 +1009,24 @@ module top #(
                 end
                 if (pending_opcode == BSTORE_OP)
                     bstore_base_addr <= bram_rd_data[ADDRESS_SIZE-1:0];
+            end
+
+            REQUANT_FETCH_MULT_STATE: begin
+                bram_rd_addr <= pc[PC_WIDTH-1:0];
+                bram_rd_en   <= 1'b1;
+                pc           <= pc + 1'b1;
+            end
+
+            REQUANT_FETCH_SHIFT_STATE: begin
+                requant_multiplier_latched <= bram_rd_data;
+                bram_rd_addr <= pc[PC_WIDTH-1:0];
+                bram_rd_en   <= 1'b1;
+                pc           <= pc + 1'b1;
+            end
+
+            REQUANT_LATCH_STATE: begin
+                requant_right_shift_latched <= bram_rd_data;
+                requant_enable_latched <= instruction[4];
             end
 
             // -----------------------------------------------------------------
@@ -1276,6 +1392,7 @@ module top #(
                         end
 `endif
                         compute_start <= 1'b0;
+                        perf_waiting_for_immediate_finalize <= 1'b1;
                     end else if (~compute_start) begin
                         for (int ci = 0; ci < MAX_STREAM_LANES; ci++)
                             compute_stream_in[ci] <= '0;
@@ -1294,40 +1411,73 @@ module top #(
                     writeback_chunk_index <= '0;
                     if (run_batch_count == MAX_BATCH_COUNT_WIDTH'(1)) begin
                         writeback_chunk_count <= MAX_BATCH_COUNT_WIDTH'(1);
-                        writeback_wait_clear  <= 1'b0;
-                        for (int ai = 0; ai < NUM_COMPUTE_LANES; ai++)
-                            compute_to_buffer[ai] <= '0;
-                        for (int ai = 0; ai < ARRAY_SIZE; ai++) begin
-`ifdef ICARUS
-                            logic signed [31:0] acc_val;
-                            logic signed [31:0] residual_val;
-                            acc_val = acc_partial_sums[ai];
-                            if (^acc_partial_sums[ai] === 1'bx)
-                                acc_val = 32'sd0;
-                            residual_val = residual_en ? $signed(residual_in[ai]) : 32'sd0;
-                            if (residual_en && (^residual_in[ai] === 1'bx))
-                                residual_val = 32'sd0;
-                            acc_val = acc_val + residual_val;
-                            if (relu_en && (quantize_clip_int4(acc_val) < 0))
-                                compute_to_buffer[ai] <= quantize_clip_int4(acc_val) >>> ALPHA;
-                            else
-                                compute_to_buffer[ai] <= quantize_clip_int4(acc_val);
-`else
-                            logic signed [31:0] acc_val;
-                            logic signed [31:0] residual_val;
-                            acc_val = acc_partial_sums[ai];
-                            residual_val = residual_en ? $signed(residual_in[ai]) : 32'sd0;
-                            acc_val = acc_val + residual_val;
-                            if (relu_en && (quantize_clip_int4(acc_val) < 0))
-                                compute_to_buffer[ai] <= quantize_clip_int4(acc_val) >>> ALPHA;
-                            else
-                                compute_to_buffer[ai] <= quantize_clip_int4(acc_val);
-`endif
-                        end
                     end else begin
                         writeback_chunk_count <= (run_batch_count + ARRAY_SIZE - 1) / ARRAY_SIZE;
-                        writeback_wait_clear  <= 1'b0;
-                        prepare_writeback_chunk(0);
+                    end
+                    if (requant_enable_latched) begin
+                        writeback_wait_clear <= 1'b1;
+                        if (run_batch_count == MAX_BATCH_COUNT_WIDTH'(1)) begin
+                            for (int ai = 0; ai < NUM_COMPUTE_LANES; ai++)
+                                quantizer_in[ai] <= '0;
+                            for (int ai = 0; ai < ARRAY_SIZE; ai++) begin
+`ifdef ICARUS
+                                logic signed [31:0] acc_val;
+                                logic signed [31:0] residual_val;
+                                acc_val = acc_partial_sums[ai];
+                                if (^acc_partial_sums[ai] === 1'bx)
+                                    acc_val = 32'sd0;
+                                residual_val = residual_en ? $signed(residual_in[ai]) : 32'sd0;
+                                if (residual_en && (^residual_in[ai] === 1'bx))
+                                    residual_val = 32'sd0;
+                                acc_val = acc_val + residual_val;
+                                quantizer_in[ai] <= acc_val[ACCUMULATOR_DATA_WIDTH-1:0];
+`else
+                                logic signed [31:0] acc_val;
+                                logic signed [31:0] residual_val;
+                                acc_val = acc_partial_sums[ai];
+                                residual_val = residual_en ? $signed(residual_in[ai]) : 32'sd0;
+                                acc_val = acc_val + residual_val;
+                                quantizer_in[ai] <= acc_val[ACCUMULATOR_DATA_WIDTH-1:0];
+`endif
+                            end
+                        end else begin
+                            prepare_writeback_chunk(0);
+                        end
+                    end else begin
+                        writeback_wait_clear <= 1'b0;
+                        if (run_batch_count == MAX_BATCH_COUNT_WIDTH'(1)) begin
+                            for (int ai = 0; ai < NUM_COMPUTE_LANES; ai++)
+                                compute_to_buffer[ai] <= '0;
+                            for (int ai = 0; ai < ARRAY_SIZE; ai++) begin
+`ifdef ICARUS
+                                logic signed [31:0] acc_val;
+                                logic signed [31:0] residual_val;
+                                acc_val = acc_partial_sums[ai];
+                                if (^acc_partial_sums[ai] === 1'bx)
+                                    acc_val = 32'sd0;
+                                residual_val = residual_en ? $signed(residual_in[ai]) : 32'sd0;
+                                if (residual_en && (^residual_in[ai] === 1'bx))
+                                    residual_val = 32'sd0;
+                                acc_val = acc_val + residual_val;
+                                if (relu_en && (quantize_clip_int4(acc_val) < 0))
+                                    compute_to_buffer[ai] <= quantize_clip_int4(acc_val) >>> ALPHA;
+                                else
+                                    compute_to_buffer[ai] <= quantize_clip_int4(acc_val);
+`else
+                                logic signed [31:0] acc_val;
+                                logic signed [31:0] residual_val;
+                                acc_val = acc_partial_sums[ai];
+                                residual_val = residual_en ? $signed(residual_in[ai]) : 32'sd0;
+                                acc_val = acc_val + residual_val;
+                                if (relu_en && (quantize_clip_int4(acc_val) < 0))
+                                    compute_to_buffer[ai] <= quantize_clip_int4(acc_val) >>> ALPHA;
+                                else
+                                    compute_to_buffer[ai] <= quantize_clip_int4(acc_val);
+`endif
+                            end
+                        end else begin
+                            prepare_writeback_chunk(0);
+                        end
                     end
                 end else begin
                     compute_start <= 1'b0;
@@ -1340,6 +1490,20 @@ module top #(
                 buffer_fifo_en    <= 1'b0;
                 buffer_store_en   <= 1'b0;
                 address           <= compute_result_addr + (writeback_chunk_index * STREAM_CHUNK_WORDS);
+                if (requant_finalize_enable && writeback_wait_clear) begin
+                    for (int ai = 0; ai < NUM_COMPUTE_LANES; ai++) begin
+                        logic signed [COMPUTE_DATA_WIDTH-1:0] q;
+                        q = requantize_finalize_value(
+                            quantizer_in[ai],
+                            requant_multiplier_latched,
+                            requant_right_shift_latched
+                        );
+                        if (relu_en)
+                            compute_to_buffer[ai] <= apply_leaky_relu(q);
+                        else
+                            compute_to_buffer[ai] <= q;
+                    end
+                end
                 if (writeback_wait_clear) begin
                     buffer_we         <= 1'b0;
                     buffer_compute_en <= 1'b0;

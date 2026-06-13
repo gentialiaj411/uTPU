@@ -36,6 +36,7 @@ OPCODE_HALT = 0b100   # 4 - stop execution
 OPCODE_NOP = 0b101    # 5 - no operation
 OPCODE_BSTORE = 0b110 # 6 - burst store sequential 16-bit words to buffer
 OPCODE_DTYPE = 0b111  # 7 - multi-PE / dataflow extensions (sim-validated; not in current RTL)
+NOP_SUBOP_REQUANT = 0b1
 
 DTYPE_SUBOP_BUFFER_XFER = 0b00
 DTYPE_SUBOP_BARRIER = 0b01
@@ -348,6 +349,28 @@ def encodeNop(cfg: Optional[IsaConfig] = None) -> bytes:
     return instructionToBytes(OPCODE_NOP)
 
 
+def encodeRequantParams(
+    multiplier: int,
+    right_shift: int,
+    *,
+    enable: bool = True,
+    cfg: Optional[IsaConfig] = None,
+) -> bytes:
+    cfg = _resolve_cfg(cfg)
+    if not cfg.extended_address:
+        raise ValueError("requant params require extended-address ISA encoding")
+    if int(multiplier) < 0 or int(multiplier) > 0xFFFF:
+        raise ValueError(f"multiplier must be in [0, 65535], got {multiplier}")
+    if int(right_shift) < 0 or int(right_shift) > 0xFFFF:
+        raise ValueError(f"right_shift must be in [0, 65535], got {right_shift}")
+    header = OPCODE_NOP | (NOP_SUBOP_REQUANT << 3) | ((1 if enable else 0) << 4)
+    return (
+        instructionToBytes(header)
+        + instructionToBytes(int(multiplier) & 0xFFFF)
+        + instructionToBytes(int(right_shift) & 0xFFFF)
+    )
+
+
 # ---------------------------------------------------------------------------
 # D-type extensions (multi-PE)
 # ---------------------------------------------------------------------------
@@ -510,6 +533,23 @@ class ISAEncoder:
 
     def nop(self) -> "ISAEncoder":
         self.instructions.append(encodeNop(cfg=self.cfg))
+        return self
+
+    def requant_params(
+        self,
+        multiplier: int,
+        right_shift: int,
+        *,
+        enable: bool = True,
+    ) -> "ISAEncoder":
+        self.instructions.append(
+            encodeRequantParams(
+                multiplier,
+                right_shift,
+                enable=enable,
+                cfg=self.cfg,
+            )
+        )
         return self
 
     def burst_store(self, addr: int, words: List[int]) -> "ISAEncoder":

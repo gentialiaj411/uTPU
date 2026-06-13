@@ -1,7 +1,8 @@
 import numpy as np
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, List, Optional, Tuple
 
-from isa_encoder import ISAEncoder, DEFAULT_CFG, IsaConfig
+from isa_encoder import ISAEncoder, DEFAULT_CFG, IsaConfig, pack_values_to_word
+from requantization import RequantParams
 from compiler_abstractions import (
     BlockedFCProblem,
     build_blocked_fc_schedule,
@@ -18,12 +19,29 @@ def _store_int4_array_to_buffer(
 ) -> None:
     flat = list(np.asarray(data).flatten(order=order))
     addr = base_addr
-    for i in range(0, len(flat), 4):
-        chunk = flat[i:i + 4]
-        while len(chunk) < 4:
+    items_per_word = encoder.cfg.items_per_word
+    for i in range(0, len(flat), items_per_word):
+        chunk = flat[i:i + items_per_word]
+        while len(chunk) < items_per_word:
             chunk.append(0)
         encoder.store(addr, chunk)
         addr += 1
+
+
+def _pack_array_to_words(
+    data,
+    *,
+    cfg: IsaConfig,
+    order: str = "C",
+) -> List[int]:
+    flat = list(np.asarray(data, dtype=np.int8).flatten(order=order))
+    words: List[int] = []
+    for i in range(0, len(flat), cfg.items_per_word):
+        chunk = flat[i:i + cfg.items_per_word]
+        while len(chunk) < cfg.items_per_word:
+            chunk.append(0)
+        words.append(pack_values_to_word(chunk, cfg))
+    return words
 
 
 def _normalize_batched_activations(
@@ -61,6 +79,8 @@ def lower_blocked_fc_program_utpu(
     result_addr: int,
     prog_depth: int = DEFAULT_PROG_DEPTH,
     cfg: IsaConfig = DEFAULT_CFG,
+    hoist_tile_payloads: bool = False,
+    requant_params: Optional[RequantParams] = None,
 ) -> Dict[str, Any]:
     schedule = build_blocked_fc_schedule(
         problem=BlockedFCProblem(
@@ -91,12 +111,62 @@ def lower_blocked_fc_program_utpu(
     x_pad[:, :in_features] = x_batch
 
     encoder = ISAEncoder(cfg=cfg)
+    if requant_params is not None:
+        encoder.requant_params(
+            int(requant_params.multiplier),
+            int(requant_params.right_shift),
+            enable=bool(requant_params.enable),
+        )
     block_ops = 0
     output_words_per_chunk = (array_size * array_size) // cfg.items_per_word
     output_chunks_per_out_block = max(1, (batch_size + array_size - 1) // array_size)
     output_words_per_out_block = output_words_per_chunk * output_chunks_per_out_block if batch_size > 1 else (array_size // cfg.items_per_word)
+    use_hoisted_tiles = bool(
+        hoist_tile_payloads and batch_size > 1 and cfg.extended_address
+    )
+    if use_hoisted_tiles:
+        weight_words_per_tile = (array_size * array_size) // cfg.items_per_word
+        input_words_per_tile = (array_size * batch_size) // cfg.items_per_word
+        weight_tiles_total_words = out_blocks * in_blocks * weight_words_per_tile
+        input_tiles_total_words = in_blocks * input_words_per_tile
+        hoisted_input_addr = weight_addr + weight_tiles_total_words
+        hoisted_result_addr = hoisted_input_addr + input_tiles_total_words
+        total_required_words = hoisted_result_addr + (out_blocks * output_words_per_out_block)
+        buffer_capacity_words = 1 << cfg.address_width
+        if total_required_words > buffer_capacity_words:
+            raise ValueError(
+                "hoisted blocked-FC payloads exceed buffer capacity: "
+                f"need {total_required_words} words, have {buffer_capacity_words}"
+            )
+        for ob in range(out_blocks):
+            o0 = ob * array_size
+            o1 = o0 + array_size
+            for ib in range(in_blocks):
+                i0 = ib * array_size
+                i1 = i0 + array_size
+                weight_block = w_pad[o0:o1, i0:i1]
+                tile_addr = weight_addr + ((ob * in_blocks + ib) * weight_words_per_tile)
+                encoder.burst_store(
+                    tile_addr,
+                    _pack_array_to_words(weight_block, cfg=cfg),
+                )
+        for ib in range(in_blocks):
+            i0 = ib * array_size
+            i1 = i0 + array_size
+            input_block = x_pad[:, i0:i1]
+            input_matrix = np.zeros((array_size, batch_size), dtype=np.int8)
+            input_matrix[:, :batch_size] = input_block.T
+            tile_addr = hoisted_input_addr + (ib * input_words_per_tile)
+            encoder.burst_store(
+                tile_addr,
+                _pack_array_to_words(input_matrix, cfg=cfg, order="F"),
+            )
+    else:
+        hoisted_input_addr = input_addr
+        hoisted_result_addr = result_addr
+
     for ob in range(out_blocks):
-        out_base_addr = result_addr + ob * output_words_per_out_block
+        out_base_addr = hoisted_result_addr + ob * output_words_per_out_block
         o0 = ob * array_size
         o1 = o0 + array_size
         for ib in range(in_blocks):
@@ -105,15 +175,28 @@ def lower_blocked_fc_program_utpu(
             weight_block = w_pad[o0:o1, i0:i1]
             input_block = x_pad[:, i0:i1]
 
-            _store_int4_array_to_buffer(encoder, weight_addr, weight_block)
-            encoder.loadWeights(weight_addr)
+            if use_hoisted_tiles:
+                weight_tile_addr = weight_addr + (
+                    (ob * in_blocks + ib) * ((array_size * array_size) // cfg.items_per_word)
+                )
+                input_tile_addr = hoisted_input_addr + (
+                    ib * ((array_size * batch_size) // cfg.items_per_word)
+                )
+                encoder.loadWeights(weight_tile_addr)
+            else:
+                _store_int4_array_to_buffer(encoder, weight_addr, weight_block)
+                encoder.loadWeights(weight_addr)
             if batch_size == 1:
                 _store_int4_array_to_buffer(encoder, input_addr, input_block[0])
             else:
-                input_matrix = np.zeros((array_size, batch_size), dtype=np.int8)
-                input_matrix[:, :batch_size] = input_block.T
-                _store_int4_array_to_buffer(encoder, input_addr, input_matrix, order="F")
-            encoder.loadInputs(input_addr, batch_count=batch_size)
+                if not use_hoisted_tiles:
+                    input_matrix = np.zeros((array_size, batch_size), dtype=np.int8)
+                    input_matrix[:, :batch_size] = input_block.T
+                    _store_int4_array_to_buffer(encoder, input_addr, input_matrix, order="F")
+                encoder.loadInputs(
+                    input_tile_addr if use_hoisted_tiles else input_addr,
+                    batch_count=batch_size,
+                )
             encoder.run(
                 out_base_addr,
                 compute=True,
@@ -161,6 +244,8 @@ def lower_blocked_fc_program_utpu(
         "in_blocks": int(in_blocks),
         "block_ops": int(block_ops),
         "batch_size": int(batch_size),
+        "hoist_tile_payloads": bool(use_hoisted_tiles),
+        "requant_params": requant_params.as_dict() if requant_params is not None else None,
         "executable_on_current_fpga_path": bool(executable),
         "int32_accumulation_supported": True,
         "quantize_after_accumulation_supported": True,

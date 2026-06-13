@@ -8,6 +8,9 @@ module quantizer_array #(
 	parameter COMPUTE_DATA_WIDTH     = 4
     ) (
 	input  logic signed [ACCUMULATOR_DATA_WIDTH-1:0] ins     [QUANTIZER_SIZE-1:0],
+	input  logic                                      requant_enable,
+	input  logic [15:0]                               requant_multiplier,
+	input  logic [15:0]                               requant_right_shift,
 	output logic signed [COMPUTE_DATA_WIDTH-1:0]     results [QUANTIZER_SIZE-1:0]
     );
 
@@ -19,6 +22,9 @@ module quantizer_array #(
 		.COMPUTE_DATA_WIDTH(COMPUTE_DATA_WIDTH)
 	    ) u_quant (
 		.in(ins[i]),
+		.requant_enable(requant_enable),
+		.requant_multiplier(requant_multiplier),
+		.requant_right_shift(requant_right_shift),
 		.result(results[i])
 	    );
 	end

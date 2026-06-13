@@ -9,6 +9,7 @@ import numpy as np
 from isa_encoder import DEFAULT_CFG, IsaConfig
 from isa_simulator import simulate_program_bytes
 from lowering_blocked_fc_utpu import lower_blocked_fc_program_utpu
+from requantization import RequantParams
 
 
 ARRAY_SIZE = 16
@@ -51,6 +52,8 @@ def _write_svh(
     buffer_size: int,
     prog_depth: int,
     ext_addr_en: int,
+    compute_data_width: int,
+    accumulator_data_width: int,
 ) -> None:
     os.makedirs(os.path.dirname(path), exist_ok=True)
     mem_path = mem_path.replace("\\", "/")
@@ -65,6 +68,8 @@ def _write_svh(
         f.write(f"`define BG_BUFFER_SIZE {buffer_size}\n")
         f.write(f"`define BG_PROG_DEPTH {prog_depth}\n")
         f.write(f"`define BG_EXT_ADDR_EN {ext_addr_en}\n")
+        f.write(f"`define BG_COMPUTE_DATA_WIDTH {compute_data_width}\n")
+        f.write(f"`define BG_ACCUMULATOR_DATA_WIDTH {accumulator_data_width}\n")
 
 
 def generate_vectors(
@@ -74,16 +79,24 @@ def generate_vectors(
     batch_size: int = DEFAULT_BATCH_SIZE,
     stem: str = "batched_gemm",
     output_json: str = os.path.join("build", "test_vectors", "batched_gemm_expected.json"),
+    hoist_tile_payloads: bool = False,
+    cfg: IsaConfig | None = None,
+    buffer_size: int | None = None,
+    weight_addr: int | None = None,
+    input_addr: int | None = None,
+    result_addr: int | None = None,
+    accumulator_data_width: int = 32,
+    requant_params: RequantParams | None = None,
 ) -> Dict[str, object]:
     seed = 0xBA7C + out_features * 37 + in_features * 13 + batch_size
     rng = np.random.default_rng(seed)
     weights = rng.integers(-8, 8, size=(out_features, in_features), dtype=np.int8)
     activations = rng.integers(-8, 8, size=(batch_size, in_features), dtype=np.int8)
-    cfg = LEGACY_CFG if batch_size == 1 else BATCHED_CFG
-    buffer_size = LEGACY_BUFFER_SIZE if batch_size == 1 else BATCHED_BUFFER_SIZE
-    weight_addr = LEGACY_WEIGHT_ADDR if batch_size == 1 else BATCHED_WEIGHT_ADDR
-    input_addr = LEGACY_INPUT_ADDR if batch_size == 1 else BATCHED_INPUT_ADDR
-    result_addr = LEGACY_RESULT_ADDR if batch_size == 1 else BATCHED_RESULT_ADDR
+    cfg = cfg if cfg is not None else (LEGACY_CFG if batch_size == 1 else BATCHED_CFG)
+    buffer_size = buffer_size if buffer_size is not None else (LEGACY_BUFFER_SIZE if batch_size == 1 else BATCHED_BUFFER_SIZE)
+    weight_addr = weight_addr if weight_addr is not None else (LEGACY_WEIGHT_ADDR if batch_size == 1 else BATCHED_WEIGHT_ADDR)
+    input_addr = input_addr if input_addr is not None else (LEGACY_INPUT_ADDR if batch_size == 1 else BATCHED_INPUT_ADDR)
+    result_addr = result_addr if result_addr is not None else (LEGACY_RESULT_ADDR if batch_size == 1 else BATCHED_RESULT_ADDR)
 
     lowered = lower_blocked_fc_program_utpu(
         weights,
@@ -97,12 +110,15 @@ def generate_vectors(
         input_addr,
         result_addr,
         cfg=cfg,
+        hoist_tile_payloads=hoist_tile_payloads,
+        requant_params=requant_params,
     )
     sim = simulate_program_bytes(
         lowered["program"],
         array_size=ARRAY_SIZE,
         buffer_size=buffer_size,
         cfg=cfg,
+        accumulator_data_width=accumulator_data_width,
     )
     assert sim.halted, "batched GEMM simulator program must halt"
     prog_words = len(lowered["program"]) // 2
@@ -122,6 +138,8 @@ def generate_vectors(
         buffer_size=buffer_size,
         prog_depth=prog_depth,
         ext_addr_en=1 if cfg.extended_address else 0,
+        compute_data_width=cfg.compute_data_width,
+        accumulator_data_width=accumulator_data_width,
     )
 
     payload: Dict[str, object] = {
@@ -135,6 +153,7 @@ def generate_vectors(
             "buffer_size": buffer_size,
             "extended_address": bool(cfg.extended_address),
         },
+        "accumulator_data_width": int(accumulator_data_width),
         "program_mem": mem_path,
         "expected_fetch_mem": expected_fetch_mem_path,
         "program_words": prog_words,
@@ -144,6 +163,8 @@ def generate_vectors(
         "out_blocks": int(lowered["out_blocks"]),
         "in_blocks": int(lowered["in_blocks"]),
         "useful_macs": int(out_features) * int(in_features) * int(batch_size),
+        "hoist_tile_payloads": bool(lowered["hoist_tile_payloads"]),
+        "requant_params": requant_params.as_dict() if requant_params is not None else None,
     }
     os.makedirs(os.path.dirname(output_json), exist_ok=True)
     with open(output_json, "w", encoding="utf-8") as f:
