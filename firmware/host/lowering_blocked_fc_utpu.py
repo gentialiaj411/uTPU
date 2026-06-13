@@ -188,6 +188,7 @@ def lower_blocked_fc_program_utpu(
                 encoder.loadWeights(weight_addr)
             if batch_size == 1:
                 _store_int4_array_to_buffer(encoder, input_addr, input_block[0])
+                encoder.loadInputs(input_addr, batch_count=1)
             else:
                 if not use_hoisted_tiles:
                     input_matrix = np.zeros((array_size, batch_size), dtype=np.int8)

@@ -38,6 +38,14 @@ jobs:
       - name: Regenerate scheduler-cycles artifact (Phase 5)
         run: python firmware/host/run_scheduler_benchmark.py
 
+      - name: Bootstrap cost-model calibration artifact (Phase 7; CPU replay from committed seed)
+        run: |
+          mkdir -p build/reports
+          python firmware/host/calibrate_cost_model.py \
+            --refit-from-existing-json bench/fixtures/cost_model_calibration_seed.json \
+            --output-json build/reports/cost_model_calibration.json \
+            --output-md build/reports/cost_model_calibration.md
+
       - name: Regenerate cost-model held-out generalization artifact (Phase 7)
         run: python firmware/host/run_cost_model_heldout.py
 

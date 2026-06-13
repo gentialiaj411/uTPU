@@ -282,6 +282,67 @@ def main() -> int:
     OUTPUT_JSON_PATH = Path(args.output)
     OUTPUT_JSON_PATH.parent.mkdir(parents=True, exist_ok=True)
 
+    if args.skip_iverilog:
+        sim_ref = _simulator_reference()
+        artifact: Dict[str, object] = {
+            "version": 1,
+            "generated_at_utc": _now_iso(),
+            "git_sha": _git_sha(),
+            "host": {
+                "platform": platform.platform(),
+                "python_version": platform.python_version(),
+                "machine": platform.machine(),
+            },
+            "tolerance_permille": 20,
+            "expected": sim_ref,
+            "methodology": {
+                "summary": (
+                    "RTL cycle cross-check of the Phase 5 scheduler at "
+                    f"(M={OUT_FEATURES}, K={IN_FEATURES}). The simulator's "
+                    "1-cycle-per-op model and the RTL FSM's multi-cycle "
+                    "STORE/FETCH paths produce different absolute cycle counts; "
+                    "we cross-check the *percentage* cycle reduction (within "
+                    "±20 permille = ±2.0%) and verify the scheduler's "
+                    "RTL-side bit-exactness invariant (RTL_naive === "
+                    "RTL_scheduled fetch_bytes). The simulator-vs-RTL byte "
+                    "agreement is recorded as an advisory metric only."
+                ),
+                "headline_assertions": [
+                    "RTL scheduled cycles strictly less than naive",
+                    "|RTL_reduction_permille - sim_reduction_permille| <= 20",
+                    "RTL_naive fetch_bytes === RTL_scheduled fetch_bytes",
+                    "RTL_naive fetch_n == sim fetch_n; RTL_sched fetch_n == sim fetch_n",
+                ],
+                "advisory_metrics": [
+                    "RTL_naive byte agreement with simulator (out of sim fetch_n)",
+                    "RTL_sched byte agreement with simulator (out of sim fetch_n)",
+                ],
+                "tools": {
+                    "rtl_generator": "firmware/host/generate_scheduler_rtl_test_vectors.py",
+                    "testbench": "rtl/tb/tb_scheduler_cycles.sv",
+                    "simulator": "firmware/host/isa_simulator.py (1 cycle/op; STORE/BSTORE 2+N)",
+                    "scheduler": "firmware/host/scheduler_allocator.py (lower_blocked_fc_program_scheduled)",
+                    "naive_baseline": "firmware/host/lowering_blocked_fc_utpu.py (lower_blocked_fc_program_utpu)",
+                },
+            },
+            "status": "iverilog_unavailable",
+            "iverilog_resolved": {
+                "iverilog": None,
+                "vvp": None,
+            },
+            "instructions": (
+                "Install iverilog locally (Windows: bleyer.org/icarus; Linux: "
+                "apt-get install -y iverilog) and rerun this script without "
+                "--skip-iverilog. The test vectors under "
+                "build/test_vectors/scheduler_*.mem and the testbench at "
+                "rtl/tb/tb_scheduler_cycles.sv are regenerated only on hosts "
+                "with iverilog available."
+            ),
+        }
+        OUTPUT_JSON_PATH.write_text(json.dumps(artifact, indent=2, sort_keys=True), encoding="utf-8")
+        print(f"[run_scheduler_rtl_crosscheck] iverilog unavailable; wrote stub to {OUTPUT_JSON_PATH}")
+        return 0
+
     rc = _regenerate_vectors()
     if rc != 0:
         raise RuntimeError(f"generate_scheduler_rtl_test_vectors failed with rc={rc}")

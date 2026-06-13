@@ -264,6 +264,11 @@ repro-host:
 	$(PYTHON) firmware/host/run_tiling_correctness.py
 	@echo "[repro-host] scheduler cycles (Phase 5) -> bench/results/scheduler_cycles.json"
 	$(PYTHON) firmware/host/run_scheduler_benchmark.py
+	@echo "[repro-host] cost-model calibration bootstrap (Phase 7; CPU replay from committed seed) -> build/reports/cost_model_calibration.json"
+	$(PYTHON) firmware/host/calibrate_cost_model.py \
+		--refit-from-existing-json bench/fixtures/cost_model_calibration_seed.json \
+		--output-json build/reports/cost_model_calibration.json \
+		--output-md build/reports/cost_model_calibration.md
 	@echo "[repro-host] cost-model held-out generalization (Phase 7) -> bench/results/cost_model_heldout.json"
 	$(PYTHON) firmware/host/run_cost_model_heldout.py
 	@echo "[repro-host] cuBLAS baseline schema/stub (Phase 7) -> bench/results/cublas_baseline.json"
