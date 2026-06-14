@@ -44,3 +44,5 @@ weights/
 /a.out
 /assembler
 torchinductor_bhask/
+1/
+*.xpr
