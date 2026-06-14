@@ -26,6 +26,9 @@ def test_real_model_accelerator_artifact_schema_and_floors():
     assert float(acc["float_accuracy"]) >= 0.95
     assert float(acc["int8_accuracy"]) >= 0.90
     assert 0.0 <= float(acc["int4_accuracy"]) <= 1.0
+    assert "accuracy_comparison" in data
+    assert set(data["accuracy_comparison"]["int8"]) == {"per_layer_accuracy", "per_channel_accuracy"}
+    assert set(data["accuracy_comparison"]["int4"]) == {"per_layer_accuracy", "per_channel_accuracy"}
 
     contract = data["quantization_contract"]
     assert contract["rounding_mode"] == "arithmetic_right_shift_truncation"

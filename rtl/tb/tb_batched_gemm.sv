@@ -56,6 +56,7 @@ module tb_batched_gemm;
     reg [7:0] actual [0:`BG_FETCH_N-1];
     reg [15:0] case_mem [0:TB_PROG_DEPTH-1];
     byte perf_bytes [0:23];
+    bit quantizer_x_seen;
     logic [63:0] cycle_ctr;
     logic [63:0] busy_ctr;
     logic [63:0] program_ctr;
@@ -140,6 +141,7 @@ module tb_batched_gemm;
         for (i = 0; i < TB_PROG_DEPTH; i++) case_mem[i] = 16'h0000;
         $readmemh(`BG_MEM, case_mem);
         $readmemh(`BG_FETCH_MEM, expected);
+        quantizer_x_seen = 1'b0;
         for (i = 0; i < `BG_FETCH_N; i++) begin
             actual[i] = 8'h00;
         end
@@ -159,6 +161,12 @@ module tb_batched_gemm;
         while (got < `BG_FETCH_N && spin < TB_FETCH_SPIN_MAX) begin
             @(posedge clk);
             spin = spin + 1;
+            if (dut.requant_finalize_enable && dut.writeback_wait_clear) begin
+                for (i = 0; i < dut.NUM_COMPUTE_LANES; i++) begin
+                    if ((^dut.quantizer_out[i]) === 1'bx)
+                        quantizer_x_seen = 1'b1;
+                end
+            end
             if (dut.tx_we && dut.tx_wdata !== 8'hAA) begin
                 actual[got] = dut.tx_wdata;
                 got = got + 1;
@@ -167,6 +175,7 @@ module tb_batched_gemm;
         wait_for_state(dut.HALT_STATE, TB_HALT_WAIT_MAX, reached_halt);
         CHECK("Reached HALT after start", reached_halt);
         CHECK("Fetched expected byte count", got == `BG_FETCH_N);
+        CHECK("No X on quantizer finalize outputs", !quantizer_x_seen);
         for (i = 0; i < `BG_FETCH_N; i++) begin
             if (actual[i] !== expected[i]) begin
                 $display("BYTE_MISMATCH idx=%0d expected=%02x actual=%02x", i, expected[i], actual[i]);

@@ -457,6 +457,11 @@ class CUDABackendLowerer:
     Compile/launch requires cuda-python + installed NVIDIA driver/runtime.
     """
 
+    def lower_request(self, request: Any) -> Dict[str, Any]:
+        if isinstance(request, BlockedFCLoweringRequest):
+            return self.lower_blocked_fc(request)
+        raise TypeError(f"Unsupported CUDA lowering request type: {type(request).__name__}")
+
     def lower_blocked_fc(self, request: BlockedFCLoweringRequest) -> Dict[str, Any]:
         problem = BlockedFCProblem(
             out_features=request.out_features,

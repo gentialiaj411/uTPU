@@ -1,0 +1,190 @@
+{
+  "generated_at_utc": "2026-06-13T23:25:26Z",
+  "demo_program": {
+    "name": "int8_fc8x8_single_tile_uart_replay",
+    "scope_note": "Simulation-only UART replay of a lowered 8x8 INT8 single-tile blocked-FC demo program.",
+    "program_words": 136,
+    "prog_depth": 256,
+    "fits_prog_depth": true,
+    "array_size": 8,
+    "compute_data_width": 8,
+    "address_width": 10,
+    "buffer_size": 1024,
+    "uart_baud": 6250000,
+    "weights": [
+      [
+        7,
+        -3,
+        5,
+        1,
+        -2,
+        4,
+        -6,
+        2
+      ],
+      [
+        -4,
+        6,
+        -1,
+        3,
+        5,
+        -7,
+        2,
+        0
+      ],
+      [
+        2,
+        1,
+        -5,
+        7,
+        -3,
+        6,
+        -4,
+        5
+      ],
+      [
+        3,
+        -2,
+        4,
+        -6,
+        1,
+        7,
+        -5,
+        2
+      ],
+      [
+        -7,
+        5,
+        2,
+        -1,
+        6,
+        -3,
+        4,
+        -2
+      ],
+      [
+        1,
+        4,
+        -6,
+        2,
+        -5,
+        3,
+        7,
+        -1
+      ],
+      [
+        5,
+        -7,
+        3,
+        6,
+        -4,
+        2,
+        -1,
+        4
+      ],
+      [
+        -2,
+        3,
+        6,
+        -5,
+        4,
+        -1,
+        5,
+        7
+      ]
+    ],
+    "activations": [
+      6,
+      -5,
+      4,
+      -3,
+      2,
+      -1,
+      7,
+      -6
+    ],
+    "requant_params": {
+      "enable": true,
+      "multiplier": 3,
+      "right_shift": 1,
+      "rounding_mode": "arithmetic_right_shift_truncation",
+      "mode": "per_layer_symmetric"
+    }
+  },
+  "uart_roundtrip": {
+    "upload_bytes_count": 276,
+    "expected_uart_output_count": 8,
+    "captured_uart_output_count": 8,
+    "captured_uart_matches_isa_sim": true,
+    "expected_uart_output_bytes": [
+      18,
+      202,
+      128,
+      15,
+      254,
+      253,
+      27,
+      21
+    ],
+    "captured_uart_output_bytes": [
+      18,
+      202,
+      128,
+      15,
+      254,
+      253,
+      27,
+      21
+    ],
+    "decoded_expected_outputs": [
+      [
+        18,
+        -54,
+        -128,
+        15,
+        -2,
+        -3,
+        27,
+        21
+      ]
+    ],
+    "decoded_captured_outputs": [
+      [
+        18,
+        -54,
+        -128,
+        15,
+        -2,
+        -3,
+        27,
+        21
+      ]
+    ]
+  },
+  "rtl_simulation": {
+    "rtl_sim_executed": true,
+    "rtl_sim_passed": true,
+    "no_x_quantizer_finalize": true,
+    "no_x_uart_tx_path": true,
+    "log_excerpt": "[ OK ] Captured expected UART byte count\n[ OK ] No X on quantizer finalize outputs\n[ OK ] No X on UART TX line during capture\n[ OK ] UART byte 0\n[ OK ] UART byte 1\n[ OK ] UART byte 2\n[ OK ] UART byte 3\n[ OK ] UART byte 4\n[ OK ] UART byte 5\n[ OK ] UART byte 6\n[ OK ] UART byte 7\nUART_BYTES_ACTUAL=12,ca,80,0f,fe,fd,1b,15\nPERF_CYCLE_COUNTER=46067\nPERF_BUSY_COUNTER=24\nPERF_PROGRAM_COUNT=1\nUART_REPLAY_PROGRAM_WORDS=136\nUART_REPLAY_PROG_DEPTH=256\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_uart_replay.sv:188: $finish called at 460775000 (1ps)\n"
+  },
+  "perf_counters": {
+    "cycle_counter": 46067,
+    "busy_counter": 24,
+    "program_count": 1
+  },
+  "evidence_scaffold": {
+    "run_log": "docs/evidence/fpga_onboard/RUN_LOG.md",
+    "reproduce": "docs/evidence/fpga_onboard/REPRODUCE.md"
+  },
+  "on_silicon": {
+    "status": "simulation",
+    "scope_note": "This phase validates the host-device UART upload/capture/replay path in iverilog only. No board or silicon run was performed."
+  },
+  "artifacts": {
+    "upload_mem": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\test_vectors\\uart_preboard_demo_upload.mem",
+    "expected_mem": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\test_vectors\\uart_preboard_demo_expected_uart.mem",
+    "meta_json": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\test_vectors\\uart_preboard_demo.json",
+    "svh": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\test_vectors\\uart_replay_expected.svh"
+  }
+}

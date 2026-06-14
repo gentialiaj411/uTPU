@@ -20,8 +20,8 @@
     "policy": "every extracted graph differential-verified against source via fuzz.differential_oracle.diff_two_graphs; mismatches REJECT the extraction and fall back to pipeline cost (no unverified rewrites are counted as wins)",
     "rtol": 0.001
   },
-  "generated_at_unix": 1780545542.3521886,
-  "git_sha": "d5f75b29cbabe0fef5e28e03edbc772192accbbb",
+  "generated_at_unix": 1781322663.5900674,
+  "git_sha": "70ecedee288ac892a693eaf13ac2176a07ccee8e",
   "graphs_evaluated": 36,
   "natural_phase_ordering_wins": [
     {
@@ -138,7 +138,7 @@
       "policy": "every extracted graph differential-verified against source via fuzz.differential_oracle.diff_two_graphs; mismatches REJECT the extraction and fall back to pipeline FLOP/cycle cost",
       "rtol": 0.001
     },
-    "generated_at_unix": 1780545542.2405243,
+    "generated_at_unix": 1781322663.4812875,
     "graphs_evaluated": 8,
     "results": [
       {

@@ -22,8 +22,8 @@
     "fit_status": "ok",
     "model_form": "intercept + cta_memory_kib + total_memory_kib + underoccupancy + tile_tail - unroll_gain + unroll_k_tail_penalty - unroll_shape_interaction + small_out_tpb_interaction + small_out_unroll_interaction + idle_thread_ratio + wave_tpb_interaction + small_out_idle_penalty - large_k_unroll_gain + small_out_unroll_penalty - large_out_small_k_wave_tpb_efficiency"
   },
-  "generated_at_utc": "2026-05-25T06:21:09.840806+00:00",
-  "git_sha": "6d5dc2532f1f31200a2b4f687e3f2c0503cff67c",
+  "generated_at_utc": "2026-06-13T03:50:52.720501+00:00",
+  "git_sha": "70ecedee288ac892a693eaf13ac2176a07ccee8e",
   "latency_prediction": {
     "test_metrics": {
       "log_r2": 0.9260877254038729,
@@ -201,14 +201,14 @@
       "python_version": "3.14.4",
       "torch_version": "2.11.0+cu128"
     },
-    "source_git_sha": "35d0d179988ac0e1245762819b898a4c24e9573b",
+    "source_git_sha": "70ecedee288ac892a693eaf13ac2176a07ccee8e",
     "source_machine_info": {
       "hostname": "genti_laptop",
       "platform": "Windows-11-10.0.26200-SP0",
       "processor": "Intel64 Family 6 Model 198 Stepping 2, GenuineIntel"
     },
     "source_n_rows": 3072,
-    "source_timestamp_utc": "2026-05-24T04:52:20.912612+00:00"
+    "source_timestamp_utc": "2026-06-13T03:50:49.757836+00:00"
   },
   "split": {
     "holdout_shapes": [

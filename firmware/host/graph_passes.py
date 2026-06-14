@@ -27,7 +27,12 @@ _BACKEND_SUPPORTED_OPS: Dict[str, Set[str]] = {
         OpKind.MAX_POOL2D,
         OpKind.ADAPTIVE_AVG_POOL2D,
     },
-    "utpu": {OpKind.LINEAR, OpKind.LINEAR_RELU},
+    "utpu": {
+        OpKind.LINEAR,
+        OpKind.LINEAR_RELU,
+        OpKind.BATCHED_MATMUL,
+        OpKind.CONV2D,
+    },
 }
 
 

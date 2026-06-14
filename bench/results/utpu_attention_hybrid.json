@@ -1,0 +1,166 @@
+{
+  "generated_at_utc": "2026-06-13T23:13:45Z",
+  "model_name": "attention_only_block_hybrid_utpu_phase1",
+  "shape": {
+    "batch": 2,
+    "tokens": 4,
+    "model_dim": 8,
+    "heads": 2,
+    "head_dim": 4
+  },
+  "host_accelerator_boundary": {
+    "accelerator_ops": [
+      "q_proj",
+      "k_proj",
+      "v_proj",
+      "qk",
+      "av",
+      "out_proj"
+    ],
+    "host_ops": [
+      "norm",
+      "view/permute reshapes",
+      "scaled_softmax",
+      "residual_add"
+    ],
+    "scope_note": "This phase lowers only the attention GEMMs to the accelerator. Softmax, norm, and residual add stay on the host."
+  },
+  "correctness_gate": {
+    "packed_accelerator_outputs_bit_exact_vs_integer_reference": true,
+    "per_op": {
+      "q_proj": {
+        "shape": [
+          2,
+          4,
+          8
+        ],
+        "oracle_utpu_bit_exact": true
+      },
+      "k_proj": {
+        "shape": [
+          2,
+          4,
+          8
+        ],
+        "oracle_utpu_bit_exact": true
+      },
+      "v_proj": {
+        "shape": [
+          2,
+          4,
+          8
+        ],
+        "oracle_utpu_bit_exact": true
+      },
+      "qk": {
+        "shape": [
+          2,
+          2,
+          4,
+          4
+        ],
+        "oracle_utpu_bit_exact": true
+      },
+      "av": {
+        "shape": [
+          2,
+          2,
+          4,
+          4
+        ],
+        "oracle_utpu_bit_exact": true
+      },
+      "out_proj": {
+        "shape": [
+          2,
+          4,
+          8
+        ],
+        "oracle_utpu_bit_exact": true
+      }
+    }
+  },
+  "backend_parity": {
+    "rtol": 0.0,
+    "atol": 0.0,
+    "all_within_tolerance": true,
+    "all_bit_exact": true,
+    "backends_compared": [
+      "integer_oracle",
+      "cuda",
+      "utpu"
+    ],
+    "backends_skipped": [],
+    "pairs": [
+      {
+        "backend_a": "integer_oracle",
+        "backend_b": "cuda",
+        "max_abs_error": 0.0,
+        "max_rel_error": 0.0,
+        "within_tolerance": true,
+        "bit_exact": true,
+        "shape_match": true
+      },
+      {
+        "backend_a": "integer_oracle",
+        "backend_b": "utpu",
+        "max_abs_error": 0.0,
+        "max_rel_error": 0.0,
+        "within_tolerance": true,
+        "bit_exact": true,
+        "shape_match": true
+      },
+      {
+        "backend_a": "cuda",
+        "backend_b": "utpu",
+        "max_abs_error": 0.0,
+        "max_rel_error": 0.0,
+        "within_tolerance": true,
+        "bit_exact": true,
+        "shape_match": true
+      }
+    ]
+  },
+  "cuda_backend_execution_device": "cpu",
+  "cuda_backend_scope_note": "This parity backend reuses the shared Torch execution semantics for the quantized hybrid graph. It runs on CPU on this host because Torch CUDA integer matmul kernels do not support the required INT32 addmm path here.",
+  "rtl_bitmatch": {
+    "qk_shape": {
+      "status": "ok",
+      "program_instruction_words": 620,
+      "rtl_sim_passed": true,
+      "iverilog_available": true,
+      "log_excerpt": "FETCH_BYTES_ACTUAL=dd,0d,3f,2d,00,00,00,00,00,00,00,00,00,00,00,00,f1,da,f5,d5,00,00,00,00,00,00,00,00,00,00,00,00,d2,cb,f2,ad,00,00,00,00,00,00,00,00,00,00,00,00,eb,d9,0f,d8,00,00,00,00,00,00,00,00,00,00,00,00\n[ OK ] Received 24 perf bytes\n[ OK ] Busy counter bounded by cycle counter\n[ OK ] Program count incremented on HALT\nPERF_CYCLE_COUNTER=5856\nPERF_BUSY_COUNTER=43\nPERF_PROGRAM_COUNT=1\nCOMPUTE_BUSY_CYCLES=43\nCOMPUTE_SPAN_CYCLES=43\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:221: $finish called at 58915000 (1ps)\n"
+    },
+    "av_shape": {
+      "status": "ok",
+      "program_instruction_words": 620,
+      "rtl_sim_passed": true,
+      "iverilog_available": true,
+      "log_excerpt": "FETCH_BYTES_ACTUAL=01,06,27,25,00,00,00,00,00,00,00,00,00,00,00,00,05,01,2c,1f,00,00,00,00,00,00,00,00,00,00,00,00,07,01,24,1e,00,00,00,00,00,00,00,00,00,00,00,00,07,03,24,1e,00,00,00,00,00,00,00,00,00,00,00,00\n[ OK ] Received 24 perf bytes\n[ OK ] Busy counter bounded by cycle counter\n[ OK ] Program count incremented on HALT\nPERF_CYCLE_COUNTER=5856\nPERF_BUSY_COUNTER=43\nPERF_PROGRAM_COUNT=1\nCOMPUTE_BUSY_CYCLES=43\nCOMPUTE_SPAN_CYCLES=43\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:221: $finish called at 58915000 (1ps)\n"
+    }
+  },
+  "compile_summary": {
+    "lowered_backend_ops": [
+      "q_proj",
+      "k_proj",
+      "v_proj",
+      "qk",
+      "av",
+      "out_proj"
+    ],
+    "fallback_ops": [
+      "norm",
+      "q_view",
+      "k_view",
+      "v_view",
+      "q_perm",
+      "k_perm",
+      "v_perm",
+      "k_t",
+      "softmax_host",
+      "ctx_perm",
+      "ctx_flat",
+      "hybrid_out_host"
+    ]
+  }
+}

@@ -217,8 +217,11 @@ def build_artifact() -> Dict[str, object]:
         "methodology": {
             "scope": (
                 "Host-side ISA lowering + python ISA simulator correctness for blocked-FC "
-                "batched GEMM. B=1 stays on the legacy byte-identical path; B>1 uses "
-                "extended-address encoding and widened buffer addresses."
+                "batched GEMM. B=1 vector lowering stays byte-identical to the pre-batching "
+                "dc7a517 vector path (pinned by firmware/host/fixtures/b1_legacy_program_bytes.json "
+                "and test_batched_gemm_b1_program_matches_pre_batching_legacy_bytes); B=1 vector "
+                "and 1-row matrix activations emit identical programs; B>1 uses extended-address "
+                "encoding and widened buffer addresses."
             ),
             "array_size": ARRAY_SIZE,
             "legacy_cfg": {

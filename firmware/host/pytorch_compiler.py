@@ -7,7 +7,7 @@ from backend_lowering import create_backend_lowerer
 from compiled_runtime import CompiledMLPRuntime
 from fx_importer import FXImportError, import_fx_graph_module
 from graph_passes import BackendLegalityError, GraphPassManager, PassRecord, write_pass_pipeline_dump
-from graph_reference_interpreter import execute_graph_reference
+from graph_reference_interpreter import GraphReferenceInterpreter, execute_graph_reference
 from graph_ir import GraphIR
 from graph_lowering import GraphCompilePlan, PlannedOp, plan_blocked_fc_graph
 from graph_runtime_plan import GraphRuntimePlan, build_graph_runtime_plan
@@ -143,7 +143,12 @@ def _activation_bindings(graph: GraphIR, example_inputs: Tuple[Any, ...]) -> Dic
             arr = value.detach().cpu().numpy()
         else:
             arr = np.asarray(value)
-        bindings[name] = arr.reshape(-1)
+        bindings[name] = arr
+    try:
+        evaluated = GraphReferenceInterpreter(graph).run_with_intermediates(*example_inputs)
+        bindings.update(evaluated)
+    except Exception:
+        pass
     return bindings
 
 
@@ -163,7 +168,7 @@ def _lower_backend_ops(
                 graph_op=op.graph_op,
                 op=op.op,
                 target=target,
-                lowering=lowerer.lower_blocked_fc(op.request),
+                lowering=lowerer.lower_request(op.request),
                 fused_activation=op.fused_activation,
                 notes=list(op.notes),
             )
@@ -241,6 +246,7 @@ def compile_model(
         array_size=array_size,
         apply_quant=apply_quant,
         activation_values=_activation_bindings(graph, inputs),
+        target_backend=target_name,
     )
     runtime_plan = build_graph_runtime_plan(graph, target_name)
     backend_ops = _lower_backend_ops(plan.lowered_ops, graph, runtime_plan, target_name)

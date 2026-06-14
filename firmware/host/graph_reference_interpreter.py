@@ -62,7 +62,7 @@ def _unpack_int4(packed: np.ndarray, size: int) -> np.ndarray:
 class GraphReferenceInterpreter:
     graph: GraphIR
 
-    def run(self, *inputs: Any) -> Any:
+    def _evaluate(self, *inputs: Any) -> Dict[str, np.ndarray]:
         if len(inputs) == 1 and isinstance(inputs[0], (tuple, list)):
             inputs = tuple(inputs[0])
         if len(inputs) != len(self.graph.inputs):
@@ -248,10 +248,17 @@ class GraphReferenceInterpreter:
 
             raise GraphReferenceInterpreterError(f"Unsupported op '{op.op}' in reference interpreter")
 
+        return values
+
+    def run(self, *inputs: Any) -> Any:
+        values = self._evaluate(*inputs)
         outputs = [values[name] for name in self.graph.outputs]
         if len(outputs) == 1:
             return outputs[0]
         return tuple(outputs)
+
+    def run_with_intermediates(self, *inputs: Any) -> Dict[str, np.ndarray]:
+        return self._evaluate(*inputs)
 
 
 def execute_graph_reference(graph: GraphIR, *inputs: Any) -> Any:

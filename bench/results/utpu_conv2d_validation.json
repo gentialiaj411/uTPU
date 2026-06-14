@@ -1,0 +1,361 @@
+{
+  "generated_at_utc": "2026-06-13T16:55:56Z",
+  "mapping_choice": {
+    "strategy": "im2col",
+    "why": "The current uTPU datapath already exposes batched blocked-FC GEMM plus finalize requant. im2col lets conv2d reuse that real lowering/ISA path immediately. The tradeoff is activation materialization blowup proportional to kernel_area * output_positions, which is acceptable for this bounded one-layer simulation phase but not the long-term memory story."
+  },
+  "where_mapping_happens": "firmware/host/utpu_conv2d_lowering.py::lower_conv2d_im2col_utpu",
+  "cfg": {
+    "address_width": 13,
+    "compute_data_width": 8,
+    "requant_multiplier": 1,
+    "requant_right_shift": 0
+  },
+  "cases": [
+    {
+      "name": "conv_k3_same",
+      "input_shape": [
+        1,
+        1,
+        4,
+        4
+      ],
+      "weight_shape": [
+        2,
+        1,
+        3,
+        3
+      ],
+      "stride": [
+        1,
+        1
+      ],
+      "padding": [
+        1,
+        1
+      ],
+      "mapping": "conv2d -> im2col -> batched blocked-FC GEMM -> ISA program",
+      "program_count": 1,
+      "program_instruction_words": [
+        1292
+      ],
+      "oracle_shape": [
+        1,
+        2,
+        4,
+        4
+      ],
+      "utpu_bit_exact_vs_oracle": true,
+      "all_programs_bit_exact_vs_oracle": true,
+      "parity": {
+        "rtol": 0.0,
+        "atol": 0.0,
+        "all_within_tolerance": true,
+        "all_bit_exact": true,
+        "backends_compared": [
+          "numpy_reference",
+          "cuda_graph_conv_k3_same",
+          "utpu_conv_isa_conv_k3_same"
+        ],
+        "backends_skipped": [],
+        "pairs": [
+          {
+            "backend_a": "numpy_reference",
+            "backend_b": "cuda_graph_conv_k3_same",
+            "max_abs_error": 0.0,
+            "max_rel_error": 0.0,
+            "within_tolerance": true,
+            "bit_exact": true,
+            "shape_match": true
+          },
+          {
+            "backend_a": "numpy_reference",
+            "backend_b": "utpu_conv_isa_conv_k3_same",
+            "max_abs_error": 0.0,
+            "max_rel_error": 0.0,
+            "within_tolerance": true,
+            "bit_exact": true,
+            "shape_match": true
+          },
+          {
+            "backend_a": "cuda_graph_conv_k3_same",
+            "backend_b": "utpu_conv_isa_conv_k3_same",
+            "max_abs_error": 0.0,
+            "max_rel_error": 0.0,
+            "within_tolerance": true,
+            "bit_exact": true,
+            "shape_match": true
+          }
+        ]
+      },
+      "rtl": {
+        "rtl_sim_executed": true,
+        "rtl_sim_passed": true,
+        "program_instruction_words": 1292,
+        "perf_cycle_counter": 12492,
+        "perf_busy_counter": 55,
+        "compute_busy_cycles": 55,
+        "compute_span_cycles": 55
+      }
+    },
+    {
+      "name": "conv_stride2",
+      "input_shape": [
+        1,
+        2,
+        6,
+        6
+      ],
+      "weight_shape": [
+        3,
+        2,
+        3,
+        3
+      ],
+      "stride": [
+        2,
+        2
+      ],
+      "padding": [
+        1,
+        1
+      ],
+      "mapping": "conv2d -> im2col -> batched blocked-FC GEMM -> ISA program",
+      "program_count": 1,
+      "program_instruction_words": [
+        1506
+      ],
+      "oracle_shape": [
+        1,
+        3,
+        3,
+        3
+      ],
+      "utpu_bit_exact_vs_oracle": true,
+      "all_programs_bit_exact_vs_oracle": true,
+      "parity": {
+        "rtol": 0.0,
+        "atol": 0.0,
+        "all_within_tolerance": true,
+        "all_bit_exact": true,
+        "backends_compared": [
+          "numpy_reference",
+          "cuda_graph_conv_stride2",
+          "utpu_conv_isa_conv_stride2"
+        ],
+        "backends_skipped": [],
+        "pairs": [
+          {
+            "backend_a": "numpy_reference",
+            "backend_b": "cuda_graph_conv_stride2",
+            "max_abs_error": 0.0,
+            "max_rel_error": 0.0,
+            "within_tolerance": true,
+            "bit_exact": true,
+            "shape_match": true
+          },
+          {
+            "backend_a": "numpy_reference",
+            "backend_b": "utpu_conv_isa_conv_stride2",
+            "max_abs_error": 0.0,
+            "max_rel_error": 0.0,
+            "within_tolerance": true,
+            "bit_exact": true,
+            "shape_match": true
+          },
+          {
+            "backend_a": "cuda_graph_conv_stride2",
+            "backend_b": "utpu_conv_isa_conv_stride2",
+            "max_abs_error": 0.0,
+            "max_rel_error": 0.0,
+            "within_tolerance": true,
+            "bit_exact": true,
+            "shape_match": true
+          }
+        ]
+      },
+      "rtl": {
+        "rtl_sim_executed": true,
+        "rtl_sim_passed": true,
+        "program_instruction_words": 1506,
+        "perf_cycle_counter": 14121,
+        "perf_busy_counter": 95,
+        "compute_busy_cycles": 95,
+        "compute_span_cycles": 1912
+      }
+    },
+    {
+      "name": "conv_k1",
+      "input_shape": [
+        1,
+        3,
+        5,
+        5
+      ],
+      "weight_shape": [
+        4,
+        3,
+        1,
+        1
+      ],
+      "stride": [
+        1,
+        1
+      ],
+      "padding": [
+        0,
+        0
+      ],
+      "mapping": "conv2d -> im2col -> batched blocked-FC GEMM -> ISA program",
+      "program_count": 1,
+      "program_instruction_words": [
+        1796
+      ],
+      "oracle_shape": [
+        1,
+        4,
+        5,
+        5
+      ],
+      "utpu_bit_exact_vs_oracle": true,
+      "all_programs_bit_exact_vs_oracle": true,
+      "parity": {
+        "rtol": 0.0,
+        "atol": 0.0,
+        "all_within_tolerance": true,
+        "all_bit_exact": true,
+        "backends_compared": [
+          "numpy_reference",
+          "cuda_graph_conv_k1",
+          "utpu_conv_isa_conv_k1"
+        ],
+        "backends_skipped": [],
+        "pairs": [
+          {
+            "backend_a": "numpy_reference",
+            "backend_b": "cuda_graph_conv_k1",
+            "max_abs_error": 0.0,
+            "max_rel_error": 0.0,
+            "within_tolerance": true,
+            "bit_exact": true,
+            "shape_match": true
+          },
+          {
+            "backend_a": "numpy_reference",
+            "backend_b": "utpu_conv_isa_conv_k1",
+            "max_abs_error": 0.0,
+            "max_rel_error": 0.0,
+            "within_tolerance": true,
+            "bit_exact": true,
+            "shape_match": true
+          },
+          {
+            "backend_a": "cuda_graph_conv_k1",
+            "backend_b": "utpu_conv_isa_conv_k1",
+            "max_abs_error": 0.0,
+            "max_rel_error": 0.0,
+            "within_tolerance": true,
+            "bit_exact": true,
+            "shape_match": true
+          }
+        ]
+      },
+      "rtl": {
+        "rtl_sim_executed": false,
+        "rtl_sim_passed": false,
+        "skip_reason": "case not selected for RTL gate or lowering produced multiple programs"
+      }
+    },
+    {
+      "name": "conv_valid",
+      "input_shape": [
+        1,
+        4,
+        7,
+        7
+      ],
+      "weight_shape": [
+        2,
+        4,
+        3,
+        3
+      ],
+      "stride": [
+        2,
+        2
+      ],
+      "padding": [
+        0,
+        0
+      ],
+      "mapping": "conv2d -> im2col -> batched blocked-FC GEMM -> ISA program",
+      "program_count": 1,
+      "program_instruction_words": [
+        2112
+      ],
+      "oracle_shape": [
+        1,
+        2,
+        3,
+        3
+      ],
+      "utpu_bit_exact_vs_oracle": true,
+      "all_programs_bit_exact_vs_oracle": true,
+      "parity": {
+        "rtol": 0.0,
+        "atol": 0.0,
+        "all_within_tolerance": true,
+        "all_bit_exact": true,
+        "backends_compared": [
+          "numpy_reference",
+          "cuda_graph_conv_valid",
+          "utpu_conv_isa_conv_valid"
+        ],
+        "backends_skipped": [],
+        "pairs": [
+          {
+            "backend_a": "numpy_reference",
+            "backend_b": "cuda_graph_conv_valid",
+            "max_abs_error": 0.0,
+            "max_rel_error": 0.0,
+            "within_tolerance": true,
+            "bit_exact": true,
+            "shape_match": true
+          },
+          {
+            "backend_a": "numpy_reference",
+            "backend_b": "utpu_conv_isa_conv_valid",
+            "max_abs_error": 0.0,
+            "max_rel_error": 0.0,
+            "within_tolerance": true,
+            "bit_exact": true,
+            "shape_match": true
+          },
+          {
+            "backend_a": "cuda_graph_conv_valid",
+            "backend_b": "utpu_conv_isa_conv_valid",
+            "max_abs_error": 0.0,
+            "max_rel_error": 0.0,
+            "within_tolerance": true,
+            "bit_exact": true,
+            "shape_match": true
+          }
+        ]
+      },
+      "rtl": {
+        "rtl_sim_executed": false,
+        "rtl_sim_passed": false,
+        "skip_reason": "case not selected for RTL gate or lowering produced multiple programs"
+      }
+    }
+  ],
+  "gates": {
+    "correctness_pass_count": 4,
+    "correctness_total_count": 4,
+    "rtl_pass_count": 2,
+    "rtl_total_count": 2,
+    "backend_parity_pass_count": 4,
+    "backend_parity_total_count": 4,
+    "iverilog_available": true
+  }
+}

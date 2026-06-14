@@ -1,0 +1,2371 @@
+{
+  "dataset": {
+    "fold_count": 24,
+    "num_rows": 3072,
+    "num_schedules_per_shape": 16,
+    "num_shapes": 24,
+    "shape_keys": [
+      {
+        "in_features": 16,
+        "out_features": 16
+      },
+      {
+        "in_features": 16,
+        "out_features": 64
+      },
+      {
+        "in_features": 16,
+        "out_features": 256
+      },
+      {
+        "in_features": 16,
+        "out_features": 512
+      },
+      {
+        "in_features": 32,
+        "out_features": 16
+      },
+      {
+        "in_features": 32,
+        "out_features": 64
+      },
+      {
+        "in_features": 32,
+        "out_features": 256
+      },
+      {
+        "in_features": 32,
+        "out_features": 512
+      },
+      {
+        "in_features": 64,
+        "out_features": 16
+      },
+      {
+        "in_features": 64,
+        "out_features": 64
+      },
+      {
+        "in_features": 64,
+        "out_features": 256
+      },
+      {
+        "in_features": 64,
+        "out_features": 512
+      },
+      {
+        "in_features": 128,
+        "out_features": 16
+      },
+      {
+        "in_features": 128,
+        "out_features": 64
+      },
+      {
+        "in_features": 128,
+        "out_features": 256
+      },
+      {
+        "in_features": 128,
+        "out_features": 512
+      },
+      {
+        "in_features": 256,
+        "out_features": 16
+      },
+      {
+        "in_features": 256,
+        "out_features": 64
+      },
+      {
+        "in_features": 256,
+        "out_features": 256
+      },
+      {
+        "in_features": 256,
+        "out_features": 512
+      },
+      {
+        "in_features": 512,
+        "out_features": 16
+      },
+      {
+        "in_features": 512,
+        "out_features": 64
+      },
+      {
+        "in_features": 512,
+        "out_features": 256
+      },
+      {
+        "in_features": 512,
+        "out_features": 512
+      }
+    ]
+  },
+  "generated_at_utc": "2026-06-04T13:02:34.351046+00:00",
+  "git_sha": "d5f75b29cbabe0fef5e28e03edbc772192accbbb",
+  "methodology": {
+    "claims_scope": "Replay-only evaluation on existing calibration measurements; CPU-trained gradient-boosted trees; no new CUDA timing; ranking metrics computed on held-out shapes.",
+    "feature_names": [
+      "memory_kib",
+      "cta_memory_kib",
+      "underoccupancy_penalty",
+      "tail_ratio",
+      "unroll_norm",
+      "unroll_k_tail",
+      "unroll_shape_interaction",
+      "small_out_tpb_interaction",
+      "small_out_unroll_interaction",
+      "idle_thread_ratio",
+      "wave_tpb_interaction",
+      "small_out_idle_penalty",
+      "large_k_unroll_gain",
+      "small_out_unroll_penalty",
+      "large_out_small_k_wave_tpb_efficiency"
+    ],
+    "feature_source": "firmware/host/calibrate_cost_model.py::_feature_terms() coefficient features",
+    "harness": "firmware/host/run_learned_cost_model.py",
+    "seed": 1729,
+    "split_policy": "leave-one-shape-out cross-validation",
+    "split_unit": "shape_used = (in_features, out_features)",
+    "trivial_baseline_seed": "learned-cost-model-trivial-random-v1"
+  },
+  "model": {
+    "hyperparameters": {
+      "early_stopping": false,
+      "l2_regularization": 0.0,
+      "learning_rate": 0.05,
+      "loss": "squared_error",
+      "max_depth": 3,
+      "max_iter": 400,
+      "min_samples_leaf": 2,
+      "random_state": 1729
+    },
+    "sklearn_available": true,
+    "sklearn_version": "1.9.0",
+    "type": "HistGradientBoostingRegressor"
+  },
+  "per_fold": [
+    {
+      "fold_index": 0,
+      "held_out_shape": {
+        "in_features": 16,
+        "out_features": 16
+      },
+      "models": {
+        "analytical": {
+          "chosen_measured_latency_us_median": 7.192249991931021,
+          "chosen_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 6.838999921455979,
+          "oracle_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 2
+          },
+          "prediction_name": "analytical",
+          "regret_pct": 5.165229924433706,
+          "spearman_rho": -0.03529411764705882,
+          "top1_hit": false,
+          "within_1pct": false,
+          "within_5pct": false
+        },
+        "learned": {
+          "chosen_measured_latency_us_median": 7.039249991066754,
+          "chosen_schedule": {
+            "threads_per_block": 128,
+            "unroll_factor": 8
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 6.838999921455979,
+          "oracle_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 2
+          },
+          "prediction_name": "learned",
+          "regret_pct": 2.9280607093228705,
+          "spearman_rho": -0.2676470588235294,
+          "top1_hit": false,
+          "within_1pct": false,
+          "within_5pct": true
+        },
+        "trivial_baseline": {
+          "mean_latency": {
+            "chosen_measured_latency_us_median": 7.192249991931021,
+            "chosen_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 6.838999921455979,
+            "oracle_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 2
+            },
+            "prediction_name": "mean_latency",
+            "regret_pct": 5.165229924433706,
+            "spearman_rho": -0.16176470588235295,
+            "top1_hit": false,
+            "within_1pct": false,
+            "within_5pct": false
+          },
+          "random_schedule": {
+            "chosen_measured_latency_us_median": 6.974249961785972,
+            "chosen_schedule": {
+              "threads_per_block": 256,
+              "unroll_factor": 4
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 6.838999921455979,
+            "oracle_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 2
+            },
+            "prediction_name": "random_schedule",
+            "regret_pct": 1.9776289206507098,
+            "spearman_rho": 0.07647058823529412,
+            "top1_hit": false,
+            "within_1pct": false,
+            "within_5pct": true
+          }
+        }
+      },
+      "n_schedules": 16,
+      "n_test_rows": 160,
+      "n_train_rows": 2912
+    },
+    {
+      "fold_index": 1,
+      "held_out_shape": {
+        "in_features": 16,
+        "out_features": 64
+      },
+      "models": {
+        "analytical": {
+          "chosen_measured_latency_us_median": 7.0599999744445086,
+          "chosen_schedule": {
+            "threads_per_block": 256,
+            "unroll_factor": 1
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 6.759499898180366,
+          "oracle_schedule": {
+            "threads_per_block": 256,
+            "unroll_factor": 8
+          },
+          "prediction_name": "analytical",
+          "regret_pct": 4.445596283610221,
+          "spearman_rho": -0.0029411764705882353,
+          "top1_hit": false,
+          "within_1pct": false,
+          "within_5pct": true
+        },
+        "learned": {
+          "chosen_measured_latency_us_median": 6.78600009996444,
+          "chosen_schedule": {
+            "threads_per_block": 64,
+            "unroll_factor": 4
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 6.759499898180366,
+          "oracle_schedule": {
+            "threads_per_block": 256,
+            "unroll_factor": 8
+          },
+          "prediction_name": "learned",
+          "regret_pct": 0.3920438225201849,
+          "spearman_rho": 0.2823529411764706,
+          "top1_hit": false,
+          "within_1pct": true,
+          "within_5pct": true
+        },
+        "trivial_baseline": {
+          "mean_latency": {
+            "chosen_measured_latency_us_median": 7.105250027962029,
+            "chosen_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 6.759499898180366,
+            "oracle_schedule": {
+              "threads_per_block": 256,
+              "unroll_factor": 8
+            },
+            "prediction_name": "mean_latency",
+            "regret_pct": 5.115025297577683,
+            "spearman_rho": -0.0029411764705882353,
+            "top1_hit": false,
+            "within_1pct": false,
+            "within_5pct": false
+          },
+          "random_schedule": {
+            "chosen_measured_latency_us_median": 6.856999942101538,
+            "chosen_schedule": {
+              "threads_per_block": 128,
+              "unroll_factor": 4
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 6.759499898180366,
+            "oracle_schedule": {
+              "threads_per_block": 256,
+              "unroll_factor": 8
+            },
+            "prediction_name": "random_schedule",
+            "regret_pct": 1.4424150512587375,
+            "spearman_rho": 0.42058823529411765,
+            "top1_hit": false,
+            "within_1pct": false,
+            "within_5pct": true
+          }
+        }
+      },
+      "n_schedules": 16,
+      "n_test_rows": 160,
+      "n_train_rows": 2912
+    },
+    {
+      "fold_index": 2,
+      "held_out_shape": {
+        "in_features": 16,
+        "out_features": 256
+      },
+      "models": {
+        "analytical": {
+          "chosen_measured_latency_us_median": 6.999249919317663,
+          "chosen_schedule": {
+            "threads_per_block": 256,
+            "unroll_factor": 1
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 6.7827500170096755,
+          "oracle_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "prediction_name": "analytical",
+          "regret_pct": 3.191919232834058,
+          "spearman_rho": 0.03235294117647059,
+          "top1_hit": false,
+          "within_1pct": false,
+          "within_5pct": true
+        },
+        "learned": {
+          "chosen_measured_latency_us_median": 6.999249919317663,
+          "chosen_schedule": {
+            "threads_per_block": 256,
+            "unroll_factor": 1
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 6.7827500170096755,
+          "oracle_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "prediction_name": "learned",
+          "regret_pct": 3.191919232834058,
+          "spearman_rho": -0.029411764705882353,
+          "top1_hit": false,
+          "within_1pct": false,
+          "within_5pct": true
+        },
+        "trivial_baseline": {
+          "mean_latency": {
+            "chosen_measured_latency_us_median": 6.7827500170096755,
+            "chosen_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 6.7827500170096755,
+            "oracle_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "prediction_name": "mean_latency",
+            "regret_pct": 0.0,
+            "spearman_rho": 0.17941176470588235,
+            "top1_hit": true,
+            "within_1pct": true,
+            "within_5pct": true
+          },
+          "random_schedule": {
+            "chosen_measured_latency_us_median": 7.108999998308718,
+            "chosen_schedule": {
+              "threads_per_block": 256,
+              "unroll_factor": 8
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 6.7827500170096755,
+            "oracle_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "prediction_name": "random_schedule",
+            "regret_pct": 4.809995657821356,
+            "spearman_rho": -0.2,
+            "top1_hit": false,
+            "within_1pct": false,
+            "within_5pct": true
+          }
+        }
+      },
+      "n_schedules": 16,
+      "n_test_rows": 160,
+      "n_train_rows": 2912
+    },
+    {
+      "fold_index": 3,
+      "held_out_shape": {
+        "in_features": 16,
+        "out_features": 512
+      },
+      "models": {
+        "analytical": {
+          "chosen_measured_latency_us_median": 6.872750003822148,
+          "chosen_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 6.685249973088503,
+          "oracle_schedule": {
+            "threads_per_block": 256,
+            "unroll_factor": 4
+          },
+          "prediction_name": "analytical",
+          "regret_pct": 2.8046824200804306,
+          "spearman_rho": 0.01764705882352941,
+          "top1_hit": false,
+          "within_1pct": false,
+          "within_5pct": true
+        },
+        "learned": {
+          "chosen_measured_latency_us_median": 6.805500015616417,
+          "chosen_schedule": {
+            "threads_per_block": 128,
+            "unroll_factor": 4
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 6.685249973088503,
+          "oracle_schedule": {
+            "threads_per_block": 256,
+            "unroll_factor": 4
+          },
+          "prediction_name": "learned",
+          "regret_pct": 1.7987366667212297,
+          "spearman_rho": 0.05,
+          "top1_hit": false,
+          "within_1pct": false,
+          "within_5pct": true
+        },
+        "trivial_baseline": {
+          "mean_latency": {
+            "chosen_measured_latency_us_median": 6.872750003822148,
+            "chosen_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 6.685249973088503,
+            "oracle_schedule": {
+              "threads_per_block": 256,
+              "unroll_factor": 4
+            },
+            "prediction_name": "mean_latency",
+            "regret_pct": 2.8046824200804306,
+            "spearman_rho": -0.14411764705882352,
+            "top1_hit": false,
+            "within_1pct": false,
+            "within_5pct": true
+          },
+          "random_schedule": {
+            "chosen_measured_latency_us_median": 6.805500015616417,
+            "chosen_schedule": {
+              "threads_per_block": 128,
+              "unroll_factor": 4
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 6.685249973088503,
+            "oracle_schedule": {
+              "threads_per_block": 256,
+              "unroll_factor": 4
+            },
+            "prediction_name": "random_schedule",
+            "regret_pct": 1.7987366667212297,
+            "spearman_rho": 0.1264705882352941,
+            "top1_hit": false,
+            "within_1pct": false,
+            "within_5pct": true
+          }
+        }
+      },
+      "n_schedules": 16,
+      "n_test_rows": 160,
+      "n_train_rows": 2912
+    },
+    {
+      "fold_index": 4,
+      "held_out_shape": {
+        "in_features": 32,
+        "out_features": 16
+      },
+      "models": {
+        "analytical": {
+          "chosen_measured_latency_us_median": 6.828000070527196,
+          "chosen_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 6.740500102750957,
+          "oracle_schedule": {
+            "threads_per_block": 256,
+            "unroll_factor": 8
+          },
+          "prediction_name": "analytical",
+          "regret_pct": 1.2981227867725735,
+          "spearman_rho": -0.011764705882352941,
+          "top1_hit": false,
+          "within_1pct": false,
+          "within_5pct": true
+        },
+        "learned": {
+          "chosen_measured_latency_us_median": 6.978999939747155,
+          "chosen_schedule": {
+            "threads_per_block": 128,
+            "unroll_factor": 4
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 6.740500102750957,
+          "oracle_schedule": {
+            "threads_per_block": 256,
+            "unroll_factor": 8
+          },
+          "prediction_name": "learned",
+          "regret_pct": 3.5383107093027157,
+          "spearman_rho": 0.2735294117647059,
+          "top1_hit": false,
+          "within_1pct": false,
+          "within_5pct": true
+        },
+        "trivial_baseline": {
+          "mean_latency": {
+            "chosen_measured_latency_us_median": 6.828000070527196,
+            "chosen_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 6.740500102750957,
+            "oracle_schedule": {
+              "threads_per_block": 256,
+              "unroll_factor": 8
+            },
+            "prediction_name": "mean_latency",
+            "regret_pct": 1.2981227867725735,
+            "spearman_rho": 0.1588235294117647,
+            "top1_hit": false,
+            "within_1pct": false,
+            "within_5pct": true
+          },
+          "random_schedule": {
+            "chosen_measured_latency_us_median": 7.142750080674887,
+            "chosen_schedule": {
+              "threads_per_block": 256,
+              "unroll_factor": 2
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 6.740500102750957,
+            "oracle_schedule": {
+              "threads_per_block": 256,
+              "unroll_factor": 8
+            },
+            "prediction_name": "random_schedule",
+            "regret_pct": 5.96765776711081,
+            "spearman_rho": 0.15,
+            "top1_hit": false,
+            "within_1pct": false,
+            "within_5pct": false
+          }
+        }
+      },
+      "n_schedules": 16,
+      "n_test_rows": 64,
+      "n_train_rows": 3008
+    },
+    {
+      "fold_index": 5,
+      "held_out_shape": {
+        "in_features": 32,
+        "out_features": 64
+      },
+      "models": {
+        "analytical": {
+          "chosen_measured_latency_us_median": 7.3112500831484795,
+          "chosen_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 6.76725001540035,
+          "oracle_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 2
+          },
+          "prediction_name": "analytical",
+          "regret_pct": 8.038716857071023,
+          "spearman_rho": -0.008823529411764706,
+          "top1_hit": false,
+          "within_1pct": false,
+          "within_5pct": false
+        },
+        "learned": {
+          "chosen_measured_latency_us_median": 6.935250014066696,
+          "chosen_schedule": {
+            "threads_per_block": 128,
+            "unroll_factor": 8
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 6.76725001540035,
+          "oracle_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 2
+          },
+          "prediction_name": "learned",
+          "regret_pct": 2.482544582866386,
+          "spearman_rho": -0.052941176470588235,
+          "top1_hit": false,
+          "within_1pct": false,
+          "within_5pct": true
+        },
+        "trivial_baseline": {
+          "mean_latency": {
+            "chosen_measured_latency_us_median": 7.3112500831484795,
+            "chosen_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 6.76725001540035,
+            "oracle_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 2
+            },
+            "prediction_name": "mean_latency",
+            "regret_pct": 8.038716857071023,
+            "spearman_rho": -0.026470588235294117,
+            "top1_hit": false,
+            "within_1pct": false,
+            "within_5pct": false
+          },
+          "random_schedule": {
+            "chosen_measured_latency_us_median": 6.935250014066696,
+            "chosen_schedule": {
+              "threads_per_block": 128,
+              "unroll_factor": 8
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 6.76725001540035,
+            "oracle_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 2
+            },
+            "prediction_name": "random_schedule",
+            "regret_pct": 2.482544582866386,
+            "spearman_rho": -0.18529411764705883,
+            "top1_hit": false,
+            "within_1pct": false,
+            "within_5pct": true
+          }
+        }
+      },
+      "n_schedules": 16,
+      "n_test_rows": 64,
+      "n_train_rows": 3008
+    },
+    {
+      "fold_index": 6,
+      "held_out_shape": {
+        "in_features": 32,
+        "out_features": 256
+      },
+      "models": {
+        "analytical": {
+          "chosen_measured_latency_us_median": 6.845999974757433,
+          "chosen_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 6.845999974757433,
+          "oracle_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "prediction_name": "analytical",
+          "regret_pct": 0.0,
+          "spearman_rho": 0.11764705882352941,
+          "top1_hit": true,
+          "within_1pct": true,
+          "within_5pct": true
+        },
+        "learned": {
+          "chosen_measured_latency_us_median": 6.914750090800226,
+          "chosen_schedule": {
+            "threads_per_block": 64,
+            "unroll_factor": 4
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 6.845999974757433,
+          "oracle_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "prediction_name": "learned",
+          "regret_pct": 1.0042377489963217,
+          "spearman_rho": 0.2323529411764706,
+          "top1_hit": false,
+          "within_1pct": false,
+          "within_5pct": true
+        },
+        "trivial_baseline": {
+          "mean_latency": {
+            "chosen_measured_latency_us_median": 6.845999974757433,
+            "chosen_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 6.845999974757433,
+            "oracle_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "prediction_name": "mean_latency",
+            "regret_pct": 0.0,
+            "spearman_rho": 0.11764705882352941,
+            "top1_hit": true,
+            "within_1pct": true,
+            "within_5pct": true
+          },
+          "random_schedule": {
+            "chosen_measured_latency_us_median": 7.570749963633716,
+            "chosen_schedule": {
+              "threads_per_block": 128,
+              "unroll_factor": 1
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 6.845999974757433,
+            "oracle_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "prediction_name": "random_schedule",
+            "regret_pct": 10.58647372989455,
+            "spearman_rho": -0.2323529411764706,
+            "top1_hit": false,
+            "within_1pct": false,
+            "within_5pct": false
+          }
+        }
+      },
+      "n_schedules": 16,
+      "n_test_rows": 64,
+      "n_train_rows": 3008
+    },
+    {
+      "fold_index": 7,
+      "held_out_shape": {
+        "in_features": 32,
+        "out_features": 512
+      },
+      "models": {
+        "analytical": {
+          "chosen_measured_latency_us_median": 6.822500028647482,
+          "chosen_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 6.822500028647482,
+          "oracle_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "prediction_name": "analytical",
+          "regret_pct": 0.0,
+          "spearman_rho": 0.7,
+          "top1_hit": true,
+          "within_1pct": true,
+          "within_5pct": true
+        },
+        "learned": {
+          "chosen_measured_latency_us_median": 7.198499981313944,
+          "chosen_schedule": {
+            "threads_per_block": 64,
+            "unroll_factor": 8
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 6.822500028647482,
+          "oracle_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "prediction_name": "learned",
+          "regret_pct": 5.511175538111373,
+          "spearman_rho": 0.638235294117647,
+          "top1_hit": false,
+          "within_1pct": false,
+          "within_5pct": false
+        },
+        "trivial_baseline": {
+          "mean_latency": {
+            "chosen_measured_latency_us_median": 6.822500028647482,
+            "chosen_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 6.822500028647482,
+            "oracle_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "prediction_name": "mean_latency",
+            "regret_pct": 0.0,
+            "spearman_rho": 0.7,
+            "top1_hit": true,
+            "within_1pct": true,
+            "within_5pct": true
+          },
+          "random_schedule": {
+            "chosen_measured_latency_us_median": 7.625999860465527,
+            "chosen_schedule": {
+              "threads_per_block": 128,
+              "unroll_factor": 4
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 6.822500028647482,
+            "oracle_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "prediction_name": "random_schedule",
+            "regret_pct": 11.77720525385374,
+            "spearman_rho": -0.05,
+            "top1_hit": false,
+            "within_1pct": false,
+            "within_5pct": false
+          }
+        }
+      },
+      "n_schedules": 16,
+      "n_test_rows": 64,
+      "n_train_rows": 3008
+    },
+    {
+      "fold_index": 8,
+      "held_out_shape": {
+        "in_features": 64,
+        "out_features": 16
+      },
+      "models": {
+        "analytical": {
+          "chosen_measured_latency_us_median": 7.140250061638653,
+          "chosen_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 6.649500108323991,
+          "oracle_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 8
+          },
+          "prediction_name": "analytical",
+          "regret_pct": 7.380253332131394,
+          "spearman_rho": -0.4852941176470588,
+          "top1_hit": false,
+          "within_1pct": false,
+          "within_5pct": false
+        },
+        "learned": {
+          "chosen_measured_latency_us_median": 7.322249934077263,
+          "chosen_schedule": {
+            "threads_per_block": 256,
+            "unroll_factor": 1
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 6.649500108323991,
+          "oracle_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 8
+          },
+          "prediction_name": "learned",
+          "regret_pct": 10.117299267521004,
+          "spearman_rho": -0.15588235294117647,
+          "top1_hit": false,
+          "within_1pct": false,
+          "within_5pct": false
+        },
+        "trivial_baseline": {
+          "mean_latency": {
+            "chosen_measured_latency_us_median": 7.140250061638653,
+            "chosen_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 6.649500108323991,
+            "oracle_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 8
+            },
+            "prediction_name": "mean_latency",
+            "regret_pct": 7.380253332131394,
+            "spearman_rho": 0.0058823529411764705,
+            "top1_hit": false,
+            "within_1pct": false,
+            "within_5pct": false
+          },
+          "random_schedule": {
+            "chosen_measured_latency_us_median": 7.296249968931079,
+            "chosen_schedule": {
+              "threads_per_block": 256,
+              "unroll_factor": 2
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 6.649500108323991,
+            "oracle_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 8
+            },
+            "prediction_name": "random_schedule",
+            "regret_pct": 9.72629295542791,
+            "spearman_rho": 0.052941176470588235,
+            "top1_hit": false,
+            "within_1pct": false,
+            "within_5pct": false
+          }
+        }
+      },
+      "n_schedules": 16,
+      "n_test_rows": 160,
+      "n_train_rows": 2912
+    },
+    {
+      "fold_index": 9,
+      "held_out_shape": {
+        "in_features": 64,
+        "out_features": 64
+      },
+      "models": {
+        "analytical": {
+          "chosen_measured_latency_us_median": 6.902499939315021,
+          "chosen_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 6.902499939315021,
+          "oracle_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "prediction_name": "analytical",
+          "regret_pct": 0.0,
+          "spearman_rho": 0.5323529411764706,
+          "top1_hit": true,
+          "within_1pct": true,
+          "within_5pct": true
+        },
+        "learned": {
+          "chosen_measured_latency_us_median": 7.214249926619232,
+          "chosen_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 4
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 6.902499939315021,
+          "oracle_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "prediction_name": "learned",
+          "regret_pct": 4.516479392177257,
+          "spearman_rho": 0.2735294117647059,
+          "top1_hit": false,
+          "within_1pct": false,
+          "within_5pct": true
+        },
+        "trivial_baseline": {
+          "mean_latency": {
+            "chosen_measured_latency_us_median": 6.902499939315021,
+            "chosen_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 6.902499939315021,
+            "oracle_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "prediction_name": "mean_latency",
+            "regret_pct": 0.0,
+            "spearman_rho": 0.1676470588235294,
+            "top1_hit": true,
+            "within_1pct": true,
+            "within_5pct": true
+          },
+          "random_schedule": {
+            "chosen_measured_latency_us_median": 7.388249970972538,
+            "chosen_schedule": {
+              "threads_per_block": 128,
+              "unroll_factor": 4
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 6.902499939315021,
+            "oracle_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "prediction_name": "random_schedule",
+            "regret_pct": 7.0373058446664905,
+            "spearman_rho": 0.538235294117647,
+            "top1_hit": false,
+            "within_1pct": false,
+            "within_5pct": false
+          }
+        }
+      },
+      "n_schedules": 16,
+      "n_test_rows": 160,
+      "n_train_rows": 2912
+    },
+    {
+      "fold_index": 10,
+      "held_out_shape": {
+        "in_features": 64,
+        "out_features": 256
+      },
+      "models": {
+        "analytical": {
+          "chosen_measured_latency_us_median": 7.080500014126301,
+          "chosen_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 7.017250056378543,
+          "oracle_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 4
+          },
+          "prediction_name": "analytical",
+          "regret_pct": 0.9013496346801045,
+          "spearman_rho": 0.861764705882353,
+          "top1_hit": false,
+          "within_1pct": true,
+          "within_5pct": true
+        },
+        "learned": {
+          "chosen_measured_latency_us_median": 7.080500014126301,
+          "chosen_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 7.017250056378543,
+          "oracle_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 4
+          },
+          "prediction_name": "learned",
+          "regret_pct": 0.9013496346801045,
+          "spearman_rho": 0.9058823529411765,
+          "top1_hit": false,
+          "within_1pct": true,
+          "within_5pct": true
+        },
+        "trivial_baseline": {
+          "mean_latency": {
+            "chosen_measured_latency_us_median": 7.080500014126301,
+            "chosen_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 7.017250056378543,
+            "oracle_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 4
+            },
+            "prediction_name": "mean_latency",
+            "regret_pct": 0.9013496346801045,
+            "spearman_rho": 0.861764705882353,
+            "top1_hit": false,
+            "within_1pct": true,
+            "within_5pct": true
+          },
+          "random_schedule": {
+            "chosen_measured_latency_us_median": 7.563750026747584,
+            "chosen_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 2
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 7.017250056378543,
+            "oracle_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 4
+            },
+            "prediction_name": "random_schedule",
+            "regret_pct": 7.787950635623754,
+            "spearman_rho": -0.4823529411764706,
+            "top1_hit": false,
+            "within_1pct": false,
+            "within_5pct": false
+          }
+        }
+      },
+      "n_schedules": 16,
+      "n_test_rows": 160,
+      "n_train_rows": 2912
+    },
+    {
+      "fold_index": 11,
+      "held_out_shape": {
+        "in_features": 64,
+        "out_features": 512
+      },
+      "models": {
+        "analytical": {
+          "chosen_measured_latency_us_median": 7.174500031396747,
+          "chosen_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 7.130999932996929,
+          "oracle_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 4
+          },
+          "prediction_name": "analytical",
+          "regret_pct": 0.610014006570552,
+          "spearman_rho": 0.9294117647058824,
+          "top1_hit": false,
+          "within_1pct": true,
+          "within_5pct": true
+        },
+        "learned": {
+          "chosen_measured_latency_us_median": 7.130999932996929,
+          "chosen_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 4
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 7.130999932996929,
+          "oracle_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 4
+          },
+          "prediction_name": "learned",
+          "regret_pct": 0.0,
+          "spearman_rho": 0.961764705882353,
+          "top1_hit": true,
+          "within_1pct": true,
+          "within_5pct": true
+        },
+        "trivial_baseline": {
+          "mean_latency": {
+            "chosen_measured_latency_us_median": 7.174500031396747,
+            "chosen_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 7.130999932996929,
+            "oracle_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 4
+            },
+            "prediction_name": "mean_latency",
+            "regret_pct": 0.610014006570552,
+            "spearman_rho": 0.9294117647058824,
+            "top1_hit": false,
+            "within_1pct": true,
+            "within_5pct": true
+          },
+          "random_schedule": {
+            "chosen_measured_latency_us_median": 7.687999866902828,
+            "chosen_schedule": {
+              "threads_per_block": 64,
+              "unroll_factor": 2
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 7.130999932996929,
+            "oracle_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 4
+            },
+            "prediction_name": "random_schedule",
+            "regret_pct": 7.810965350434529,
+            "spearman_rho": 0.26176470588235295,
+            "top1_hit": false,
+            "within_1pct": false,
+            "within_5pct": false
+          }
+        }
+      },
+      "n_schedules": 16,
+      "n_test_rows": 160,
+      "n_train_rows": 2912
+    },
+    {
+      "fold_index": 12,
+      "held_out_shape": {
+        "in_features": 128,
+        "out_features": 16
+      },
+      "models": {
+        "analytical": {
+          "chosen_measured_latency_us_median": 7.513000047765672,
+          "chosen_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 7.475999998860061,
+          "oracle_schedule": {
+            "threads_per_block": 256,
+            "unroll_factor": 4
+          },
+          "prediction_name": "analytical",
+          "regret_pct": 0.4949177221943927,
+          "spearman_rho": 0.08529411764705883,
+          "top1_hit": false,
+          "within_1pct": true,
+          "within_5pct": true
+        },
+        "learned": {
+          "chosen_measured_latency_us_median": 7.770999916829169,
+          "chosen_schedule": {
+            "threads_per_block": 256,
+            "unroll_factor": 1
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 7.475999998860061,
+          "oracle_schedule": {
+            "threads_per_block": 256,
+            "unroll_factor": 4
+          },
+          "prediction_name": "learned",
+          "regret_pct": 3.9459593099797905,
+          "spearman_rho": 0.8676470588235294,
+          "top1_hit": false,
+          "within_1pct": false,
+          "within_5pct": true
+        },
+        "trivial_baseline": {
+          "mean_latency": {
+            "chosen_measured_latency_us_median": 7.513000047765672,
+            "chosen_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 7.475999998860061,
+            "oracle_schedule": {
+              "threads_per_block": 256,
+              "unroll_factor": 4
+            },
+            "prediction_name": "mean_latency",
+            "regret_pct": 0.4949177221943927,
+            "spearman_rho": -0.18235294117647058,
+            "top1_hit": false,
+            "within_1pct": true,
+            "within_5pct": true
+          },
+          "random_schedule": {
+            "chosen_measured_latency_us_median": 7.478000014089048,
+            "chosen_schedule": {
+              "threads_per_block": 128,
+              "unroll_factor": 4
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 7.475999998860061,
+            "oracle_schedule": {
+              "threads_per_block": 256,
+              "unroll_factor": 4
+            },
+            "prediction_name": "random_schedule",
+            "regret_pct": 0.026752477652376965,
+            "spearman_rho": 0.0029411764705882353,
+            "top1_hit": false,
+            "within_1pct": true,
+            "within_5pct": true
+          }
+        }
+      },
+      "n_schedules": 16,
+      "n_test_rows": 64,
+      "n_train_rows": 3008
+    },
+    {
+      "fold_index": 13,
+      "held_out_shape": {
+        "in_features": 128,
+        "out_features": 64
+      },
+      "models": {
+        "analytical": {
+          "chosen_measured_latency_us_median": 8.826750097796321,
+          "chosen_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 8.826750097796321,
+          "oracle_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "prediction_name": "analytical",
+          "regret_pct": 0.0,
+          "spearman_rho": 0.36764705882352944,
+          "top1_hit": true,
+          "within_1pct": true,
+          "within_5pct": true
+        },
+        "learned": {
+          "chosen_measured_latency_us_median": 8.826750097796321,
+          "chosen_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 8.826750097796321,
+          "oracle_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "prediction_name": "learned",
+          "regret_pct": 0.0,
+          "spearman_rho": 0.7323529411764705,
+          "top1_hit": true,
+          "within_1pct": true,
+          "within_5pct": true
+        },
+        "trivial_baseline": {
+          "mean_latency": {
+            "chosen_measured_latency_us_median": 8.826750097796321,
+            "chosen_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 8.826750097796321,
+            "oracle_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "prediction_name": "mean_latency",
+            "regret_pct": 0.0,
+            "spearman_rho": 0.5147058823529411,
+            "top1_hit": true,
+            "within_1pct": true,
+            "within_5pct": true
+          },
+          "random_schedule": {
+            "chosen_measured_latency_us_median": 11.509499978274107,
+            "chosen_schedule": {
+              "threads_per_block": 64,
+              "unroll_factor": 2
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 8.826750097796321,
+            "oracle_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "prediction_name": "random_schedule",
+            "regret_pct": 30.393404715825806,
+            "spearman_rho": 0.32941176470588235,
+            "top1_hit": false,
+            "within_1pct": false,
+            "within_5pct": false
+          }
+        }
+      },
+      "n_schedules": 16,
+      "n_test_rows": 64,
+      "n_train_rows": 3008
+    },
+    {
+      "fold_index": 14,
+      "held_out_shape": {
+        "in_features": 128,
+        "out_features": 256
+      },
+      "models": {
+        "analytical": {
+          "chosen_measured_latency_us_median": 8.998499950394034,
+          "chosen_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 8.582999929785728,
+          "oracle_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 4
+          },
+          "prediction_name": "analytical",
+          "regret_pct": 4.840964977366355,
+          "spearman_rho": 0.85,
+          "top1_hit": false,
+          "within_1pct": false,
+          "within_5pct": true
+        },
+        "learned": {
+          "chosen_measured_latency_us_median": 8.998499950394034,
+          "chosen_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 8.582999929785728,
+          "oracle_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 4
+          },
+          "prediction_name": "learned",
+          "regret_pct": 4.840964977366355,
+          "spearman_rho": 0.9058823529411765,
+          "top1_hit": false,
+          "within_1pct": false,
+          "within_5pct": true
+        },
+        "trivial_baseline": {
+          "mean_latency": {
+            "chosen_measured_latency_us_median": 8.998499950394034,
+            "chosen_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 8.582999929785728,
+            "oracle_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 4
+            },
+            "prediction_name": "mean_latency",
+            "regret_pct": 4.840964977366355,
+            "spearman_rho": 0.85,
+            "top1_hit": false,
+            "within_1pct": false,
+            "within_5pct": true
+          },
+          "random_schedule": {
+            "chosen_measured_latency_us_median": 11.69075001962483,
+            "chosen_schedule": {
+              "threads_per_block": 64,
+              "unroll_factor": 1
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 8.582999929785728,
+            "oracle_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 4
+            },
+            "prediction_name": "random_schedule",
+            "regret_pct": 36.20820360319733,
+            "spearman_rho": 0.31470588235294117,
+            "top1_hit": false,
+            "within_1pct": false,
+            "within_5pct": false
+          }
+        }
+      },
+      "n_schedules": 16,
+      "n_test_rows": 64,
+      "n_train_rows": 3008
+    },
+    {
+      "fold_index": 15,
+      "held_out_shape": {
+        "in_features": 128,
+        "out_features": 512
+      },
+      "models": {
+        "analytical": {
+          "chosen_measured_latency_us_median": 8.778250077739358,
+          "chosen_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 8.57175001874566,
+          "oracle_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 4
+          },
+          "prediction_name": "analytical",
+          "regret_pct": 2.409077009269983,
+          "spearman_rho": 0.85,
+          "top1_hit": false,
+          "within_1pct": false,
+          "within_5pct": true
+        },
+        "learned": {
+          "chosen_measured_latency_us_median": 8.778250077739358,
+          "chosen_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 8.57175001874566,
+          "oracle_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 4
+          },
+          "prediction_name": "learned",
+          "regret_pct": 2.409077009269983,
+          "spearman_rho": 0.8764705882352941,
+          "top1_hit": false,
+          "within_1pct": false,
+          "within_5pct": true
+        },
+        "trivial_baseline": {
+          "mean_latency": {
+            "chosen_measured_latency_us_median": 8.778250077739358,
+            "chosen_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 8.57175001874566,
+            "oracle_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 4
+            },
+            "prediction_name": "mean_latency",
+            "regret_pct": 2.409077009269983,
+            "spearman_rho": 0.85,
+            "top1_hit": false,
+            "within_1pct": false,
+            "within_5pct": true
+          },
+          "random_schedule": {
+            "chosen_measured_latency_us_median": 18.19524960592389,
+            "chosen_schedule": {
+              "threads_per_block": 256,
+              "unroll_factor": 2
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 8.57175001874566,
+            "oracle_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 4
+            },
+            "prediction_name": "random_schedule",
+            "regret_pct": 112.26995148169846,
+            "spearman_rho": -0.35294117647058826,
+            "top1_hit": false,
+            "within_1pct": false,
+            "within_5pct": false
+          }
+        }
+      },
+      "n_schedules": 16,
+      "n_test_rows": 64,
+      "n_train_rows": 3008
+    },
+    {
+      "fold_index": 16,
+      "held_out_shape": {
+        "in_features": 256,
+        "out_features": 16
+      },
+      "models": {
+        "analytical": {
+          "chosen_measured_latency_us_median": 8.96025006659329,
+          "chosen_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 8.711999980732799,
+          "oracle_schedule": {
+            "threads_per_block": 128,
+            "unroll_factor": 1
+          },
+          "prediction_name": "analytical",
+          "regret_pct": 2.8495188981808237,
+          "spearman_rho": 0.20588235294117646,
+          "top1_hit": false,
+          "within_1pct": false,
+          "within_5pct": true
+        },
+        "learned": {
+          "chosen_measured_latency_us_median": 8.96025006659329,
+          "chosen_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 8.711999980732799,
+          "oracle_schedule": {
+            "threads_per_block": 128,
+            "unroll_factor": 1
+          },
+          "prediction_name": "learned",
+          "regret_pct": 2.8495188981808237,
+          "spearman_rho": 0.2411764705882353,
+          "top1_hit": false,
+          "within_1pct": false,
+          "within_5pct": true
+        },
+        "trivial_baseline": {
+          "mean_latency": {
+            "chosen_measured_latency_us_median": 8.96025006659329,
+            "chosen_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 8.711999980732799,
+            "oracle_schedule": {
+              "threads_per_block": 128,
+              "unroll_factor": 1
+            },
+            "prediction_name": "mean_latency",
+            "regret_pct": 2.8495188981808237,
+            "spearman_rho": 0.08823529411764706,
+            "top1_hit": false,
+            "within_1pct": false,
+            "within_5pct": true
+          },
+          "random_schedule": {
+            "chosen_measured_latency_us_median": 8.881250163540244,
+            "chosen_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 4
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 8.711999980732799,
+            "oracle_schedule": {
+              "threads_per_block": 128,
+              "unroll_factor": 1
+            },
+            "prediction_name": "random_schedule",
+            "regret_pct": 1.9427247839962605,
+            "spearman_rho": 0.10588235294117647,
+            "top1_hit": false,
+            "within_1pct": false,
+            "within_5pct": true
+          }
+        }
+      },
+      "n_schedules": 16,
+      "n_test_rows": 160,
+      "n_train_rows": 2912
+    },
+    {
+      "fold_index": 17,
+      "held_out_shape": {
+        "in_features": 256,
+        "out_features": 64
+      },
+      "models": {
+        "analytical": {
+          "chosen_measured_latency_us_median": 11.732999933883548,
+          "chosen_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 11.18899998255074,
+          "oracle_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 2
+          },
+          "prediction_name": "analytical",
+          "regret_pct": 4.861917527760981,
+          "spearman_rho": 0.611764705882353,
+          "top1_hit": false,
+          "within_1pct": false,
+          "within_5pct": true
+        },
+        "learned": {
+          "chosen_measured_latency_us_median": 11.732999933883548,
+          "chosen_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 11.18899998255074,
+          "oracle_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 2
+          },
+          "prediction_name": "learned",
+          "regret_pct": 4.861917527760981,
+          "spearman_rho": 0.8764705882352941,
+          "top1_hit": false,
+          "within_1pct": false,
+          "within_5pct": true
+        },
+        "trivial_baseline": {
+          "mean_latency": {
+            "chosen_measured_latency_us_median": 11.732999933883548,
+            "chosen_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 11.18899998255074,
+            "oracle_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 2
+            },
+            "prediction_name": "mean_latency",
+            "regret_pct": 4.861917527760981,
+            "spearman_rho": 0.611764705882353,
+            "top1_hit": false,
+            "within_1pct": false,
+            "within_5pct": true
+          },
+          "random_schedule": {
+            "chosen_measured_latency_us_median": 12.19799998216331,
+            "chosen_schedule": {
+              "threads_per_block": 256,
+              "unroll_factor": 4
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 11.18899998255074,
+            "oracle_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 2
+            },
+            "prediction_name": "random_schedule",
+            "regret_pct": 9.017785335473292,
+            "spearman_rho": 0.21470588235294116,
+            "top1_hit": false,
+            "within_1pct": false,
+            "within_5pct": false
+          }
+        }
+      },
+      "n_schedules": 16,
+      "n_test_rows": 160,
+      "n_train_rows": 2912
+    },
+    {
+      "fold_index": 18,
+      "held_out_shape": {
+        "in_features": 256,
+        "out_features": 256
+      },
+      "models": {
+        "analytical": {
+          "chosen_measured_latency_us_median": 11.31899980828166,
+          "chosen_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 11.032000184059143,
+          "oracle_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 2
+          },
+          "prediction_name": "analytical",
+          "regret_pct": 2.601519392985703,
+          "spearman_rho": 0.9411764705882353,
+          "top1_hit": false,
+          "within_1pct": false,
+          "within_5pct": true
+        },
+        "learned": {
+          "chosen_measured_latency_us_median": 11.31899980828166,
+          "chosen_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 11.032000184059143,
+          "oracle_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 2
+          },
+          "prediction_name": "learned",
+          "regret_pct": 2.601519392985703,
+          "spearman_rho": 0.95,
+          "top1_hit": false,
+          "within_1pct": false,
+          "within_5pct": true
+        },
+        "trivial_baseline": {
+          "mean_latency": {
+            "chosen_measured_latency_us_median": 11.31899980828166,
+            "chosen_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 11.032000184059143,
+            "oracle_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 2
+            },
+            "prediction_name": "mean_latency",
+            "regret_pct": 2.601519392985703,
+            "spearman_rho": 0.9411764705882353,
+            "top1_hit": false,
+            "within_1pct": false,
+            "within_5pct": true
+          },
+          "random_schedule": {
+            "chosen_measured_latency_us_median": 13.425499899312854,
+            "chosen_schedule": {
+              "threads_per_block": 64,
+              "unroll_factor": 2
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 11.032000184059143,
+            "oracle_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 2
+            },
+            "prediction_name": "random_schedule",
+            "regret_pct": 21.695972401380438,
+            "spearman_rho": 0.43823529411764706,
+            "top1_hit": false,
+            "within_1pct": false,
+            "within_5pct": false
+          }
+        }
+      },
+      "n_schedules": 16,
+      "n_test_rows": 160,
+      "n_train_rows": 2912
+    },
+    {
+      "fold_index": 19,
+      "held_out_shape": {
+        "in_features": 256,
+        "out_features": 512
+      },
+      "models": {
+        "analytical": {
+          "chosen_measured_latency_us_median": 11.808749986812472,
+          "chosen_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 11.253999779000878,
+          "oracle_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 8
+          },
+          "prediction_name": "analytical",
+          "regret_pct": 4.929360393686131,
+          "spearman_rho": 0.9470588235294117,
+          "top1_hit": false,
+          "within_1pct": false,
+          "within_5pct": true
+        },
+        "learned": {
+          "chosen_measured_latency_us_median": 11.808749986812472,
+          "chosen_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 11.253999779000878,
+          "oracle_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 8
+          },
+          "prediction_name": "learned",
+          "regret_pct": 4.929360393686131,
+          "spearman_rho": 0.9411764705882353,
+          "top1_hit": false,
+          "within_1pct": false,
+          "within_5pct": true
+        },
+        "trivial_baseline": {
+          "mean_latency": {
+            "chosen_measured_latency_us_median": 11.808749986812472,
+            "chosen_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 11.253999779000878,
+            "oracle_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 8
+            },
+            "prediction_name": "mean_latency",
+            "regret_pct": 4.929360393686131,
+            "spearman_rho": 0.9470588235294117,
+            "top1_hit": false,
+            "within_1pct": false,
+            "within_5pct": true
+          },
+          "random_schedule": {
+            "chosen_measured_latency_us_median": 12.303750030696392,
+            "chosen_schedule": {
+              "threads_per_block": 64,
+              "unroll_factor": 4
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 11.253999779000878,
+            "oracle_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 8
+            },
+            "prediction_name": "random_schedule",
+            "regret_pct": 9.327796981605324,
+            "spearman_rho": -0.6147058823529412,
+            "top1_hit": false,
+            "within_1pct": false,
+            "within_5pct": false
+          }
+        }
+      },
+      "n_schedules": 16,
+      "n_test_rows": 160,
+      "n_train_rows": 2912
+    },
+    {
+      "fold_index": 20,
+      "held_out_shape": {
+        "in_features": 512,
+        "out_features": 16
+      },
+      "models": {
+        "analytical": {
+          "chosen_measured_latency_us_median": 11.31574995815754,
+          "chosen_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 10.826250305399299,
+          "oracle_schedule": {
+            "threads_per_block": 128,
+            "unroll_factor": 1
+          },
+          "prediction_name": "analytical",
+          "regret_pct": 4.521414515181826,
+          "spearman_rho": 0.3235294117647059,
+          "top1_hit": false,
+          "within_1pct": false,
+          "within_5pct": true
+        },
+        "learned": {
+          "chosen_measured_latency_us_median": 11.241999920457602,
+          "chosen_schedule": {
+            "threads_per_block": 256,
+            "unroll_factor": 1
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 10.826250305399299,
+          "oracle_schedule": {
+            "threads_per_block": 128,
+            "unroll_factor": 1
+          },
+          "prediction_name": "learned",
+          "regret_pct": 3.840199545829446,
+          "spearman_rho": 0.6705882352941176,
+          "top1_hit": false,
+          "within_1pct": false,
+          "within_5pct": true
+        },
+        "trivial_baseline": {
+          "mean_latency": {
+            "chosen_measured_latency_us_median": 11.31574995815754,
+            "chosen_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 10.826250305399299,
+            "oracle_schedule": {
+              "threads_per_block": 128,
+              "unroll_factor": 1
+            },
+            "prediction_name": "mean_latency",
+            "regret_pct": 4.521414515181826,
+            "spearman_rho": 0.058823529411764705,
+            "top1_hit": false,
+            "within_1pct": false,
+            "within_5pct": true
+          },
+          "random_schedule": {
+            "chosen_measured_latency_us_median": 13.491499936208129,
+            "chosen_schedule": {
+              "threads_per_block": 64,
+              "unroll_factor": 2
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 10.826250305399299,
+            "oracle_schedule": {
+              "threads_per_block": 128,
+              "unroll_factor": 1
+            },
+            "prediction_name": "random_schedule",
+            "regret_pct": 24.61840023668776,
+            "spearman_rho": -0.27941176470588236,
+            "top1_hit": false,
+            "within_1pct": false,
+            "within_5pct": false
+          }
+        }
+      },
+      "n_schedules": 16,
+      "n_test_rows": 160,
+      "n_train_rows": 2912
+    },
+    {
+      "fold_index": 21,
+      "held_out_shape": {
+        "in_features": 512,
+        "out_features": 64
+      },
+      "models": {
+        "analytical": {
+          "chosen_measured_latency_us_median": 17.5887499935925,
+          "chosen_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 17.5887499935925,
+          "oracle_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "prediction_name": "analytical",
+          "regret_pct": 0.0,
+          "spearman_rho": 0.6470588235294118,
+          "top1_hit": true,
+          "within_1pct": true,
+          "within_5pct": true
+        },
+        "learned": {
+          "chosen_measured_latency_us_median": 17.5887499935925,
+          "chosen_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 17.5887499935925,
+          "oracle_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "prediction_name": "learned",
+          "regret_pct": 0.0,
+          "spearman_rho": 0.888235294117647,
+          "top1_hit": true,
+          "within_1pct": true,
+          "within_5pct": true
+        },
+        "trivial_baseline": {
+          "mean_latency": {
+            "chosen_measured_latency_us_median": 17.5887499935925,
+            "chosen_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 17.5887499935925,
+            "oracle_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "prediction_name": "mean_latency",
+            "regret_pct": 0.0,
+            "spearman_rho": 0.6470588235294118,
+            "top1_hit": true,
+            "within_1pct": true,
+            "within_5pct": true
+          },
+          "random_schedule": {
+            "chosen_measured_latency_us_median": 20.692750345915556,
+            "chosen_schedule": {
+              "threads_per_block": 64,
+              "unroll_factor": 4
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 17.5887499935925,
+            "oracle_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "prediction_name": "random_schedule",
+            "regret_pct": 17.647646100227863,
+            "spearman_rho": -0.08235294117647059,
+            "top1_hit": false,
+            "within_1pct": false,
+            "within_5pct": false
+          }
+        }
+      },
+      "n_schedules": 16,
+      "n_test_rows": 160,
+      "n_train_rows": 2912
+    },
+    {
+      "fold_index": 22,
+      "held_out_shape": {
+        "in_features": 512,
+        "out_features": 256
+      },
+      "models": {
+        "analytical": {
+          "chosen_measured_latency_us_median": 17.89875002577901,
+          "chosen_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 17.89875002577901,
+          "oracle_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "prediction_name": "analytical",
+          "regret_pct": 0.0,
+          "spearman_rho": 0.9764705882352941,
+          "top1_hit": true,
+          "within_1pct": true,
+          "within_5pct": true
+        },
+        "learned": {
+          "chosen_measured_latency_us_median": 17.89875002577901,
+          "chosen_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 17.89875002577901,
+          "oracle_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "prediction_name": "learned",
+          "regret_pct": 0.0,
+          "spearman_rho": 0.9558823529411765,
+          "top1_hit": true,
+          "within_1pct": true,
+          "within_5pct": true
+        },
+        "trivial_baseline": {
+          "mean_latency": {
+            "chosen_measured_latency_us_median": 17.89875002577901,
+            "chosen_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 17.89875002577901,
+            "oracle_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "prediction_name": "mean_latency",
+            "regret_pct": 0.0,
+            "spearman_rho": 0.9764705882352941,
+            "top1_hit": true,
+            "within_1pct": true,
+            "within_5pct": true
+          },
+          "random_schedule": {
+            "chosen_measured_latency_us_median": 48.3582504093647,
+            "chosen_schedule": {
+              "threads_per_block": 128,
+              "unroll_factor": 4
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 17.89875002577901,
+            "oracle_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "prediction_name": "random_schedule",
+            "regret_pct": 170.17669021420954,
+            "spearman_rho": 0.15,
+            "top1_hit": false,
+            "within_1pct": false,
+            "within_5pct": false
+          }
+        }
+      },
+      "n_schedules": 16,
+      "n_test_rows": 160,
+      "n_train_rows": 2912
+    },
+    {
+      "fold_index": 23,
+      "held_out_shape": {
+        "in_features": 512,
+        "out_features": 512
+      },
+      "models": {
+        "analytical": {
+          "chosen_measured_latency_us_median": 18.02299963310361,
+          "chosen_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 18.02299963310361,
+          "oracle_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "prediction_name": "analytical",
+          "regret_pct": 0.0,
+          "spearman_rho": 0.9558823529411765,
+          "top1_hit": true,
+          "within_1pct": true,
+          "within_5pct": true
+        },
+        "learned": {
+          "chosen_measured_latency_us_median": 18.02299963310361,
+          "chosen_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "n_schedules": 16,
+          "oracle_measured_latency_us_median": 18.02299963310361,
+          "oracle_schedule": {
+            "threads_per_block": 32,
+            "unroll_factor": 1
+          },
+          "prediction_name": "learned",
+          "regret_pct": 0.0,
+          "spearman_rho": 0.9470588235294117,
+          "top1_hit": true,
+          "within_1pct": true,
+          "within_5pct": true
+        },
+        "trivial_baseline": {
+          "mean_latency": {
+            "chosen_measured_latency_us_median": 18.02299963310361,
+            "chosen_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 18.02299963310361,
+            "oracle_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "prediction_name": "mean_latency",
+            "regret_pct": 0.0,
+            "spearman_rho": 0.9558823529411765,
+            "top1_hit": true,
+            "within_1pct": true,
+            "within_5pct": true
+          },
+          "random_schedule": {
+            "chosen_measured_latency_us_median": 18.02299963310361,
+            "chosen_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "n_schedules": 16,
+            "oracle_measured_latency_us_median": 18.02299963310361,
+            "oracle_schedule": {
+              "threads_per_block": 32,
+              "unroll_factor": 1
+            },
+            "prediction_name": "random_schedule",
+            "regret_pct": 0.0,
+            "spearman_rho": 0.01764705882352941,
+            "top1_hit": true,
+            "within_1pct": true,
+            "within_5pct": true
+          }
+        }
+      },
+      "n_schedules": 16,
+      "n_test_rows": 160,
+      "n_train_rows": 2912
+    }
+  ],
+  "source_calibration_json": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\reports\\cost_model_calibration.json",
+  "source_calibration_timestamp_utc": "2026-05-24T04:52:20.912612+00:00",
+  "summary": {
+    "analytical": {
+      "fold_count": 24,
+      "max_regret_pct": 8.038716857071023,
+      "mean_regret_pct": 2.5560239547837607,
+      "mean_spearman_rho": 0.4337009803921568,
+      "median_regret_pct": 2.505298201127843,
+      "p95_regret_pct": 7.047999820976736,
+      "top1_accuracy": 0.2916666666666667,
+      "within_1pct_fraction": 0.4166666666666667,
+      "within_5pct_fraction": 0.875
+    },
+    "comparison": {
+      "mean_regret_pp": 0.22150414355426928,
+      "mean_spearman_rho_pp": 0.1064950980392157,
+      "top1_accuracy_pp": -8.333333333333334,
+      "winner_by_top1": "analytical",
+      "winner_by_within_1pct": "analytical",
+      "within_1pct_pp": -12.5,
+      "within_5pct_pp": 4.1666666666666625
+    },
+    "learned": {
+      "fold_count": 24,
+      "max_regret_pct": 10.117299267521004,
+      "mean_regret_pct": 2.77752809833803,
+      "mean_spearman_rho": 0.5401960784313725,
+      "median_regret_pct": 2.725519145583263,
+      "p95_regret_pct": 5.423903266447585,
+      "top1_accuracy": 0.20833333333333334,
+      "within_1pct_fraction": 0.2916666666666667,
+      "within_5pct_fraction": 0.9166666666666666
+    },
+    "trivial_baseline": {
+      "mean_latency": {
+        "fold_count": 24,
+        "max_regret_pct": 8.038716857071023,
+        "mean_regret_pct": 2.450920195664319,
+        "mean_spearman_rho": 0.4185049019607843,
+        "median_regret_pct": 1.8535998980212782,
+        "p95_regret_pct": 7.047999820976736,
+        "top1_accuracy": 0.3333333333333333,
+        "within_1pct_fraction": 0.4583333333333333,
+        "within_5pct_fraction": 0.8333333333333334
+      },
+      "random_schedule": {
+        "fold_count": 24,
+        "max_regret_pct": 170.17669021420954,
+        "mean_regret_pct": 21.105437531178527,
+        "mean_spearman_rho": 0.030024509803921563,
+        "median_regret_pct": 8.41437534295391,
+        "p95_regret_pct": 100.86068929992312,
+        "top1_accuracy": 0.041666666666666664,
+        "within_1pct_fraction": 0.08333333333333333,
+        "within_5pct_fraction": 0.3333333333333333
+      }
+    }
+  },
+  "version": 1
+}

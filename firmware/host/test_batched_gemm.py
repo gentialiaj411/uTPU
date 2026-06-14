@@ -22,6 +22,7 @@ from run_batched_gemm_correctness import (
 
 
 ARTIFACT_PATH = Path(__file__).resolve().parents[2] / "bench" / "results" / "batched_gemm_correctness.json"
+LEGACY_B1_FIXTURE = Path(__file__).resolve().parent / "fixtures" / "b1_legacy_program_bytes.json"
 
 
 def _gen(out_features: int, in_features: int, batch_size: int):
@@ -66,10 +67,10 @@ def test_batched_gemm_matches_numpy_oracle_shape_batch_sweep():
         assert sim.total_macs == ARRAY_SIZE * ARRAY_SIZE * batch_size * lowered["in_blocks"] * lowered["out_blocks"]
 
 
-def test_batched_gemm_b1_program_is_byte_identical():
+def test_batched_gemm_b1_vector_and_singleton_matrix_emit_identical_programs():
     out_features, in_features = 32, 16
     weights, activations = _gen(out_features, in_features, 1)
-    legacy = lower_blocked_fc_program_utpu(
+    vector = lower_blocked_fc_program_utpu(
         weights,
         activations[0],
         out_features,
@@ -95,7 +96,31 @@ def test_batched_gemm_b1_program_is_byte_identical():
         LEGACY_RESULT_ADDR,
         cfg=DEFAULT_CFG,
     )
-    assert legacy["program"] == singleton_batch["program"]
+    assert vector["program"] == singleton_batch["program"]
+
+
+def test_batched_gemm_b1_program_matches_pre_batching_legacy_bytes():
+    fixture = json.loads(LEGACY_B1_FIXTURE.read_text(encoding="utf-8"))
+    for case in fixture["cases"]:
+        out_features = int(case["out_features"])
+        in_features = int(case["in_features"])
+        weights, activations = _gen(out_features, in_features, 1)
+        lowered = lower_blocked_fc_program_utpu(
+            weights,
+            activations[0],
+            out_features,
+            in_features,
+            ARRAY_SIZE,
+            False,
+            True,
+            LEGACY_WEIGHT_ADDR,
+            LEGACY_INPUT_ADDR,
+            LEGACY_RESULT_ADDR,
+            cfg=DEFAULT_CFG,
+        )
+        golden = bytes(case["program_bytes"])
+        assert lowered["program"] == golden
+        assert int(case["program_instruction_words"]) == lowered["program_instruction_words"]
 
 
 def test_batched_gemm_is_deterministic():

@@ -70,16 +70,17 @@ class FloatMLP(nn.Module):
 @dataclass(frozen=True)
 class DeploymentLayer:
     weight_q: np.ndarray
-    weight_scale: float
-    output_scale: float
+    weight_scale: float | np.ndarray
+    output_scale: float | np.ndarray
     requant: RequantParams
 
 
 @dataclass(frozen=True)
 class DeploymentModel:
+    quant_mode: str
     bits: int
     input_scale: float
-    logits_scale: float
+    logits_scale: float | np.ndarray
     fc1: DeploymentLayer
     fc2: DeploymentLayer
 
@@ -130,7 +131,39 @@ def _collect_float_activations(model: FloatMLP, xs: np.ndarray) -> Tuple[np.ndar
     return hidden, logits
 
 
-def _build_deployment_model(model: FloatMLP, xcal: np.ndarray, *, bits: int) -> DeploymentModel:
+def _scale_to_jsonable(scale: float | np.ndarray) -> float | List[float]:
+    if np.isscalar(scale):
+        return float(scale)
+    return [float(v) for v in np.asarray(scale, dtype=np.float32).tolist()]
+
+
+def _requant_from_ratio(scale_ratio: float | np.ndarray) -> RequantParams:
+    ratio = np.asarray(scale_ratio, dtype=np.float64)
+    if ratio.ndim == 0:
+        multiplier, right_shift = choose_multiplier_and_shift(float(ratio))
+        return RequantParams(multiplier=int(multiplier), right_shift=int(right_shift), enable=True)
+    multipliers: List[int] = []
+    right_shifts: List[int] = []
+    for value in ratio.tolist():
+        multiplier, right_shift = choose_multiplier_and_shift(float(value))
+        multipliers.append(int(multiplier))
+        right_shifts.append(int(right_shift))
+    return RequantParams(
+        multiplier=1,
+        right_shift=0,
+        enable=True,
+        per_channel_multipliers=tuple(multipliers),
+        per_channel_right_shifts=tuple(right_shifts),
+    )
+
+
+def _build_deployment_model(
+    model: FloatMLP,
+    xcal: np.ndarray,
+    *,
+    bits: int,
+    quant_mode: str,
+) -> DeploymentModel:
     qmax = (1 << (bits - 1)) - 1
     xflat = xcal.reshape(xcal.shape[0], -1)
     hidden_float, logits_float = _collect_float_activations(model, xcal)
@@ -138,32 +171,47 @@ def _build_deployment_model(model: FloatMLP, xcal: np.ndarray, *, bits: int) -> 
     w2 = model.fc2.weight.detach().cpu().numpy().astype(np.float32)
 
     input_scale = symmetric_scale(xflat, qmax=qmax)
-    w1_scale = symmetric_scale(w1, qmax=qmax)
-    hidden_scale = symmetric_scale(hidden_float, qmax=qmax)
-    w2_scale = symmetric_scale(w2, qmax=qmax)
-    logits_scale = symmetric_scale(logits_float, qmax=qmax)
-
-    w1_q = quantize_symmetric(w1, bits=bits, scale=w1_scale)
-    w2_q = quantize_symmetric(w2, bits=bits, scale=w2_scale)
-
-    m1, s1 = choose_multiplier_and_shift((input_scale * w1_scale) / hidden_scale)
-    m2, s2 = choose_multiplier_and_shift((hidden_scale * w2_scale) / logits_scale)
+    if quant_mode == "per_channel":
+        w1_scale = symmetric_scale(w1, qmax=qmax, axis=0)
+        hidden_scale = symmetric_scale(hidden_float, qmax=qmax)
+        w2_scale = symmetric_scale(w2, qmax=qmax, axis=0)
+        logits_scale = symmetric_scale(logits_float, qmax=qmax)
+        w1_q = quantize_symmetric(w1, bits=bits, scale=np.asarray(w1_scale, dtype=np.float32)[:, None])
+        w2_q = quantize_symmetric(w2, bits=bits, scale=np.asarray(w2_scale, dtype=np.float32)[:, None])
+    elif quant_mode == "per_layer":
+        w1_scale = symmetric_scale(w1, qmax=qmax)
+        hidden_scale = symmetric_scale(hidden_float, qmax=qmax)
+        w2_scale = symmetric_scale(w2, qmax=qmax)
+        logits_scale = symmetric_scale(logits_float, qmax=qmax)
+        w1_q = quantize_symmetric(w1, bits=bits, scale=w1_scale)
+        w2_q = quantize_symmetric(w2, bits=bits, scale=w2_scale)
+    else:
+        raise ValueError(f"unsupported quant_mode: {quant_mode}")
 
     return DeploymentModel(
+        quant_mode=str(quant_mode),
         bits=int(bits),
         input_scale=float(input_scale),
-        logits_scale=float(logits_scale),
+        logits_scale=logits_scale,
         fc1=DeploymentLayer(
             weight_q=w1_q.astype(np.int16),
-            weight_scale=float(w1_scale),
-            output_scale=float(hidden_scale),
-            requant=RequantParams(multiplier=int(m1), right_shift=int(s1), enable=True),
+            weight_scale=w1_scale,
+            output_scale=hidden_scale,
+            requant=_requant_from_ratio(
+                np.asarray(input_scale, dtype=np.float64)
+                * np.asarray(w1_scale, dtype=np.float64)
+                / np.asarray(hidden_scale, dtype=np.float64)
+            ),
         ),
         fc2=DeploymentLayer(
             weight_q=w2_q.astype(np.int16),
-            weight_scale=float(w2_scale),
-            output_scale=float(logits_scale),
-            requant=RequantParams(multiplier=int(m2), right_shift=int(s2), enable=True),
+            weight_scale=w2_scale,
+            output_scale=logits_scale,
+            requant=_requant_from_ratio(
+                np.asarray(hidden_scale, dtype=np.float64)
+                * np.asarray(w2_scale, dtype=np.float64)
+                / np.asarray(logits_scale, dtype=np.float64)
+            ),
         ),
     )
 
@@ -186,19 +234,37 @@ def _deployment_reference(
     fc1_acc = inputs_q.astype(np.int32) @ deploy.fc1.weight_q.astype(np.int32).T
     fc1_q = requantize_array(
         fc1_acc,
-        multiplier=deploy.fc1.requant.multiplier,
-        right_shift=deploy.fc1.requant.right_shift,
+        multiplier=(
+            deploy.fc1.requant.per_channel_multipliers
+            if deploy.fc1.requant.is_per_channel
+            else deploy.fc1.requant.multiplier
+        ),
+        right_shift=(
+            deploy.fc1.requant.per_channel_right_shifts
+            if deploy.fc1.requant.is_per_channel
+            else deploy.fc1.requant.right_shift
+        ),
         out_width=deploy.bits,
         dtype=out_dtype,
+        axis=1,
     )
     fc1_q = _apply_leaky_relu_int(fc1_q).astype(out_dtype)
     fc2_acc = fc1_q.astype(np.int32) @ deploy.fc2.weight_q.astype(np.int32).T
     logits_q = requantize_array(
         fc2_acc,
-        multiplier=deploy.fc2.requant.multiplier,
-        right_shift=deploy.fc2.requant.right_shift,
+        multiplier=(
+            deploy.fc2.requant.per_channel_multipliers
+            if deploy.fc2.requant.is_per_channel
+            else deploy.fc2.requant.multiplier
+        ),
+        right_shift=(
+            deploy.fc2.requant.per_channel_right_shifts
+            if deploy.fc2.requant.is_per_channel
+            else deploy.fc2.requant.right_shift
+        ),
         out_width=deploy.bits,
         dtype=out_dtype,
+        axis=1,
     )
     return fc1_q.astype(out_dtype), logits_q.astype(out_dtype)
 
@@ -457,42 +523,48 @@ def build_artifact(output_json: Path = OUTPUT_JSON) -> Dict[str, Any]:
     float_model = _train_float_model(xtr, ytr)
     float_acc = _float_accuracy(float_model, xte, yte)
 
-    deploy_int8 = _build_deployment_model(float_model, xtr, bits=8)
-    deploy_int4 = _build_deployment_model(float_model, xtr, bits=4)
+    deploy_int8_per_layer = _build_deployment_model(float_model, xtr, bits=8, quant_mode="per_layer")
+    deploy_int8_per_channel = _build_deployment_model(float_model, xtr, bits=8, quant_mode="per_channel")
+    deploy_int4_per_layer = _build_deployment_model(float_model, xtr, bits=4, quant_mode="per_layer")
+    deploy_int4_per_channel = _build_deployment_model(float_model, xtr, bits=4, quant_mode="per_channel")
 
-    int8_inputs = _quantize_inputs(xte, bits=8, scale=deploy_int8.input_scale)
-    _int8_hidden, int8_logits = _deployment_reference(int8_inputs, deploy_int8)
-    deployed_int8_acc = _accuracy_from_logits(int8_logits, yte)
+    int8_inputs = _quantize_inputs(xte, bits=8, scale=deploy_int8_per_layer.input_scale)
+    _int8_hidden_layer, int8_logits_layer = _deployment_reference(int8_inputs, deploy_int8_per_layer)
+    _int8_hidden_channel, int8_logits_channel = _deployment_reference(int8_inputs, deploy_int8_per_channel)
+    deployed_int8_acc_layer = _accuracy_from_logits(int8_logits_layer, yte)
+    deployed_int8_acc_channel = _accuracy_from_logits(int8_logits_channel, yte)
 
-    int4_inputs = _quantize_inputs(xte, bits=4, scale=deploy_int4.input_scale)
-    _int4_hidden, int4_logits = _deployment_reference(int4_inputs, deploy_int4)
-    deployed_int4_acc = _accuracy_from_logits(int4_logits, yte)
+    int4_inputs = _quantize_inputs(xte, bits=4, scale=deploy_int4_per_layer.input_scale)
+    _int4_hidden_layer, int4_logits_layer = _deployment_reference(int4_inputs, deploy_int4_per_layer)
+    _int4_hidden_channel, int4_logits_channel = _deployment_reference(int4_inputs, deploy_int4_per_channel)
+    deployed_int4_acc_layer = _accuracy_from_logits(int4_logits_layer, yte)
+    deployed_int4_acc_channel = _accuracy_from_logits(int4_logits_channel, yte)
 
     eval_images, eval_labels = _sample_inputs_by_label(xte, yte, ACCELERATOR_EVAL_SAMPLES)
-    eval_inputs_q = _quantize_inputs(eval_images, bits=8, scale=deploy_int8.input_scale)
-    hidden_ref, logits_ref = _deployment_reference(eval_inputs_q, deploy_int8)
+    eval_inputs_q = _quantize_inputs(eval_images, bits=8, scale=deploy_int8_per_channel.input_scale)
+    hidden_ref, logits_ref = _deployment_reference(eval_inputs_q, deploy_int8_per_channel)
 
     layer1_result = _run_layer_program(
         layer_tag="real_model_accel_fc1_int8",
-        weights_q=deploy_int8.fc1.weight_q,
+        weights_q=deploy_int8_per_channel.fc1.weight_q,
         inputs_q=eval_inputs_q,
         out_features=HIDDEN_DIM,
         in_features=196,
         apply_relu=True,
         cfg=INT8_CFG,
         accumulator_data_width=32,
-        requant_params=deploy_int8.fc1.requant,
+        requant_params=deploy_int8_per_channel.fc1.requant,
     )
     layer2_result = _run_layer_program(
         layer_tag="real_model_accel_fc2_int8",
-        weights_q=deploy_int8.fc2.weight_q,
+        weights_q=deploy_int8_per_channel.fc2.weight_q,
         inputs_q=layer1_result["decoded_outputs"],
         out_features=10,
         in_features=HIDDEN_DIM,
         apply_relu=False,
         cfg=INT8_CFG,
         accumulator_data_width=32,
-        requant_params=deploy_int8.fc2.requant,
+        requant_params=deploy_int8_per_channel.fc2.requant,
     )
 
     rtl_available = bool(_resolve_iverilog_tools()[0] and _resolve_iverilog_tools()[1])
@@ -533,13 +605,24 @@ def build_artifact(output_json: Path = OUTPUT_JSON) -> Dict[str, Any]:
         },
         "accuracy_sweep": {
             "float_accuracy": float_acc,
-            "int8_accuracy": deployed_int8_acc,
-            "int4_accuracy": deployed_int4_acc,
+            "int8_accuracy": deployed_int8_acc_channel,
+            "int4_accuracy": deployed_int4_acc_channel,
             "scope_note": (
                 "These accuracies come from the deployed integer contract end to end: int matmul accumulate, "
-                "per-layer requant multiply in finalize, arithmetic right shift truncation, saturation to the compute "
-                "width, then optional leaky-ReLU."
+                "requant multiply in finalize, arithmetic right shift truncation, saturation to the compute width, "
+                "then optional leaky-ReLU."
             ),
+        },
+        "accuracy_comparison": {
+            "float_accuracy": float_acc,
+            "int8": {
+                "per_layer_accuracy": deployed_int8_acc_layer,
+                "per_channel_accuracy": deployed_int8_acc_channel,
+            },
+            "int4": {
+                "per_layer_accuracy": deployed_int4_acc_layer,
+                "per_channel_accuracy": deployed_int4_acc_channel,
+            },
         },
         "quantization_contract": {
             "rounding_mode": ROUNDING_MODE,
@@ -549,22 +632,44 @@ def build_artifact(output_json: Path = OUTPUT_JSON) -> Dict[str, Any]:
                 "RTL quantizer.sv, then optional leaky-ReLU before the next layer consumes the outputs."
             ),
             "int8": {
-                "input_scale": deploy_int8.input_scale,
-                "fc1_weight_scale": deploy_int8.fc1.weight_scale,
-                "fc1_output_scale": deploy_int8.fc1.output_scale,
-                "fc1_requant": deploy_int8.fc1.requant.as_dict(),
-                "fc2_weight_scale": deploy_int8.fc2.weight_scale,
-                "fc2_output_scale": deploy_int8.fc2.output_scale,
-                "fc2_requant": deploy_int8.fc2.requant.as_dict(),
+                "per_layer": {
+                    "input_scale": deploy_int8_per_layer.input_scale,
+                    "fc1_weight_scale": _scale_to_jsonable(deploy_int8_per_layer.fc1.weight_scale),
+                    "fc1_output_scale": _scale_to_jsonable(deploy_int8_per_layer.fc1.output_scale),
+                    "fc1_requant": deploy_int8_per_layer.fc1.requant.as_dict(),
+                    "fc2_weight_scale": _scale_to_jsonable(deploy_int8_per_layer.fc2.weight_scale),
+                    "fc2_output_scale": _scale_to_jsonable(deploy_int8_per_layer.fc2.output_scale),
+                    "fc2_requant": deploy_int8_per_layer.fc2.requant.as_dict(),
+                },
+                "per_channel": {
+                    "input_scale": deploy_int8_per_channel.input_scale,
+                    "fc1_weight_scale": _scale_to_jsonable(deploy_int8_per_channel.fc1.weight_scale),
+                    "fc1_output_scale": _scale_to_jsonable(deploy_int8_per_channel.fc1.output_scale),
+                    "fc1_requant": deploy_int8_per_channel.fc1.requant.as_dict(),
+                    "fc2_weight_scale": _scale_to_jsonable(deploy_int8_per_channel.fc2.weight_scale),
+                    "fc2_output_scale": _scale_to_jsonable(deploy_int8_per_channel.fc2.output_scale),
+                    "fc2_requant": deploy_int8_per_channel.fc2.requant.as_dict(),
+                },
             },
             "int4": {
-                "input_scale": deploy_int4.input_scale,
-                "fc1_weight_scale": deploy_int4.fc1.weight_scale,
-                "fc1_output_scale": deploy_int4.fc1.output_scale,
-                "fc1_requant": deploy_int4.fc1.requant.as_dict(),
-                "fc2_weight_scale": deploy_int4.fc2.weight_scale,
-                "fc2_output_scale": deploy_int4.fc2.output_scale,
-                "fc2_requant": deploy_int4.fc2.requant.as_dict(),
+                "per_layer": {
+                    "input_scale": deploy_int4_per_layer.input_scale,
+                    "fc1_weight_scale": _scale_to_jsonable(deploy_int4_per_layer.fc1.weight_scale),
+                    "fc1_output_scale": _scale_to_jsonable(deploy_int4_per_layer.fc1.output_scale),
+                    "fc1_requant": deploy_int4_per_layer.fc1.requant.as_dict(),
+                    "fc2_weight_scale": _scale_to_jsonable(deploy_int4_per_layer.fc2.weight_scale),
+                    "fc2_output_scale": _scale_to_jsonable(deploy_int4_per_layer.fc2.output_scale),
+                    "fc2_requant": deploy_int4_per_layer.fc2.requant.as_dict(),
+                },
+                "per_channel": {
+                    "input_scale": deploy_int4_per_channel.input_scale,
+                    "fc1_weight_scale": _scale_to_jsonable(deploy_int4_per_channel.fc1.weight_scale),
+                    "fc1_output_scale": _scale_to_jsonable(deploy_int4_per_channel.fc1.output_scale),
+                    "fc1_requant": deploy_int4_per_channel.fc1.requant.as_dict(),
+                    "fc2_weight_scale": _scale_to_jsonable(deploy_int4_per_channel.fc2.weight_scale),
+                    "fc2_output_scale": _scale_to_jsonable(deploy_int4_per_channel.fc2.output_scale),
+                    "fc2_requant": deploy_int4_per_channel.fc2.requant.as_dict(),
+                },
             },
         },
         "accelerator_validation": {
@@ -591,7 +696,7 @@ def build_artifact(output_json: Path = OUTPUT_JSON) -> Dict[str, Any]:
         ),
         "known_limitations": [
             "Simulation only. P0 board execution remains open.",
-            "INT4 remains lower-accuracy than INT8 under the same per-layer symmetric contract.",
+            "INT4 remains lower-accuracy than INT8 under both per-layer and per-channel symmetric contracts.",
             "Layer-level utilization remains control-bound for large multi-tile layers because the remaining load-to-array gaps are still serialized.",
         ],
     }
@@ -610,6 +715,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 "float_accuracy": artifact["accuracy_sweep"]["float_accuracy"],
                 "int8_accuracy": artifact["accuracy_sweep"]["int8_accuracy"],
                 "int4_accuracy": artifact["accuracy_sweep"]["int4_accuracy"],
+                "int8_per_layer_accuracy": artifact["accuracy_comparison"]["int8"]["per_layer_accuracy"],
+                "int8_per_channel_accuracy": artifact["accuracy_comparison"]["int8"]["per_channel_accuracy"],
+                "int4_per_layer_accuracy": artifact["accuracy_comparison"]["int4"]["per_layer_accuracy"],
+                "int4_per_channel_accuracy": artifact["accuracy_comparison"]["int4"]["per_channel_accuracy"],
                 "bit_exact_vs_reference": artifact["accelerator_validation"]["bit_exact_vs_reference"],
                 "selected_board": artifact["board_fit"]["selected_board"],
                 "rounding_mode": artifact["quantization_contract"]["rounding_mode"],

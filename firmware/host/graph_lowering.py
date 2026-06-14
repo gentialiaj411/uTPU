@@ -5,7 +5,7 @@ import copy
 import numpy as np
 
 from graph_ir import GraphIR, OpKind, OpNode
-from lowering_types import BlockedFCLoweringRequest
+from lowering_types import BatchedMatmulLoweringRequest, BlockedFCLoweringRequest, Conv2DIm2ColLoweringRequest
 
 
 @dataclass
@@ -13,7 +13,7 @@ class PlannedOp:
     graph_op: str
     op: str
     status: str
-    request: Optional[BlockedFCLoweringRequest] = None
+    request: Optional[Any] = None
     fused_activation: Optional[str] = None
     notes: List[str] = field(default_factory=list)
 
@@ -118,6 +118,7 @@ def plan_blocked_fc_graph(
     array_size: int = 16,
     apply_quant: bool = True,
     activation_values: Optional[Dict[str, Any]] = None,
+    target_backend: str = "cuda",
     weight_addr: int = 0x080,
     input_addr: int = 0x000,
     result_addr: int = 0x100,
@@ -179,6 +180,88 @@ def plan_blocked_fc_graph(
                 consumed_as_fused_relu.add(relu.name)
             continue
 
+        if op.op == OpKind.CONV2D and str(target_backend).strip().lower() == "utpu":
+            input_name = op.inputs[0]
+            if activation_values is None or input_name not in activation_values:
+                plan.fallback_ops.append(
+                    PlannedOp(
+                        graph_op=op.name,
+                        op=op.op,
+                        status="fallback",
+                        notes=["conv2d lowering requires bound example activations for the current compiler path"],
+                    )
+                )
+                continue
+            plan.lowered_ops.append(
+                PlannedOp(
+                    graph_op=op.name,
+                    op=op.op,
+                    status="lowered",
+                    request=Conv2DIm2ColLoweringRequest(
+                        input_nchw=np.asarray(activation_values[input_name], dtype=np.float32),
+                        weight_oihw=np.asarray(op.attrs["weight"], dtype=np.float32),
+                        bias=None if op.attrs.get("bias") is None else np.asarray(op.attrs["bias"], dtype=np.float32),
+                        stride=op.attrs.get("stride", 1),
+                        padding=op.attrs.get("padding", 0),
+                        dilation=op.attrs.get("dilation", 1),
+                        groups=int(op.attrs.get("groups", 1)),
+                        array_size=int(array_size),
+                    ),
+                    notes=[
+                        "conv2d lowered through im2col into the batched blocked-FC GEMM datapath",
+                        "current conv2d lowering is scoped to bias-free integer simulation cases",
+                    ],
+                )
+            )
+            continue
+
+        if op.op == OpKind.BATCHED_MATMUL and str(target_backend).strip().lower() == "utpu":
+            lhs_name, rhs_name = op.inputs[0], op.inputs[1]
+            if activation_values is None or lhs_name not in activation_values or rhs_name not in activation_values:
+                plan.fallback_ops.append(
+                    PlannedOp(
+                        graph_op=op.name,
+                        op=op.op,
+                        status="fallback",
+                        notes=["batched_matmul lowering requires bound example tensors for both dynamic operands"],
+                    )
+                )
+                continue
+            lhs = np.asarray(activation_values[lhs_name], dtype=np.float32)
+            rhs = np.asarray(activation_values[rhs_name], dtype=np.float32)
+            if lhs.ndim < 2 or rhs.ndim < 2 or lhs.shape[:-2] != rhs.shape[:-2] or lhs.shape[-1] != rhs.shape[-2]:
+                plan.unsupported_ops.append(
+                    PlannedOp(
+                        graph_op=op.name,
+                        op=op.op,
+                        status="unsupported",
+                        notes=[f"incompatible batched_matmul shapes lhs={lhs.shape} rhs={rhs.shape}"],
+                    )
+                )
+                continue
+            plan.lowered_ops.append(
+                PlannedOp(
+                    graph_op=op.name,
+                    op=op.op,
+                    status="lowered",
+                    request=BatchedMatmulLoweringRequest(
+                        lhs_dynamic=np.clip(np.rint(lhs), -128, 127).astype(np.int8),
+                        rhs_dynamic=np.clip(np.rint(rhs), -128, 127).astype(np.int8),
+                        array_size=int(array_size),
+                        apply_relu=False,
+                        apply_quant=bool(apply_quant),
+                        weight_addr=int(weight_addr),
+                        input_addr=int(input_addr),
+                        result_addr=int(result_addr),
+                    ),
+                    notes=[
+                        "dynamic x dynamic batched_matmul lowered by reusing the streaming blocked-FC GEMM datapath",
+                        "rhs batch slice is transposed into the runtime-stationary matrix; lhs rows are streamed as the activation batch",
+                    ],
+                )
+            )
+            continue
+
         if op.op in {
             OpKind.RELU,
             OpKind.ADD,
@@ -190,7 +273,6 @@ def plan_blocked_fc_graph(
             OpKind.BATCHED_MATMUL,
             OpKind.SCALE,
             OpKind.SCALED_SOFTMAX,
-            OpKind.CONV2D,
             OpKind.MAX_POOL2D,
             OpKind.ADAPTIVE_AVG_POOL2D,
         }:

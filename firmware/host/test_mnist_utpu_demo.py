@@ -19,6 +19,11 @@ def test_mnist_utpu_demo_artifact_schema_and_floor():
         "dataset",
         "float_acc",
         "quant_acc",
+        "proxy_quant_acc",
+        "deployed_raw_integer_acc",
+        "reference_semantics",
+        "scope_note",
+        "accuracy_split",
         "board_config",
         "instruction_bram_words",
         "fits_instruction_bram",
@@ -36,10 +41,19 @@ def test_mnist_utpu_demo_artifact_schema_and_floor():
     assert isinstance(data["seed"], int)
 
     assert float(data["float_acc"]) >= 0.90
-    assert float(data["quant_acc"]) >= 0.90
+    assert float(data["proxy_quant_acc"]) >= 0.90
+    assert float(data["quant_acc"]) == pytest.approx(float(data["proxy_quant_acc"]))
+    assert float(data["deployed_raw_integer_acc"]) < 0.50
     assert data["bit_exact_vs_reference"] is True
     assert data["fits_instruction_bram"] is True
     assert data["rtl_sim_executed"] in {True, False}
+    assert data["reference_semantics"] == "raw_integer_reference_for_lowered_fused_mlp_program"
+    assert isinstance(data["scope_note"], str) and data["scope_note"]
+
+    accuracy_split = data["accuracy_split"]
+    assert float(accuracy_split["float_accuracy"]) == pytest.approx(float(data["float_acc"]))
+    assert float(accuracy_split["deployed_raw_integer_accuracy"]) == pytest.approx(float(data["deployed_raw_integer_acc"]))
+    assert float(accuracy_split["proxy_quant_accuracy"]) == pytest.approx(float(data["proxy_quant_acc"]))
 
     board = data["board_config"]
     assert isinstance(board, dict)
@@ -74,6 +88,8 @@ def test_mnist_utpu_demo_artifact_schema_and_floor():
         assert len(case["expected_fetch_bytes"]) == len(case["isa_fetch_bytes"])
         assert case["rtl_fetch_bytes"] == case["expected_fetch_bytes"]
         assert case["program_words"] <= data["instruction_bram_words"]
+        assert isinstance(case["proxy_pred"], int)
+        assert isinstance(case["deployed_pred"], int)
 
     q = data["quantization"]
     assert q["activation_mode"] == "per-sample symmetric int4"

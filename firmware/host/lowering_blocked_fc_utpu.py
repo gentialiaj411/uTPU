@@ -99,6 +99,13 @@ def lower_blocked_fc_program_utpu(
         raise ValueError(f"batch_size={batch_size} exceeds max supported batch size {MAX_BATCH_SIZE}")
     if batch_size > 1 and not cfg.extended_address:
         raise ValueError("batched blocked-FC lowering requires extended-address ISA encoding")
+    if requant_params is not None and requant_params.is_per_channel:
+        if not cfg.extended_address:
+            raise ValueError("per-channel requant lowering requires extended-address ISA encoding")
+        if requant_params.vector_length != out_features:
+            raise ValueError(
+                f"per-channel requant vector length mismatch: expected {out_features}, got {requant_params.vector_length}"
+            )
 
     out_blocks = schedule.out_blocks
     in_blocks = schedule.in_blocks
@@ -111,7 +118,7 @@ def lower_blocked_fc_program_utpu(
     x_pad[:, :in_features] = x_batch
 
     encoder = ISAEncoder(cfg=cfg)
-    if requant_params is not None:
+    if requant_params is not None and not requant_params.is_per_channel:
         encoder.requant_params(
             int(requant_params.multiplier),
             int(requant_params.right_shift),
@@ -207,6 +214,17 @@ def lower_blocked_fc_program_utpu(
                 batch_count=batch_size,
             )
             block_ops += 1
+
+        if requant_params is not None and requant_params.is_per_channel:
+            block_count = min(array_size, max(0, out_features - o0))
+            block_params = requant_params.block(o0, block_count, pad_to=array_size)
+            assert block_params.per_channel_multipliers is not None
+            assert block_params.per_channel_right_shifts is not None
+            encoder.requant_params(
+                block_params.per_channel_multipliers,
+                block_params.per_channel_right_shifts,
+                enable=bool(block_params.enable),
+            )
 
         encoder.run(
             out_base_addr,

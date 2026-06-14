@@ -118,6 +118,10 @@ module top #(
     // Quantizer
     logic signed [ACCUMULATOR_DATA_WIDTH-1:0] quantizer_in  [QUANTIZER_SIZE-1:0];
     logic signed [COMPUTE_DATA_WIDTH-1:0]     quantizer_out [QUANTIZER_SIZE-1:0];
+    logic [(QUANTIZER_SIZE*ACCUMULATOR_DATA_WIDTH)-1:0] quantizer_ins_flat;
+    logic [(QUANTIZER_SIZE*COMPUTE_DATA_WIDTH)-1:0] quantizer_out_flat;
+    logic [(QUANTIZER_SIZE*16)-1:0]           requant_multiplier_flat;
+    logic [(QUANTIZER_SIZE*16)-1:0]           requant_right_shift_flat;
 
     // ReLU
     logic signed [COMPUTE_DATA_WIDTH-1:0] relu_in  [RELU_SIZE-1:0];
@@ -250,11 +254,11 @@ module top #(
         .ACCUMULATOR_DATA_WIDTH(ACCUMULATOR_DATA_WIDTH),
         .COMPUTE_DATA_WIDTH(COMPUTE_DATA_WIDTH)
     ) u_quantizer_array (
-        .ins(quantizer_in),
+        .ins_flat(quantizer_ins_flat),
         .requant_enable(requant_finalize_enable),
-        .requant_multiplier(requant_multiplier_latched),
-        .requant_right_shift(requant_right_shift_latched),
-        .results(quantizer_out)
+        .requant_multiplier_flat(requant_multiplier_flat),
+        .requant_right_shift_flat(requant_right_shift_flat),
+        .results_flat(quantizer_out_flat)
     );
 
     leaky_relu_array #(
@@ -303,6 +307,19 @@ module top #(
         .rd_addr(bram_rd_addr),
         .rd_data(bram_rd_data)
     );
+
+    generate
+        for (genvar qi = 0; qi < QUANTIZER_SIZE; qi++) begin: quantizer_bus_map
+            localparam int QI_IN_LO = qi * ACCUMULATOR_DATA_WIDTH;
+            localparam int QI_OUT_LO = qi * COMPUTE_DATA_WIDTH;
+            localparam int QI_PARAM_LO = qi * 16;
+            localparam int QI_ROW = qi % ARRAY_SIZE;
+            assign quantizer_ins_flat[QI_IN_LO +: ACCUMULATOR_DATA_WIDTH] = quantizer_in[qi];
+            assign quantizer_out[qi] = quantizer_out_flat[QI_OUT_LO +: COMPUTE_DATA_WIDTH];
+            assign requant_multiplier_flat[QI_PARAM_LO +: 16] = requant_multiplier_latched[QI_ROW];
+            assign requant_right_shift_flat[QI_PARAM_LO +: 16] = requant_right_shift_latched[QI_ROW];
+        end
+    endgenerate
 
     // -----------------------------------------------------------------------
     // State encoding
@@ -370,8 +387,11 @@ module top #(
     logic [MAX_BATCH_COUNT_WIDTH-1:0] writeback_chunk_count;
     logic                             writeback_wait_clear;
     logic                        requant_enable_latched;
-    logic [15:0]                 requant_multiplier_latched;
-    logic [15:0]                 requant_right_shift_latched;
+    logic [15:0]                 requant_multiplier_latched [ARRAY_SIZE-1:0];
+    logic [15:0]                 requant_right_shift_latched [ARRAY_SIZE-1:0];
+    logic                        requant_vector_mode_latched;
+    logic [7:0]                  requant_vector_count_latched;
+    logic [7:0]                  requant_vector_index_latched;
     logic                        requant_finalize_enable;
     assign requant_finalize_enable = requant_enable_latched && !compute_en && quantizer_en;
     // Phase 4: latched opcode for routing the EXT_ADDR_LATCH_STATE -> target
@@ -412,29 +432,6 @@ module top #(
             apply_leaky_relu = x >>> ALPHA;
         else
             apply_leaky_relu = x;
-    endfunction
-
-    function automatic logic signed [COMPUTE_DATA_WIDTH-1:0] requantize_finalize_value(
-        input logic signed [ACCUMULATOR_DATA_WIDTH-1:0] acc,
-        input logic [15:0] multiplier,
-        input logic [15:0] right_shift
-    );
-        logic signed [ACCUMULATOR_DATA_WIDTH+16-1:0] product;
-        logic signed [ACCUMULATOR_DATA_WIDTH+16-1:0] shifted;
-        logic signed [ACCUMULATOR_DATA_WIDTH+16-1:0] hi;
-        logic signed [ACCUMULATOR_DATA_WIDTH+16-1:0] lo;
-        begin
-            product = $signed(acc) * $signed({1'b0, multiplier});
-            shifted = (right_shift != 16'd0) ? (product >>> right_shift) : product;
-            hi = ($signed(1) <<< (COMPUTE_DATA_WIDTH-1)) - 1;
-            lo = -($signed(1) <<< (COMPUTE_DATA_WIDTH-1));
-            if (shifted > hi)
-                requantize_finalize_value = hi[COMPUTE_DATA_WIDTH-1:0];
-            else if (shifted < lo)
-                requantize_finalize_value = lo[COMPUTE_DATA_WIDTH-1:0];
-            else
-                requantize_finalize_value = shifted[COMPUTE_DATA_WIDTH-1:0];
-        end
     endfunction
 
     task automatic prepare_writeback_chunk(input int chunk_idx);
@@ -695,7 +692,11 @@ module top #(
                 next_state = REQUANT_LATCH_STATE;
 
             REQUANT_LATCH_STATE:
-                next_state = FETCH_BRAM_STATE;
+                if (requant_vector_mode_latched &&
+                    ((requant_vector_index_latched + 1'b1) < requant_vector_count_latched))
+                    next_state = REQUANT_FETCH_MULT_STATE;
+                else
+                    next_state = FETCH_BRAM_STATE;
 
             // HALT: re-arm on 0xA3, otherwise stay
             HALT_STATE:
@@ -787,8 +788,13 @@ module top #(
                 residual_source_addr <= '0;
                 run_residual_addr_stage <= 1'b0;
                 requant_enable_latched <= 1'b0;
-                requant_multiplier_latched <= 16'd1;
-                requant_right_shift_latched <= 16'd0;
+                requant_vector_mode_latched <= 1'b0;
+                requant_vector_count_latched <= 8'd1;
+                requant_vector_index_latched <= 8'd0;
+                for (int ri = 0; ri < ARRAY_SIZE; ri++) begin
+                    requant_multiplier_latched[ri] <= 16'd1;
+                    requant_right_shift_latched[ri] <= 16'd0;
+                end
                 for (int ai = 0; ai < NUM_COMPUTE_LANES; ai++)
                     residual_in[ai] <= '0;
                 perf_snapshot    <= '0;
@@ -979,6 +985,19 @@ module top #(
                         if (!EXT_ADDR_EN)
                             address <= instruction[BUFFER_WORD_SIZE-1:BUFFER_WORD_SIZE-ADDRESS_SIZE];
                     end
+                    NOP: begin
+                        if (EXT_ADDR_EN && instruction[3]) begin
+                            requant_vector_mode_latched  <= instruction[5];
+                            requant_vector_count_latched <= instruction[5] ? (instruction[15:8] + 8'd1) : 8'd1;
+                            requant_vector_index_latched <= 8'd0;
+                            if (instruction[5]) begin
+                                for (int ri = 0; ri < ARRAY_SIZE; ri++) begin
+                                    requant_multiplier_latched[ri] <= 16'd1;
+                                    requant_right_shift_latched[ri] <= 16'd0;
+                                end
+                            end
+                        end
+                    end
                     default: ;
                 endcase
             end
@@ -1018,14 +1037,25 @@ module top #(
             end
 
             REQUANT_FETCH_SHIFT_STATE: begin
-                requant_multiplier_latched <= bram_rd_data;
+                if (requant_vector_mode_latched)
+                    requant_multiplier_latched[requant_vector_index_latched] <= bram_rd_data;
+                else begin
+                    for (int ri = 0; ri < ARRAY_SIZE; ri++)
+                        requant_multiplier_latched[ri] <= bram_rd_data;
+                end
                 bram_rd_addr <= pc[PC_WIDTH-1:0];
                 bram_rd_en   <= 1'b1;
                 pc           <= pc + 1'b1;
             end
 
             REQUANT_LATCH_STATE: begin
-                requant_right_shift_latched <= bram_rd_data;
+                if (requant_vector_mode_latched) begin
+                    requant_right_shift_latched[requant_vector_index_latched] <= bram_rd_data;
+                    requant_vector_index_latched <= requant_vector_index_latched + 1'b1;
+                end else begin
+                    for (int ri = 0; ri < ARRAY_SIZE; ri++)
+                        requant_right_shift_latched[ri] <= bram_rd_data;
+                end
                 requant_enable_latched <= instruction[4];
             end
 
@@ -1492,16 +1522,10 @@ module top #(
                 address           <= compute_result_addr + (writeback_chunk_index * STREAM_CHUNK_WORDS);
                 if (requant_finalize_enable && writeback_wait_clear) begin
                     for (int ai = 0; ai < NUM_COMPUTE_LANES; ai++) begin
-                        logic signed [COMPUTE_DATA_WIDTH-1:0] q;
-                        q = requantize_finalize_value(
-                            quantizer_in[ai],
-                            requant_multiplier_latched,
-                            requant_right_shift_latched
-                        );
                         if (relu_en)
-                            compute_to_buffer[ai] <= apply_leaky_relu(q);
+                            compute_to_buffer[ai] <= apply_leaky_relu(quantizer_out[ai]);
                         else
-                            compute_to_buffer[ai] <= q;
+                            compute_to_buffer[ai] <= quantizer_out[ai];
                     end
                 end
                 if (writeback_wait_clear) begin

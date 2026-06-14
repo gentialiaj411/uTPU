@@ -26,8 +26,14 @@ in-thread matmul with an epilogue):**
 **What v1 explicitly rejects (so the artifact / docs can never claim it):**
 
 - `LINEAR -> LINEAR` or `LINEAR -> LINEAR_RELU` (the multi-Linear trap):
-  `rejection_kind="global_sync_required"`. Future work (`single_cta_bounded`)
-  could handle this when the entire region fits in one CTA, but v1 does not.
+  `rejection_kind="global_sync_required"` **by default**. When the caller opts
+  in with `find_fusion_regions(..., allow_single_cta_multilayer=True)` AND the
+  entire intermediate activation provably fits one CTA's shared-memory budget,
+  the chain is instead fused as a `single_cta_bounded_multilayer` region (a
+  block-level `__syncthreads()` barrier replaces grid-wide sync). The flag is
+  **default-off**, so legacy callers are byte-identical and the global-sync
+  trap still fires for them. If the legality proof fails (hidden layer too
+  wide), the candidate is rejected with `rejection_kind="single_cta_exceeds_shared_mem"`.
 - Multi-consumer intermediate value: removing the intermediate from the
   materialized op stream would change semantics for the other consumer.
   `rejection_kind="multi_consumer"`.
@@ -64,6 +70,13 @@ _EPILOGUE_OPS: FrozenSet[str] = frozenset({OpKind.RELU, OpKind.ADD, OpKind.SCALE
 # would require global synchronization (they consume an entire intermediate
 # tensor across CTAs) — explicit trap list.
 _GLOBAL_SYNC_TRIGGERS: FrozenSet[str] = frozenset({OpKind.LINEAR, OpKind.LINEAR_RELU})
+
+# Default shared-memory budget (bytes) for the single-CTA legality proof.
+# 48 KiB is the dynamic shared memory guaranteed available per block on every
+# CUDA architecture since sm_20 without an opt-in carveout, so a 2-layer MLP
+# whose entire intermediate activation fits here can be computed by ONE thread
+# block using a `__syncthreads()` barrier instead of grid-wide synchronization.
+DEFAULT_SHARED_MEM_BUDGET_BYTES = 48 * 1024
 
 
 @dataclass(frozen=True)
@@ -347,7 +360,100 @@ def _try_grow_elementwise_chain(
     return chain, rejections
 
 
-def find_fusion_regions(graph: GraphIR) -> RegionAnalysis:
+def _hidden_dim_of(linear_op: OpNode) -> int:
+    """Intermediate width (output features) of a LINEAR / LINEAR_RELU op."""
+    return int(np.asarray(linear_op.attrs["weight"]).shape[0])
+
+
+def _try_form_single_cta_multilayer(
+    graph: GraphIR,
+    fc1: OpNode,
+    region_index: int,
+    shared_mem_budget_bytes: int,
+) -> Tuple[Optional[RegionPlan], Optional[RegionRejection]]:
+    """Attempt to fuse a 2-Linear MLP chain into ONE single-CTA kernel.
+
+    Accepted pattern (v1):
+        fc1(LINEAR|LINEAR_RELU) -> [optional RELU] -> fc2(LINEAR|LINEAR_RELU)
+    where the intermediate value is single-consumer and not a graph output.
+
+    Legality proof (the whole point): a single thread block can compute layer 1
+    into shared memory, `__syncthreads()`, then compute layer 2 — with NO
+    grid-wide synchronization — IFF the entire intermediate activation fits one
+    block's shared-memory budget. We prove `hidden_dim * 4 bytes <= budget`.
+
+    Returns:
+      - `(plan, None)`     when the region forms,
+      - `(None, rejection)` when the pattern matched but the legality proof failed,
+      - `(None, None)`     when the pattern did not match (caller falls back to
+                            the normal epilogue / global-sync-trap path).
+    """
+    out1 = fc1.outputs[0]
+    if _consumer_count(graph, out1) != 1 or _value_is_graph_output(graph, out1):
+        return None, None
+    nxt = _next_consumer_op(graph, out1)
+    if nxt is None:
+        return None, None
+
+    mid_ops: List[OpNode] = []
+    # Optional single RELU on the hidden activation.
+    if nxt.op == OpKind.RELU:
+        relu_out = nxt.outputs[0]
+        if _consumer_count(graph, relu_out) != 1 or _value_is_graph_output(graph, relu_out):
+            return None, None
+        mid_ops.append(nxt)
+        nxt = _next_consumer_op(graph, relu_out)
+        if nxt is None:
+            return None, None
+
+    # The next op must be the second matmul; otherwise this is not a 2-layer MLP
+    # and the normal path (epilogue growth / global-sync trap) should handle it.
+    if nxt.op not in (OpKind.LINEAR, OpKind.LINEAR_RELU):
+        return None, None
+    fc2 = nxt
+
+    region_ops = [fc1, *mid_ops, fc2]
+    hidden_dim = _hidden_dim_of(fc1)
+    intermediate_bytes = hidden_dim * 4  # float32 intermediate held in shared mem
+    if intermediate_bytes > shared_mem_budget_bytes:
+        return None, RegionRejection(
+            candidate_op_names=tuple(o.name for o in region_ops),
+            rejection_kind="single_cta_exceeds_shared_mem",
+            reason=(
+                f"2-layer MLP '{fc1.name}'->'{fc2.name}' cannot be single-CTA "
+                f"fused: hidden_dim={hidden_dim} needs {intermediate_bytes} B of "
+                f"shared memory for the intermediate activation, over the "
+                f"{shared_mem_budget_bytes} B budget. A wider hidden layer would "
+                "need grid-wide synchronization (cooperative-groups dispatch)."
+            ),
+        )
+
+    rid = f"region_{region_index}_{fc1.name}"
+    plan = RegionPlan(
+        region_id=rid,
+        region_kind="single_cta_bounded_multilayer",
+        op_names=tuple(o.name for o in region_ops),
+        root_op_name=fc1.name,
+        epilogue_op_names=tuple(o.name for o in mid_ops),
+        inputs_external=_external_inputs_for_region(graph, region_ops),
+        output=fc2.outputs[0],
+        rationale=(
+            f"2-layer MLP {[o.op for o in region_ops]} fused into ONE CUDA "
+            f"kernel under a single-CTA legality proof: the intermediate "
+            f"activation (hidden_dim={hidden_dim}, {intermediate_bytes} B) fits "
+            f"one block's {shared_mem_budget_bytes} B shared-memory budget, so a "
+            "block-level __syncthreads() barrier replaces grid-wide sync."
+        ),
+    )
+    return plan, None
+
+
+def find_fusion_regions(
+    graph: GraphIR,
+    *,
+    allow_single_cta_multilayer: bool = False,
+    shared_mem_budget_bytes: int = DEFAULT_SHARED_MEM_BUDGET_BYTES,
+) -> RegionAnalysis:
     """Greedy left-to-right region formation over the IR.
 
     Each op is visited once and either assigned to a region (and its
@@ -372,6 +478,23 @@ def find_fusion_regions(graph: GraphIR) -> RegionAnalysis:
             continue
 
         if op.op in _ROOT_OPS:
+            # Opt-in: try to fuse a whole 2-layer MLP into one single-CTA kernel
+            # before falling back to the (default) epilogue / global-sync path.
+            if allow_single_cta_multilayer:
+                ml_plan, ml_rej = _try_form_single_cta_multilayer(
+                    graph, op, region_counter, shared_mem_budget_bytes
+                )
+                if ml_plan is not None:
+                    regions.append(ml_plan)
+                    region_counter += 1
+                    consumed.update(ml_plan.op_names)
+                    continue
+                if ml_rej is not None:
+                    # Legality proof failed (hidden too wide). Record it, then
+                    # fall through: fc1 may still fuse a linear_with_epilogue
+                    # region (e.g. fc1+relu), leaving fc2 a singleton — the same
+                    # tail behavior as the default path.
+                    rejections.append(ml_rej)
             epilogue, root_rejections = _try_grow_epilogue_chain(graph, op)
             rejections.extend(root_rejections)
             region_ops = [op, *epilogue]

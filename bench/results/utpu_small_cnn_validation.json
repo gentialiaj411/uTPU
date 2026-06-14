@@ -1,0 +1,184 @@
+{
+  "generated_at_utc": "2026-06-13T19:42:37Z",
+  "model_name": "cifar10_32x32_fullres_small_allconv_int8",
+  "dataset": {
+    "name": "cifar10_native_32x32_local",
+    "source_dir": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\software\\data\\cifar-10-batches-py",
+    "train_size": 50000,
+    "test_size": 10000,
+    "input_shape": [
+      3,
+      32,
+      32
+    ],
+    "num_classes": 10
+  },
+  "architecture": {
+    "kind": "all_convolutional_plus_final_fc",
+    "layers": [
+      "conv3x3_s1_3to16 + leaky_relu(alpha=0.25)",
+      "conv3x3_s2_16to32 + leaky_relu(alpha=0.25)",
+      "conv3x3_s2_32to64 + leaky_relu(alpha=0.25)",
+      "conv3x3_s1_64to64 + leaky_relu(alpha=0.25)",
+      "flatten",
+      "fc_4096to10"
+    ],
+    "why": "stride-2 convs replace pooling so the graph stays on conv + blocked-FC datapaths only",
+    "input_preprocess": "CIFAR-10 kept at native 32x32 resolution before quantization"
+  },
+  "training": {
+    "seed": 42,
+    "epochs": 12,
+    "batch_size": 256,
+    "optimizer": "Adam(lr=0.002)"
+  },
+  "quantization_contract": {
+    "bits": 8,
+    "rounding_mode": "arithmetic_right_shift_truncation",
+    "symmetric_zero_point": 0,
+    "requant_multiply_location": "Each lowered conv/FC layer finalizes with int-accumulate -> int64 multiply -> arithmetic right shift -> saturate to INT8 in the simulator finalize path; the RTL mirrors that in quantizer.sv before optional leaky-ReLU and before the next layer consumes the result.",
+    "layers": {
+      "conv1": {
+        "weight_scale": 0.002376367257335993,
+        "output_scale": 0.008451142649012288,
+        "requant": {
+          "enable": true,
+          "multiplier": 18573,
+          "right_shift": 23,
+          "rounding_mode": "arithmetic_right_shift_truncation"
+        }
+      },
+      "conv2": {
+        "weight_scale": 0.004853284734440601,
+        "output_scale": 0.01722731552724763,
+        "requant": {
+          "enable": true,
+          "multiplier": 4993,
+          "right_shift": 21,
+          "rounding_mode": "arithmetic_right_shift_truncation"
+        }
+      },
+      "conv3": {
+        "weight_scale": 0.0047922308050741365,
+        "output_scale": 0.033807108721395175,
+        "requant": {
+          "enable": true,
+          "multiplier": 20485,
+          "right_shift": 23,
+          "rounding_mode": "arithmetic_right_shift_truncation"
+        }
+      },
+      "conv4": {
+        "weight_scale": 0.004497138534005233,
+        "output_scale": 0.045984880192073314,
+        "requant": {
+          "enable": true,
+          "multiplier": 55469,
+          "right_shift": 24,
+          "rounding_mode": "arithmetic_right_shift_truncation"
+        }
+      },
+      "fc": {
+        "weight_scale": 0.004358605606349435,
+        "output_scale": 0.20443491297444022,
+        "requant": {
+          "enable": true,
+          "multiplier": 32897,
+          "right_shift": 25,
+          "rounding_mode": "arithmetic_right_shift_truncation"
+        }
+      }
+    }
+  },
+  "accuracy": {
+    "float_accuracy": 0.7045,
+    "deployed_int8_accuracy_integer_oracle_full_test": 0.6911,
+    "validated_subset_size": 128,
+    "integer_oracle_accuracy_validated_subset": 0.6484375,
+    "cuda_integer_accuracy_validated_subset": 0.6484375,
+    "utpu_isa_accuracy_validated_subset": 0.6484375,
+    "scope_note": "Float accuracy is measured on the full 10k CIFAR-10 test split. Deployed INT8 accuracy is scored on the full 10k with the integer oracle implementing the same integer contract. The oracle is validated against CUDA and the cycle-accurate uTPU ISA simulator on the recorded subset only."
+  },
+  "correctness": {
+    "oracle_utpu_bit_exact_validated_subset": true,
+    "oracle_cuda_bit_exact_validated_subset": true,
+    "cuda_utpu_bit_exact_validated_subset": true,
+    "validated_subset_samples": 128,
+    "full_test_samples_accuracy_only": 10000
+  },
+  "backend_parity_validated_subset": {
+    "rtol": 0.0,
+    "atol": 0.0,
+    "all_within_tolerance": true,
+    "all_bit_exact": true,
+    "backends_compared": [
+      "integer_oracle",
+      "cuda",
+      "utpu"
+    ],
+    "backends_skipped": [],
+    "pairs": [
+      {
+        "backend_a": "integer_oracle",
+        "backend_b": "cuda",
+        "max_abs_error": 0.0,
+        "max_rel_error": 0.0,
+        "within_tolerance": true,
+        "bit_exact": true,
+        "shape_match": true
+      },
+      {
+        "backend_a": "integer_oracle",
+        "backend_b": "utpu",
+        "max_abs_error": 0.0,
+        "max_rel_error": 0.0,
+        "within_tolerance": true,
+        "bit_exact": true,
+        "shape_match": true
+      },
+      {
+        "backend_a": "cuda",
+        "backend_b": "utpu",
+        "max_abs_error": 0.0,
+        "max_rel_error": 0.0,
+        "within_tolerance": true,
+        "bit_exact": true,
+        "shape_match": true
+      }
+    ]
+  },
+  "rtl_bitmatch": {
+    "iverilog_available": true,
+    "layers": {
+      "conv1": {
+        "rtl_sim_executed": true,
+        "rtl_sim_passed": true,
+        "program_instruction_words": 5906,
+        "perf_cycle_counter": 56516,
+        "perf_busy_counter": 205,
+        "compute_busy_cycles": 205,
+        "compute_span_cycles": 5997
+      },
+      "conv4": {
+        "rtl_sim_executed": false,
+        "rtl_sim_passed": false,
+        "skip_reason": "program exceeds RTL budget (285548 words > 12000)",
+        "program_instruction_words": 285548
+      },
+      "fc": {
+        "rtl_sim_executed": false,
+        "rtl_sim_passed": false,
+        "skip_reason": "program exceeds RTL budget (106022 words > 12000)",
+        "program_instruction_words": 106022
+      }
+    },
+    "rtl_pass_count": 1,
+    "rtl_executed_count": 1
+  },
+  "mapping": {
+    "strategy": "im2col",
+    "where_mapping_happens": "firmware/host/utpu_conv2d_lowering.py::lower_conv2d_im2col_utpu",
+    "why": "im2col reuses the existing blocked-FC GEMM and finalize-requant path directly. The cost is activation materialization proportional to kernel_area * output_positions, which is acceptable for this bounded small-CNN simulation phase."
+  },
+  "honest_scope": "Lowered a full-resolution CIFAR-10 CNN to the accelerator's GEMM datapath. Full-10k deployed INT8 accuracy is scored on the integer oracle implementing the deployed contract, and that oracle is bit-exact to CUDA and the uTPU ISA simulator on the validated subset recorded in this artifact. RTL coverage remains representative-layer only. This is simulation only; no FPGA/silicon execution claim."
+}

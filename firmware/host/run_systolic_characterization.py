@@ -15,9 +15,10 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 OUTPUT_JSON = REPO_ROOT / "bench" / "results" / "systolic_characterization.json"
 SCHEMA_VERSION = 1
 
-# Single-tile streaming curve plus representative multi-tile control-bound
-# points. The 16x16 family is the flagship streaming result; larger shapes are
-# carried along to show the current top-level control limitation honestly.
+# Single-tile streaming curve plus multi-tile points. The 16x16 family remains
+# the flagship anchor. Larger shapes are reported with an opt-in hoisted-tile
+# payload path so compute-span duty-cycle can be compared honestly against the
+# serialized baseline that still refills buffer words between accumulate runs.
 CASES: Tuple[Tuple[int, int, int], ...] = (
     (16, 16, 1),
     (16, 16, 4),
@@ -25,9 +26,13 @@ CASES: Tuple[Tuple[int, int, int], ...] = (
     (16, 16, 32),
     (16, 16, 64),
     (32, 32, 1),
+    (32, 32, 4),
     (32, 32, 16),
+    (32, 32, 32),
     (64, 64, 1),
+    (64, 64, 4),
     (64, 64, 16),
+    (64, 64, 32),
 )
 
 
@@ -69,14 +74,18 @@ def _characterize_case(
     batch_size: int,
     *,
     run_rtl: bool,
+    hoist_tile_payloads: bool,
 ) -> Dict[str, Any]:
     stem = _case_stem(out_features, in_features, batch_size)
+    if hoist_tile_payloads:
+        stem = f"{stem}_hoisted"
     vectors = generate_vectors(
         out_features=out_features,
         in_features=in_features,
         batch_size=batch_size,
         stem=stem,
         output_json=os.path.join("build", "test_vectors", f"{stem}.json"),
+        hoist_tile_payloads=hoist_tile_payloads,
     )
     useful_macs = int(vectors["useful_macs"])
     pes = ARRAY_SIZE * ARRAY_SIZE
@@ -85,6 +94,9 @@ def _characterize_case(
         "rtl_busy_counter": None,
         "busy_fraction": None,
         "pe_occupancy": None,
+        "compute_busy_cycles": None,
+        "compute_span_cycles": None,
+        "compute_span_duty_cycle": None,
     }
     rtl_passed = None
     simulator_log_tail = None
@@ -94,6 +106,8 @@ def _characterize_case(
         simulator_log_tail = "\n".join((log or "").splitlines()[-12:])
         measured["rtl_cycle_counter"] = _parse_perf_counter(log, "PERF_CYCLE_COUNTER")
         measured["rtl_busy_counter"] = _parse_perf_counter(log, "PERF_BUSY_COUNTER")
+        measured["compute_busy_cycles"] = _parse_perf_counter(log, "COMPUTE_BUSY_CYCLES")
+        measured["compute_span_cycles"] = _parse_perf_counter(log, "COMPUTE_SPAN_CYCLES")
         if measured["rtl_cycle_counter"] and measured["rtl_busy_counter"]:
             measured["busy_fraction"] = (
                 float(measured["rtl_busy_counter"]) / float(measured["rtl_cycle_counter"])
@@ -101,6 +115,39 @@ def _characterize_case(
             measured["pe_occupancy"] = (
                 float(useful_macs) / float(pes * float(measured["rtl_busy_counter"]))
             )
+        if measured["compute_busy_cycles"] and measured["compute_span_cycles"]:
+            measured["compute_span_duty_cycle"] = (
+                float(measured["compute_busy_cycles"]) / float(measured["compute_span_cycles"])
+            )
+
+    serial_baseline = None
+    if run_rtl and hoist_tile_payloads:
+        baseline_stem = f"{_case_stem(out_features, in_features, batch_size)}_serial_baseline"
+        baseline_vectors = generate_vectors(
+            out_features=out_features,
+            in_features=in_features,
+            batch_size=batch_size,
+            stem=baseline_stem,
+            output_json=os.path.join("build", "test_vectors", f"{baseline_stem}.json"),
+            hoist_tile_payloads=False,
+        )
+        ok, log = _iverilog_run(str(REPO_ROOT))
+        serial_baseline = {
+            "hoist_tile_payloads": False,
+            "rtl_sim_passed": bool(ok),
+            "program_words": int(baseline_vectors["program_words"]),
+            "rtl_cycle_counter": _parse_perf_counter(log, "PERF_CYCLE_COUNTER"),
+            "rtl_busy_counter": _parse_perf_counter(log, "PERF_BUSY_COUNTER"),
+            "compute_busy_cycles": _parse_perf_counter(log, "COMPUTE_BUSY_CYCLES"),
+            "compute_span_cycles": _parse_perf_counter(log, "COMPUTE_SPAN_CYCLES"),
+        }
+        if serial_baseline["compute_busy_cycles"] and serial_baseline["compute_span_cycles"]:
+            serial_baseline["compute_span_duty_cycle"] = (
+                float(serial_baseline["compute_busy_cycles"])
+                / float(serial_baseline["compute_span_cycles"])
+            )
+        else:
+            serial_baseline["compute_span_duty_cycle"] = None
 
     return {
         "shape": {"out_features": out_features, "in_features": in_features},
@@ -112,16 +159,19 @@ def _characterize_case(
         "useful_macs": useful_macs,
         "fetch_bytes": len(vectors["expected_fetch_bytes"]),
         "rtl_sim_passed": rtl_passed,
+        "hoist_tile_payloads": bool(vectors.get("hoist_tile_payloads", False)),
         "measured": measured,
+        "serial_baseline": serial_baseline,
         "model": _compute_model(vectors),
         "control_flow": {
             "accumulate_runs_total": int(vectors["out_blocks"]) * int(vectors["in_blocks"]),
-            "compute_en_windows": int(vectors["out_blocks"]),
-            "accumulate_runs_per_compute_window": int(vectors["in_blocks"]),
+            "out_blocks": int(vectors["out_blocks"]),
+            "in_blocks": int(vectors["in_blocks"]),
             "note": (
-                "compute_en is asserted by the accumulate RUN decode and stays high until the finalize "
-                "RUN clears it; shapes with in_blocks > 1 therefore count multiple accumulate runs plus "
-                "their intervening load/fetch/decode steps inside each compute_en window."
+                "Single-tile 16x16 rows keep the legacy serialized payload path. Multi-tile rows may hoist "
+                "weight/input tile payloads into distinct buffer slots before the first compute window so the "
+                "compute-span duty metric can isolate inter-tile refill cost honestly without redefining the "
+                "full rtl_cycle_counter denominator."
             ),
         },
         "simulator_log_tail": simulator_log_tail,
@@ -144,6 +194,12 @@ def _shape_summary(shape_rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
             "rtl_busy_counter": row["measured"]["rtl_busy_counter"],
             "pe_occupancy": row["measured"]["pe_occupancy"],
             "busy_fraction": row["measured"]["busy_fraction"],
+            "compute_span_duty_cycle": row["measured"]["compute_span_duty_cycle"],
+            "serial_baseline_compute_span_duty_cycle": (
+                row["serial_baseline"]["compute_span_duty_cycle"]
+                if row.get("serial_baseline") is not None
+                else None
+            ),
             "streaming_ceiling": (
                 float(row["batch_size"]) / float((2 * ARRAY_SIZE) + int(row["batch_size"]))
                 if int(row["out_blocks"]) == 1 and int(row["in_blocks"]) == 1
@@ -197,12 +253,22 @@ def _shape_summary(shape_rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
         ),
         "b1_busy_fraction": first_frac,
         "max_b_busy_fraction": last_frac,
+        "b1_compute_span_duty_cycle": first["measured"]["compute_span_duty_cycle"],
+        "max_b_compute_span_duty_cycle": last["measured"]["compute_span_duty_cycle"],
+        "b1_serial_baseline_compute_span_duty_cycle": (
+            first["serial_baseline"]["compute_span_duty_cycle"]
+            if first.get("serial_baseline") is not None
+            else None
+        ),
+        "max_b_serial_baseline_compute_span_duty_cycle": (
+            last["serial_baseline"]["compute_span_duty_cycle"]
+            if last.get("serial_baseline") is not None
+            else None
+        ),
         "asymmetry_explanation": (
-            "This shape has in_blocks > 1, so each out-block keeps compute_en high across multiple "
-            "accumulate RUNs and the intervening weight/input reload + fetch/decode steps until the finalize RUN. "
-            "That inflates the B=1 busy baseline relative to the single-tile 16x16 case, so the B=1 -> B=16 "
-            "busy-cycle multiplier is expected to be much smaller than 16x even though the per-RUN batch subruns "
-            "do scale with B."
+            "This shape has multiple accumulate RUNs per full GEMM. The optimized rows therefore focus on "
+            "compute-span duty-cycle before/after hoisting tile payloads out of the inner loop, while the "
+            "rtl_cycle_counter still reports the full end-to-end serialized control cost honestly."
             if int(first["in_blocks"]) > 1
             else
             "This shape is a single blocked-FC tile (out_blocks=1, in_blocks=1), so B=1 contains one "
@@ -216,7 +282,13 @@ def build_artifact(*, skip_iverilog: bool = False) -> Dict[str, Any]:
     iv_bin, vv_bin = _resolve_iverilog_tools()
     rtl_available = bool((not skip_iverilog) and iv_bin and vv_bin)
     rows = [
-        _characterize_case(out_features, in_features, batch_size, run_rtl=rtl_available)
+        _characterize_case(
+            out_features,
+            in_features,
+            batch_size,
+            run_rtl=rtl_available,
+            hoist_tile_payloads=bool(out_features > ARRAY_SIZE or in_features > ARRAY_SIZE),
+        )
         for (out_features, in_features, batch_size) in CASES
     ]
 
@@ -239,10 +311,15 @@ def build_artifact(*, skip_iverilog: bool = False) -> Dict[str, Any]:
             "headline_metrics": {
                 "pe_occupancy": "useful_macs / (ARRAY_SIZE^2 * rtl_busy_counter)",
                 "busy_fraction": "rtl_busy_counter / rtl_cycle_counter",
+                "compute_span_duty_cycle": (
+                    "compute_busy_cycles / compute_span_cycles, where compute_span runs from the first "
+                    "accumulate RUN start to the last accumulate RUN done and therefore includes inter-tile "
+                    "LOAD/refill gaps but excludes UART upload/fetch traffic"
+                ),
             },
             "primary_source": (
-                "RTL perf counters from rtl/top/top.sv: perf_busy_counter increments on each cycle with compute_en=1; "
-                "perf_cycle_counter increments every cycle."
+                "RTL perf counters from rtl/top/top.sv: perf_busy_counter increments on each cycle with the "
+                "active accumulate/finalize busy window asserted; perf_cycle_counter increments every cycle."
             ),
             "secondary_model": (
                 "Zero-fit explanatory model only: per_tile_busy_cycles = 2*ARRAY_SIZE + B - 2. "
@@ -251,20 +328,21 @@ def build_artifact(*, skip_iverilog: bool = False) -> Dict[str, Any]:
             "counter_provenance": (
                 "For B>1, top.sv captures the real PE-array streaming accumulation under Icarus by sampling the "
                 "bottom-row PE accumulators during the live valid window, with a terminal sample on compute_done. "
-                "Additional busy cycles therefore come from genuine per-cycle PE-array/controller advancement under "
-                "asserted compute_en, not from a behavioral dot-product shortcut."
+                "Additional busy cycles therefore come from genuine per-cycle PE-array/controller advancement inside "
+                "the active accumulate/finalize window, not from a behavioral dot-product shortcut or a counter-only "
+                "annotation of inter-tile refill control."
             ),
         },
         "flagship_scope_note": (
-            "The single-tile 16x16 family is the flagship streaming result. Multi-tile 32x32 and 64x64 remain "
-            "control-bound by top-level blocked-FC orchestration and are reported as measured current behavior, "
-            "not as a fully streamed multi-tile efficiency claim."
+            "The single-tile 16x16 family remains the flagship streaming anchor. Multi-tile rows are scoped "
+            "more narrowly: they show that per-tile streaming generalizes across shapes, while compute-span "
+            "duty-cycle captures whether the array still idles across tile boundaries."
         ),
         "asymmetry_note": (
             "The 16x16 family is single-tile (out_blocks=1, in_blocks=1), so its B=1 busy baseline is one accumulate RUN "
-            "before finalize and the B sweep stays near-linear. The 32x32 and 64x64 families have in_blocks > 1, so B=1 already "
-            "counts multiple accumulate RUNs plus their intervening load/fetch/decode steps inside each compute_en window; their "
-            "busy-cycle growth is therefore expected to be materially smaller than the 16x16 multiplier."
+            "before finalize and the B sweep stays near-linear. The 32x32 and 64x64 families execute multiple accumulate RUNs per "
+            "full GEMM, so their honest end-to-end question is not just the busy window but the duty-cycle across the entire "
+            "compute span between the first and last accumulate tiles."
         ),
         "cases": rows,
         "shape_summaries": shape_summaries,
@@ -276,6 +354,19 @@ def build_artifact(*, skip_iverilog: bool = False) -> Dict[str, Any]:
                 and (summary["b1_pe_occupancy"] is not None)
                 and (float(summary["max_b_pe_occupancy"]) > float(summary["b1_pe_occupancy"]))
                 for summary in shape_summaries
+            ) if rtl_available else None,
+            "all_multitile_duty_cycles_improve_vs_serial": all(
+                (
+                    summary["max_b_serial_baseline_compute_span_duty_cycle"] is None
+                    or (
+                        summary["max_b_compute_span_duty_cycle"] is not None
+                        and summary["max_b_serial_baseline_compute_span_duty_cycle"] is not None
+                        and summary["max_b_compute_span_duty_cycle"]
+                        > summary["max_b_serial_baseline_compute_span_duty_cycle"]
+                    )
+                )
+                for summary in shape_summaries
+                if int(summary["out_blocks"]) > 1 or int(summary["in_blocks"]) > 1
             ) if rtl_available else None,
             "single_tile_streaming_curve": next(
                 (

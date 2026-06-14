@@ -18,7 +18,7 @@
     "platform": "Windows-10-10.0.26200-SP0",
     "python": "3.11.9"
   },
-  "generated_at": "2026-05-25T03:58:15Z",
+  "generated_at": "2026-06-13T03:50:45Z",
   "phase": "phase_3_tiling_controller",
   "scope": "Simulator-only correctness evidence. NumPy oracle vs ISA simulator execution of the tiled program. No RTL changes; no on-board claim.",
   "summary": {

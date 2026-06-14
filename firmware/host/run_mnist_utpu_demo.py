@@ -155,17 +155,39 @@ def _proxy_quant_accuracy(model: BiaslessLeakyMLP, xte: np.ndarray, yte: np.ndar
     return float(correct / len(yte))
 
 
-def _raw_integer_reference(
+def _deployed_raw_integer_logits(
     x: np.ndarray,
     q1: np.ndarray,
     q2: np.ndarray,
-) -> List[int]:
+) -> np.ndarray:
     xq, _ = _quantize_input_vector(x)
     h = xq @ q1.T
     h = _clip_int4(h)
     h = np.where(h < 0, (h >> 2), h)
     out = h @ q2.T
     out = _clip_int4(out)
+    return out.astype(np.int32)
+
+
+def _deployed_raw_integer_accuracy(model: BiaslessLeakyMLP, xte: np.ndarray, yte: np.ndarray) -> float:
+    w1 = model.fc1.weight.detach().cpu().numpy()
+    w2 = model.fc2.weight.detach().cpu().numpy()
+    q1, _ = _quantize_weights_per_row(w1)
+    q2, _ = _quantize_weights_per_row(w2)
+    correct = 0
+    for x, label in zip(xte, yte):
+        out = _deployed_raw_integer_logits(x, q1, q2)
+        pred = int(np.argmax(out))
+        correct += int(pred == int(label))
+    return float(correct / len(yte))
+
+
+def _raw_integer_reference(
+    x: np.ndarray,
+    q1: np.ndarray,
+    q2: np.ndarray,
+) -> List[int]:
+    out = _deployed_raw_integer_logits(x, q1, q2)
     return _pack_int4_words(out.tolist())
 
 
@@ -206,7 +228,15 @@ def _build_vectors(model: BiaslessLeakyMLP, xte: np.ndarray, yte: np.ndarray, bo
     vectors: List[Dict[str, Any]] = []
 
     for case_idx, case in enumerate(cases, start=1):
-        xq, _ = _quantize_input_vector(case["x"])
+        xq, xscale = _quantize_input_vector(case["x"])
+        proxy_hidden = (xq @ q1.T).astype(np.float32) * (float(xscale) * s1[None, :])
+        proxy_hidden = np.where(proxy_hidden < 0, proxy_hidden * ALPHA, proxy_hidden)
+        proxy_hscale = max(float(np.max(np.abs(proxy_hidden))) / 7.0, 1e-6)
+        proxy_hq = _clip_int4(proxy_hidden / proxy_hscale)
+        proxy_out = (proxy_hq @ q2.T).astype(np.float32) * (proxy_hscale * s2[None, :])
+        proxy_pred = int(np.argmax(proxy_out))
+        deployed_logits = _deployed_raw_integer_logits(case["x"], q1, q2)
+        deployed_pred = int(np.argmax(deployed_logits))
         program = lower_fused_mlp_program_utpu(
             fc1_weights_int4=q1,
             fc2_weights_int4=q2,
@@ -260,6 +290,12 @@ def _build_vectors(model: BiaslessLeakyMLP, xte: np.ndarray, yte: np.ndarray, bo
                 "fetch_n": len(expected_bytes),
                 "program": program_bytes,
                 "isa_fetch_bytes": isa_bytes,
+                "proxy_pred": proxy_pred,
+                "deployed_pred": deployed_pred,
+                "proxy_argmax_pred": proxy_pred,
+                "deployed_argmax_pred": deployed_pred,
+                "proxy_argmax_matches_label": bool(proxy_pred == int(case["label"])),
+                "deployed_argmax_matches_label": bool(deployed_pred == int(case["label"])),
             }
         )
 
@@ -359,7 +395,8 @@ def run_demo(output_json: str = REPORT_PATH) -> Dict[str, Any]:
     xtr, ytr, xte, yte = _load_and_downsample()
     model = _train_float_model(xtr, ytr, xte, yte)
     float_acc = float((model(torch.from_numpy(xte)).argmax(1).numpy() == yte).mean())
-    quant_acc = _proxy_quant_accuracy(model, xte, yte)
+    proxy_quant_acc = _proxy_quant_accuracy(model, xte, yte)
+    deployed_raw_integer_acc = _deployed_raw_integer_accuracy(model, xte, yte)
 
     board = None
     vectors = None
@@ -392,10 +429,22 @@ def run_demo(output_json: str = REPORT_PATH) -> Dict[str, Any]:
                 "expected_fetch_bytes": case["expected_fetch_bytes"],
                 "isa_fetch_bytes": case["isa_fetch_bytes"],
                 "rtl_fetch_bytes": rtl_bytes,
+                "proxy_pred": case["proxy_pred"],
+                "deployed_pred": case["deployed_pred"],
+                "proxy_argmax_pred": case["proxy_argmax_pred"],
+                "deployed_argmax_pred": case["deployed_argmax_pred"],
+                "proxy_argmax_matches_label": case["proxy_argmax_matches_label"],
+                "deployed_argmax_matches_label": case["deployed_argmax_matches_label"],
                 "bit_exact_vs_reference": case["expected_fetch_bytes"] == case["isa_fetch_bytes"],
                 "isa_rtl_bitmatch": bool(rtl_ok and rtl_bytes == case["expected_fetch_bytes"]),
             }
         )
+
+    scope_note = (
+        "deployed_raw_integer_acc is the only valid accelerator accuracy evidence for the current "
+        "no-scale blocked-FC datapath. proxy_quant_acc (legacy field quant_acc) applies per-layer "
+        "scales the hardware does not implement and must not be cited as deployed accelerator accuracy."
+    )
 
     report = {
         "generated_at_utc": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
@@ -410,7 +459,34 @@ def run_demo(output_json: str = REPORT_PATH) -> Dict[str, Any]:
             "output_dim": 10,
         },
         "float_acc": float_acc,
-        "quant_acc": quant_acc,
+        "quant_acc": proxy_quant_acc,
+        "proxy_quant_acc": proxy_quant_acc,
+        "deployed_raw_integer_acc": deployed_raw_integer_acc,
+        "reference_semantics": "raw_integer_reference_for_lowered_fused_mlp_program",
+        "scope_note": scope_note,
+        "accuracy_split": {
+            "scope_note": scope_note,
+            "float_accuracy": float_acc,
+            "deployed_raw_integer_accuracy": deployed_raw_integer_acc,
+            "proxy_quant_accuracy": proxy_quant_acc,
+        },
+        "accuracy_sweep": {
+            "scope_note": scope_note,
+            "float_accuracy": float_acc,
+            "deployed_raw_integer_accuracy": deployed_raw_integer_acc,
+            "proxy_quant_accuracy": proxy_quant_acc,
+        },
+        "quantization_investigation": {
+            "outcome": "deployment_mismatch_confirmed_no_requantization",
+            "proxy_quant_accuracy": proxy_quant_acc,
+            "deployed_raw_integer_accuracy": deployed_raw_integer_acc,
+            "showcase_case_argmax_proxy_matches_label": bool(all(case["proxy_pred"] == case["label"] for case in cases_report)),
+            "showcase_case_argmax_deployed_matches_label": bool(all(case["deployed_pred"] == case["label"] for case in cases_report)),
+            "scope_note": (
+                "The three showcased cases match proxy-scaled PyTorch argmax but not deployed raw-integer argmax. "
+                "Bit-exactness is raw-integer-reference -> ISA -> RTL only."
+            ),
+        },
         "board_config": vectors["board"],
         "instruction_bram_words": int(max(case["program_words"] for case in vectors["cases"])),
         "fits_instruction_bram": bool(board.fits(max(case["program_words"] for case in vectors["cases"]))),
@@ -443,6 +519,7 @@ def run_demo(output_json: str = REPORT_PATH) -> Dict[str, Any]:
         "",
         f"- float_acc: {report['float_acc']}",
         f"- quant_acc: {report['quant_acc']}",
+        f"- deployed_raw_integer_acc: {report['deployed_raw_integer_acc']}",
         f"- board_config: {report['board_config']['name']}",
         f"- instruction_bram_words: {report['instruction_bram_words']}",
         f"- fits_instruction_bram: {report['fits_instruction_bram']}",
@@ -464,6 +541,8 @@ def run_demo(output_json: str = REPORT_PATH) -> Dict[str, Any]:
     print(json.dumps({
         "output_json": output_json,
         "quant_acc": report["quant_acc"],
+        "proxy_quant_acc": report["proxy_quant_acc"],
+        "deployed_raw_integer_acc": report["deployed_raw_integer_acc"],
         "float_acc": report["float_acc"],
         "fits_instruction_bram": report["fits_instruction_bram"],
         "bit_exact_vs_reference": report["bit_exact_vs_reference"],

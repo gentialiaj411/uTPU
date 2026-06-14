@@ -30,7 +30,7 @@ def test_systolic_characterization_schema_and_reality_floors():
     assert data["status"] in {"ok", "iverilog_unavailable"}
     assert "methodology" in data
     assert "headline_metrics" in data["methodology"]
-    assert len(data["cases"]) == 9
+    assert len(data["cases"]) == 13
     assert len(data["shape_summaries"]) == 3
 
     if data["status"] == "iverilog_unavailable":
@@ -73,11 +73,25 @@ def test_systolic_characterization_schema_and_reality_floors():
     assert marginals[(16, 32)]["marginal_busy_cycles_per_added_batch"] <= 1.5
     assert marginals[(32, 64)]["marginal_busy_cycles_per_added_batch"] <= 1.5
 
-    # Single-tile shape scales much more aggressively than the control-bound
-    # multi-tile families.
+    # Multi-tile families remain control-sensitive in end-to-end terms.
+    # The honest improvement gate here is compute-span duty-cycle relative
+    # to the serialized baseline, not a headline occupancy number.
     assert summaries[(16, 16)]["busy_cycles_growth_vs_b1"] > 2.0
-    assert summaries[(32, 32)]["busy_cycles_growth_vs_b1"] > 1.0
-    assert summaries[(16, 16)]["pe_occupancy_growth_vs_b1"] > summaries[(32, 32)]["pe_occupancy_growth_vs_b1"]
+    for shape in ((32, 32), (64, 64)):
+        summary = summaries[shape]
+        curve = {point["batch_size"]: point for point in summary["batch_curve"]}
+        assert [point["batch_size"] for point in summary["batch_curve"]] == [1, 4, 16, 32]
+        assert curve[1]["serial_baseline_compute_span_duty_cycle"] is not None
+        assert curve[4]["serial_baseline_compute_span_duty_cycle"] is not None
+        assert curve[16]["serial_baseline_compute_span_duty_cycle"] is not None
+        assert curve[32]["serial_baseline_compute_span_duty_cycle"] is not None
+        assert curve[4]["compute_span_duty_cycle"] > curve[4]["serial_baseline_compute_span_duty_cycle"]
+        assert curve[16]["compute_span_duty_cycle"] > curve[16]["serial_baseline_compute_span_duty_cycle"]
+        assert curve[32]["compute_span_duty_cycle"] > curve[32]["serial_baseline_compute_span_duty_cycle"]
+        assert curve[4]["compute_span_duty_cycle"] > curve[1]["compute_span_duty_cycle"]
+        assert curve[16]["compute_span_duty_cycle"] > curve[1]["compute_span_duty_cycle"]
+        assert curve[32]["compute_span_duty_cycle"] > curve[1]["compute_span_duty_cycle"]
+        assert summary["max_b_compute_span_duty_cycle"] > summary["max_b_serial_baseline_compute_span_duty_cycle"]
 
 
 def test_systolic_characterization_deterministic_representative_case():
@@ -85,8 +99,8 @@ def test_systolic_characterization_deterministic_representative_case():
     if not iv_bin or not vv_bin:
         pytest.skip("RTL simulator unavailable on this host")
 
-    case1 = _characterize_case(32, 32, 16, run_rtl=True)
-    case2 = _characterize_case(32, 32, 16, run_rtl=True)
+    case1 = _characterize_case(32, 32, 16, run_rtl=True, hoist_tile_payloads=True)
+    case2 = _characterize_case(32, 32, 16, run_rtl=True, hoist_tile_payloads=True)
     assert case1["rtl_sim_passed"] is True
     assert case2["rtl_sim_passed"] is True
     assert case1["measured"]["rtl_cycle_counter"] == case2["measured"]["rtl_cycle_counter"]

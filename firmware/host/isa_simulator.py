@@ -244,8 +244,8 @@ class UTPUISASimulator:
         self._total_macs = 0
         self._loaded_input_batch_count = 1
         self._requant_enable = False
-        self._requant_multiplier = 1
-        self._requant_right_shift = 0
+        self._requant_multipliers = [1 for _ in range(self.array_size)]
+        self._requant_right_shifts = [0 for _ in range(self.array_size)]
 
     @property
     def buffer(self) -> List[int]:
@@ -396,10 +396,11 @@ class UTPUISASimulator:
                 combined = int(acc) + int(residual_values[i])
                 if quantize:
                     if self._requant_enable:
+                        multiplier, right_shift = self._requant_for_row(i)
                         q = requantize_value(
                             combined,
-                            multiplier=self._requant_multiplier,
-                            right_shift=self._requant_right_shift,
+                            multiplier=multiplier,
+                            right_shift=right_shift,
                             out_width=self.cfg.compute_data_width,
                         )
                     else:
@@ -417,10 +418,11 @@ class UTPUISASimulator:
                     combined = int(pe.acc_partial_matrix[row][col])
                     if quantize:
                         if self._requant_enable:
+                            multiplier, right_shift = self._requant_for_row(row)
                             q = requantize_value(
                                 combined,
-                                multiplier=self._requant_multiplier,
-                                right_shift=self._requant_right_shift,
+                                multiplier=multiplier,
+                                right_shift=right_shift,
                                 out_width=self.cfg.compute_data_width,
                             )
                         else:
@@ -451,6 +453,9 @@ class UTPUISASimulator:
     def _record_cycle(self, pe_id: int, cost: int = 1) -> None:
         self._cycle_count_sequential += int(cost)
         self._current_section[pe_id] = self._current_section.get(pe_id, 0) + int(cost)
+
+    def _requant_for_row(self, row: int) -> Tuple[int, int]:
+        return int(self._requant_multipliers[row]), int(self._requant_right_shifts[row])
 
     def _close_barrier_section(self, barrier_id: int) -> None:
         self._barrier_hits[barrier_id] = self._barrier_hits.get(barrier_id, 0) + 1
@@ -634,12 +639,29 @@ class UTPUISASimulator:
 
             elif opcode == OPCODE_NOP:
                 if extended_addr and ((instruction >> 3) & 0x1) == NOP_SUBOP_REQUANT:
-                    if pc + 1 >= len(words):
-                        raise ValueError("truncated REQUANT trailer")
-                    self._requant_multiplier = words[pc] & 0xFFFF
-                    self._requant_right_shift = words[pc + 1] & 0xFFFF
                     self._requant_enable = bool((instruction >> 4) & 0x1)
-                    pc += 2
+                    if (instruction >> 5) & 0x1:
+                        count = ((instruction >> 8) & 0xFF) + 1
+                        if count > self.array_size:
+                            raise ValueError(
+                                f"per-channel requant vector length {count} exceeds array_size={self.array_size}"
+                            )
+                        if pc + (2 * count) - 1 >= len(words):
+                            raise ValueError("truncated per-channel REQUANT trailer")
+                        self._requant_multipliers = [1 for _ in range(self.array_size)]
+                        self._requant_right_shifts = [0 for _ in range(self.array_size)]
+                        for idx in range(count):
+                            self._requant_multipliers[idx] = words[pc] & 0xFFFF
+                            self._requant_right_shifts[idx] = words[pc + 1] & 0xFFFF
+                            pc += 2
+                    else:
+                        if pc + 1 >= len(words):
+                            raise ValueError("truncated REQUANT trailer")
+                        multiplier = words[pc] & 0xFFFF
+                        right_shift = words[pc + 1] & 0xFFFF
+                        self._requant_multipliers = [multiplier for _ in range(self.array_size)]
+                        self._requant_right_shifts = [right_shift for _ in range(self.array_size)]
+                        pc += 2
                 self.executed_ops["nop"] += 1
                 self._record_cycle(pe_id)
 
