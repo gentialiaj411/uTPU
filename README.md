@@ -116,7 +116,7 @@ python examples/inspect_compiler_pipeline.py
 
 For CUDA calibration and holdout validation, use the calibration scripts under `firmware/host/`; these generate local reports under `build/reports/`.
 
-Current GitHub Actions status (public): the latest `main` CI run failed at run `27392306320` on commit `b735ebcf8af5d78f94f32d4cc9fcb500b8b48c44` during `Regenerate cost-model held-out generalization artifact`. The latest green `main` run is `26381773805` on commit `6d5dc2532f1f31200a2b4f687e3f2c0503cff67c`. Use the badge and the public Actions history for current state.
+Current GitHub Actions status is reflected by the badge above. For the latest public details, check the GitHub Actions history for `ci.yml`.
 
 ## Resume-Safe Wording
 
