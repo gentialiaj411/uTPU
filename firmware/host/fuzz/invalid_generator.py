@@ -293,26 +293,26 @@ def _build_invalid_permute_axes(seed: int) -> InvalidGeneratedProgram:
 def _build_unsupported_op_for_backend(seed: int) -> InvalidGeneratedProgram:
     """Emit an op that's legal on cuda but NOT on the utpu backend.
 
-    The utpu backend only supports LINEAR / LINEAR_RELU; emitting CONV2D
-    in a graph and asking `backend_legality_pass(graph, "utpu")` MUST
+    The current utpu backend supports LINEAR / LINEAR_RELU /
+    BATCHED_MATMUL / CONV2D. Emitting SOFTMAX in a graph and asking
+    `backend_legality_pass(graph, "utpu")` MUST
     raise `BackendLegalityError`.
     """
     rng = random.Random(int(seed))
-    # Tiny CONV2D shapes so weight/input alloc is cheap. The validator
-    # only checks op kind, never executes; so we don't need real conv math.
+    # Tiny SOFTMAX shapes keep the fixture cheap while still exercising an
+    # op that is legal on the cuda backend and unsupported on utpu.
     g = GraphIR(name=f"invalid_unsupported_op_seed{seed}")
-    g.add_value("x", shape=(1, 1, 4, 4), dtype="torch.float32")
+    g.add_value("x", shape=(1, 8), dtype="torch.float32")
     g.inputs = ["x"]
-    inputs_list = [_make_input(rng, (1, 1, 4, 4))]
-    weight = _make_weight(rng, (1, 1, 3, 3))
-    g.add_value("y", shape=(1, 1, 2, 2), dtype="torch.float32")
+    inputs_list = [_make_input(rng, (1, 8))]
+    g.add_value("y", shape=(1, 8), dtype="torch.float32")
     g.add_op(
         OpNode(
-            name="bad_conv2d_for_utpu",
-            op=OpKind.CONV2D,
+            name="bad_softmax_for_utpu",
+            op=OpKind.SOFTMAX,
             inputs=["x"],
             outputs=["y"],
-            attrs={"weight": weight, "stride": 1, "padding": 0, "groups": 1},
+            attrs={"dim": -1},
         )
     )
     g.outputs = ["y"]
@@ -323,7 +323,7 @@ def _build_unsupported_op_for_backend(seed: int) -> InvalidGeneratedProgram:
         invalid_kind="unsupported_op_for_backend",
         expected_validator="backend_legality",
         expected_backend="utpu",
-        metadata={"target_backend": "utpu", "offending_op": OpKind.CONV2D},
+        metadata={"target_backend": "utpu", "offending_op": OpKind.SOFTMAX},
     )
 
 
