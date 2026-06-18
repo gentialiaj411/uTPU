@@ -39,10 +39,11 @@ set proj_dir   [file normalize [maybe_get $arg_opts proj_dir [file join $script_
 set proj_name  [maybe_get $arg_opts proj_name uTPU_arty_a7]
 set part_name  xc7a100tcsg324-1
 set top_name   top
+set clock_period [string trim [maybe_get $arg_opts clock_period ""]]
 set generic_opt [maybe_get $arg_opts generic ""]
 if {$generic_opt eq ""} {
     set generic_pairs {}
-    foreach key {PROG_DEPTH COMPUTE_DATA_WIDTH ACCUMULATOR_DATA_WIDTH ARRAY_SIZE BUFFER_SIZE EXT_ADDR_EN} {
+    foreach key {PROG_DEPTH COMPUTE_DATA_WIDTH ACCUMULATOR_DATA_WIDTH ARRAY_SIZE BUFFER_SIZE EXT_ADDR_EN MAX_BATCH_COUNT} {
         if {[dict exists $arg_opts $key]} {
             lappend generic_pairs "${key}=[dict get $arg_opts $key]"
         }
@@ -89,13 +90,57 @@ read_verilog -sv $rtl_files
 
 # Add constraints
 set xdc_file [file join $script_dir arty_a7_revE_usb_uart.xdc]
-read_xdc $xdc_file
+if {$clock_period ne ""} {
+    set xdc_override [file join $proj_dir "${proj_name}_clock_override.xdc"]
+    set in_fh  [open $xdc_file r]
+    set out_fh [open $xdc_override w]
+    while {[gets $in_fh line] >= 0} {
+        if {[string match "*create_clock*" $line]} {
+            continue
+        }
+        puts $out_fh $line
+    }
+    close $in_fh
+    puts $out_fh "create_clock -name sys_clk_pin -period $clock_period -waveform {0 [expr {$clock_period / 2.0}]} \[get_ports { clk }\];"
+    close $out_fh
+    read_xdc $xdc_override
+    puts "Applied clock period override: $clock_period ns"
+} else {
+    read_xdc $xdc_file
+}
 
 # Set top
 set_property top $top_name [current_fileset]
 if {$generic_opt ne ""} {
     set_property generic $generic_opt [current_fileset]
     puts "Applied generics: $generic_opt"
+}
+
+# Optional run tuning knobs for timing sweeps.
+set synth_strategy [string trim [maybe_get $arg_opts synth_strategy ""]]
+set impl_strategy  [string trim [maybe_get $arg_opts impl_strategy ""]]
+set retiming_opt   [string trim [maybe_get $arg_opts retiming ""]]
+set post_place_phys_opt [string trim [maybe_get $arg_opts post_place_phys_opt ""]]
+set post_route_phys_opt [string trim [maybe_get $arg_opts post_route_phys_opt ""]]
+if {$synth_strategy ne ""} {
+    set_property strategy $synth_strategy [get_runs synth_1]
+    puts "Applied synth strategy: $synth_strategy"
+}
+if {$impl_strategy ne ""} {
+    set_property strategy $impl_strategy [get_runs impl_1]
+    puts "Applied impl strategy: $impl_strategy"
+}
+if {$retiming_opt ne "" && $retiming_opt ne "0"} {
+    set_property STEPS.SYNTH_DESIGN.ARGS.RETIMING true [get_runs synth_1]
+    puts "Enabled synth retiming"
+}
+if {$post_place_phys_opt ne "" && $post_place_phys_opt ne "0"} {
+    set_property STEPS.PHYS_OPT_DESIGN.IS_ENABLED true [get_runs impl_1]
+    puts "Enabled post-place phys_opt_design"
+}
+if {$post_route_phys_opt ne "" && $post_route_phys_opt ne "0"} {
+    set_property STEPS.POST_ROUTE_PHYS_OPT_DESIGN.IS_ENABLED true [get_runs impl_1]
+    puts "Enabled post-route phys_opt_design"
 }
 
 # Synthesize, implement, bitstream

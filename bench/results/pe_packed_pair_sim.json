@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "generated_at_utc": "2026-06-18T19:14:47.649002+00:00",
+  "status": "ran",
+  "result": "PASS",
+  "vector_count": 8133,
+  "random_vectors": 1000,
+  "column_depth": 8,
+  "random_seed": "16'hACE1"
+}

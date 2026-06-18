@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "generated_at_utc": "2026-06-18T19:14:48.811620+00:00",
+  "status": "ran",
+  "result": "PASS",
+  "deterministic_across_runs": true,
+  "throughput_regression": false,
+  "configs": [
+    {
+      "array_size": 8,
+      "baseline_cycles": {
+        "first_result": 9,
+        "full_matrix": 23,
+        "stream_total": 23
+      },
+      "packed_cycles": {
+        "first_result": 9,
+        "full_matrix": 23,
+        "stream_total": 23
+      },
+      "latency_delta": {
+        "first_result": 0,
+        "full_matrix": 0
+      },
+      "throughput_note": "identical streaming schedule: packed matches baseline first/full capture cycles"
+    },
+    {
+      "array_size": 16,
+      "baseline_cycles": {
+        "first_result": 17,
+        "full_matrix": 47,
+        "stream_total": 47
+      },
+      "packed_cycles": {
+        "first_result": 17,
+        "full_matrix": 47,
+        "stream_total": 47
+      },
+      "latency_delta": {
+        "first_result": 0,
+        "full_matrix": 0
+      },
+      "throughput_note": "identical streaming schedule: packed matches baseline first/full capture cycles"
+    }
+  ],
+  "scope_note": "iverilog-sim cycles, not silicon/synthesis"
+}

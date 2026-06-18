@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "generated_at_utc": "2026-06-18T19:15:16.084269+00:00",
+  "status": "ran",
+  "result": "PASS",
+  "shapes_tested": [
+    8,
+    16
+  ],
+  "gemm_count": 402,
+  "cases_covered": [],
+  "random_gemms_per_shape": {
+    "8": 200,
+    "16": 200,
+    "32": 64
+  },
+  "corner_cases_per_shape": 1,
+  "odd_array_size_guard_triggered": true
+}

@@ -1379,20 +1379,23 @@ module top #(
 `ifndef ICARUS
                         for (int row = 0; row < ARRAY_SIZE; row++) begin
                             logic signed [31:0] lane_val0;
-                            for (int col = 0; col < run_batch_count; col++) begin
-                                lane_val0 = $signed(compute_stream_out[(col * ARRAY_SIZE) + row]);
-                                if (acc_clear_en)
-                                    acc_partial_matrix[row][col] <= lane_val0;
-                                else
-                                    acc_partial_matrix[row][col] <= acc_partial_matrix[row][col] + lane_val0;
+                            for (int col = 0; col < MAX_BATCH_COUNT; col++) begin
+                                if (col < run_batch_count) begin
+                                    lane_val0 = $signed(compute_stream_out[(col * ARRAY_SIZE) + row]);
+                                    if (acc_clear_en)
+                                        acc_partial_matrix[row][col] <= lane_val0;
+                                    else
+                                        acc_partial_matrix[row][col] <= acc_partial_matrix[row][col] + lane_val0;
+                                end
                             end
                             if (acc_clear_en)
                                 acc_partial_sums[row] <= $signed(compute_stream_out[row]);
                             else
                                 acc_partial_sums[row] <= acc_partial_sums[row] + $signed(compute_stream_out[row]);
                             if (acc_clear_en) begin
-                                for (int col = run_batch_count; col < MAX_BATCH_COUNT; col++)
-                                    acc_partial_matrix[row][col] <= '0;
+                                for (int col = 0; col < MAX_BATCH_COUNT; col++)
+                                    if (col >= run_batch_count)
+                                        acc_partial_matrix[row][col] <= '0;
                             end
                         end
 `else
@@ -1416,8 +1419,9 @@ module top #(
                             end
                         end else if (acc_clear_en) begin
                             for (int row = 0; row < ARRAY_SIZE; row++) begin
-                                for (int col = run_batch_count; col < MAX_BATCH_COUNT; col++)
-                                    acc_partial_matrix[row][col] <= '0;
+                                for (int col = 0; col < MAX_BATCH_COUNT; col++)
+                                    if (col >= run_batch_count)
+                                        acc_partial_matrix[row][col] <= '0;
                             end
                         end
 `endif
@@ -1426,9 +1430,11 @@ module top #(
                     end else if (~compute_start) begin
                         for (int ci = 0; ci < MAX_STREAM_LANES; ci++)
                             compute_stream_in[ci] <= '0;
-                        for (int col = 0; col < run_batch_count; col++) begin
-                            for (int row = 0; row < ARRAY_SIZE; row++)
-                                compute_stream_in[(col * ARRAY_SIZE) + row] <= loaded_input_matrix[row][col];
+                        for (int col = 0; col < MAX_BATCH_COUNT; col++) begin
+                            if (col < run_batch_count) begin
+                                for (int row = 0; row < ARRAY_SIZE; row++)
+                                    compute_stream_in[(col * ARRAY_SIZE) + row] <= loaded_input_matrix[row][col];
+                            end
                         end
                         compute_start <= 1'b1;
                     end

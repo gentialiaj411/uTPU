@@ -1,0 +1,186 @@
+{
+  "version": 1,
+  "generated_at_utc": "2026-06-18T19:14:59.141345+00:00",
+  "status": "ran",
+  "result": "PASS",
+  "total_cases": 25,
+  "fail_cases": 0,
+  "classes": [
+    {
+      "name": "odd_n_8",
+      "status": "PASS"
+    },
+    {
+      "name": "rect_k_8",
+      "status": "PASS"
+    },
+    {
+      "name": "rect_mkn_8",
+      "status": "PASS"
+    },
+    {
+      "name": "batch2_8",
+      "status": "PASS"
+    },
+    {
+      "name": "batch4_8",
+      "status": "PASS"
+    },
+    {
+      "name": "odd_n_16",
+      "status": "PASS"
+    },
+    {
+      "name": "rect_k_16",
+      "status": "PASS"
+    },
+    {
+      "name": "rect_mkn_16",
+      "status": "PASS"
+    },
+    {
+      "name": "tile32_corner",
+      "status": "PASS"
+    },
+    {
+      "name": "tile32_rand_00",
+      "status": "PASS"
+    },
+    {
+      "name": "tile32_rand_01",
+      "status": "PASS"
+    },
+    {
+      "name": "tile32_rand_02",
+      "status": "PASS"
+    },
+    {
+      "name": "tile32_rand_03",
+      "status": "PASS"
+    },
+    {
+      "name": "tile32_rand_04",
+      "status": "PASS"
+    },
+    {
+      "name": "tile32_rand_05",
+      "status": "PASS"
+    },
+    {
+      "name": "tile32_rand_06",
+      "status": "PASS"
+    },
+    {
+      "name": "tile32_rand_07",
+      "status": "PASS"
+    },
+    {
+      "name": "tile32_rand_08",
+      "status": "PASS"
+    },
+    {
+      "name": "tile32_rand_09",
+      "status": "PASS"
+    },
+    {
+      "name": "tile32_rand_10",
+      "status": "PASS"
+    },
+    {
+      "name": "tile32_rand_11",
+      "status": "PASS"
+    },
+    {
+      "name": "tile32_rand_12",
+      "status": "PASS"
+    },
+    {
+      "name": "tile32_rand_13",
+      "status": "PASS"
+    },
+    {
+      "name": "tile32_rand_14",
+      "status": "PASS"
+    },
+    {
+      "name": "tile32_rand_15",
+      "status": "PASS"
+    }
+  ],
+  "shape_classes": [
+    {
+      "shape_class": "odd_logical_n",
+      "status": "PASS",
+      "case_count": 2,
+      "pass_count": 2,
+      "constraint_count": 0,
+      "na_count": 0,
+      "cases": [
+        "odd_n_8",
+        "odd_n_16"
+      ],
+      "first_mismatch": null,
+      "root_cause": null
+    },
+    {
+      "shape_class": "rectangular_gemm",
+      "status": "PASS",
+      "case_count": 4,
+      "pass_count": 4,
+      "constraint_count": 0,
+      "na_count": 0,
+      "cases": [
+        "rect_k_8",
+        "rect_mkn_8",
+        "rect_k_16",
+        "rect_mkn_16"
+      ],
+      "first_mismatch": null,
+      "root_cause": null
+    },
+    {
+      "shape_class": "tile32",
+      "status": "PASS",
+      "case_count": 17,
+      "pass_count": 17,
+      "constraint_count": 0,
+      "na_count": 0,
+      "cases": [
+        "tile32_corner",
+        "tile32_rand_00",
+        "tile32_rand_01",
+        "tile32_rand_02",
+        "tile32_rand_03",
+        "tile32_rand_04",
+        "tile32_rand_05",
+        "tile32_rand_06",
+        "tile32_rand_07",
+        "tile32_rand_08",
+        "tile32_rand_09",
+        "tile32_rand_10",
+        "tile32_rand_11",
+        "tile32_rand_12",
+        "tile32_rand_13",
+        "tile32_rand_14",
+        "tile32_rand_15"
+      ],
+      "first_mismatch": null,
+      "root_cause": null
+    },
+    {
+      "shape_class": "batched_activations",
+      "status": "PASS",
+      "case_count": 2,
+      "pass_count": 2,
+      "constraint_count": 0,
+      "na_count": 0,
+      "cases": [
+        "batch2_8",
+        "batch4_8"
+      ],
+      "first_mismatch": null,
+      "root_cause": null
+    }
+  ],
+  "scope_note": "iverilog simulation only; bit-exact vs baseline pe_array with explicit zero-padding"
+}

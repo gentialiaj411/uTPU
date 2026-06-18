@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "generated_at_utc": "2026-06-17T20:35:31.498Z",
+  "git_sha": "48fe65a2a98775c33d3e84e268fad06502e6efbc",
+  "runs": [
+    {
+      "name": "packed_baseline_8x8_int8",
+      "params": {
+        "ARRAY_SIZE": 8,
+        "COMPUTE_DATA_WIDTH": 8,
+        "ACCUMULATOR_DATA_WIDTH": 32,
+        "BUFFER_SIZE": 4096,
+        "EXT_ADDR_EN": 1
+      },
+      "part": "xc7a100tcsg324-1",
+      "vivado_version": "2025.2",
+      "timing": null,
+      "utilization": null,
+      "route_status": "synth_failed: pe_controller.sv:66 loop condition does not converge after 2000 iterations",
+      "report_files": [
+        "build/reports/packed_baseline_8x8_int8_timing_summary.rpt",
+        "build/reports/packed_baseline_8x8_int8_utilization.rpt",
+        "build/reports/packed_baseline_8x8_int8_route_status.rpt",
+        "build/reports/packed_baseline_8x8_int8.bit"
+      ]
+    },
+    {
+      "name": "packed_baseline_16x16_int8",
+      "params": {
+        "ARRAY_SIZE": 16,
+        "COMPUTE_DATA_WIDTH": 8,
+        "ACCUMULATOR_DATA_WIDTH": 32,
+        "BUFFER_SIZE": 4096,
+        "EXT_ADDR_EN": 1
+      },
+      "part": "xc7a100tcsg324-1",
+      "vivado_version": "2025.2",
+      "timing": null,
+      "utilization": null,
+      "route_status": "synth_failed: pe_controller.sv:66 loop condition does not converge after 2000 iterations",
+      "report_files": [
+        "build/reports/packed_baseline_16x16_int8_timing_summary.rpt",
+        "build/reports/packed_baseline_16x16_int8_utilization.rpt",
+        "build/reports/packed_baseline_16x16_int8_route_status.rpt",
+        "build/reports/packed_baseline_16x16_int8.bit"
+      ]
+    },
+    {
+      "name": "packed_array_8x8_int8",
+      "params": {
+        "ARRAY_SIZE": 8,
+        "COMPUTE_DATA_WIDTH": 8,
+        "ACCUMULATOR_DATA_WIDTH": 32
+      },
+      "part": "xc7a100tcsg324-1",
+      "vivado_version": "2025.2",
+      "timing": null,
+      "utilization": null,
+      "route_status": "synth_failed: pe_controller_packed.sv:79 loop condition does not converge after 2000 iterations",
+      "report_files": [
+        "build/reports/packed_array_8x8_int8_timing_summary.rpt",
+        "build/reports/packed_array_8x8_int8_utilization.rpt",
+        "build/reports/packed_array_8x8_int8_route_status.rpt",
+        "build/reports/packed_array_8x8_int8.bit"
+      ]
+    },
+    {
+      "name": "packed_array_16x16_int8",
+      "params": {
+        "ARRAY_SIZE": 16,
+        "COMPUTE_DATA_WIDTH": 8,
+        "ACCUMULATOR_DATA_WIDTH": 32
+      },
+      "part": "xc7a100tcsg324-1",
+      "vivado_version": "2025.2",
+      "timing": null,
+      "utilization": null,
+      "route_status": "synth_failed: pe_controller_packed.sv:79 loop condition does not converge after 2000 iterations",
+      "report_files": [
+        "build/reports/packed_array_16x16_int8_timing_summary.rpt",
+        "build/reports/packed_array_16x16_int8_utilization.rpt",
+        "build/reports/packed_array_16x16_int8_route_status.rpt",
+        "build/reports/packed_array_16x16_int8.bit"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "generated_at_utc": "2026-06-18T19:14:52.653233+00:00",
+  "status": "ran",
+  "result": "PASS",
+  "wrapper_mode": "full_datapath_requant",
+  "shapes_tested": [
+    8,
+    16
+  ],
+  "scope_note": "iverilog smoke: pe_controller+quantizer vs top_packed (accum+requant parity)"
+}
