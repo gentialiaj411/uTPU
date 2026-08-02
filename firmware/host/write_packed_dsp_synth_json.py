@@ -191,9 +191,10 @@ def _build_run(spec: Dict[str, Any]) -> Dict[str, Any]:
         run["timing"] = _parse_timing(timing_text)
     if route_text:
         run["route_status"] = _parse_route_status(route_text)
-    elif util_text:
+    else:
+        # CI / hosts without Vivado reports: keep schema valid for the test lock.
         run["route_status"] = "missing"
-    run["vivado_version"] = _parse_vivado_version(timing_text, util_text, route_text)
+    run["vivado_version"] = _parse_vivado_version(timing_text, util_text, route_text) or "unknown"
     return run
 
 
@@ -212,9 +213,19 @@ def main() -> int:
     parser.add_argument("--output", type=Path, default=OUTPUT_JSON)
     args = parser.parse_args()
     artifact = build_artifact()
+    parsed_runs = sum(
+        1 for run in artifact["runs"] if run["utilization"] is not None or run["timing"] is not None
+    )
+    # Preserve the committed Vivado-closeout evidence when no local reports exist
+    # (typical on GitHub Actions CPU runners).
+    if parsed_runs == 0 and args.output.is_file():
+        print(
+            f"[write_packed_dsp_synth_json] no Vivado reports found; "
+            f"preserving existing {args.output}"
+        )
+        return 0
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(artifact, indent=2) + "\n", encoding="utf-8")
-    parsed_runs = sum(1 for run in artifact["runs"] if run["utilization"] is not None or run["timing"] is not None)
     print(f"[write_packed_dsp_synth_json] wrote {args.output} runs_with_reports={parsed_runs}/{len(artifact['runs'])}")
     return 0
 

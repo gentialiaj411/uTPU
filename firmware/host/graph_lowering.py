@@ -273,6 +273,7 @@ def plan_blocked_fc_graph(
             OpKind.BATCHED_MATMUL,
             OpKind.SCALE,
             OpKind.SCALED_SOFTMAX,
+            OpKind.CONV2D,
             OpKind.MAX_POOL2D,
             OpKind.ADAPTIVE_AVG_POOL2D,
         }:
