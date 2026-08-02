@@ -1,7 +1,7 @@
 {
   "version": 2,
-  "generated_at_utc": "2026-08-02T21:50:04.525811+00:00",
-  "git_sha": "781ce88",
+  "generated_at_utc": "2026-08-02T22:21:22.293161+00:00",
+  "git_sha": "d102ee2",
   "vivado_version": "2025.2",
   "part": "xc7a100tcsg324-1",
   "methodology": "Out-of-context synth_design of pe_packed_skewed / pe_array_packed via scripts/synth_packed_mac_ooc.tcl. No IOB/place. DSP counts from utilization.rpt 'DSP48E1 only'. Inference audit from synth DSP Final Report (cascade A*B + PCIN>>17).",
@@ -59,5 +59,18 @@
       "status": "ok_part_capped",
       "note": "Would need 256 DSP at measured 2/cell; Artix-7 A7-100T reports 240/240 (100%). Hypothesis 128 is FALSE."
     }
-  ]
+  ],
+  "int4_packing_probe": {
+    "status": "measured",
+    "top": "pe_packed_pair via pe_packed_skewed wrapper (OOC)",
+    "COMPUTE_DATA_WIDTH": 4,
+    "PACK_SHIFT": 9,
+    "macs_logical": 2,
+    "hypothesis_dsp_per_pair": 1,
+    "measured_dsp_per_pair": 1,
+    "report_prefix": "packed_mac_ooc_int4_cell",
+    "dsp_final_report_mode": "(D'+A2)*B single DSP48E1",
+    "interpretation": "INT4 packing succeeds on DSP48E1 where INT8 fails: measured 1 DSP/pair. 16x16 INT4 MAC budget ~128 DSP (vs 256 unpacked). Treat as Pareto point vs accuracy (INT4 58.32% vs INT8 97.33%), not a path back to useful INT8 16x16.",
+    "int8_cell_recheck_dsp": 2
+  }
 }

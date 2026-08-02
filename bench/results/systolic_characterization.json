@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-02T20:47:49.410272+00:00",
+  "generated_at_utc": "2026-08-02T22:31:06.170661+00:00",
   "status": "ok",
   "array_size": 16,
   "methodology": {
@@ -52,7 +52,7 @@
         "in_blocks": 1,
         "note": "Single-tile 16x16 rows keep the legacy serialized payload path. Multi-tile rows may hoist weight/input tile payloads into distinct buffer slots before the first compute window so the compute-span duty metric can isolate inter-tile refill cost honestly without redefining the full rtl_cycle_counter denominator."
       },
-      "simulator_log_tail": "[ OK ] Busy counter bounded by cycle counter\n[ OK ] Program count incremented on HALT\nPERF_CYCLE_COUNTER=2072\nPERF_BUSY_COUNTER=38\nPERF_PROGRAM_COUNT=1\nCOMPUTE_BUSY_CYCLES=38\nCOMPUTE_SPAN_CYCLES=38\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:242: $finish called at 21075000 (1ps)\n"
+      "simulator_log_tail": "[ OK ] Busy counter bounded by cycle counter\n[ OK ] Program count incremented on HALT\nPERF_CYCLE_COUNTER=2072\nPERF_BUSY_COUNTER=38\nPERF_PROGRAM_COUNT=1\nCOMPUTE_BUSY_CYCLES=38\nCOMPUTE_SPAN_CYCLES=38\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:245: $finish called at 21075000 (1ps)\n"
     },
     {
       "shape": {
@@ -90,7 +90,7 @@
         "in_blocks": 1,
         "note": "Single-tile 16x16 rows keep the legacy serialized payload path. Multi-tile rows may hoist weight/input tile payloads into distinct buffer slots before the first compute window so the compute-span duty metric can isolate inter-tile refill cost honestly without redefining the full rtl_cycle_counter denominator."
       },
-      "simulator_log_tail": "[ OK ] Busy counter bounded by cycle counter\n[ OK ] Program count incremented on HALT\nPERF_CYCLE_COUNTER=2999\nPERF_BUSY_COUNTER=43\nPERF_PROGRAM_COUNT=1\nCOMPUTE_BUSY_CYCLES=43\nCOMPUTE_SPAN_CYCLES=43\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:242: $finish called at 30345000 (1ps)\n"
+      "simulator_log_tail": "[ OK ] Busy counter bounded by cycle counter\n[ OK ] Program count incremented on HALT\nPERF_CYCLE_COUNTER=2999\nPERF_BUSY_COUNTER=43\nPERF_PROGRAM_COUNT=1\nCOMPUTE_BUSY_CYCLES=43\nCOMPUTE_SPAN_CYCLES=43\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:245: $finish called at 30345000 (1ps)\n"
     },
     {
       "shape": {
@@ -128,7 +128,7 @@
         "in_blocks": 1,
         "note": "Single-tile 16x16 rows keep the legacy serialized payload path. Multi-tile rows may hoist weight/input tile payloads into distinct buffer slots before the first compute window so the compute-span duty metric can isolate inter-tile refill cost honestly without redefining the full rtl_cycle_counter denominator."
       },
-      "simulator_log_tail": "[ OK ] Busy counter bounded by cycle counter\n[ OK ] Program count incremented on HALT\nPERF_CYCLE_COUNTER=6323\nPERF_BUSY_COUNTER=55\nPERF_PROGRAM_COUNT=1\nCOMPUTE_BUSY_CYCLES=55\nCOMPUTE_SPAN_CYCLES=55\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:242: $finish called at 63585000 (1ps)\n"
+      "simulator_log_tail": "[ OK ] Busy counter bounded by cycle counter\n[ OK ] Program count incremented on HALT\nPERF_CYCLE_COUNTER=6323\nPERF_BUSY_COUNTER=55\nPERF_PROGRAM_COUNT=1\nCOMPUTE_BUSY_CYCLES=55\nCOMPUTE_SPAN_CYCLES=55\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:245: $finish called at 63585000 (1ps)\n"
     },
     {
       "shape": {
@@ -166,7 +166,7 @@
         "in_blocks": 1,
         "note": "Single-tile 16x16 rows keep the legacy serialized payload path. Multi-tile rows may hoist weight/input tile payloads into distinct buffer slots before the first compute window so the compute-span duty metric can isolate inter-tile refill cost honestly without redefining the full rtl_cycle_counter denominator."
       },
-      "simulator_log_tail": "[ OK ] Busy counter bounded by cycle counter\n[ OK ] Program count incremented on HALT\nPERF_CYCLE_COUNTER=10765\nPERF_BUSY_COUNTER=71\nPERF_PROGRAM_COUNT=1\nCOMPUTE_BUSY_CYCLES=71\nCOMPUTE_SPAN_CYCLES=71\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:242: $finish called at 108005000 (1ps)\n"
+      "simulator_log_tail": "[ OK ] Busy counter bounded by cycle counter\n[ OK ] Program count incremented on HALT\nPERF_CYCLE_COUNTER=10765\nPERF_BUSY_COUNTER=71\nPERF_PROGRAM_COUNT=1\nCOMPUTE_BUSY_CYCLES=71\nCOMPUTE_SPAN_CYCLES=71\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:245: $finish called at 108005000 (1ps)\n"
     },
     {
       "shape": {
@@ -204,7 +204,7 @@
         "in_blocks": 1,
         "note": "Single-tile 16x16 rows keep the legacy serialized payload path. Multi-tile rows may hoist weight/input tile payloads into distinct buffer slots before the first compute window so the compute-span duty metric can isolate inter-tile refill cost honestly without redefining the full rtl_cycle_counter denominator."
       },
-      "simulator_log_tail": "[ OK ] Busy counter bounded by cycle counter\n[ OK ] Program count incremented on HALT\nPERF_CYCLE_COUNTER=19649\nPERF_BUSY_COUNTER=103\nPERF_PROGRAM_COUNT=1\nCOMPUTE_BUSY_CYCLES=103\nCOMPUTE_SPAN_CYCLES=103\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:242: $finish called at 196845000 (1ps)\n"
+      "simulator_log_tail": "[ OK ] Busy counter bounded by cycle counter\n[ OK ] Program count incremented on HALT\nPERF_CYCLE_COUNTER=19649\nPERF_BUSY_COUNTER=103\nPERF_PROGRAM_COUNT=1\nCOMPUTE_BUSY_CYCLES=103\nCOMPUTE_SPAN_CYCLES=103\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:245: $finish called at 196845000 (1ps)\n"
     },
     {
       "shape": {
@@ -251,7 +251,7 @@
         "in_blocks": 2,
         "note": "Single-tile 16x16 rows keep the legacy serialized payload path. Multi-tile rows may hoist weight/input tile payloads into distinct buffer slots before the first compute window so the compute-span duty metric can isolate inter-tile refill cost honestly without redefining the full rtl_cycle_counter denominator."
       },
-      "simulator_log_tail": "[ OK ] Busy counter bounded by cycle counter\n[ OK ] Program count incremented on HALT\nPERF_CYCLE_COUNTER=7901\nPERF_BUSY_COUNTER=150\nPERF_PROGRAM_COUNT=1\nCOMPUTE_BUSY_CYCLES=150\nCOMPUTE_SPAN_CYCLES=1400\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:242: $finish called at 79365000 (1ps)\n"
+      "simulator_log_tail": "[ OK ] Busy counter bounded by cycle counter\n[ OK ] Program count incremented on HALT\nPERF_CYCLE_COUNTER=7901\nPERF_BUSY_COUNTER=150\nPERF_PROGRAM_COUNT=1\nCOMPUTE_BUSY_CYCLES=150\nCOMPUTE_SPAN_CYCLES=1400\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:245: $finish called at 79365000 (1ps)\n"
     },
     {
       "shape": {
@@ -298,7 +298,7 @@
         "in_blocks": 2,
         "note": "Single-tile 16x16 rows keep the legacy serialized payload path. Multi-tile rows may hoist weight/input tile payloads into distinct buffer slots before the first compute window so the compute-span duty metric can isolate inter-tile refill cost honestly without redefining the full rtl_cycle_counter denominator."
       },
-      "simulator_log_tail": "[ OK ] Busy counter bounded by cycle counter\n[ OK ] Program count incremented on HALT\nPERF_CYCLE_COUNTER=2036040\nPERF_BUSY_COUNTER=170\nPERF_PROGRAM_COUNT=1\nCOMPUTE_BUSY_CYCLES=170\nCOMPUTE_SPAN_CYCLES=204\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:242: $finish called at 20360505000 (1ps)\n"
+      "simulator_log_tail": "[ OK ] Busy counter bounded by cycle counter\n[ OK ] Program count incremented on HALT\nPERF_CYCLE_COUNTER=2036040\nPERF_BUSY_COUNTER=170\nPERF_PROGRAM_COUNT=1\nCOMPUTE_BUSY_CYCLES=170\nCOMPUTE_SPAN_CYCLES=204\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:245: $finish called at 20360505000 (1ps)\n"
     },
     {
       "shape": {
@@ -345,7 +345,7 @@
         "in_blocks": 2,
         "note": "Single-tile 16x16 rows keep the legacy serialized payload path. Multi-tile rows may hoist weight/input tile payloads into distinct buffer slots before the first compute window so the compute-span duty metric can isolate inter-tile refill cost honestly without redefining the full rtl_cycle_counter denominator."
       },
-      "simulator_log_tail": "[ OK ] Busy counter bounded by cycle counter\n[ OK ] Program count incremented on HALT\nPERF_CYCLE_COUNTER=9881\nPERF_BUSY_COUNTER=218\nPERF_PROGRAM_COUNT=1\nCOMPUTE_BUSY_CYCLES=218\nCOMPUTE_SPAN_CYCLES=252\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:242: $finish called at 99165000 (1ps)\n"
+      "simulator_log_tail": "[ OK ] Busy counter bounded by cycle counter\n[ OK ] Program count incremented on HALT\nPERF_CYCLE_COUNTER=9881\nPERF_BUSY_COUNTER=218\nPERF_PROGRAM_COUNT=1\nCOMPUTE_BUSY_CYCLES=218\nCOMPUTE_SPAN_CYCLES=252\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:245: $finish called at 99165000 (1ps)\n"
     },
     {
       "shape": {
@@ -392,7 +392,7 @@
         "in_blocks": 2,
         "note": "Single-tile 16x16 rows keep the legacy serialized payload path. Multi-tile rows may hoist weight/input tile payloads into distinct buffer slots before the first compute window so the compute-span duty metric can isolate inter-tile refill cost honestly without redefining the full rtl_cycle_counter denominator."
       },
-      "simulator_log_tail": "[ OK ] Busy counter bounded by cycle counter\n[ OK ] Program count incremented on HALT\nPERF_CYCLE_COUNTER=16631\nPERF_BUSY_COUNTER=282\nPERF_PROGRAM_COUNT=1\nCOMPUTE_BUSY_CYCLES=282\nCOMPUTE_SPAN_CYCLES=326\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:242: $finish called at 166665000 (1ps)\n"
+      "simulator_log_tail": "[ OK ] Busy counter bounded by cycle counter\n[ OK ] Program count incremented on HALT\nPERF_CYCLE_COUNTER=16631\nPERF_BUSY_COUNTER=282\nPERF_PROGRAM_COUNT=1\nCOMPUTE_BUSY_CYCLES=282\nCOMPUTE_SPAN_CYCLES=326\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:245: $finish called at 166665000 (1ps)\n"
     },
     {
       "shape": {
@@ -439,7 +439,7 @@
         "in_blocks": 4,
         "note": "Single-tile 16x16 rows keep the legacy serialized payload path. Multi-tile rows may hoist weight/input tile payloads into distinct buffer slots before the first compute window so the compute-span duty metric can isolate inter-tile refill cost honestly without redefining the full rtl_cycle_counter denominator."
       },
-      "simulator_log_tail": "[ OK ] Busy counter bounded by cycle counter\n[ OK ] Program count incremented on HALT\nPERF_CYCLE_COUNTER=30983\nPERF_BUSY_COUNTER=596\nPERF_PROGRAM_COUNT=1\nCOMPUTE_BUSY_CYCLES=596\nCOMPUTE_SPAN_CYCLES=8096\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:242: $finish called at 310185000 (1ps)\n"
+      "simulator_log_tail": "[ OK ] Busy counter bounded by cycle counter\n[ OK ] Program count incremented on HALT\nPERF_CYCLE_COUNTER=30983\nPERF_BUSY_COUNTER=596\nPERF_PROGRAM_COUNT=1\nCOMPUTE_BUSY_CYCLES=596\nCOMPUTE_SPAN_CYCLES=8096\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:245: $finish called at 310185000 (1ps)\n"
     },
     {
       "shape": {
@@ -486,7 +486,7 @@
         "in_blocks": 4,
         "note": "Single-tile 16x16 rows keep the legacy serialized payload path. Multi-tile rows may hoist weight/input tile payloads into distinct buffer slots before the first compute window so the compute-span duty metric can isolate inter-tile refill cost honestly without redefining the full rtl_cycle_counter denominator."
       },
-      "simulator_log_tail": "[ OK ] Busy counter bounded by cycle counter\n[ OK ] Program count incremented on HALT\nPERF_CYCLE_COUNTER=15703\nPERF_BUSY_COUNTER=676\nPERF_PROGRAM_COUNT=1\nCOMPUTE_BUSY_CYCLES=676\nCOMPUTE_SPAN_CYCLES=880\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:242: $finish called at 157385000 (1ps)\n"
+      "simulator_log_tail": "[ OK ] Busy counter bounded by cycle counter\n[ OK ] Program count incremented on HALT\nPERF_CYCLE_COUNTER=15703\nPERF_BUSY_COUNTER=676\nPERF_PROGRAM_COUNT=1\nCOMPUTE_BUSY_CYCLES=676\nCOMPUTE_SPAN_CYCLES=880\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:245: $finish called at 157385000 (1ps)\n"
     },
     {
       "shape": {
@@ -533,7 +533,7 @@
         "in_blocks": 4,
         "note": "Single-tile 16x16 rows keep the legacy serialized payload path. Multi-tile rows may hoist weight/input tile payloads into distinct buffer slots before the first compute window so the compute-span duty metric can isolate inter-tile refill cost honestly without redefining the full rtl_cycle_counter denominator."
       },
-      "simulator_log_tail": "[ OK ] Busy counter bounded by cycle counter\n[ OK ] Program count incremented on HALT\nPERF_CYCLE_COUNTER=25879\nPERF_BUSY_COUNTER=868\nPERF_PROGRAM_COUNT=1\nCOMPUTE_BUSY_CYCLES=868\nCOMPUTE_SPAN_CYCLES=1072\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:242: $finish called at 259145000 (1ps)\n"
+      "simulator_log_tail": "[ OK ] Busy counter bounded by cycle counter\n[ OK ] Program count incremented on HALT\nPERF_CYCLE_COUNTER=25879\nPERF_BUSY_COUNTER=868\nPERF_PROGRAM_COUNT=1\nCOMPUTE_BUSY_CYCLES=868\nCOMPUTE_SPAN_CYCLES=1072\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:245: $finish called at 259145000 (1ps)\n"
     },
     {
       "shape": {
@@ -580,7 +580,7 @@
         "in_blocks": 4,
         "note": "Single-tile 16x16 rows keep the legacy serialized payload path. Multi-tile rows may hoist weight/input tile payloads into distinct buffer slots before the first compute window so the compute-span duty metric can isolate inter-tile refill cost honestly without redefining the full rtl_cycle_counter denominator."
       },
-      "simulator_log_tail": "[ OK ] Busy counter bounded by cycle counter\n[ OK ] Program count incremented on HALT\nPERF_CYCLE_COUNTER=39547\nPERF_BUSY_COUNTER=1124\nPERF_PROGRAM_COUNT=1\nCOMPUTE_BUSY_CYCLES=1124\nCOMPUTE_SPAN_CYCLES=1388\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:242: $finish called at 395825000 (1ps)\n"
+      "simulator_log_tail": "[ OK ] Busy counter bounded by cycle counter\n[ OK ] Program count incremented on HALT\nPERF_CYCLE_COUNTER=39547\nPERF_BUSY_COUNTER=1124\nPERF_PROGRAM_COUNT=1\nCOMPUTE_BUSY_CYCLES=1124\nCOMPUTE_SPAN_CYCLES=1388\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:245: $finish called at 395825000 (1ps)\n"
     }
   ],
   "shape_summaries": [

@@ -25,16 +25,22 @@ module pe_packed_pair #(
 
     localparam int PACKED_OPERAND_WIDTH = PACK_SHIFT + COMPUTE_DATA_WIDTH + 1;
     localparam int PACKED_PRODUCT_WIDTH = PACKED_OPERAND_WIDTH + COMPUTE_DATA_WIDTH;
+    // Signed product lane width (INT8xINT8 -> 16, INT4xINT4 -> 8).
+    localparam int LANE_PROD_WIDTH = 2 * COMPUTE_DATA_WIDTH;
 
     logic signed [COMPUTE_DATA_WIDTH-1:0] a_reg;
     logic signed [COMPUTE_DATA_WIDTH-1:0] b_reg;
 
     logic signed [PACKED_OPERAND_WIDTH-1:0] packed_operand;
+    logic signed [COMPUTE_DATA_WIDTH-1:0] c_mul;
+    // Keep the multiply as a standalone USE_DSP net so Vivado cannot silently
+    // absorb a small INT4 product into LUTs when measuring DSP-per-pair.
     (* use_dsp = "yes" *) logic signed [PACKED_PRODUCT_WIDTH-1:0] packed_prod;
+    assign packed_prod = $signed(packed_operand) * $signed(c_mul);
 
-    logic signed [15:0] lane_b_c;
-    logic signed [15:0] lane_a_c_raw;
-    logic signed [15:0] lane_a_c;
+    logic signed [LANE_PROD_WIDTH-1:0] lane_b_c;
+    logic signed [LANE_PROD_WIDTH-1:0] lane_a_c_raw;
+    logic signed [LANE_PROD_WIDTH-1:0] lane_a_c;
     logic signed [ACCUMULATOR_DATA_WIDTH-1:0] mac_a;
     logic signed [ACCUMULATOR_DATA_WIDTH-1:0] mac_b;
 
@@ -72,17 +78,17 @@ module pe_packed_pair #(
         psum_b_safe = safe_acc(partial_sum_b_in);
 
         packed_operand = ($signed(a_safe) <<< PACK_SHIFT) + $signed(b_safe);
-        packed_prod    = $signed(packed_operand) * $signed(c_safe);
+        c_mul = c_safe;
 
-        lane_b_c = $signed(packed_prod[15:0]);
-        lane_a_c_raw = $signed(packed_prod[33:18]);
+        lane_b_c = $signed(packed_prod[LANE_PROD_WIDTH-1:0]);
+        lane_a_c_raw = $signed(packed_prod[PACK_SHIFT +: LANE_PROD_WIDTH]);
         if (lane_b_c < 0)
-            lane_a_c = lane_a_c_raw + 16'sd1;
+            lane_a_c = lane_a_c_raw + LANE_PROD_WIDTH'(1);
         else
             lane_a_c = lane_a_c_raw;
 
-        mac_a = psum_a_safe + {{(ACCUMULATOR_DATA_WIDTH-16){lane_a_c[15]}}, lane_a_c};
-        mac_b = psum_b_safe + {{(ACCUMULATOR_DATA_WIDTH-16){lane_b_c[15]}}, lane_b_c};
+        mac_a = psum_a_safe + {{(ACCUMULATOR_DATA_WIDTH-LANE_PROD_WIDTH){lane_a_c[LANE_PROD_WIDTH-1]}}, lane_a_c};
+        mac_b = psum_b_safe + {{(ACCUMULATOR_DATA_WIDTH-LANE_PROD_WIDTH){lane_b_c[LANE_PROD_WIDTH-1]}}, lane_b_c};
     end
 
     always_ff @(posedge clk) begin

@@ -42,14 +42,21 @@ set top_name   [maybe_get $arg_opts top_name pe_array_packed]
 set array_size [maybe_get $arg_opts ARRAY_SIZE 16]
 set cdw        [maybe_get $arg_opts COMPUTE_DATA_WIDTH 8]
 set adw        [maybe_get $arg_opts ACCUMULATOR_DATA_WIDTH 32]
+set pack_shift [maybe_get $arg_opts PACK_SHIFT ""]
 set report_prefix [string trim [maybe_get $arg_opts report_prefix "packed_mac_ooc"]]
 set reports_dir [file join $repo_root build reports]
 file mkdir $reports_dir
 
 create_project -in_memory -part $part_name
 set rtl_files {}
-lappend rtl_files [file join $repo_root rtl PEArray pe_array_packed.sv]
 lappend rtl_files [file join $repo_root rtl PEArray pe_packed_pair.sv]
+if {$top_name eq "pe_array_packed"} {
+    lappend rtl_files [file join $repo_root rtl PEArray pe_array_packed.sv]
+} elseif {$top_name eq "pe_packed_skewed"} {
+    # pe_packed_skewed lives in pe_array_packed.sv (INT8 skewed extract).
+    # For PACK_SHIFT/CDW sweeps prefer top_name=pe_packed_pair.
+    lappend rtl_files [file join $repo_root rtl PEArray pe_array_packed.sv]
+}
 
 add_files -norecurse $rtl_files
 set_property top $top_name [current_fileset]
@@ -62,6 +69,9 @@ if {$top_name eq "pe_array_packed"} {
 } elseif {$top_name eq "pe_packed_skewed" || $top_name eq "pe_packed_pair"} {
     lappend generic_list "COMPUTE_DATA_WIDTH=$cdw"
     lappend generic_list "ACCUMULATOR_DATA_WIDTH=$adw"
+    if {$pack_shift ne ""} {
+        lappend generic_list "PACK_SHIFT=$pack_shift"
+    }
 }
 if {[llength $generic_list] > 0} {
     set_property generic $generic_list [current_fileset]
@@ -77,14 +87,27 @@ set cells_rpt  [file join $reports_dir "${report_prefix}_dsp_cells.rpt"]
 report_utilization -file $util_rpt
 report_utilization -hierarchical -file [file join $reports_dir "${report_prefix}_hier_utilization.rpt"]
 # Cell-level DSP inventory for packing audit.
-if {[llength [get_cells -quiet -hierarchical -filter {PRIMITIVE_TYPE =~ DSP.*}]] > 0} {
-    report_property [get_cells -hierarchical -filter {PRIMITIVE_TYPE =~ DSP.*}] -file $cells_rpt
-    set dsp_count [llength [get_cells -hierarchical -filter {PRIMITIVE_TYPE =~ DSP.*}]]
+# Vivado 2025.2 OOC designs often leave REF_NAME=DSP48E1 while PRIMITIVE_TYPE
+# matching is empty; prefer REF_NAME then fall back to utilization parse.
+set dsp_cells [get_cells -quiet -hierarchical -filter {REF_NAME =~ DSP48*}]
+if {[llength $dsp_cells] == 0} {
+    set dsp_cells [get_cells -quiet -hierarchical -filter {PRIMITIVE_TYPE =~ DSP.*}]
+}
+if {[llength $dsp_cells] > 0} {
+    report_property $dsp_cells -file $cells_rpt
+    set dsp_count [llength $dsp_cells]
 } else {
     set dsp_count 0
     set fh [open $cells_rpt w]
-    puts $fh "No DSP cells found after OOC synth."
+    puts $fh "No DSP cells found after OOC synth via get_cells; see utilization.rpt."
     close $fh
+    # Fallback: parse "DSP48E1 only" row from utilization.
+    set util_text [read [open $util_rpt r]]
+    if {[regexp {DSP48E1 only\s*\|\s*(\d+)} $util_text -> n]} {
+        set dsp_count $n
+    } elseif {[regexp {\|\s*DSPs\s*\|\s*(\d+)} $util_text -> n]} {
+        set dsp_count $n
+    }
 }
 set fh [open $dsp_rpt w]
 puts $fh "top_name: $top_name"

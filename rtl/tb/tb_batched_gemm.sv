@@ -180,10 +180,13 @@ module tb_batched_gemm;
             spin = spin + 1;
             if (dut.requant_finalize_enable && dut.writeback_wait_clear) begin
                 finalize_requant_cycles = finalize_requant_cycles + 1;
-                // QUANTIZER_SIZE may be ARRAY_SIZE (narrow column stream) or N^2.
-                for (i = 0; i < dut.QUANTIZER_SIZE; i++) begin
-                    if ((^dut.quantizer_out[i]) === 1'bx)
-                        quantizer_x_seen = 1'b1;
+                // Skip pipe-fill bubbles: TB @(posedge) samples before NBA, so
+                // quantizer_out is still the previous cycle during fill.
+                if (!dut.writeback_pipe_fill) begin
+                    for (i = 0; i < dut.QUANTIZER_SIZE; i++) begin
+                        if ((^dut.quantizer_out[i]) === 1'bx)
+                            quantizer_x_seen = 1'b1;
+                    end
                 end
             end
             if (dut.tx_we && dut.tx_wdata !== 8'hAA) begin

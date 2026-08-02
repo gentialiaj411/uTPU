@@ -64,6 +64,8 @@ module top_packed #(
         .ACCUMULATOR_DATA_WIDTH(ACCUMULATOR_DATA_WIDTH),
         .COMPUTE_DATA_WIDTH(COMPUTE_DATA_WIDTH)
     ) u_quantizer_array (
+        .clk(clk),
+        .rst(rst),
         .ins_flat(quantizer_ins_flat),
         .requant_enable(requant_enable),
         .requant_multiplier_flat(requant_multiplier_flat),

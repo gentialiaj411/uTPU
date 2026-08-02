@@ -263,6 +263,8 @@ module top #(
         .ACCUMULATOR_DATA_WIDTH(ACCUMULATOR_DATA_WIDTH),
         .COMPUTE_DATA_WIDTH(COMPUTE_DATA_WIDTH)
     ) u_quantizer_array (
+        .clk(clk),
+        .rst(rst_int),
         .ins_flat(quantizer_ins_flat),
         .requant_enable(requant_finalize_enable),
         .requant_multiplier_flat(requant_multiplier_flat),
@@ -399,6 +401,9 @@ module top #(
     // Width must hold ARRAY_SIZE inclusive (cols_in_chunk in 1..ARRAY_SIZE).
     logic [$clog2(ARRAY_SIZE+1)-1:0]  writeback_col_index;
     logic [$clog2(ARRAY_SIZE+1)-1:0]  writeback_cols_in_chunk;
+    // One-cycle bubble after presenting quantizer_in so the registered quantizer
+    // DSP path can produce a valid quantizer_out before capture.
+    logic                             writeback_pipe_fill;
     logic                        requant_enable_latched;
     logic [15:0]                 requant_multiplier_latched [ARRAY_SIZE-1:0];
     logic [15:0]                 requant_right_shift_latched [ARRAY_SIZE-1:0];
@@ -837,6 +842,7 @@ module top #(
                 writeback_wait_clear  <= 1'b0;
                 writeback_col_index   <= '0;
                 writeback_cols_in_chunk <= ($clog2(ARRAY_SIZE+1))'(1);
+                writeback_pipe_fill   <= 1'b0;
                 writeback_wait_clear <= 1'b0;
                 store_half          <= 1'b0;
                 store_word_idx      <= 2'b0;
@@ -878,6 +884,8 @@ module top #(
                 end
                 for (int ai = 0; ai < NUM_COMPUTE_LANES; ai++)
                     residual_in[ai] <= '0;
+                for (int qi = 0; qi < QUANTIZER_SIZE; qi++)
+                    quantizer_in[qi] <= '0;
                 perf_snapshot    <= '0;
                 perf_stream_active <= 1'b0;
                 perf_stream_idx  <= '0;
@@ -1530,6 +1538,7 @@ module top #(
                     end
                     if (requant_enable_latched) begin
                         writeback_wait_clear <= 1'b1;
+                        writeback_pipe_fill  <= 1'b1;
                         if (REQUANT_NARROW) begin
                             clear_compute_to_buffer();
                             prepare_writeback_column(0, 0);
@@ -1562,6 +1571,7 @@ module top #(
                         end
                     end else begin
                         writeback_wait_clear <= 1'b0;
+                        writeback_pipe_fill  <= 1'b0;
                         if (run_batch_count == MAX_BATCH_COUNT_WIDTH'(1)) begin
                             for (int ai = 0; ai < NUM_COMPUTE_LANES; ai++)
                                 compute_to_buffer[ai] <= '0;
@@ -1608,9 +1618,18 @@ module top #(
                 buffer_store_en   <= 1'b0;
                 address           <= compute_result_addr + (writeback_chunk_index * STREAM_CHUNK_WORDS);
                 if (requant_finalize_enable && writeback_wait_clear) begin
-                    if (REQUANT_NARROW) begin
-                        // Combo quantizer: NBA RHS samples current column;
-                        // same cycle may preload the next column's inputs.
+                    if (writeback_pipe_fill) begin
+                        // Registered quantizer: wait one cycle after presenting
+                        // quantizer_in before the first capture.
+                        writeback_pipe_fill <= 1'b0;
+                        buffer_we         <= 1'b0;
+                        buffer_compute_en <= 1'b0;
+                    end else if (REQUANT_NARROW) begin
+                        // Capture current column; same cycle may preload next.
+                        // Capture current column only. Presenting the next
+                        // column's inputs in this same cycle would keep the
+                        // registered quantizer on the old operand for one more
+                        // cycle, so arm a fill bubble before the next capture.
                         capture_writeback_column(writeback_col_index);
                         if ((writeback_col_index + 1'b1) < writeback_cols_in_chunk) begin
                             writeback_col_index <= writeback_col_index + 1'b1;
@@ -1618,6 +1637,7 @@ module top #(
                                 writeback_chunk_index,
                                 writeback_col_index + 1
                             );
+                            writeback_pipe_fill <= 1'b1;
                         end else begin
                             writeback_wait_clear <= 1'b0;
                             writeback_col_index  <= '0;
@@ -1651,6 +1671,7 @@ module top #(
                         writeback_chunk_index <= writeback_chunk_index + 1'b1;
                         writeback_wait_clear  <= 1'b1;
                         writeback_col_index   <= '0;
+                        writeback_pipe_fill   <= requant_enable_latched;
                         remaining = run_batch_count - (next_chunk * ARRAY_SIZE);
                         if (remaining < ARRAY_SIZE)
                             writeback_cols_in_chunk <= ($clog2(ARRAY_SIZE+1))'(remaining);
@@ -1667,6 +1688,7 @@ module top #(
                         writeback_chunk_count <= MAX_BATCH_COUNT_WIDTH'(1);
                         writeback_wait_clear  <= 1'b0;
                         writeback_col_index   <= '0;
+                        writeback_pipe_fill   <= 1'b0;
                     end
                 end else begin
                     buffer_we         <= 1'b1;

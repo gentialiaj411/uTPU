@@ -1,4 +1,3 @@
-
 `timescale 1ns/1ps
 
 // Requant multiply operand width matches the DSP48E1 signed A-port (25 bits).
@@ -13,6 +12,8 @@ module quantizer #(
 	parameter COMPUTE_DATA_WIDTH     = 4,
 	parameter REQUANT_MUL_OPERAND_WIDTH = `REQUANT_MUL_OPERAND_WIDTH
     ) ( 
+	input  logic                                      clk,
+	input  logic                                      rst,
 	input  logic signed [ACCUMULATOR_DATA_WIDTH-1:0]  in,
 	input  logic                                      requant_enable,
 	input  logic [15:0]                               requant_multiplier,
@@ -75,6 +76,14 @@ module quantizer #(
         end
     endfunction
 
-    assign result = quantize_impl(in, requant_enable, requant_multiplier, requant_right_shift);
+    // One pipeline stage after the DSP multiply/shift/sat path so the closed
+    // critical path (quantizer_in_reg -> DSP -> compute_to_buffer_reg) can meet
+    // tighter clocks. Finalize FSM accounts for the +1 cycle latency.
+    always_ff @(posedge clk) begin
+        if (rst)
+            result <= '0;
+        else
+            result <= quantize_impl(in, requant_enable, requant_multiplier, requant_right_shift);
+    end
 
 endmodule: quantizer

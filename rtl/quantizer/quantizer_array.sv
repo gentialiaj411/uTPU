@@ -7,6 +7,8 @@ module quantizer_array #(
 	parameter ACCUMULATOR_DATA_WIDTH = 16,
 	parameter COMPUTE_DATA_WIDTH     = 4
     ) (
+	input  logic                                      clk,
+	input  logic                                      rst,
 	input  logic [(QUANTIZER_SIZE*ACCUMULATOR_DATA_WIDTH)-1:0] ins_flat,
 	input  logic                                      requant_enable,
 	input  logic [(QUANTIZER_SIZE*16)-1:0]            requant_multiplier_flat,
@@ -23,6 +25,8 @@ module quantizer_array #(
 		.ACCUMULATOR_DATA_WIDTH(ACCUMULATOR_DATA_WIDTH),
 		.COMPUTE_DATA_WIDTH(COMPUTE_DATA_WIDTH)
 	    ) u_quant (
+		.clk(clk),
+		.rst(rst),
 		.in(ins_flat[IN_LO +: ACCUMULATOR_DATA_WIDTH]),
 		.requant_enable(requant_enable),
 		.requant_multiplier(requant_multiplier_flat[(i * 16) +: 16]),

@@ -69,6 +69,8 @@ module top_packed_smoke_harness #(
         .ACCUMULATOR_DATA_WIDTH(ACCUMULATOR_DATA_WIDTH),
         .COMPUTE_DATA_WIDTH(COMPUTE_DATA_WIDTH)
     ) u_base_quant (
+        .clk(clk),
+        .rst(rst),
         .ins_flat(base_accum_flat),
         .requant_enable(requant_enable),
         .requant_multiplier_flat(requant_multiplier_flat),

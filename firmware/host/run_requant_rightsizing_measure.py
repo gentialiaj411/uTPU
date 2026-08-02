@@ -77,12 +77,16 @@ def _duty_snapshot(path: Path) -> Dict[str, Any]:
 
 
 def _expected_finalize_cycles(batch_size: int, *, narrow: bool) -> int:
-    """Analytical requant wait_clear cycles for a single-tile (16x16) GEMM."""
+    """Analytical requant wait_clear cycles for a single-tile (16x16) GEMM.
+
+    Registered quantizer needs one fill bubble per presented input vector.
+    Narrow streams one column at a time (fill+capture each); wide does one
+    fill+capture per ARRAY_SIZE-wide writeback chunk.
+    """
+    chunks = (batch_size + ARRAY_SIZE - 1) // ARRAY_SIZE
     if not narrow:
-        # One-shot tile finalize: 1 wait cycle per ARRAY_SIZE-wide writeback chunk.
-        return (batch_size + ARRAY_SIZE - 1) // ARRAY_SIZE
-    # Narrow: one cycle per output column.
-    return batch_size
+        return 2 * chunks
+    return 2 * batch_size
 
 
 def _measure_finalize_ab() -> Dict[str, Any]:
@@ -183,9 +187,12 @@ def build_artifact(*, skip_systolic: bool = False, skip_finalize_ab: bool = Fals
     else:
         after_snapshot = _duty_snapshot(before_path) if before_path.exists() else None
 
-    finalize_ab = None if skip_finalize_ab else _measure_finalize_ab()
-
     artifact = _load_or_empty()
+    if skip_finalize_ab:
+        finalize_ab = artifact.get("step3_measure", {}).get("finalize_cycle_ab")
+    else:
+        finalize_ab = _measure_finalize_ab()
+
     artifact.update(
         {
             "version": 1,
