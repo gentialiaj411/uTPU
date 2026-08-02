@@ -1,87 +1,63 @@
 {
-  "version": 1,
-  "generated_at_utc": "2026-06-17T20:35:31.498Z",
-  "git_sha": "48fe65a2a98775c33d3e84e268fad06502e6efbc",
+  "version": 2,
+  "generated_at_utc": "2026-08-02T21:50:04.525811+00:00",
+  "git_sha": "781ce88",
+  "vivado_version": "2025.2",
+  "part": "xc7a100tcsg324-1",
+  "methodology": "Out-of-context synth_design of pe_packed_skewed / pe_array_packed via scripts/synth_packed_mac_ooc.tcl. No IOB/place. DSP counts from utilization.rpt 'DSP48E1 only'. Inference audit from synth DSP Final Report (cascade A*B + PCIN>>17).",
+  "loop_converge_root_cause": {
+    "files": [
+      "rtl/PEArray/pe_controller.sv",
+      "rtl/PEArray/pe_controller_packed.sv"
+    ],
+    "symptom": "synth_failed: loop condition does not converge after 2000 iterations",
+    "cause": "Nested for (col < MAX_BATCH_COUNT) / for (row < ARRAY_SIZE) capture loops gated on runtime active_columns=batch_count prevented Vivado unroll.",
+    "fix": "Rewrote capture to O(ARRAY_SIZE) static loop: col = capture_cycle - ARRAY_SIZE - 1 - row. Same schedule semantics; bit-exact requant suite still 11/11."
+  },
+  "packing_inference": {
+    "hypothesis_2_mac_per_dsp": false,
+    "measured_dsp_per_pe_packed_skewed_cell": 2,
+    "dsp_final_report_modes": [
+      "A'*B (wide)",
+      "PCIN>>17+A*B (cascade)"
+    ],
+    "explanation": "PACK_SHIFT=18 makes packed_operand width 27 and product width 35, which does not fit a single DSP48E1 25x18 multiply. Vivado infers a 2-DSP cascade per packed cell, so packing does not reduce DSP vs one-MAC-per-DSP."
+  },
   "runs": [
     {
-      "name": "packed_baseline_8x8_int8",
-      "params": {
-        "ARRAY_SIZE": 8,
-        "COMPUTE_DATA_WIDTH": 8,
-        "ACCUMULATOR_DATA_WIDTH": 32,
-        "BUFFER_SIZE": 4096,
-        "EXT_ADDR_EN": 1
-      },
-      "part": "xc7a100tcsg324-1",
-      "vivado_version": "2025.2",
-      "timing": null,
-      "utilization": null,
-      "route_status": "synth_failed: pe_controller.sv:66 loop condition does not converge after 2000 iterations",
-      "report_files": [
-        "build/reports/packed_baseline_8x8_int8_timing_summary.rpt",
-        "build/reports/packed_baseline_8x8_int8_utilization.rpt",
-        "build/reports/packed_baseline_8x8_int8_route_status.rpt",
-        "build/reports/packed_baseline_8x8_int8.bit"
-      ]
+      "name": "packed_mac_ooc_cell1",
+      "top": "pe_packed_skewed",
+      "macs_logical": 2,
+      "hypothesis_dsp": 1,
+      "measured_dsp": 2,
+      "report_prefix": "packed_mac_ooc_cell1",
+      "status": "ok"
     },
     {
-      "name": "packed_baseline_16x16_int8",
-      "params": {
-        "ARRAY_SIZE": 16,
-        "COMPUTE_DATA_WIDTH": 8,
-        "ACCUMULATOR_DATA_WIDTH": 32,
-        "BUFFER_SIZE": 4096,
-        "EXT_ADDR_EN": 1
-      },
-      "part": "xc7a100tcsg324-1",
-      "vivado_version": "2025.2",
-      "timing": null,
-      "utilization": null,
-      "route_status": "synth_failed: pe_controller.sv:66 loop condition does not converge after 2000 iterations",
-      "report_files": [
-        "build/reports/packed_baseline_16x16_int8_timing_summary.rpt",
-        "build/reports/packed_baseline_16x16_int8_utilization.rpt",
-        "build/reports/packed_baseline_16x16_int8_route_status.rpt",
-        "build/reports/packed_baseline_16x16_int8.bit"
-      ]
+      "name": "packed_mac_ooc_8x8",
+      "top": "pe_array_packed",
+      "ARRAY_SIZE": 8,
+      "macs_logical": 64,
+      "packed_cells": 32,
+      "hypothesis_dsp": 32,
+      "measured_dsp": 64,
+      "report_prefix": "packed_mac_ooc_8x8",
+      "status": "ok",
+      "note": "64 DSP = same as unpacked 8x8 MAC; packing saves 0 DSP at this size."
     },
     {
-      "name": "packed_array_8x8_int8",
-      "params": {
-        "ARRAY_SIZE": 8,
-        "COMPUTE_DATA_WIDTH": 8,
-        "ACCUMULATOR_DATA_WIDTH": 32
-      },
-      "part": "xc7a100tcsg324-1",
-      "vivado_version": "2025.2",
-      "timing": null,
-      "utilization": null,
-      "route_status": "synth_failed: pe_controller_packed.sv:79 loop condition does not converge after 2000 iterations",
-      "report_files": [
-        "build/reports/packed_array_8x8_int8_timing_summary.rpt",
-        "build/reports/packed_array_8x8_int8_utilization.rpt",
-        "build/reports/packed_array_8x8_int8_route_status.rpt",
-        "build/reports/packed_array_8x8_int8.bit"
-      ]
-    },
-    {
-      "name": "packed_array_16x16_int8",
-      "params": {
-        "ARRAY_SIZE": 16,
-        "COMPUTE_DATA_WIDTH": 8,
-        "ACCUMULATOR_DATA_WIDTH": 32
-      },
-      "part": "xc7a100tcsg324-1",
-      "vivado_version": "2025.2",
-      "timing": null,
-      "utilization": null,
-      "route_status": "synth_failed: pe_controller_packed.sv:79 loop condition does not converge after 2000 iterations",
-      "report_files": [
-        "build/reports/packed_array_16x16_int8_timing_summary.rpt",
-        "build/reports/packed_array_16x16_int8_utilization.rpt",
-        "build/reports/packed_array_16x16_int8_route_status.rpt",
-        "build/reports/packed_array_16x16_int8.bit"
-      ]
+      "name": "packed_mac_ooc_16x16",
+      "top": "pe_array_packed",
+      "ARRAY_SIZE": 16,
+      "macs_logical": 256,
+      "packed_cells": 128,
+      "hypothesis_dsp": 128,
+      "unconstrained_expected_dsp_at_2_per_cell": 256,
+      "measured_dsp": 240,
+      "dsp_available": 240,
+      "report_prefix": "packed_mac_ooc_16x16",
+      "status": "ok_part_capped",
+      "note": "Would need 256 DSP at measured 2/cell; Artix-7 A7-100T reports 240/240 (100%). Hypothesis 128 is FALSE."
     }
   ]
 }

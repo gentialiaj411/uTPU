@@ -45,7 +45,7 @@ set top_name   [maybe_get $arg_opts top_name top_packed]
 set generic_opt [maybe_get $arg_opts generic ""]
 if {$generic_opt eq ""} {
     set generic_pairs {}
-    foreach key {PROG_DEPTH COMPUTE_DATA_WIDTH ACCUMULATOR_DATA_WIDTH ARRAY_SIZE BUFFER_SIZE EXT_ADDR_EN} {
+    foreach key {PROG_DEPTH COMPUTE_DATA_WIDTH ACCUMULATOR_DATA_WIDTH ARRAY_SIZE BUFFER_SIZE EXT_ADDR_EN MAX_BATCH_COUNT QUANTIZER_LANES QUANTIZER_SIZE} {
         if {[dict exists $arg_opts $key]} {
             lappend generic_pairs "${key}=[dict get $arg_opts $key]"
         }

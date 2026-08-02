@@ -31,13 +31,19 @@ def _resolve_iverilog_tools() -> Tuple[Optional[str], Optional[str]]:
     return None, None
 
 
-def _iverilog_run(repo_root: str) -> Tuple[bool, str]:
+def _iverilog_run(
+    repo_root: str,
+    *,
+    quantizer_lanes: Optional[int] = None,
+    relu_lanes: Optional[int] = None,
+    out_vvp_name: str = "tb_batched_gemm.out",
+) -> Tuple[bool, str]:
     iv_bin, vv_bin = _resolve_iverilog_tools()
     if not iv_bin or not vv_bin:
         return False, "iverilog/vvp binaries not found"
     build_dir = os.path.join(repo_root, "build", "rtl_sim")
     os.makedirs(build_dir, exist_ok=True)
-    out_vvp = os.path.join(build_dir, "tb_batched_gemm.out")
+    out_vvp = os.path.join(build_dir, out_vvp_name)
     srcs = [
         "rtl/tb/tb_batched_gemm.sv",
         "rtl/tb/xpm_memory_sdpram_stub.sv",
@@ -59,7 +65,12 @@ def _iverilog_run(repo_root: str) -> Tuple[bool, str]:
         "rtl/UART/clk_divider.sv",
     ]
     srcs_abs = [os.path.join(repo_root, s) for s in srcs]
-    compile_cmd = [iv_bin, "-g2012", "-DICARUS", "-o", out_vvp] + srcs_abs
+    compile_cmd = [iv_bin, "-g2012", "-DICARUS", "-o", out_vvp]
+    if quantizer_lanes is not None:
+        compile_cmd.append(f"-DBG_QUANTIZER_LANES={int(quantizer_lanes)}")
+    if relu_lanes is not None:
+        compile_cmd.append(f"-DBG_RELU_LANES={int(relu_lanes)}")
+    compile_cmd.extend(srcs_abs)
     run_cmd = [vv_bin, out_vvp]
     env = os.environ.copy()
     env["TMP"] = build_dir
@@ -92,6 +103,8 @@ def run_rtl_batched_gemm_sim(
     cfg: Optional[IsaConfig] = None,
     accumulator_data_width: int = 32,
     requant_params: Optional[RequantParams] = None,
+    quantizer_lanes: Optional[int] = None,
+    relu_lanes: Optional[int] = None,
 ) -> Dict[str, Any]:
     root = _repo_root()
     os.chdir(root)
@@ -118,6 +131,8 @@ def run_rtl_batched_gemm_sim(
         "cfg": vectors["cfg"],
         "hoist_tile_payloads": bool(vectors.get("hoist_tile_payloads", False)),
         "requant_params": vectors.get("requant_params"),
+        "quantizer_lanes": quantizer_lanes,
+        "relu_lanes": relu_lanes,
         "simulator_log": None,
         "perf_cycle_counter": None,
         "perf_busy_counter": None,
@@ -125,14 +140,24 @@ def run_rtl_batched_gemm_sim(
         "compute_busy_cycles": None,
         "compute_span_cycles": None,
         "compute_span_duty_cycle": None,
+        "finalize_requant_cycles": None,
     }
-    ok, log = _iverilog_run(root)
+    vvp_name = "tb_batched_gemm.out"
+    if quantizer_lanes is not None:
+        vvp_name = f"tb_batched_gemm_ql{int(quantizer_lanes)}.out"
+    ok, log = _iverilog_run(
+        root,
+        quantizer_lanes=quantizer_lanes,
+        relu_lanes=relu_lanes if relu_lanes is not None else quantizer_lanes,
+        out_vvp_name=vvp_name,
+    )
     metrics["simulator_log"] = log
     metrics["perf_cycle_counter"] = _parse_perf_counter(log, "PERF_CYCLE_COUNTER")
     metrics["perf_busy_counter"] = _parse_perf_counter(log, "PERF_BUSY_COUNTER")
     metrics["perf_program_count"] = _parse_perf_counter(log, "PERF_PROGRAM_COUNT")
     metrics["compute_busy_cycles"] = _parse_perf_counter(log, "COMPUTE_BUSY_CYCLES")
     metrics["compute_span_cycles"] = _parse_perf_counter(log, "COMPUTE_SPAN_CYCLES")
+    metrics["finalize_requant_cycles"] = _parse_perf_counter(log, "FINALIZE_REQUANT_CYCLES")
     if metrics["compute_busy_cycles"] and metrics["compute_span_cycles"]:
         metrics["compute_span_duty_cycle"] = (
             float(metrics["compute_busy_cycles"]) / float(metrics["compute_span_cycles"])

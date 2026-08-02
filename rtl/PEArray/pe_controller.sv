@@ -63,22 +63,26 @@ module pe_controller #(
                             datas_in[i] <= '0;
                     end
 
-                    for (int col = 0; col < MAX_BATCH_COUNT; col++) begin
-                        if (col < active_columns) begin
-                            for (int row = 0; row < ARRAY_SIZE; row++) begin
-                                if ((ARRAY_SIZE + 1 + row + col) == capture_cycle) begin
+                    // Root-cause fix for Vivado "loop condition does not converge"
+                    // (same rewrite as pe_controller_packed.sv).
+                    begin
+                        int sum_idx;
+                        int col;
+                        sum_idx = capture_cycle - ARRAY_SIZE - 1;
+                        for (int row = 0; row < ARRAY_SIZE; row++) begin
+                            col = sum_idx - row;
+                            if ((col >= 0) && (col < active_columns)) begin
 `ifdef ICARUS
-                                    logic signed [ACCUMULATOR_DATA_WIDTH-1:0] captured_result;
-                                    captured_result = $signed(u_pe_array.accumulators[ARRAY_SIZE-1][row]);
-                                    if (^u_pe_array.accumulators[ARRAY_SIZE-1][row] === 1'bx)
-                                        captured_result = '0;
-                                    results_arr[(col * ARRAY_SIZE) + row] <= captured_result;
+                                logic signed [ACCUMULATOR_DATA_WIDTH-1:0] captured_result;
+                                captured_result = $signed(u_pe_array.accumulators[ARRAY_SIZE-1][row]);
+                                if (^u_pe_array.accumulators[ARRAY_SIZE-1][row] === 1'bx)
+                                    captured_result = '0;
+                                results_arr[(col * ARRAY_SIZE) + row] <= captured_result;
 `else
-                                    results_arr[(col * ARRAY_SIZE) + row] <= results[row];
+                                results_arr[(col * ARRAY_SIZE) + row] <= results[row];
 `endif
-                                    if ((row == ARRAY_SIZE-1) && (col == active_columns-1))
-			                done <= 1'b1;
-                                end
+                                if ((row == ARRAY_SIZE-1) && (col == active_columns-1))
+                                    done <= 1'b1;
                             end
                         end
                     end

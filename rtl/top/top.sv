@@ -20,9 +20,14 @@ module top #(
     // and behaviour is byte-identical to pre-Phase-4.
     parameter EXT_ADDR_EN            = 0,
     parameter OPCODE_WIDTH           = 3,
-    parameter RELU_SIZE              = ARRAY_SIZE*ARRAY_SIZE,
+    // Finalize datapath width. Default ARRAY_SIZE matches the PE output rate
+    // (one column of rows per cycle). Override to ARRAY_SIZE*ARRAY_SIZE to
+    // restore the legacy one-cycle tile-wide requant/ReLU (A/B testable).
+    parameter QUANTIZER_LANES        = ARRAY_SIZE,
+    parameter RELU_LANES             = ARRAY_SIZE,
+    parameter RELU_SIZE              = RELU_LANES,
     parameter RELU_SIZE_WIDTH        = $clog2(RELU_SIZE),
-    parameter QUANTIZER_SIZE         = ARRAY_SIZE*ARRAY_SIZE,
+    parameter QUANTIZER_SIZE         = QUANTIZER_LANES,
     parameter QUANTIZER_SIZE_WIDTH   = $clog2(QUANTIZER_SIZE),
     parameter NUM_COMPUTE_LANES      = ARRAY_SIZE*ARRAY_SIZE,
     parameter MAX_BATCH_COUNT        = 64,
@@ -54,6 +59,10 @@ module top #(
     localparam logic [7:0] MAGIC_READ_PERF = 8'hA4; // host: stream perf counters
     localparam logic [3:0] NOP_SUBOP_REQUANT = 4'b0001;
     localparam int STREAM_CHUNK_WORDS = (ARRAY_SIZE * ARRAY_SIZE) / ITEMS_IN_SLOT;
+    // Narrow finalize: QUANTIZER_SIZE == ARRAY_SIZE streams one output column
+    // per cycle. Wide finalize: QUANTIZER_SIZE == NUM_COMPUTE_LANES keeps the
+    // legacy one-cycle tile requant.
+    localparam bit REQUANT_NARROW = (QUANTIZER_SIZE == ARRAY_SIZE);
 
     // -----------------------------------------------------------------------
     // Controller registers
@@ -386,6 +395,10 @@ module top #(
     logic [MAX_BATCH_COUNT_WIDTH-1:0] writeback_chunk_index;
     logic [MAX_BATCH_COUNT_WIDTH-1:0] writeback_chunk_count;
     logic                             writeback_wait_clear;
+    // Column counters for narrow (QUANTIZER_SIZE==ARRAY_SIZE) finalize streaming.
+    // Width must hold ARRAY_SIZE inclusive (cols_in_chunk in 1..ARRAY_SIZE).
+    logic [$clog2(ARRAY_SIZE+1)-1:0]  writeback_col_index;
+    logic [$clog2(ARRAY_SIZE+1)-1:0]  writeback_cols_in_chunk;
     logic                        requant_enable_latched;
     logic [15:0]                 requant_multiplier_latched [ARRAY_SIZE-1:0];
     logic [15:0]                 requant_right_shift_latched [ARRAY_SIZE-1:0];
@@ -441,10 +454,14 @@ module top #(
         int out_idx;
         logic signed [31:0] acc_val;
         begin
-            for (int ai = 0; ai < NUM_COMPUTE_LANES; ai++) begin
+            // Wide-only helper (QUANTIZER_SIZE == NUM_COMPUTE_LANES). Guard writes
+            // so narrow elaboration (QUANTIZER_SIZE == ARRAY_SIZE) stays in-bounds.
+            for (int ai = 0; ai < QUANTIZER_SIZE; ai++) begin
                 if (requant_enable_latched)
                     quantizer_in[ai] <= '0;
-                else
+            end
+            for (int ai = 0; ai < NUM_COMPUTE_LANES; ai++) begin
+                if (!requant_enable_latched)
                     compute_to_buffer[ai] <= '0;
             end
             for (local_col = 0; local_col < ARRAY_SIZE; local_col++) begin
@@ -454,7 +471,8 @@ module top #(
                         out_idx = (local_col * ARRAY_SIZE) + row;
                         acc_val = acc_partial_matrix[row][global_col];
                         if (requant_enable_latched) begin
-                            quantizer_in[out_idx] <= acc_val[ACCUMULATOR_DATA_WIDTH-1:0];
+                            if (out_idx < QUANTIZER_SIZE)
+                                quantizer_in[out_idx] <= acc_val[ACCUMULATOR_DATA_WIDTH-1:0];
                         end else if (relu_en && (quantize_clip_int4(acc_val) < 0)) begin
                             compute_to_buffer[out_idx] <= quantize_clip_int4(acc_val) >>> ALPHA;
                         end else begin
@@ -463,6 +481,66 @@ module top #(
                     end
                 end
             end
+        end
+    endtask
+
+    // Narrow finalize: present one output column (ARRAY_SIZE rows) to the
+    // QUANTIZER_SIZE==ARRAY_SIZE requant array. Per-channel scales map via
+    // QI_ROW = qi (row index).
+    task automatic prepare_writeback_column(input int chunk_idx, input int local_col);
+        int global_col;
+        int row;
+        logic signed [31:0] acc_val;
+        logic signed [31:0] residual_val;
+        begin
+            for (int ai = 0; ai < QUANTIZER_SIZE; ai++)
+                quantizer_in[ai] <= '0;
+            if (run_batch_count == MAX_BATCH_COUNT_WIDTH'(1)) begin
+                for (row = 0; row < ARRAY_SIZE && row < QUANTIZER_SIZE; row++) begin
+`ifdef ICARUS
+                    acc_val = acc_partial_sums[row];
+                    if (^acc_partial_sums[row] === 1'bx)
+                        acc_val = 32'sd0;
+                    residual_val = residual_en ? $signed(residual_in[row]) : 32'sd0;
+                    if (residual_en && (^residual_in[row] === 1'bx))
+                        residual_val = 32'sd0;
+`else
+                    acc_val = acc_partial_sums[row];
+                    residual_val = residual_en ? $signed(residual_in[row]) : 32'sd0;
+`endif
+                    acc_val = acc_val + residual_val;
+                    quantizer_in[row] <= acc_val[ACCUMULATOR_DATA_WIDTH-1:0];
+                end
+            end else begin
+                global_col = (chunk_idx * ARRAY_SIZE) + local_col;
+                if (global_col < run_batch_count) begin
+                    for (row = 0; row < ARRAY_SIZE && row < QUANTIZER_SIZE; row++) begin
+                        acc_val = acc_partial_matrix[row][global_col];
+                        quantizer_in[row] <= acc_val[ACCUMULATOR_DATA_WIDTH-1:0];
+                    end
+                end
+            end
+        end
+    endtask
+
+    task automatic capture_writeback_column(input int local_col);
+        int row;
+        int out_idx;
+        begin
+            for (row = 0; row < ARRAY_SIZE && row < QUANTIZER_SIZE; row++) begin
+                out_idx = (local_col * ARRAY_SIZE) + row;
+                if (relu_en)
+                    compute_to_buffer[out_idx] <= apply_leaky_relu(quantizer_out[row]);
+                else
+                    compute_to_buffer[out_idx] <= quantizer_out[row];
+            end
+        end
+    endtask
+
+    task automatic clear_compute_to_buffer();
+        begin
+            for (int ai = 0; ai < NUM_COMPUTE_LANES; ai++)
+                compute_to_buffer[ai] <= '0;
         end
     endtask
 
@@ -756,6 +834,9 @@ module top #(
                 load_wait_clear     <= 1'b0;
                 writeback_chunk_index <= '0;
                 writeback_chunk_count <= MAX_BATCH_COUNT_WIDTH'(1);
+                writeback_wait_clear  <= 1'b0;
+                writeback_col_index   <= '0;
+                writeback_cols_in_chunk <= ($clog2(ARRAY_SIZE+1))'(1);
                 writeback_wait_clear <= 1'b0;
                 store_half          <= 1'b0;
                 store_word_idx      <= 2'b0;
@@ -1273,49 +1354,38 @@ module top #(
 
             // -----------------------------------------------------------------
             COMPUTE_STATE: begin
-                // Legacy direct ReLU path
+                // Legacy direct ReLU path (sized to RELU_SIZE; override
+                // RELU_LANES=N^2 to restore full-tile one-shot behavior).
                 if (~compute_en && ~quantizer_en && relu_en) begin
                     compute_start <= 1'b0;
-`ifdef ICARUS
                     for (int ci = 0; ci < NUM_COMPUTE_LANES; ci++)
+                        compute_to_buffer[ci] <= '0;
+                    for (int ci = 0; ci < RELU_SIZE; ci++) begin
                         relu_in[ci] <= mem_to_compute[ci];
-                    for (int ci = 0; ci < NUM_COMPUTE_LANES; ci++)
                         compute_to_buffer[ci] <= relu_out[ci];
-`else
-                    relu_in           <= mem_to_compute;
-                    compute_to_buffer <= relu_out;
-`endif
+                    end
 
                 // Legacy compute->quantize path
                 end else if (compute_en && quantizer_en && ~relu_en) begin
                     compute_start <= compute_en;
-`ifdef ICARUS
                     for (int ci = 0; ci < NUM_COMPUTE_LANES; ci++)
+                        compute_to_buffer[ci] <= '0;
+                    for (int ci = 0; ci < QUANTIZER_SIZE; ci++) begin
                         quantizer_in[ci] <= compute_stream_out[ci];
-                    for (int ci = 0; ci < NUM_COMPUTE_LANES; ci++)
                         compute_to_buffer[ci] <= quantizer_out[ci];
-`else
-                    for (int ci = 0; ci < NUM_COMPUTE_LANES; ci++)
-                        quantizer_in[ci] <= compute_stream_out[ci];
-                    compute_to_buffer <= quantizer_out;
-`endif
+                    end
 
                 // Legacy compute->quantize->relu path
                 end else if (compute_en && quantizer_en && relu_en) begin
                     compute_start <= compute_en;
-`ifdef ICARUS
                     for (int ci = 0; ci < NUM_COMPUTE_LANES; ci++)
+                        compute_to_buffer[ci] <= '0;
+                    for (int ci = 0; ci < QUANTIZER_SIZE; ci++)
                         quantizer_in[ci] <= compute_stream_out[ci];
-                    for (int ci = 0; ci < NUM_COMPUTE_LANES; ci++)
+                    for (int ci = 0; ci < RELU_SIZE && ci < QUANTIZER_SIZE; ci++) begin
                         relu_in[ci] <= quantizer_out[ci];
-                    for (int ci = 0; ci < NUM_COMPUTE_LANES; ci++)
                         compute_to_buffer[ci] <= relu_out[ci];
-`else
-                    for (int ci = 0; ci < NUM_COMPUTE_LANES; ci++)
-                        quantizer_in[ci] <= compute_stream_out[ci];
-                    relu_in           <= quantizer_out;
-                    compute_to_buffer <= relu_out;
-`endif
+                    end
 
                 // New blocked-FC accumulate mode:
                 // RUN with compute=1, quantize=0, relu=0 accumulates raw PE outputs.
@@ -1442,20 +1512,31 @@ module top #(
                 // New finalize mode:
                 // RUN with compute=0, quantize=1, relu={0|1} writes quantized (and optionally ReLU'd)
                 // accumulator values into compute_to_buffer.
+                // Narrow (default): stream one output column per cycle through
+                // QUANTIZER_SIZE==ARRAY_SIZE. Wide (QUANTIZER_LANES=N^2): one-shot tile.
                 end else if (~compute_en && quantizer_en) begin
                     compute_start <= 1'b0;
                     writeback_chunk_index <= '0;
+                    writeback_col_index   <= '0;
                     if (run_batch_count == MAX_BATCH_COUNT_WIDTH'(1)) begin
-                        writeback_chunk_count <= MAX_BATCH_COUNT_WIDTH'(1);
+                        writeback_chunk_count    <= MAX_BATCH_COUNT_WIDTH'(1);
+                        writeback_cols_in_chunk  <= ($clog2(ARRAY_SIZE+1))'(1);
                     end else begin
                         writeback_chunk_count <= (run_batch_count + ARRAY_SIZE - 1) / ARRAY_SIZE;
+                        if (run_batch_count < ARRAY_SIZE)
+                            writeback_cols_in_chunk <= ($clog2(ARRAY_SIZE+1))'(run_batch_count);
+                        else
+                            writeback_cols_in_chunk <= ($clog2(ARRAY_SIZE+1))'(ARRAY_SIZE);
                     end
                     if (requant_enable_latched) begin
                         writeback_wait_clear <= 1'b1;
-                        if (run_batch_count == MAX_BATCH_COUNT_WIDTH'(1)) begin
-                            for (int ai = 0; ai < NUM_COMPUTE_LANES; ai++)
+                        if (REQUANT_NARROW) begin
+                            clear_compute_to_buffer();
+                            prepare_writeback_column(0, 0);
+                        end else if (run_batch_count == MAX_BATCH_COUNT_WIDTH'(1)) begin
+                            for (int ai = 0; ai < QUANTIZER_SIZE; ai++)
                                 quantizer_in[ai] <= '0;
-                            for (int ai = 0; ai < ARRAY_SIZE; ai++) begin
+                            for (int ai = 0; ai < ARRAY_SIZE && ai < QUANTIZER_SIZE; ai++) begin
 `ifdef ICARUS
                                 logic signed [31:0] acc_val;
                                 logic signed [31:0] residual_val;
@@ -1527,14 +1608,35 @@ module top #(
                 buffer_store_en   <= 1'b0;
                 address           <= compute_result_addr + (writeback_chunk_index * STREAM_CHUNK_WORDS);
                 if (requant_finalize_enable && writeback_wait_clear) begin
-                    for (int ai = 0; ai < NUM_COMPUTE_LANES; ai++) begin
-                        if (relu_en)
-                            compute_to_buffer[ai] <= apply_leaky_relu(quantizer_out[ai]);
-                        else
-                            compute_to_buffer[ai] <= quantizer_out[ai];
+                    if (REQUANT_NARROW) begin
+                        // Combo quantizer: NBA RHS samples current column;
+                        // same cycle may preload the next column's inputs.
+                        capture_writeback_column(writeback_col_index);
+                        if ((writeback_col_index + 1'b1) < writeback_cols_in_chunk) begin
+                            writeback_col_index <= writeback_col_index + 1'b1;
+                            prepare_writeback_column(
+                                writeback_chunk_index,
+                                writeback_col_index + 1
+                            );
+                        end else begin
+                            writeback_wait_clear <= 1'b0;
+                            writeback_col_index  <= '0;
+                        end
+                        buffer_we         <= 1'b0;
+                        buffer_compute_en <= 1'b0;
+                    end else begin
+                        for (int ai = 0; ai < QUANTIZER_SIZE; ai++) begin
+                            if (relu_en)
+                                compute_to_buffer[ai] <= apply_leaky_relu(quantizer_out[ai]);
+                            else
+                                compute_to_buffer[ai] <= quantizer_out[ai];
+                        end
+                        buffer_we         <= 1'b0;
+                        buffer_compute_en <= 1'b0;
+                        if (!buffer_done)
+                            writeback_wait_clear <= 1'b0;
                     end
-                end
-                if (writeback_wait_clear) begin
+                end else if (writeback_wait_clear) begin
                     buffer_we         <= 1'b0;
                     buffer_compute_en <= 1'b0;
                     if (!buffer_done)
@@ -1543,13 +1645,28 @@ module top #(
                     buffer_we         <= 1'b0;
                     buffer_compute_en <= 1'b0;
                     if ((writeback_chunk_index + 1'b1) < writeback_chunk_count) begin
+                        int next_chunk;
+                        int remaining;
+                        next_chunk = writeback_chunk_index + 1;
                         writeback_chunk_index <= writeback_chunk_index + 1'b1;
                         writeback_wait_clear  <= 1'b1;
-                        prepare_writeback_chunk(writeback_chunk_index + 1'b1);
+                        writeback_col_index   <= '0;
+                        remaining = run_batch_count - (next_chunk * ARRAY_SIZE);
+                        if (remaining < ARRAY_SIZE)
+                            writeback_cols_in_chunk <= ($clog2(ARRAY_SIZE+1))'(remaining);
+                        else
+                            writeback_cols_in_chunk <= ($clog2(ARRAY_SIZE+1))'(ARRAY_SIZE);
+                        if (REQUANT_NARROW && requant_enable_latched) begin
+                            clear_compute_to_buffer();
+                            prepare_writeback_column(next_chunk, 0);
+                        end else begin
+                            prepare_writeback_chunk(next_chunk);
+                        end
                     end else begin
                         writeback_chunk_index <= '0;
                         writeback_chunk_count <= MAX_BATCH_COUNT_WIDTH'(1);
                         writeback_wait_clear  <= 1'b0;
+                        writeback_col_index   <= '0;
                     end
                 end else begin
                     buffer_we         <= 1'b1;

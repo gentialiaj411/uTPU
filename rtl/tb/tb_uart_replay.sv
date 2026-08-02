@@ -142,7 +142,7 @@ module tb_uart_replay;
             if (capture_enabled && tx === 1'bx)
                 uart_tx_x_seen = 1'b1;
             if (dut.requant_finalize_enable && dut.writeback_wait_clear) begin
-                for (i = 0; i < dut.NUM_COMPUTE_LANES; i++) begin
+                for (i = 0; i < dut.QUANTIZER_SIZE; i++) begin
                     if ((^dut.quantizer_out[i]) === 1'bx)
                         quantizer_x_seen = 1'b1;
                 end

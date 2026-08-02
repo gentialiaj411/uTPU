@@ -76,22 +76,28 @@ module pe_controller_packed #(
                             datas_in[i] <= '0;
                     end
 
-                    for (int col = 0; col < MAX_BATCH_COUNT; col++) begin
-                        if (col < active_columns) begin
-                            for (int row = 0; row < ARRAY_SIZE; row++) begin
-                                if ((ARRAY_SIZE + 1 + row + col) == capture_cycle) begin
-                                    logic signed [ACCUMULATOR_DATA_WIDTH-1:0] captured_result;
+                    // Root-cause fix for Vivado "loop condition does not converge":
+                    // do not nest MAX_BATCH_COUNT x ARRAY_SIZE loops gated on the
+                    // runtime active_columns bound. Equivalent capture: for each
+                    // row, col = capture_cycle - ARRAY_SIZE - 1 - row.
+                    begin
+                        int sum_idx;
+                        int col;
+                        sum_idx = capture_cycle - ARRAY_SIZE - 1;
+                        for (int row = 0; row < ARRAY_SIZE; row++) begin
+                            col = sum_idx - row;
+                            if ((col >= 0) && (col < active_columns)) begin
+                                logic signed [ACCUMULATOR_DATA_WIDTH-1:0] captured_result;
 `ifdef ICARUS
-                                    captured_result = $signed(packed_capture(row));
-                                    if (^packed_capture(row) === 1'bx)
-                                        captured_result = '0;
+                                captured_result = $signed(packed_capture(row));
+                                if (^packed_capture(row) === 1'bx)
+                                    captured_result = '0;
 `else
-                                    captured_result = results[row];
+                                captured_result = results[row];
 `endif
-                                    results_arr[(col * ARRAY_SIZE) + row] <= captured_result;
-                                    if ((row == ARRAY_SIZE-1) && (col == active_columns-1))
-                                        done <= 1'b1;
-                                end
+                                results_arr[(col * ARRAY_SIZE) + row] <= captured_result;
+                                if ((row == ARRAY_SIZE-1) && (col == active_columns-1))
+                                    done <= 1'b1;
                             end
                         end
                     end

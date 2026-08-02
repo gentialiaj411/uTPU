@@ -1,0 +1,675 @@
+{
+  "version": 1,
+  "generated_at_utc": "2026-08-02T21:50:04.553341+00:00",
+  "git_sha": "781ce88",
+  "part": "xc7a100tcsg324-1",
+  "provenance_note": "Step1: 25-bit pre-mul saturate. Step2: QUANTIZER_LANES=ARRAY_SIZE column-stream finalize. Step3: measured iverilog finalize A/B + Vivado ARRAY_SIZE=8 closed_config re-synth with QUANTIZER_LANES=64 (step1-only) and QUANTIZER_LANES=8 (step1+2).",
+  "budget_arithmetic": {
+    "measured_array_size_8": {
+      "dsp_used": 192,
+      "dsp_available": 240,
+      "breakdown_note": "~64 DSP pe_array MAC (1/MAC) + ~128 DSP quantizer_array (2/quantizer for 32x16 product); matches closed_config"
+    },
+    "projected_array_size_16_current_requant": {
+      "mac_unpacked_dsp": 256,
+      "mac_packed_dsp_estimate": 128,
+      "requant_at_n_squared_2dsp_each": 512,
+      "packed_plus_requant_total": 640,
+      "fits_240": false,
+      "note": "Packed MAC estimate is engineering (pe_packed_pair 2-MAC/DSP); packed Vivado runs in packed_dsp_synth.json are synth_failed (loop converge), not measured."
+    },
+    "projected_array_size_16_after_step1_only": {
+      "mac_packed_dsp_estimate": 128,
+      "requant_at_n_squared_1dsp_each": 256,
+      "total": 384,
+      "fits_240": false,
+      "conclusion": "Step 1 alone does NOT free enough DSPs for ARRAY_SIZE=16 with tile-wide QUANTIZER_SIZE=N^2. Step 2 (QUANTIZER_LANES=ARRAY_SIZE) remains required."
+    },
+    "projected_array_size_16_after_step1_and_step2": {
+      "mac_packed_dsp_MEASURED": 240,
+      "mac_packed_dsp_estimate_INVALID": 128,
+      "requant_lanes_eq_array_size_1dsp_each": 16,
+      "total_with_measured_mac": 256,
+      "fits_240": false,
+      "conclusion": "SUPERSEDED: Task B measured packed 16x16 MAC at 240 DSP (2 DSP/cell cascade). Old 144-fit conclusion is invalid."
+    }
+  },
+  "steps": {
+    "step1_pre_mul_25bit_saturate": {
+      "status": "measured",
+      "rtl": "rtl/quantizer/quantizer.sv",
+      "host": "firmware/host/requantization.py",
+      "test": "firmware/host/test_blocked_fc_requant.py::test_requant_pre_mul_saturates_at_dsp48_operand_width",
+      "bit_exact_existing_vectors": "pass (test_blocked_fc_requant.py 11 passed including RTL bitmatch sweep)",
+      "before": {
+        "source": "bench/results/baseline_8x8_current_rtl_synth.json::closed_config",
+        "name": "current_rtl_mb4_clk20_dcp",
+        "params": {
+          "PROG_DEPTH": 8192,
+          "COMPUTE_DATA_WIDTH": 8,
+          "ACCUMULATOR_DATA_WIDTH": 32,
+          "ARRAY_SIZE": 8,
+          "BUFFER_SIZE": 4096,
+          "EXT_ADDR_EN": 1,
+          "MAX_BATCH_COUNT": 4
+        },
+        "clock_period_ns": 20.0,
+        "frequency_mhz": 50.0,
+        "timing": {
+          "wns_ns": 0.416,
+          "whs_ns": 0.041,
+          "tns_ns": 0.0,
+          "ths_ns": 0.0,
+          "all_paths_met": true
+        },
+        "utilization": {
+          "lut_used": 25221,
+          "lut_available": 63400,
+          "ff_used": 6819,
+          "ff_available": 126800,
+          "bram_36k_used": 21,
+          "bram_36k_available": 135,
+          "dsp_used": 192,
+          "dsp_available": 240
+        },
+        "dsp_breakdown_note": "~64 DSP in pe_array MAC array + ~128 DSP in quantizer_array requant path"
+      },
+      "after": {
+        "status": "ok",
+        "report_prefix": "requant_step1_wide_mb4_clk20",
+        "params": {
+          "ARRAY_SIZE": 8,
+          "MAX_BATCH_COUNT": 4,
+          "QUANTIZER_LANES": 64,
+          "RELU_LANES": 64,
+          "COMPUTE_DATA_WIDTH": 8,
+          "ACCUMULATOR_DATA_WIDTH": 32,
+          "BUFFER_SIZE": 4096,
+          "EXT_ADDR_EN": 1,
+          "clock_period_ns": 20.0
+        },
+        "utilization": {
+          "dsp_used": 128,
+          "dsp_available": 240,
+          "lut_used": 23770,
+          "lut_available": 63400,
+          "ff_used": 7656,
+          "bram_36k_used": 21
+        },
+        "timing": {
+          "wns_ns": 0.275,
+          "tns_ns": 0.0,
+          "whs_ns": 0.042,
+          "ths_ns": 0.0,
+          "all_paths_met": true
+        },
+        "dsp_delta_vs_baseline": -64,
+        "dsp_breakdown_note": "~64 MAC + ~64 requant (1 DSP/quantizer after 25-bit saturate; still N^2 lanes)",
+        "critical_path": {
+          "source": "quantizer_in_reg[20][25]/C",
+          "destination": "compute_to_buffer_reg[20][2]/D",
+          "through_u_quantizer_array": true,
+          "note": "Worst setup path is quantizer_in_reg -> compute_to_buffer_reg via u_quantizer_array/*/quantize_impl4 (DSP P port) and post-mul shift/saturate LUTs."
+        },
+        "measured_from_report": true
+      }
+    },
+    "step2_narrow_finalize_lanes": {
+      "status": "measured",
+      "rtl": "rtl/top/top.sv",
+      "tb": [
+        "rtl/tb/tb_batched_gemm.sv",
+        "rtl/tb/tb_uart_replay.sv"
+      ],
+      "change": "QUANTIZER_LANES/RELU_LANES default to ARRAY_SIZE; narrow finalize streams one output column per cycle through QUANTIZER_SIZE==ARRAY_SIZE (capture col N + load col N+1 same cycle on combo requant). Override QUANTIZER_LANES=ARRAY_SIZE*ARRAY_SIZE for legacy one-shot tile finalize.",
+      "bit_exact_existing_vectors": "pass (test_blocked_fc_requant.py 11 passed including RTL bitmatch sweep)",
+      "projected_dsp_after_step1_and_step2_array16": {
+        "mac_packed_dsp_estimate": 128,
+        "requant_lanes_eq_array_size_1dsp_each": 16,
+        "total": 144,
+        "fits_240": true
+      },
+      "after_synth": {
+        "status": "ok",
+        "report_prefix": "requant_step1_2_mb4_clk20",
+        "params": {
+          "ARRAY_SIZE": 8,
+          "MAX_BATCH_COUNT": 4,
+          "QUANTIZER_LANES": 8,
+          "RELU_LANES": 8,
+          "COMPUTE_DATA_WIDTH": 8,
+          "ACCUMULATOR_DATA_WIDTH": 32,
+          "BUFFER_SIZE": 4096,
+          "EXT_ADDR_EN": 1,
+          "clock_period_ns": 20.0
+        },
+        "utilization": {
+          "dsp_used": 72,
+          "dsp_available": 240,
+          "lut_used": 11809,
+          "lut_available": 63400,
+          "ff_used": 6420,
+          "bram_36k_used": 21
+        },
+        "timing": {
+          "wns_ns": 0.478,
+          "tns_ns": 0.0,
+          "whs_ns": 0.028,
+          "ths_ns": 0.0,
+          "all_paths_met": true
+        },
+        "dsp_delta_vs_step1_only": -56,
+        "dsp_delta_vs_baseline": -120,
+        "dsp_breakdown_note": "~64 MAC + ~8 requant (1 DSP/lane, QUANTIZER_LANES=ARRAY_SIZE)"
+      }
+    }
+  },
+  "step3_measure": {
+    "status": "ok",
+    "systolic_characterization_before": {
+      "source": "bench/results/systolic_characterization.json",
+      "generated_at_utc": "2026-06-13T04:18:16.988488+00:00",
+      "status": "ok",
+      "rows": [
+        {
+          "shape": {
+            "out_features": 16,
+            "in_features": 16
+          },
+          "batch_size": 1,
+          "hoist_tile_payloads": false,
+          "rtl_busy_counter": 38,
+          "compute_span_duty_cycle": 1.0,
+          "serial_baseline_compute_span_duty_cycle": null
+        },
+        {
+          "shape": {
+            "out_features": 16,
+            "in_features": 16
+          },
+          "batch_size": 4,
+          "hoist_tile_payloads": false,
+          "rtl_busy_counter": 43,
+          "compute_span_duty_cycle": 1.0,
+          "serial_baseline_compute_span_duty_cycle": null
+        },
+        {
+          "shape": {
+            "out_features": 16,
+            "in_features": 16
+          },
+          "batch_size": 16,
+          "hoist_tile_payloads": false,
+          "rtl_busy_counter": 55,
+          "compute_span_duty_cycle": 1.0,
+          "serial_baseline_compute_span_duty_cycle": null
+        },
+        {
+          "shape": {
+            "out_features": 16,
+            "in_features": 16
+          },
+          "batch_size": 32,
+          "hoist_tile_payloads": false,
+          "rtl_busy_counter": 71,
+          "compute_span_duty_cycle": 1.0,
+          "serial_baseline_compute_span_duty_cycle": null
+        },
+        {
+          "shape": {
+            "out_features": 32,
+            "in_features": 32
+          },
+          "batch_size": 1,
+          "hoist_tile_payloads": false,
+          "rtl_busy_counter": 150,
+          "compute_span_duty_cycle": 0.10714285714285714,
+          "serial_baseline_compute_span_duty_cycle": 0.10714285714285714
+        },
+        {
+          "shape": {
+            "out_features": 32,
+            "in_features": 32
+          },
+          "batch_size": 4,
+          "hoist_tile_payloads": true,
+          "rtl_busy_counter": 170,
+          "compute_span_duty_cycle": 0.8333333333333334,
+          "serial_baseline_compute_span_duty_cycle": 0.10340632603406326
+        },
+        {
+          "shape": {
+            "out_features": 32,
+            "in_features": 32
+          },
+          "batch_size": 16,
+          "hoist_tile_payloads": true,
+          "rtl_busy_counter": 218,
+          "compute_span_duty_cycle": 0.8650793650793651,
+          "serial_baseline_compute_span_duty_cycle": 0.08528951486697965
+        },
+        {
+          "shape": {
+            "out_features": 32,
+            "in_features": 32
+          },
+          "batch_size": 32,
+          "hoist_tile_payloads": true,
+          "rtl_busy_counter": 282,
+          "compute_span_duty_cycle": 0.8650306748466258,
+          "serial_baseline_compute_span_duty_cycle": 0.0745637228979376
+        }
+      ]
+    },
+    "systolic_characterization_after": {
+      "source": "bench/results/systolic_characterization.json",
+      "generated_at_utc": "2026-08-02T20:47:49.410272+00:00",
+      "status": "ok",
+      "rows": [
+        {
+          "shape": {
+            "out_features": 16,
+            "in_features": 16
+          },
+          "batch_size": 1,
+          "hoist_tile_payloads": false,
+          "rtl_busy_counter": 38,
+          "compute_span_duty_cycle": 1.0,
+          "serial_baseline_compute_span_duty_cycle": null
+        },
+        {
+          "shape": {
+            "out_features": 16,
+            "in_features": 16
+          },
+          "batch_size": 4,
+          "hoist_tile_payloads": false,
+          "rtl_busy_counter": 43,
+          "compute_span_duty_cycle": 1.0,
+          "serial_baseline_compute_span_duty_cycle": null
+        },
+        {
+          "shape": {
+            "out_features": 16,
+            "in_features": 16
+          },
+          "batch_size": 16,
+          "hoist_tile_payloads": false,
+          "rtl_busy_counter": 55,
+          "compute_span_duty_cycle": 1.0,
+          "serial_baseline_compute_span_duty_cycle": null
+        },
+        {
+          "shape": {
+            "out_features": 16,
+            "in_features": 16
+          },
+          "batch_size": 32,
+          "hoist_tile_payloads": false,
+          "rtl_busy_counter": 71,
+          "compute_span_duty_cycle": 1.0,
+          "serial_baseline_compute_span_duty_cycle": null
+        },
+        {
+          "shape": {
+            "out_features": 32,
+            "in_features": 32
+          },
+          "batch_size": 1,
+          "hoist_tile_payloads": false,
+          "rtl_busy_counter": 150,
+          "compute_span_duty_cycle": 0.10714285714285714,
+          "serial_baseline_compute_span_duty_cycle": 0.10714285714285714
+        },
+        {
+          "shape": {
+            "out_features": 32,
+            "in_features": 32
+          },
+          "batch_size": 4,
+          "hoist_tile_payloads": true,
+          "rtl_busy_counter": 170,
+          "compute_span_duty_cycle": 0.8333333333333334,
+          "serial_baseline_compute_span_duty_cycle": 0.10340632603406326
+        },
+        {
+          "shape": {
+            "out_features": 32,
+            "in_features": 32
+          },
+          "batch_size": 16,
+          "hoist_tile_payloads": true,
+          "rtl_busy_counter": 218,
+          "compute_span_duty_cycle": 0.8650793650793651,
+          "serial_baseline_compute_span_duty_cycle": 0.08528951486697965
+        },
+        {
+          "shape": {
+            "out_features": 32,
+            "in_features": 32
+          },
+          "batch_size": 32,
+          "hoist_tile_payloads": true,
+          "rtl_busy_counter": 282,
+          "compute_span_duty_cycle": 0.8650306748466258,
+          "serial_baseline_compute_span_duty_cycle": 0.0745637228979376
+        }
+      ]
+    },
+    "finalize_cycle_ab": {
+      "status": "ok",
+      "methodology": "A/B iverilog on INT8 requant 16x16 single-tile programs. Wide = QUANTIZER_LANES=N^2 one-shot tile finalize; narrow = default QUANTIZER_LANES=N column stream. FINALIZE_REQUANT_CYCLES counts TB cycles with requant_finalize_enable && writeback_wait_clear.",
+      "rows": [
+        {
+          "shape": {
+            "out_features": 16,
+            "in_features": 16
+          },
+          "batch_size": 1,
+          "wide": {
+            "quantizer_lanes": 256,
+            "rtl_sim_passed": true,
+            "rtl_busy_counter": 40,
+            "compute_span_duty_cycle": 1.0,
+            "finalize_requant_cycles": 1,
+            "expected_finalize_requant_cycles": 1,
+            "rtl_cycle_counter": 4197
+          },
+          "narrow": {
+            "quantizer_lanes": 16,
+            "rtl_sim_passed": true,
+            "rtl_busy_counter": 40,
+            "compute_span_duty_cycle": 1.0,
+            "finalize_requant_cycles": 1,
+            "expected_finalize_requant_cycles": 1,
+            "rtl_cycle_counter": 4197
+          },
+          "delta_busy_cycles": 0,
+          "delta_finalize_requant_cycles": 0,
+          "delta_rtl_cycle_counter": 0
+        },
+        {
+          "shape": {
+            "out_features": 16,
+            "in_features": 16
+          },
+          "batch_size": 4,
+          "wide": {
+            "quantizer_lanes": 256,
+            "rtl_sim_passed": true,
+            "rtl_busy_counter": 43,
+            "compute_span_duty_cycle": 1.0,
+            "finalize_requant_cycles": 1,
+            "expected_finalize_requant_cycles": 1,
+            "rtl_cycle_counter": 5856
+          },
+          "narrow": {
+            "quantizer_lanes": 16,
+            "rtl_sim_passed": true,
+            "rtl_busy_counter": 43,
+            "compute_span_duty_cycle": 1.0,
+            "finalize_requant_cycles": 4,
+            "expected_finalize_requant_cycles": 4,
+            "rtl_cycle_counter": 5859
+          },
+          "delta_busy_cycles": 0,
+          "delta_finalize_requant_cycles": 3,
+          "delta_rtl_cycle_counter": 3
+        },
+        {
+          "shape": {
+            "out_features": 16,
+            "in_features": 16
+          },
+          "batch_size": 16,
+          "wide": {
+            "quantizer_lanes": 256,
+            "rtl_sim_passed": true,
+            "rtl_busy_counter": 55,
+            "compute_span_duty_cycle": 1.0,
+            "finalize_requant_cycles": 1,
+            "expected_finalize_requant_cycles": 1,
+            "rtl_cycle_counter": 12492
+          },
+          "narrow": {
+            "quantizer_lanes": 16,
+            "rtl_sim_passed": true,
+            "rtl_busy_counter": 55,
+            "compute_span_duty_cycle": 1.0,
+            "finalize_requant_cycles": 16,
+            "expected_finalize_requant_cycles": 16,
+            "rtl_cycle_counter": 12507
+          },
+          "delta_busy_cycles": 0,
+          "delta_finalize_requant_cycles": 15,
+          "delta_rtl_cycle_counter": 15
+        },
+        {
+          "shape": {
+            "out_features": 16,
+            "in_features": 16
+          },
+          "batch_size": 32,
+          "wide": {
+            "quantizer_lanes": 256,
+            "rtl_sim_passed": true,
+            "rtl_busy_counter": 71,
+            "compute_span_duty_cycle": 1.0,
+            "finalize_requant_cycles": 3,
+            "expected_finalize_requant_cycles": 2,
+            "rtl_cycle_counter": 21350
+          },
+          "narrow": {
+            "quantizer_lanes": 16,
+            "rtl_sim_passed": true,
+            "rtl_busy_counter": 71,
+            "compute_span_duty_cycle": 1.0,
+            "finalize_requant_cycles": 32,
+            "expected_finalize_requant_cycles": 32,
+            "rtl_cycle_counter": 21379
+          },
+          "delta_busy_cycles": 0,
+          "delta_finalize_requant_cycles": 29,
+          "delta_rtl_cycle_counter": 29
+        }
+      ]
+    },
+    "synth_note": "DSP/WNS after-numbers are filled by Vivado batch runs; see steps.step1/step2 after blocks and step3_measure.synth_runs when present.",
+    "baseline_before_rightsizing": {
+      "source": "bench/results/baseline_8x8_current_rtl_synth.json::closed_config",
+      "dsp_used": 192,
+      "dsp_available": 240,
+      "lut_used": 25221,
+      "ff_used": 6819,
+      "bram_36k_used": 21,
+      "wns_ns": 0.416,
+      "clock_period_ns": 20.0,
+      "dsp_breakdown_note": "~64 MAC + ~128 requant (2 DSP/quantizer)"
+    },
+    "synth_runs": {
+      "array8_step1_only_wide_lanes": {
+        "status": "ok",
+        "report_prefix": "requant_step1_wide_mb4_clk20",
+        "params": {
+          "ARRAY_SIZE": 8,
+          "MAX_BATCH_COUNT": 4,
+          "QUANTIZER_LANES": 64,
+          "RELU_LANES": 64,
+          "COMPUTE_DATA_WIDTH": 8,
+          "ACCUMULATOR_DATA_WIDTH": 32,
+          "BUFFER_SIZE": 4096,
+          "EXT_ADDR_EN": 1,
+          "clock_period_ns": 20.0
+        },
+        "utilization": {
+          "dsp_used": 128,
+          "dsp_available": 240,
+          "lut_used": 23770,
+          "lut_available": 63400,
+          "ff_used": 7656,
+          "bram_36k_used": 21
+        },
+        "timing": {
+          "wns_ns": 0.275,
+          "tns_ns": 0.0,
+          "whs_ns": 0.042,
+          "ths_ns": 0.0,
+          "all_paths_met": true
+        },
+        "dsp_delta_vs_baseline": -64,
+        "dsp_breakdown_note": "~64 MAC + ~64 requant (1 DSP/quantizer after 25-bit saturate; still N^2 lanes)"
+      },
+      "array8_step1_and_step2_narrow_lanes": {
+        "status": "ok",
+        "report_prefix": "requant_step1_2_mb4_clk20",
+        "params": {
+          "ARRAY_SIZE": 8,
+          "MAX_BATCH_COUNT": 4,
+          "QUANTIZER_LANES": 8,
+          "RELU_LANES": 8,
+          "COMPUTE_DATA_WIDTH": 8,
+          "ACCUMULATOR_DATA_WIDTH": 32,
+          "BUFFER_SIZE": 4096,
+          "EXT_ADDR_EN": 1,
+          "clock_period_ns": 20.0
+        },
+        "utilization": {
+          "dsp_used": 72,
+          "dsp_available": 240,
+          "lut_used": 11809,
+          "lut_available": 63400,
+          "ff_used": 6420,
+          "bram_36k_used": 21
+        },
+        "timing": {
+          "wns_ns": 0.478,
+          "tns_ns": 0.0,
+          "whs_ns": 0.028,
+          "ths_ns": 0.0,
+          "all_paths_met": true
+        },
+        "dsp_delta_vs_step1_only": -56,
+        "dsp_delta_vs_baseline": -120,
+        "dsp_breakdown_note": "~64 MAC + ~8 requant (1 DSP/lane, QUANTIZER_LANES=ARRAY_SIZE)"
+      },
+      "array16_packed_attempt": {
+        "status": "synth_ok_place_failed",
+        "report_prefix": "requant_packed_16x16_int8",
+        "top": "top_packed",
+        "params": {
+          "ARRAY_SIZE": 16,
+          "COMPUTE_DATA_WIDTH": 8,
+          "ACCUMULATOR_DATA_WIDTH": 32,
+          "QUANTIZER_LANES": 16
+        },
+        "synth_utilization": {
+          "dsp_used": 240,
+          "dsp_available": 240,
+          "lut_used": 23103,
+          "lut_available": 63400,
+          "ff_used": 12026,
+          "ff_available": 126800
+        },
+        "place_status": "failed",
+        "binding_resource": "IO/IBUF placement (Place 30-99 IO Clock Placer failed on naked top_packed ports); synth DSP already at 240/240 so part DSP is also hard-bound before packing expectation (projected 144) is met",
+        "note": "Projected Step1+2 packed budget was ~128 MAC + 16 requant = 144 DSP. Measured synth DSP=240/240 implies packed-pair MAC inference did not deliver the 2-MAC/DSP estimate on this top_packed elaboration. Do not claim ARRAY_SIZE=16 board fit."
+      }
+    },
+    "headline": {
+      "dsp_baseline": 192,
+      "dsp_after_step1_only": 128,
+      "dsp_after_step1_and_step2": 72,
+      "finalize_cost_note": "INT8 requant 16x16 A/B: FINALIZE_REQUANT_CYCLES grows from 1 (wide) to B (narrow) for B<=16; wall-clock rtl_cycle_counter rises by the same delta. rtl_busy_counter and compute_span_duty_cycle are unchanged because the busy window does not include writeback_wait_clear column streaming. INT4 systolic_characterization.json before/after is bit-identical (no requant on that path)."
+    }
+  },
+  "task_a": {
+    "status": "ok",
+    "baseline_dsp": 192,
+    "measured_dsp_after_step1_wide_lanes": 128,
+    "delta": -64,
+    "matches_prediction_128": true,
+    "wns_ns": 0.275,
+    "whs_ns": 0.042,
+    "tns_ns": 0.0,
+    "critical_path_still_through_u_quantizer_array": true,
+    "report_prefix": "requant_step1_wide_mb4_clk20"
+  },
+  "task_b": {
+    "status": "ok",
+    "packed_mac_16x16_measured_dsp": 240,
+    "packed_mac_8x8_measured_dsp": 64,
+    "dsp_per_packed_cell_measured": 2,
+    "hypothesis_128_validated": false,
+    "artifact": "bench/results/packed_dsp_synth.json"
+  },
+  "task_c_decision_gate": {
+    "part_dsp_available": 240,
+    "budget_table": [
+      {
+        "config": "8x8 unpacked MAC + tile requant (baseline pre-rightsizing)",
+        "dsp": 192,
+        "source": "measured baseline_8x8_current_rtl_synth.json",
+        "fits_240": true
+      },
+      {
+        "config": "8x8 + Step1 only (QUANTIZER_LANES=64)",
+        "dsp": 128,
+        "source": "measured requant_step1_wide_mb4_clk20",
+        "fits_240": true
+      },
+      {
+        "config": "8x8 + Step1+2 (QUANTIZER_LANES=8)",
+        "dsp": 72,
+        "source": "measured requant_step1_2_mb4_clk20",
+        "fits_240": true
+      },
+      {
+        "config": "16x16 packed MAC only (OOC pe_array_packed)",
+        "dsp": 240,
+        "source": "measured packed_mac_ooc_16x16",
+        "fits_240": false,
+        "note": "Part-capped; unconstrained need ~256 at 2 DSP/cell"
+      },
+      {
+        "config": "16x16 packed MAC + Step2 requant (16 lanes x 1 DSP) [estimate]",
+        "dsp": 256,
+        "source": "measured MAC + measured Step1 1DSP/quantizer scaled",
+        "fits_240": false,
+        "estimate_components": {
+          "mac_measured": 240,
+          "requant_estimate": 16
+        }
+      },
+      {
+        "config": "16x16 if packing were 1 DSP/cell (OLD estimate \u2014 INVALID)",
+        "dsp": 144,
+        "source": "engineering estimate \u2014 SUPERSEDED by Task B",
+        "fits_240": true,
+        "invalid": true
+      }
+    ],
+    "verdict_16x16_fits_240": false,
+    "plain_statement": "ARRAY_SIZE=16 does NOT fit Artix-7 A7-100T 240 DSP. Packed MAC alone measures 240/240 and would need ~256 unconstrained because each pe_packed_skewed cell infers a 2-DSP cascade, not 1 DSP for 2 MACs. Step2 requant rightsizing cannot rescue 16x16 on this part.",
+    "options_if_no": [
+      {
+        "option": "stay_array_size_8",
+        "dsp_measured": 72,
+        "fits": true,
+        "note": "Step1+2 already measured closed; ship 8x8 INT8"
+      },
+      {
+        "option": "redesign_packing_for_single_dsp48",
+        "dsp": "TODO/VERIFY",
+        "fits": "unknown",
+        "note": "Need PACK_SHIFT/operand widths that fit one 25x18 multiply per cell; current PACK_SHIFT=18 forces cascade."
+      },
+      {
+        "option": "smaller_than_16_array",
+        "example": "ARRAY_SIZE=10 or 12",
+        "dsp": "TODO/VERIFY",
+        "fits": "unknown until re-measured"
+      }
+    ],
+    "step2_rtl_note": "This prompt said not to start Step2 until the gate. In this workspace Step2 RTL already landed earlier in the session; the gate still says 16x16 is dead, but Step2 remains load-bearing for the measured 8x8 DSP win (192->72)."
+  }
+}

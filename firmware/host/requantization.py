@@ -9,6 +9,12 @@ import numpy as np
 ROUNDING_MODE = "arithmetic_right_shift_truncation"
 MAX_REQUANT_MULTIPLIER = 0xFFFF
 MAX_REQUANT_RIGHT_SHIFT = 31
+# Match DSP48E1 signed A-port width used by rtl/quantizer/quantizer.sv.
+# Accumulators are saturated into this range before the requant multiply so a
+# single DSP48 covers the product (a raw 32x16 multiply infers two DSPs).
+REQUANT_MUL_OPERAND_WIDTH = 25
+REQUANT_MUL_OPERAND_MAX = (1 << (REQUANT_MUL_OPERAND_WIDTH - 1)) - 1
+REQUANT_MUL_OPERAND_MIN = -(1 << (REQUANT_MUL_OPERAND_WIDTH - 1))
 
 
 @dataclass(frozen=True)
@@ -114,6 +120,11 @@ def clip_signed(x: int, width: int) -> int:
     return int(x)
 
 
+def saturate_requant_mul_operand(acc: int) -> int:
+    """Saturate accumulator into the DSP48E1-width multiply operand range."""
+    return clip_signed(int(acc), REQUANT_MUL_OPERAND_WIDTH)
+
+
 def requantize_value(
     acc: int,
     *,
@@ -123,7 +134,7 @@ def requantize_value(
 ) -> int:
     _validate_requant_value(multiplier, "multiplier", max_value=MAX_REQUANT_MULTIPLIER)
     _validate_requant_value(right_shift, "right_shift", max_value=MAX_REQUANT_RIGHT_SHIFT)
-    product = int(acc) * int(multiplier)
+    product = saturate_requant_mul_operand(acc) * int(multiplier)
     scaled = product >> int(right_shift) if int(right_shift) > 0 else product
     return clip_signed(scaled, out_width)
 
@@ -173,7 +184,12 @@ def requantize_array(
     reshape[axis] = mult.shape[0]
     mult = mult.reshape(reshape)
     shift = shift.reshape(reshape)
-    scaled = np.right_shift(array.astype(np.int64) * mult, shift)
+    acc_sat = np.clip(
+        array.astype(np.int64),
+        REQUANT_MUL_OPERAND_MIN,
+        REQUANT_MUL_OPERAND_MAX,
+    )
+    scaled = np.right_shift(acc_sat * mult, shift)
     hi = (1 << (out_width - 1)) - 1
     lo = -(1 << (out_width - 1))
     return np.clip(scaled, lo, hi).astype(dtype)

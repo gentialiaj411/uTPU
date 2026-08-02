@@ -31,6 +31,19 @@ module tb_batched_gemm;
 `else
     localparam int TB_ACCUMULATOR_DATA_WIDTH = `BG_ACCUMULATOR_DATA_WIDTH;
 `endif
+    // Optional A/B override for requant rightsizing Step 3. Default keeps
+    // top.sv QUANTIZER_LANES/RELU_LANES (=ARRAY_SIZE). Set BG_QUANTIZER_LANES
+    // to ARRAY_SIZE*ARRAY_SIZE to restore the legacy one-shot tile finalize.
+`ifndef BG_QUANTIZER_LANES
+    localparam int TB_QUANTIZER_LANES = TB_ARRAY_SIZE;
+`else
+    localparam int TB_QUANTIZER_LANES = `BG_QUANTIZER_LANES;
+`endif
+`ifndef BG_RELU_LANES
+    localparam int TB_RELU_LANES = TB_QUANTIZER_LANES;
+`else
+    localparam int TB_RELU_LANES = `BG_RELU_LANES;
+`endif
     localparam int TB_WAIT_START_MAX = 200000 + (`BG_WORDS * 16);
     localparam int TB_FETCH_SPIN_MAX = 200000 + (`BG_FETCH_N * 8192);
     localparam int TB_HALT_WAIT_MAX = 200000 + (`BG_FETCH_N * 256);
@@ -44,6 +57,8 @@ module tb_batched_gemm;
         .EXT_ADDR_EN(TB_EXT_ADDR_EN),
         .COMPUTE_DATA_WIDTH(TB_COMPUTE_DATA_WIDTH),
         .ACCUMULATOR_DATA_WIDTH(TB_ACCUMULATOR_DATA_WIDTH),
+        .QUANTIZER_LANES(TB_QUANTIZER_LANES),
+        .RELU_LANES(TB_RELU_LANES),
         .UART_INPUT_CLK(100000000),
         .UART_BAUD(100000000)
     ) dut (
@@ -57,6 +72,7 @@ module tb_batched_gemm;
     reg [15:0] case_mem [0:TB_PROG_DEPTH-1];
     byte perf_bytes [0:23];
     bit quantizer_x_seen;
+    int finalize_requant_cycles;
     logic [63:0] cycle_ctr;
     logic [63:0] busy_ctr;
     logic [63:0] program_ctr;
@@ -142,6 +158,7 @@ module tb_batched_gemm;
         $readmemh(`BG_MEM, case_mem);
         $readmemh(`BG_FETCH_MEM, expected);
         quantizer_x_seen = 1'b0;
+        finalize_requant_cycles = 0;
         for (i = 0; i < `BG_FETCH_N; i++) begin
             actual[i] = 8'h00;
         end
@@ -162,7 +179,9 @@ module tb_batched_gemm;
             @(posedge clk);
             spin = spin + 1;
             if (dut.requant_finalize_enable && dut.writeback_wait_clear) begin
-                for (i = 0; i < dut.NUM_COMPUTE_LANES; i++) begin
+                finalize_requant_cycles = finalize_requant_cycles + 1;
+                // QUANTIZER_SIZE may be ARRAY_SIZE (narrow column stream) or N^2.
+                for (i = 0; i < dut.QUANTIZER_SIZE; i++) begin
                     if ((^dut.quantizer_out[i]) === 1'bx)
                         quantizer_x_seen = 1'b1;
                 end
@@ -212,6 +231,8 @@ module tb_batched_gemm;
         $display("PERF_PROGRAM_COUNT=%0d", program_ctr);
         $display("COMPUTE_BUSY_CYCLES=%0d", dut.perf_busy_counter);
         $display("COMPUTE_SPAN_CYCLES=%0d", dut.perf_compute_span_counter);
+        $display("FINALIZE_REQUANT_CYCLES=%0d", finalize_requant_cycles);
+        $display("QUANTIZER_LANES=%0d", dut.QUANTIZER_LANES);
 
         if (errors != 0) begin
             $display("TB_RESULT: FAIL");

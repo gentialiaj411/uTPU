@@ -13,7 +13,9 @@ module top_packed #(
     parameter NUM_COMPUTE_LANES      = ARRAY_SIZE*ARRAY_SIZE,
     parameter MAX_BATCH_COUNT        = 64,
     parameter MAX_BATCH_COUNT_WIDTH  = $clog2(MAX_BATCH_COUNT + 1),
-    parameter QUANTIZER_SIZE         = ARRAY_SIZE*ARRAY_SIZE,
+    // Match top.sv Step-2 default: one column of lanes. Override to N^2 for A/B.
+    parameter QUANTIZER_LANES        = ARRAY_SIZE,
+    parameter QUANTIZER_SIZE         = QUANTIZER_LANES,
     parameter QUANTIZER_SIZE_WIDTH   = $clog2(QUANTIZER_SIZE)
 ) (
     input  logic clk,

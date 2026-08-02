@@ -48,6 +48,32 @@ def test_requant_math_uses_shared_truncation_and_saturation():
     assert requantize_value(-320, multiplier=11, right_shift=6, out_width=8) == -55
 
 
+def test_requant_pre_mul_saturates_at_dsp48_operand_width():
+    """|acc| >= 2^24 saturates before multiply; in-range values unchanged."""
+    from requantization import (
+        REQUANT_MUL_OPERAND_MAX,
+        REQUANT_MUL_OPERAND_MIN,
+        clip_signed,
+        saturate_requant_mul_operand,
+    )
+
+    assert saturate_requant_mul_operand(REQUANT_MUL_OPERAND_MAX) == REQUANT_MUL_OPERAND_MAX
+    assert saturate_requant_mul_operand(REQUANT_MUL_OPERAND_MIN) == REQUANT_MUL_OPERAND_MIN
+    assert saturate_requant_mul_operand(REQUANT_MUL_OPERAND_MAX + 100) == REQUANT_MUL_OPERAND_MAX
+    assert saturate_requant_mul_operand(REQUANT_MUL_OPERAND_MIN - 100) == REQUANT_MUL_OPERAND_MIN
+    # In-range: identical to legacy full-width product then shift/saturate.
+    for acc in (0, 1, -1, 320, -320, 1000, -1000, (1 << 20), -(1 << 20)):
+        expected = clip_signed((acc * 11) >> 6, 8)
+        assert requantize_value(acc, multiplier=11, right_shift=6, out_width=8) == expected
+    # Beyond DSP A-port: saturates to ±2^24-1 / -2^24 before multiply.
+    assert requantize_value(
+        REQUANT_MUL_OPERAND_MAX + 50, multiplier=1, right_shift=17, out_width=8
+    ) == requantize_value(REQUANT_MUL_OPERAND_MAX, multiplier=1, right_shift=17, out_width=8)
+    assert requantize_value(
+        REQUANT_MUL_OPERAND_MIN - 50, multiplier=1, right_shift=17, out_width=8
+    ) == requantize_value(REQUANT_MUL_OPERAND_MIN, multiplier=1, right_shift=17, out_width=8)
+
+
 def test_per_channel_requant_math_matches_manual_reference():
     values = np.asarray([[320, -320, 64], [1000, -1000, 7]], dtype=np.int32)
     actual = requantize_array(
