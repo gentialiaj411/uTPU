@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at_utc": "2026-08-02T21:50:04.553341+00:00",
+  "generated_at_utc": "2026-08-02T22:06:43.502852+00:00",
   "git_sha": "781ce88",
   "part": "xc7a100tcsg324-1",
   "provenance_note": "Step1: 25-bit pre-mul saturate. Step2: QUANTIZER_LANES=ARRAY_SIZE column-stream finalize. Step3: measured iverilog finalize A/B + Vivado ARRAY_SIZE=8 closed_config re-synth with QUANTIZER_LANES=64 (step1-only) and QUANTIZER_LANES=8 (step1+2).",
@@ -671,5 +671,18 @@
       }
     ],
     "step2_rtl_note": "This prompt said not to start Step2 until the gate. In this workspace Step2 RTL already landed earlier in the session; the gate still says 16x16 is dead, but Step2 remains load-bearing for the measured 8x8 DSP win (192->72)."
+  },
+  "array_size_policy": {
+    "int8_packing_status": "dead_on_dsp48e1",
+    "array_size_16_int8": "permanently_infeasible_on_xc7a100t",
+    "intermediate_non_pow2_banking": {
+      "N10_int8": "BUFFER_SIZE 4096 not divisible by BANKS=50",
+      "N12_int8": "BUFFER_SIZE 4096 not divisible by BANKS=72",
+      "N14_int8": "BUFFER_SIZE 4096 not divisible by BANKS=98",
+      "N16_int8": "OK banks=128 depth=32",
+      "N8_int8": "OK banks=32 depth=128",
+      "constraint": "BANKS = (N*N)/(BUFFER_WORD_SIZE/COMPUTE_DATA_WIDTH) must divide BUFFER_SIZE; not merely power-of-2 N"
+    },
+    "redirect": "Do not spend spare DSPs on width; pursue Fmax then occupancy at ARRAY_SIZE=8"
   }
 }
