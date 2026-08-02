@@ -35,17 +35,50 @@
     },
     "weight_addr": 256
   },
-  "generated_at_utc": "2026-05-25T21:37:55.361706+00:00",
-  "git_sha": "6d5dc2532f1f31200a2b4f687e3f2c0503cff67c",
+  "generated_at_utc": "2026-08-02T20:18:20.527910+00:00",
+  "git_sha": "5396f114e87c420014a6545e42a60ac0011bff41",
+  "headline": {
+    "diff_permille": 1,
+    "rtl_cycles_saved": 72,
+    "rtl_naive_cycles": 2784,
+    "rtl_reduction_permille": 25,
+    "rtl_sched_cycles": 2712,
+    "scheduler_invariant_holds": true,
+    "sim_reduction_permille": 26,
+    "tol_permille": 20
+  },
   "host": {
     "machine": "AMD64",
     "platform": "Windows-10-10.0.26200-SP0",
     "python_version": "3.11.9"
   },
-  "instructions": "Install iverilog locally (Windows: bleyer.org/icarus; Linux: apt-get install -y iverilog) and rerun this script. The test vectors under build/test_vectors/scheduler_*.mem and the testbench at rtl/tb/tb_scheduler_cycles.sv are already in place; no other inputs change between stub and populated modes.",
-  "iverilog_resolved": {
-    "iverilog": "C:\\iverilog\\bin\\iverilog.exe",
-    "vvp": "C:\\iverilog\\bin\\vvp.exe"
+  "iverilog": {
+    "iverilog_bin": "C:\\iverilog\\bin\\iverilog.exe",
+    "vvp_bin": "C:\\iverilog\\bin\\vvp.exe"
+  },
+  "iverilog_result": {
+    "diff_permille": 1,
+    "errors": 0,
+    "iverilog_compile_ok": true,
+    "iverilog_run_returncode": 0,
+    "log_path": "build\\sim_iverilog\\tb_scheduler_cycles.log",
+    "raw_log": "=================================================\nPhase 7 remediation P4.1 \u00e2\u20ac\u201d scheduler RTL cycle cross-check\nshape M=32 K=32  array_size=16\nsimulator: naive=303 sched=295 saved=8\n=================================================\nWARNING: rtl/tb/tb_scheduler_cycles.sv:168: $readmemh(C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_naive.mem): Not enough words in the file for the requested range [0:1023].\n[ OK ] reached WAIT_START [C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_naive.mem]\n[ OK ] reached HALT [C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_naive.mem]\nRTL_NAIVE_CYCLES=2784 (sim=303) NAIVE_FETCH_N=16 (sim=16)\nWARNING: rtl/tb/tb_scheduler_cycles.sv:170: $readmemh(C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_sched.mem): Not enough words in the file for the requested range [0:1023].\n[ OK ] reached WAIT_START [C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_sched.mem]\n[ OK ] reached HALT [C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_sched.mem]\nRTL_SCHED_CYCLES=2712 (sim=295) SCHED_FETCH_N=16 (sim=16)\nRTL_CYCLES_SAVED=72 (sim_saved=8)\nRTL_REDUCTION_PERMILLE=25  SIM_REDUCTION_PERMILLE=26  TOL=20  DIFF=1\n[ OK ] RTL scheduled cycles strictly less than naive\n[ OK ] RTL cycle reduction within \u00c2\u00b1SCHED_TOL_PERMILLE of sim\n[ OK ] RTL fetch byte count equals expected (scheduled run)\n[ OK ] RTL fetch byte count equals expected (naive run)\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 0\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 1\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 2\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 3\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 4\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 5\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 6\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 7\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 8\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 9\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 10\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 11\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 12\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 13\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 14\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 15\nADVISORY: RTL_naive matches sim on 16 / 16 bytes\nADVISORY: RTL_sched matches sim on 16 / 16 bytes\n=================================================\nDONE tests=24 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_scheduler_cycles.sv:350: $finish called at 156035000 (1ps)\n",
+    "rtl_naive_bytes_matching_sim": 16,
+    "rtl_naive_bytes_total": 16,
+    "rtl_naive_cycles": 2784,
+    "rtl_naive_fetch_n": 16,
+    "rtl_reduction_permille": 25,
+    "rtl_sched_bytes_matching_sim": 16,
+    "rtl_sched_bytes_total": 16,
+    "rtl_sched_cycles": 2712,
+    "rtl_sched_fetch_n": 16,
+    "sim_fetch_n_in_header": 16,
+    "sim_naive_cycles_in_header": 303,
+    "sim_reduction_permille_in_header": 26,
+    "sim_sched_cycles_in_header": 295,
+    "tb_result_pass": true,
+    "tests": 24,
+    "tol_permille": 20
   },
   "methodology": {
     "advisory_metrics": [
@@ -67,7 +100,7 @@
       "testbench": "rtl/tb/tb_scheduler_cycles.sv"
     }
   },
-  "status": "iverilog_unavailable",
+  "status": "ok",
   "tolerance_permille": 20,
   "version": 1
 }
