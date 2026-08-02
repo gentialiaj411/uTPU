@@ -191,9 +191,11 @@ def main() -> int:
     parser.add_argument("--include-aggressive", action="store_true", help="Also try 12 and 10 ns")
     args = parser.parse_args()
 
-    periods = list(args.periods)
+    periods = list(dict.fromkeys(float(p) for p in args.periods))
     if args.include_aggressive:
-        periods.extend([12.0, 10.0])
+        for p in (12.0, 10.0):
+            if p not in periods:
+                periods.append(p)
 
     points: List[Dict[str, Any]] = []
     for mb in args.batches:
@@ -212,7 +214,7 @@ def main() -> int:
             points.append(collect_point(prefix, period, mb, args.pipe_depth))
 
             # Skip tighter clocks for this MB if 15 ns already failed.
-            if period == 15.0 and points[-1].get("status") == "failed_timing":
+            if abs(period - 15.0) < 1e-9 and points[-1].get("status") == "failed_timing":
                 if not args.include_aggressive:
                     break
 

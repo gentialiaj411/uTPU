@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "generated_at_utc": "2026-08-02T23:28:36.545596+00:00",
-  "git_sha": "6e9c9c5",
+  "generated_at_utc": "2026-08-02T23:29:30.986464+00:00",
+  "git_sha": "76f72de",
   "part": "xc7a100tcsg324-1",
   "methodology": "Full top synth/impl via program_arty_a7_revE.tcl. ARRAY_SIZE=8 INT8, QUANTIZER_LANES=8, QUANTIZER_PIPE_DEPTH selectable. Grid: clock_period_ns x MAX_BATCH_COUNT. Skip 12/10 unless --include-aggressive or 15 closes.",
   "headroom_note": "At a closed point with constraint T and WNS W, the effective critical path is approximately T-W (not 'headroom toward 100 MHz'). Vivado may improve paths when re-constrained tighter (expect ~15-20%, not 2x).",
@@ -217,46 +217,24 @@
       "achieved_fmax_mhz_from_data_path_delay": 113.35298118340513
     },
     {
-      "report_prefix": "requant_fmax_mb4_clk12_pd3",
-      "clock_period_ns": 12.0,
-      "frequency_mhz_constraint": 83.33333333333333,
-      "MAX_BATCH_COUNT": 4,
+      "report_prefix": "requant_fmax_mb16_clk20_pd3",
+      "clock_period_ns": 20.0,
+      "frequency_mhz_constraint": 50.0,
+      "MAX_BATCH_COUNT": 16,
       "QUANTIZER_PIPE_DEPTH": 3,
-      "status": "closed",
-      "utilization": {
-        "lut_used": 11733,
-        "lut_available": 63400,
-        "ff_used": 6953,
-        "ff_available": 126800,
-        "bram_36k_used": 21,
-        "bram_36k_available": 135,
-        "dsp_used": 72,
-        "dsp_available": 240
-      },
-      "timing": {
-        "raw_path": "build/reports/requant_fmax_mb4_clk12_pd3_timing_summary.rpt",
-        "wns_ns": 0.224,
-        "tns_ns": 0.0,
-        "whs_ns": 0.034,
-        "data_path_delay_ns": 11.092,
-        "critical_source": "FSM_onehot_current_state_reg[0]/C",
-        "critical_destination": "loaded_input_matrix_reg[1][2][0]/R",
-        "all_paths_met": true
-      },
-      "achieved_fmax_mhz_from_period_minus_wns": 84.91847826086956,
-      "achieved_fmax_mhz_from_data_path_delay": 90.15506671474937
+      "status": "missing_reports"
     },
     {
-      "report_prefix": "requant_fmax_mb4_clk10_pd3",
-      "clock_period_ns": 10.0,
-      "frequency_mhz_constraint": 100.0,
-      "MAX_BATCH_COUNT": 4,
+      "report_prefix": "requant_fmax_mb16_clk18_pd3",
+      "clock_period_ns": 18.0,
+      "frequency_mhz_constraint": 55.55555555555556,
+      "MAX_BATCH_COUNT": 16,
       "QUANTIZER_PIPE_DEPTH": 3,
       "status": "closed",
       "utilization": {
-        "lut_used": 11735,
+        "lut_used": 22467,
         "lut_available": 63400,
-        "ff_used": 6953,
+        "ff_used": 14728,
         "ff_available": 126800,
         "bram_36k_used": 21,
         "bram_36k_available": 135,
@@ -264,17 +242,79 @@
         "dsp_available": 240
       },
       "timing": {
-        "raw_path": "build/reports/requant_fmax_mb4_clk10_pd3_timing_summary.rpt",
-        "wns_ns": 0.419,
+        "raw_path": "build/reports/requant_fmax_mb16_clk18_pd3_timing_summary.rpt",
+        "wns_ns": 1.867,
         "tns_ns": 0.0,
-        "whs_ns": 0.042,
-        "data_path_delay_ns": 8.822,
-        "critical_source": "compute_load_en_reg/C",
-        "critical_destination": "u_pe_array/u_pe_array/gen_rows[6].gen_cols[0].gen_non_top_row.u_pe/partial_sum_out_reg/CEB2",
+        "whs_ns": 0.021,
+        "data_path_delay_ns": 15.965,
+        "critical_source": "acc_clear_en_reg/C",
+        "critical_destination": "acc_partial_matrix_reg[4][5][29]/D",
         "all_paths_met": true
       },
-      "achieved_fmax_mhz_from_period_minus_wns": 104.37323870159692,
-      "achieved_fmax_mhz_from_data_path_delay": 113.35298118340513
+      "achieved_fmax_mhz_from_period_minus_wns": 61.98475175106924,
+      "achieved_fmax_mhz_from_data_path_delay": 62.63701847792045
+    },
+    {
+      "report_prefix": "requant_fmax_mb16_clk17_pd3",
+      "clock_period_ns": 17.0,
+      "frequency_mhz_constraint": 58.8235294117647,
+      "MAX_BATCH_COUNT": 16,
+      "QUANTIZER_PIPE_DEPTH": 3,
+      "status": "closed",
+      "utilization": {
+        "lut_used": 21256,
+        "lut_available": 63400,
+        "ff_used": 14699,
+        "ff_available": 126800,
+        "bram_36k_used": 21,
+        "bram_36k_available": 135,
+        "dsp_used": 72,
+        "dsp_available": 240
+      },
+      "timing": {
+        "raw_path": "build/reports/requant_fmax_mb16_clk17_pd3_timing_summary.rpt",
+        "wns_ns": 2.731,
+        "tns_ns": 0.0,
+        "whs_ns": 0.009,
+        "data_path_delay_ns": 13.459,
+        "critical_source": "fifo_in/mem_reg/CLKBWRCLK",
+        "critical_destination": "u_unified_buffer/gen_bram[10].u_bank_bram/xpm_memory_base_inst/gen_wr_a.gen_byte_narrow.for_mem_cols[1].mem_reg/DIADI[10]",
+        "all_paths_met": true
+      },
+      "achieved_fmax_mhz_from_period_minus_wns": 70.08199593524424,
+      "achieved_fmax_mhz_from_data_path_delay": 74.29972509101717
+    },
+    {
+      "report_prefix": "requant_fmax_mb16_clk16_pd3",
+      "clock_period_ns": 16.0,
+      "frequency_mhz_constraint": 62.5,
+      "MAX_BATCH_COUNT": 16,
+      "QUANTIZER_PIPE_DEPTH": 3,
+      "status": "missing_reports"
+    },
+    {
+      "report_prefix": "requant_fmax_mb16_clk15_pd3",
+      "clock_period_ns": 15.0,
+      "frequency_mhz_constraint": 66.66666666666667,
+      "MAX_BATCH_COUNT": 16,
+      "QUANTIZER_PIPE_DEPTH": 3,
+      "status": "missing_reports"
+    },
+    {
+      "report_prefix": "requant_fmax_mb16_clk12_pd3",
+      "clock_period_ns": 12.0,
+      "frequency_mhz_constraint": 83.33333333333333,
+      "MAX_BATCH_COUNT": 16,
+      "QUANTIZER_PIPE_DEPTH": 3,
+      "status": "missing_reports"
+    },
+    {
+      "report_prefix": "requant_fmax_mb16_clk10_pd3",
+      "clock_period_ns": 10.0,
+      "frequency_mhz_constraint": 100.0,
+      "MAX_BATCH_COUNT": 16,
+      "QUANTIZER_PIPE_DEPTH": 3,
+      "status": "missing_reports"
     }
   ],
   "highest_closing": {
