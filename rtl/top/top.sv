@@ -25,6 +25,9 @@ module top #(
     // restore the legacy one-cycle tile-wide requant/ReLU (A/B testable).
     parameter QUANTIZER_LANES        = ARRAY_SIZE,
     parameter RELU_LANES             = ARRAY_SIZE,
+    // 0=combo (default until Fmax proves pipeline worth it), 1=Step2b,
+    // 3=product/shift/clamp stages (DSP MREG target).
+    parameter int QUANTIZER_PIPE_DEPTH = 0,
     parameter RELU_SIZE              = RELU_LANES,
     parameter RELU_SIZE_WIDTH        = $clog2(RELU_SIZE),
     parameter QUANTIZER_SIZE         = QUANTIZER_LANES,
@@ -110,6 +113,7 @@ module top #(
 
     // MAC Array
     logic compute_start, compute_load_en, compute_done;
+    logic compute_weight_commit;
     logic compute_done_d;
     logic signed [COMPUTE_DATA_WIDTH-1:0]     compute_weights_in [NUM_COMPUTE_LANES-1:0];
     logic signed [COMPUTE_DATA_WIDTH-1:0]     compute_stream_in  [MAX_STREAM_LANES-1:0];
@@ -250,6 +254,7 @@ module top #(
         .clk(clk), .rst(rst_int),
         .compute(compute_start),
         .load_en(compute_load_en),
+        .weight_commit(compute_weight_commit),
         .batch_count(run_batch_count),
         .done(compute_done),
         .datas_arr(compute_stream_in),
@@ -261,7 +266,8 @@ module top #(
         .QUANTIZER_SIZE(QUANTIZER_SIZE),
         .QUANTIZER_SIZE_WIDTH(QUANTIZER_SIZE_WIDTH),
         .ACCUMULATOR_DATA_WIDTH(ACCUMULATOR_DATA_WIDTH),
-        .COMPUTE_DATA_WIDTH(COMPUTE_DATA_WIDTH)
+        .COMPUTE_DATA_WIDTH(COMPUTE_DATA_WIDTH),
+        .QUANTIZER_PIPE_DEPTH(QUANTIZER_PIPE_DEPTH)
     ) u_quantizer_array (
         .clk(clk),
         .rst(rst_int),
@@ -401,9 +407,9 @@ module top #(
     // Width must hold ARRAY_SIZE inclusive (cols_in_chunk in 1..ARRAY_SIZE).
     logic [$clog2(ARRAY_SIZE+1)-1:0]  writeback_col_index;
     logic [$clog2(ARRAY_SIZE+1)-1:0]  writeback_cols_in_chunk;
-    // One-cycle bubble after presenting quantizer_in so the registered quantizer
-    // DSP path can produce a valid quantizer_out before capture.
-    logic                             writeback_pipe_fill;
+    // Pipeline fill remaining before capturing registered quantizer outputs.
+    // QUANTIZER_PIPE_DEPTH==0 (combo) keeps this at 0 and captures immediately.
+    logic [3:0]                       writeback_pipe_fill_cnt;
     logic                        requant_enable_latched;
     logic [15:0]                 requant_multiplier_latched [ARRAY_SIZE-1:0];
     logic [15:0]                 requant_right_shift_latched [ARRAY_SIZE-1:0];
@@ -842,7 +848,7 @@ module top #(
                 writeback_wait_clear  <= 1'b0;
                 writeback_col_index   <= '0;
                 writeback_cols_in_chunk <= ($clog2(ARRAY_SIZE+1))'(1);
-                writeback_pipe_fill   <= 1'b0;
+                writeback_pipe_fill_cnt <= 4'd0;
                 writeback_wait_clear <= 1'b0;
                 store_half          <= 1'b0;
                 store_word_idx      <= 2'b0;
@@ -860,6 +866,7 @@ module top #(
                 relu_en          <= 1'b0;
                 acc_clear_en     <= 1'b0;
                 compute_load_en  <= 1'b0;
+                compute_weight_commit <= 1'b0;
                 load_clear_pending <= 1'b0;
                 buffer_fifo_en   <= 1'b0;
                 buffer_compute_en<= 1'b0;
@@ -1538,7 +1545,7 @@ module top #(
                     end
                     if (requant_enable_latched) begin
                         writeback_wait_clear <= 1'b1;
-                        writeback_pipe_fill  <= 1'b1;
+                        writeback_pipe_fill_cnt <= QUANTIZER_PIPE_DEPTH[3:0];
                         if (REQUANT_NARROW) begin
                             clear_compute_to_buffer();
                             prepare_writeback_column(0, 0);
@@ -1571,7 +1578,7 @@ module top #(
                         end
                     end else begin
                         writeback_wait_clear <= 1'b0;
-                        writeback_pipe_fill  <= 1'b0;
+                        writeback_pipe_fill_cnt <= 4'd0;
                         if (run_batch_count == MAX_BATCH_COUNT_WIDTH'(1)) begin
                             for (int ai = 0; ai < NUM_COMPUTE_LANES; ai++)
                                 compute_to_buffer[ai] <= '0;
@@ -1618,18 +1625,17 @@ module top #(
                 buffer_store_en   <= 1'b0;
                 address           <= compute_result_addr + (writeback_chunk_index * STREAM_CHUNK_WORDS);
                 if (requant_finalize_enable && writeback_wait_clear) begin
-                    if (writeback_pipe_fill) begin
-                        // Registered quantizer: wait one cycle after presenting
-                        // quantizer_in before the first capture.
-                        writeback_pipe_fill <= 1'b0;
+                    if (writeback_pipe_fill_cnt != 4'd0) begin
+                        // Registered quantizer: countdown after presenting
+                        // quantizer_in before capture (DEPTH cycles of wait).
+                        writeback_pipe_fill_cnt <= writeback_pipe_fill_cnt - 4'd1;
                         buffer_we         <= 1'b0;
                         buffer_compute_en <= 1'b0;
                     end else if (REQUANT_NARROW) begin
-                        // Capture current column; same cycle may preload next.
                         // Capture current column only. Presenting the next
-                        // column's inputs in this same cycle would keep the
-                        // registered quantizer on the old operand for one more
-                        // cycle, so arm a fill bubble before the next capture.
+                        // column's inputs in this same cycle would keep a
+                        // registered quantizer on the old operand, so arm
+                        // another fill countdown before the next capture.
                         capture_writeback_column(writeback_col_index);
                         if ((writeback_col_index + 1'b1) < writeback_cols_in_chunk) begin
                             writeback_col_index <= writeback_col_index + 1'b1;
@@ -1637,7 +1643,7 @@ module top #(
                                 writeback_chunk_index,
                                 writeback_col_index + 1
                             );
-                            writeback_pipe_fill <= 1'b1;
+                            writeback_pipe_fill_cnt <= QUANTIZER_PIPE_DEPTH[3:0];
                         end else begin
                             writeback_wait_clear <= 1'b0;
                             writeback_col_index  <= '0;
@@ -1671,7 +1677,7 @@ module top #(
                         writeback_chunk_index <= writeback_chunk_index + 1'b1;
                         writeback_wait_clear  <= 1'b1;
                         writeback_col_index   <= '0;
-                        writeback_pipe_fill   <= requant_enable_latched;
+                        writeback_pipe_fill_cnt <= requant_enable_latched ? QUANTIZER_PIPE_DEPTH[3:0] : 4'd0;
                         remaining = run_batch_count - (next_chunk * ARRAY_SIZE);
                         if (remaining < ARRAY_SIZE)
                             writeback_cols_in_chunk <= ($clog2(ARRAY_SIZE+1))'(remaining);
@@ -1688,7 +1694,7 @@ module top #(
                         writeback_chunk_count <= MAX_BATCH_COUNT_WIDTH'(1);
                         writeback_wait_clear  <= 1'b0;
                         writeback_col_index   <= '0;
-                        writeback_pipe_fill   <= 1'b0;
+                        writeback_pipe_fill_cnt <= 4'd0;
                     end
                 end else begin
                     buffer_we         <= 1'b1;

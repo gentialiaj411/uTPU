@@ -36,6 +36,7 @@ def _iverilog_run(
     *,
     quantizer_lanes: Optional[int] = None,
     relu_lanes: Optional[int] = None,
+    quantizer_pipe_depth: Optional[int] = None,
     out_vvp_name: str = "tb_batched_gemm.out",
 ) -> Tuple[bool, str]:
     iv_bin, vv_bin = _resolve_iverilog_tools()
@@ -70,6 +71,8 @@ def _iverilog_run(
         compile_cmd.append(f"-DBG_QUANTIZER_LANES={int(quantizer_lanes)}")
     if relu_lanes is not None:
         compile_cmd.append(f"-DBG_RELU_LANES={int(relu_lanes)}")
+    if quantizer_pipe_depth is not None:
+        compile_cmd.append(f"-DBG_QUANTIZER_PIPE_DEPTH={int(quantizer_pipe_depth)}")
     compile_cmd.extend(srcs_abs)
     run_cmd = [vv_bin, out_vvp]
     env = os.environ.copy()
@@ -105,6 +108,7 @@ def run_rtl_batched_gemm_sim(
     requant_params: Optional[RequantParams] = None,
     quantizer_lanes: Optional[int] = None,
     relu_lanes: Optional[int] = None,
+    quantizer_pipe_depth: Optional[int] = None,
 ) -> Dict[str, Any]:
     root = _repo_root()
     os.chdir(root)
@@ -133,6 +137,7 @@ def run_rtl_batched_gemm_sim(
         "requant_params": vectors.get("requant_params"),
         "quantizer_lanes": quantizer_lanes,
         "relu_lanes": relu_lanes,
+        "quantizer_pipe_depth": quantizer_pipe_depth,
         "simulator_log": None,
         "perf_cycle_counter": None,
         "perf_busy_counter": None,
@@ -143,12 +148,15 @@ def run_rtl_batched_gemm_sim(
         "finalize_requant_cycles": None,
     }
     vvp_name = "tb_batched_gemm.out"
-    if quantizer_lanes is not None:
-        vvp_name = f"tb_batched_gemm_ql{int(quantizer_lanes)}.out"
+    if quantizer_lanes is not None or quantizer_pipe_depth is not None:
+        ql = "d" if quantizer_lanes is None else str(int(quantizer_lanes))
+        pd = "d" if quantizer_pipe_depth is None else str(int(quantizer_pipe_depth))
+        vvp_name = f"tb_batched_gemm_ql{ql}_pd{pd}.out"
     ok, log = _iverilog_run(
         root,
         quantizer_lanes=quantizer_lanes,
         relu_lanes=relu_lanes if relu_lanes is not None else quantizer_lanes,
+        quantizer_pipe_depth=quantizer_pipe_depth,
         out_vvp_name=vvp_name,
     )
     metrics["simulator_log"] = log

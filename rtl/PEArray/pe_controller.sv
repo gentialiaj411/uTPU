@@ -10,7 +10,7 @@ module pe_controller #(
 	parameter MAX_BATCH_COUNT        = 64,
 	parameter BATCH_COUNT_WIDTH      = $clog2(MAX_BATCH_COUNT + 1)
     ) (
-	input  logic clk, rst, compute, load_en,
+	input  logic clk, rst, compute, load_en, weight_commit,
 	input  logic [BATCH_COUNT_WIDTH-1:0] batch_count,
 	output logic done,
 	input  logic signed [COMPUTE_DATA_WIDTH-1:0]     datas_arr   [ARRAY_SIZE*MAX_BATCH_COUNT-1:0],
@@ -109,6 +109,7 @@ module pe_controller #(
 	.rst(rst),
 	.compute(compute),
 	.load_en(load_en),
+	.weight_commit(weight_commit),
 	.datas_in(datas_in),
 	.weights_in(weights_in),
 	.results(results)

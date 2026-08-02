@@ -22,7 +22,7 @@ module pe_array #(
 	parameter BUFFER_WORD_SIZE       = 16,
 	parameter NUM_COMPUTE_LANES      = BUFFER_WORD_SIZE/COMPUTE_DATA_WIDTH
     ) (
-	input  logic clk, rst, compute, load_en,
+	input  logic clk, rst, compute, load_en, weight_commit,
 	input  logic signed [COMPUTE_DATA_WIDTH-1:0]     datas_in   [ARRAY_SIZE-1:0],
 	input  logic signed [COMPUTE_DATA_WIDTH-1:0]     weights_in [ARRAY_SIZE*ARRAY_SIZE-1:0],
 	output logic signed [ACCUMULATOR_DATA_WIDTH-1:0] results    [ARRAY_SIZE-1:0]
@@ -54,6 +54,7 @@ module pe_array #(
 		        .rst(rst),
 		        .compute(compute),
 		        .load_en(load_en),
+		        .weight_commit(weight_commit),
 		        .data_in(activations[i][j]),
 		        .weight_in(weights_in[i*ARRAY_SIZE+j]),
 		        .partial_sum_in({ACCUMULATOR_DATA_WIDTH{1'b0}}),
@@ -69,6 +70,7 @@ module pe_array #(
 		        .rst(rst),
 		        .compute(compute),
 		        .load_en(load_en),
+		        .weight_commit(weight_commit),
 		        .data_in(activations[i][j]),
 		        .weight_in(weights_in[i*ARRAY_SIZE+j]),
 		        .partial_sum_in(accumulators[i-1][j]),

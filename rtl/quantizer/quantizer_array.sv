@@ -1,11 +1,11 @@
-
 `timescale 1ns/1ps
 
 module quantizer_array #(
 	parameter QUANTIZER_SIZE         = 8*8,
 	parameter QUANTIZER_SIZE_WIDTH   = $clog2(QUANTIZER_SIZE),
 	parameter ACCUMULATOR_DATA_WIDTH = 16,
-	parameter COMPUTE_DATA_WIDTH     = 4
+	parameter COMPUTE_DATA_WIDTH     = 4,
+	parameter int QUANTIZER_PIPE_DEPTH = 0
     ) (
 	input  logic                                      clk,
 	input  logic                                      rst,
@@ -23,7 +23,8 @@ module quantizer_array #(
 	    localparam int OUT_LO = i * COMPUTE_DATA_WIDTH;
 	    quantizer #(
 		.ACCUMULATOR_DATA_WIDTH(ACCUMULATOR_DATA_WIDTH),
-		.COMPUTE_DATA_WIDTH(COMPUTE_DATA_WIDTH)
+		.COMPUTE_DATA_WIDTH(COMPUTE_DATA_WIDTH),
+		.QUANTIZER_PIPE_DEPTH(QUANTIZER_PIPE_DEPTH)
 	    ) u_quant (
 		.clk(clk),
 		.rst(rst),

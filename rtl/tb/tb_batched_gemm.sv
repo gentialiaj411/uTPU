@@ -44,6 +44,11 @@ module tb_batched_gemm;
 `else
     localparam int TB_RELU_LANES = `BG_RELU_LANES;
 `endif
+`ifndef BG_QUANTIZER_PIPE_DEPTH
+    localparam int TB_QUANTIZER_PIPE_DEPTH = 0;
+`else
+    localparam int TB_QUANTIZER_PIPE_DEPTH = `BG_QUANTIZER_PIPE_DEPTH;
+`endif
     localparam int TB_WAIT_START_MAX = 200000 + (`BG_WORDS * 16);
     localparam int TB_FETCH_SPIN_MAX = 200000 + (`BG_FETCH_N * 8192);
     localparam int TB_HALT_WAIT_MAX = 200000 + (`BG_FETCH_N * 256);
@@ -59,6 +64,7 @@ module tb_batched_gemm;
         .ACCUMULATOR_DATA_WIDTH(TB_ACCUMULATOR_DATA_WIDTH),
         .QUANTIZER_LANES(TB_QUANTIZER_LANES),
         .RELU_LANES(TB_RELU_LANES),
+        .QUANTIZER_PIPE_DEPTH(TB_QUANTIZER_PIPE_DEPTH),
         .UART_INPUT_CLK(100000000),
         .UART_BAUD(100000000)
     ) dut (
@@ -182,7 +188,7 @@ module tb_batched_gemm;
                 finalize_requant_cycles = finalize_requant_cycles + 1;
                 // Skip pipe-fill bubbles: TB @(posedge) samples before NBA, so
                 // quantizer_out is still the previous cycle during fill.
-                if (!dut.writeback_pipe_fill) begin
+                if (dut.writeback_pipe_fill_cnt == 0) begin
                     for (i = 0; i < dut.QUANTIZER_SIZE; i++) begin
                         if ((^dut.quantizer_out[i]) === 1'bx)
                             quantizer_x_seen = 1'b1;
