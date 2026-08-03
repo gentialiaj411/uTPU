@@ -92,6 +92,7 @@ def _characterize_case(
     measured: Dict[str, Optional[float]] = {
         "rtl_cycle_counter": None,
         "rtl_busy_counter": None,
+        "total_program_cycles": None,
         "busy_fraction": None,
         "pe_occupancy": None,
         "compute_busy_cycles": None,
@@ -106,6 +107,7 @@ def _characterize_case(
         simulator_log_tail = "\n".join((log or "").splitlines()[-12:])
         measured["rtl_cycle_counter"] = _parse_perf_counter(log, "PERF_CYCLE_COUNTER")
         measured["rtl_busy_counter"] = _parse_perf_counter(log, "PERF_BUSY_COUNTER")
+        measured["total_program_cycles"] = _parse_perf_counter(log, "TOTAL_PROGRAM_CYCLES")
         measured["compute_busy_cycles"] = _parse_perf_counter(log, "COMPUTE_BUSY_CYCLES")
         measured["compute_span_cycles"] = _parse_perf_counter(log, "COMPUTE_SPAN_CYCLES")
         if measured["rtl_cycle_counter"] and measured["rtl_busy_counter"]:
@@ -138,6 +140,7 @@ def _characterize_case(
             "program_words": int(baseline_vectors["program_words"]),
             "rtl_cycle_counter": _parse_perf_counter(log, "PERF_CYCLE_COUNTER"),
             "rtl_busy_counter": _parse_perf_counter(log, "PERF_BUSY_COUNTER"),
+            "total_program_cycles": _parse_perf_counter(log, "TOTAL_PROGRAM_CYCLES"),
             "compute_busy_cycles": _parse_perf_counter(log, "COMPUTE_BUSY_CYCLES"),
             "compute_span_cycles": _parse_perf_counter(log, "COMPUTE_SPAN_CYCLES"),
         }
@@ -192,6 +195,7 @@ def _shape_summary(shape_rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
         {
             "batch_size": int(row["batch_size"]),
             "rtl_busy_counter": row["measured"]["rtl_busy_counter"],
+            "total_program_cycles": row["measured"]["total_program_cycles"],
             "pe_occupancy": row["measured"]["pe_occupancy"],
             "busy_fraction": row["measured"]["busy_fraction"],
             "compute_span_duty_cycle": row["measured"]["compute_span_duty_cycle"],
@@ -309,17 +313,28 @@ def build_artifact(*, skip_iverilog: bool = False) -> Dict[str, Any]:
         "array_size": ARRAY_SIZE,
         "methodology": {
             "headline_metrics": {
-                "pe_occupancy": "useful_macs / (ARRAY_SIZE^2 * rtl_busy_counter)",
-                "busy_fraction": "rtl_busy_counter / rtl_cycle_counter",
+                "total_program_cycles": (
+                    "MAGIC_START to HALT wall-clock cycles from top.sv::perf_program_cycle_counter, "
+                    "exported as the 4th 64-bit word of MAGIC_READ_PERF (0xA4). Includes accumulate, "
+                    "inter-tile LOAD gaps, and finalize wait_clear. Excludes UART upload and post-HALT idle."
+                ),
+                "pe_occupancy": (
+                    "useful_macs / (ARRAY_SIZE^2 * rtl_busy_counter). Array-utilization metric only: "
+                    "rtl_busy_counter / compute span exclude finalize wait_clear, so pe_occupancy is NOT "
+                    "a throughput or wall-clock metric."
+                ),
+                "busy_fraction": "rtl_busy_counter / rtl_cycle_counter (free-running cycle includes upload)",
                 "compute_span_duty_cycle": (
                     "compute_busy_cycles / compute_span_cycles, where compute_span runs from the first "
                     "accumulate RUN start to the last accumulate RUN done and therefore includes inter-tile "
-                    "LOAD/refill gaps but excludes UART upload/fetch traffic"
+                    "LOAD/refill gaps but excludes finalize wait_clear and UART upload/fetch traffic. "
+                    "Array-utilization / duty metric, not end-to-end throughput."
                 ),
             },
             "primary_source": (
-                "RTL perf counters from rtl/top/top.sv: perf_busy_counter increments on each cycle with the "
-                "active accumulate/finalize busy window asserted; perf_cycle_counter increments every cycle."
+                "RTL perf counters from rtl/top/top.sv via MAGIC_READ_PERF (0xA4): free-running "
+                "perf_cycle_counter, busy-window perf_busy_counter, halt-count perf_program_count, and "
+                "START->HALT perf_program_cycle_counter (total_program_cycles)."
             ),
             "secondary_model": (
                 "Zero-fit explanatory model only: per_tile_busy_cycles = 2*ARRAY_SIZE + B - 2. "
@@ -331,6 +346,13 @@ def build_artifact(*, skip_iverilog: bool = False) -> Dict[str, Any]:
                 "Additional busy cycles therefore come from genuine per-cycle PE-array/controller advancement inside "
                 "the active accumulate/finalize window, not from a behavioral dot-product shortcut or a counter-only "
                 "annotation of inter-tile refill control."
+            ),
+            "measurement_integrity_note": (
+                "Step 2b pipelined requant added measurable wall-clock cost (+60 cycles at B=32 on the "
+                "QUANTIZER_LANES axis) that pe_occupancy / compute_span_duty_cycle / rtl_busy_counter all "
+                "reported as zero delta because those gauges exclude finalize wait_clear. Prefer "
+                "total_program_cycles for throughput / wall-clock steering; keep span metrics for array "
+                "utilization only."
             ),
         },
         "flagship_scope_note": (

@@ -76,12 +76,13 @@ module tb_batched_gemm;
     reg [7:0] expected [0:`BG_FETCH_N-1];
     reg [7:0] actual [0:`BG_FETCH_N-1];
     reg [15:0] case_mem [0:TB_PROG_DEPTH-1];
-    byte perf_bytes [0:23];
+    byte perf_bytes [0:31];
     bit quantizer_x_seen;
     int finalize_requant_cycles;
     logic [63:0] cycle_ctr;
     logic [63:0] busy_ctr;
     logic [63:0] program_ctr;
+    logic [63:0] program_cycle_ctr;
 
     task automatic CHECK(input string name, input bit cond);
         tests++;
@@ -137,7 +138,7 @@ module tb_batched_gemm;
         int i;
         got = 0;
         i = 0;
-        while (i < TB_PERF_WAIT_MAX && got < 24) begin
+        while (i < TB_PERF_WAIT_MAX && got < 32) begin
             @(posedge clk);
             if (dut.tx_we && dut.tx_wdata !== 8'hAA) begin
                 perf_bytes[got] = dut.tx_wdata;
@@ -220,24 +221,29 @@ module tb_batched_gemm;
 
         push_rx_byte(MAGIC_READ_PERF);
         collect_perf_bytes(got_perf);
-        CHECK("Received 24 perf bytes", got_perf == 24 || dut.perf_cycle_counter > 0);
+        CHECK("Received 32 perf bytes", got_perf == 32 || dut.perf_cycle_counter > 0);
         cycle_ctr = '0;
         busy_ctr = '0;
         program_ctr = '0;
-        if (got_perf == 24) begin
+        program_cycle_ctr = '0;
+        if (got_perf == 32) begin
             for (i = 0; i < 8; i++) cycle_ctr = {cycle_ctr[55:0], perf_bytes[i]};
             for (i = 8; i < 16; i++) busy_ctr = {busy_ctr[55:0], perf_bytes[i]};
             for (i = 16; i < 24; i++) program_ctr = {program_ctr[55:0], perf_bytes[i]};
+            for (i = 24; i < 32; i++) program_cycle_ctr = {program_cycle_ctr[55:0], perf_bytes[i]};
         end else begin
             cycle_ctr = dut.perf_cycle_counter;
             busy_ctr = dut.perf_busy_counter;
             program_ctr = dut.perf_program_count;
+            program_cycle_ctr = dut.perf_program_cycle_counter;
         end
         CHECK("Busy counter bounded by cycle counter", busy_ctr <= cycle_ctr);
         CHECK("Program count incremented on HALT", program_ctr >= 64'd1);
+        CHECK("Program cycles bounded by free-running cycle", program_cycle_ctr <= cycle_ctr);
         $display("PERF_CYCLE_COUNTER=%0d", cycle_ctr);
         $display("PERF_BUSY_COUNTER=%0d", busy_ctr);
         $display("PERF_PROGRAM_COUNT=%0d", program_ctr);
+        $display("TOTAL_PROGRAM_CYCLES=%0d", program_cycle_ctr);
         $display("COMPUTE_BUSY_CYCLES=%0d", dut.perf_busy_counter);
         $display("COMPUTE_SPAN_CYCLES=%0d", dut.perf_compute_span_counter);
         $display("FINALIZE_REQUANT_CYCLES=%0d", finalize_requant_cycles);

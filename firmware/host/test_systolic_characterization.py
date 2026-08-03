@@ -39,17 +39,22 @@ def test_systolic_characterization_schema_and_reality_floors():
         for case in data["cases"]:
             assert case["measured"]["rtl_cycle_counter"] is None
             assert case["measured"]["rtl_busy_counter"] is None
+            assert case["measured"]["total_program_cycles"] is None
         return
 
     assert data["aggregate"]["rtl_available"] is True
     assert data["aggregate"]["all_cases_passed"] is True
     assert data["aggregate"]["all_large_b_pe_occupancy_exceeds_b1"] is True
+    assert "total_program_cycles" in data["methodology"]["headline_metrics"]
+    assert "measurement_integrity_note" in data["methodology"]
 
     for case in data["cases"]:
         measured = case["measured"]
         assert case["rtl_sim_passed"] is True
         assert measured["rtl_cycle_counter"] > 0
         assert measured["rtl_busy_counter"] > 0
+        assert measured["total_program_cycles"] > 0
+        assert measured["total_program_cycles"] <= measured["rtl_cycle_counter"]
         assert 0.0 < measured["busy_fraction"] <= 1.0
         assert 0.0 < measured["pe_occupancy"] <= 1.0
         assert measured["rtl_busy_counter"] <= measured["rtl_cycle_counter"]
@@ -105,3 +110,4 @@ def test_systolic_characterization_deterministic_representative_case():
     assert case2["rtl_sim_passed"] is True
     assert case1["measured"]["rtl_cycle_counter"] == case2["measured"]["rtl_cycle_counter"]
     assert case1["measured"]["rtl_busy_counter"] == case2["measured"]["rtl_busy_counter"]
+    assert case1["measured"]["total_program_cycles"] == case2["measured"]["total_program_cycles"]

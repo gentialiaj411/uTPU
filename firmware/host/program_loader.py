@@ -30,7 +30,7 @@ from cuda_blocked_fc_backend import CUDABlockedFCExecutor
 MAGIC_UPLOAD = 0xA1   # begin program upload
 MAGIC_START  = 0xA2   # start execution
 MAGIC_REARM  = 0xA3   # re-arm from HALT (optional, requires hardware reset otherwise)
-MAGIC_READ_PERF = 0xA4  # read 3x64-bit perf counters (cycle, busy, program_count)
+MAGIC_READ_PERF = 0xA4  # read 4x64-bit perf counters (cycle, busy, program_count, program_cycles)
 
 
 class ProgramLoader:
@@ -131,16 +131,20 @@ class ProgramLoader:
         self._log("Re-arm signal sent")
 
     def readPerfCounters(self, timeout: float = 0.5) -> Dict[str, int]:
-        """Read cycle, busy, and program counters over UART."""
+        """Read cycle, busy, program_count, and program_cycles over UART.
+
+        program_cycles is MAGIC_START -> HALT wall-clock (excludes UART upload).
+        """
         self.uart.flush_input()
         self.uart.send_bytes_to_chip(bytes([MAGIC_READ_PERF]))
-        payload = self.uart.receive_exact(24, timeout=timeout)
-        if len(payload) != 24:
-            raise RuntimeError(f"Expected 24 perf bytes, received {len(payload)}")
+        payload = self.uart.receive_exact(32, timeout=timeout)
+        if len(payload) != 32:
+            raise RuntimeError(f"Expected 32 perf bytes, received {len(payload)}")
         return {
             "cycle_counter": int.from_bytes(payload[0:8], byteorder="big", signed=False),
             "busy_counter": int.from_bytes(payload[8:16], byteorder="big", signed=False),
             "program_count": int.from_bytes(payload[16:24], byteorder="big", signed=False),
+            "program_cycles": int.from_bytes(payload[24:32], byteorder="big", signed=False),
         }
 
     # ------------------------------------------------------------------

@@ -21,10 +21,11 @@ module tb_perf_counters;
 
     int tests = 0;
     int errors = 0;
-    byte perf_bytes [0:23];
+    byte perf_bytes [0:31];
     logic [63:0] cycle_ctr;
     logic [63:0] busy_ctr;
     logic [63:0] program_ctr;
+    logic [63:0] program_cycle_ctr;
 
     top #(
         .ARRAY_SIZE(TB_ARRAY_SIZE),
@@ -72,7 +73,7 @@ module tb_perf_counters;
         int i;
         got = 0;
         i = 0;
-        while (i < 100000 && got < 24) begin
+        while (i < 100000 && got < 32) begin
             @(posedge clk);
             if (dut.tx_we && dut.tx_wdata !== 8'hAA) begin
                 perf_bytes[got] = dut.tx_wdata;
@@ -117,25 +118,30 @@ module tb_perf_counters;
         wait_for_state(dut.HALT_STATE, 20000, reached_halt);
         CHECK("Reached HALT after start", reached_halt);
 
-        // Request perf counters and collect 24-byte response.
+        // Request perf counters and collect 32-byte response.
         push_rx_byte(MAGIC_READ_PERF);
         collect_perf_bytes(got_perf);
-        CHECK("Received 24 perf bytes", got_perf == 24);
+        CHECK("Received 32 perf bytes", got_perf == 32);
 
         cycle_ctr = '0;
         busy_ctr = '0;
         program_ctr = '0;
+        program_cycle_ctr = '0;
         for (i = 0; i < 8; i++) cycle_ctr = {cycle_ctr[55:0], perf_bytes[i]};
         for (i = 8; i < 16; i++) busy_ctr = {busy_ctr[55:0], perf_bytes[i]};
         for (i = 16; i < 24; i++) program_ctr = {program_ctr[55:0], perf_bytes[i]};
+        for (i = 24; i < 32; i++) program_cycle_ctr = {program_cycle_ctr[55:0], perf_bytes[i]};
 
         CHECK("Cycle counter advanced", cycle_ctr > 64'd0);
         CHECK("Busy counter bounded by cycle counter", busy_ctr <= cycle_ctr);
         CHECK("Program count incremented on HALT", program_ctr >= 64'd1);
+        CHECK("Program cycle counter advanced", program_cycle_ctr > 64'd0);
+        CHECK("Program cycles bounded by free-running cycle", program_cycle_ctr <= cycle_ctr);
 
         $display("PERF_CYCLE_COUNTER=%0d", cycle_ctr);
         $display("PERF_BUSY_COUNTER=%0d", busy_ctr);
         $display("PERF_PROGRAM_COUNT=%0d", program_ctr);
+        $display("TOTAL_PROGRAM_CYCLES=%0d", program_cycle_ctr);
         $display("=================================================");
         $display("DONE tests=%0d errors=%0d", tests, errors);
         $display("=================================================");

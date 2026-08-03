@@ -163,6 +163,7 @@ def run_rtl_batched_gemm_sim(
     metrics["perf_cycle_counter"] = _parse_perf_counter(log, "PERF_CYCLE_COUNTER")
     metrics["perf_busy_counter"] = _parse_perf_counter(log, "PERF_BUSY_COUNTER")
     metrics["perf_program_count"] = _parse_perf_counter(log, "PERF_PROGRAM_COUNT")
+    metrics["total_program_cycles"] = _parse_perf_counter(log, "TOTAL_PROGRAM_CYCLES")
     metrics["compute_busy_cycles"] = _parse_perf_counter(log, "COMPUTE_BUSY_CYCLES")
     metrics["compute_span_cycles"] = _parse_perf_counter(log, "COMPUTE_SPAN_CYCLES")
     metrics["finalize_requant_cycles"] = _parse_perf_counter(log, "FINALIZE_REQUANT_CYCLES")

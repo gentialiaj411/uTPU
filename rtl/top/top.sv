@@ -167,7 +167,10 @@ module top #(
     logic [63:0] perf_cycle_counter;
     logic [63:0] perf_busy_counter;
     logic [63:0] perf_program_count;
-    logic [191:0] perf_snapshot;
+    // Program wall-clock: MAGIC_START -> HALT (excludes UART upload / post-HALT idle).
+    logic [63:0] perf_program_cycle_counter;
+    logic         perf_program_active;
+    logic [255:0] perf_snapshot;
     logic         perf_stream_active;
     logic [4:0]   perf_stream_idx;
     logic         perf_busy_active;
@@ -570,6 +573,8 @@ module top #(
             perf_cycle_counter <= '0;
             perf_busy_counter <= '0;
             perf_program_count <= '0;
+            perf_program_cycle_counter <= '0;
+            perf_program_active <= 1'b0;
             perf_busy_active <= 1'b0;
             perf_waiting_for_immediate_finalize <= 1'b0;
             perf_span_measuring <= 1'b0;
@@ -582,6 +587,16 @@ module top #(
                 perf_compute_span_counter <= perf_compute_span_counter + 1'b1;
             if (current_state == DECODE_STATE && opcode == HALT_OP)
                 perf_program_count <= perf_program_count + 1'b1;
+            // total_program_cycles: start on MAGIC_START, freeze on HALT entry.
+            if (current_state == WAIT_START_STATE && rx_rvalid &&
+                rx_fifo_to_mem == MAGIC_START) begin
+                perf_program_cycle_counter <= '0;
+                perf_program_active <= 1'b1;
+            end else if (current_state == HALT_STATE) begin
+                perf_program_active <= 1'b0;
+            end else if (perf_program_active) begin
+                perf_program_cycle_counter <= perf_program_cycle_counter + 1'b1;
+            end
         end
     end
 
@@ -974,7 +989,9 @@ module top #(
 
                         WAIT_START_STATE: begin
                             if (rx_fifo_to_mem == MAGIC_READ_PERF) begin
-                                perf_snapshot <= {perf_cycle_counter, perf_busy_counter, perf_program_count};
+                                // 32 bytes: cycle, busy, program_count, program_cycles (START->HALT)
+                                perf_snapshot <= {perf_cycle_counter, perf_busy_counter,
+                                                  perf_program_count, perf_program_cycle_counter};
                                 perf_stream_active <= 1'b1;
                                 perf_stream_idx <= '0;
                             end
@@ -982,7 +999,8 @@ module top #(
 
                         HALT_STATE: begin
                             if (rx_fifo_to_mem == MAGIC_READ_PERF) begin
-                                perf_snapshot <= {perf_cycle_counter, perf_busy_counter, perf_program_count};
+                                perf_snapshot <= {perf_cycle_counter, perf_busy_counter,
+                                                  perf_program_count, perf_program_cycle_counter};
                                 perf_stream_active <= 1'b1;
                                 perf_stream_idx <= '0;
                             end
@@ -1775,8 +1793,8 @@ module top #(
             end
         end else if (perf_stream_active && ~tx_full) begin
             tx_we    <= 1'b1;
-            tx_wdata <= perf_snapshot[191 - (perf_stream_idx * 8) -: 8];
-            if (perf_stream_idx == 5'd23) begin
+            tx_wdata <= perf_snapshot[255 - (perf_stream_idx * 8) -: 8];
+            if (perf_stream_idx == 5'd31) begin
                 perf_stream_active <= 1'b0;
                 perf_stream_idx    <= '0;
             end else begin
