@@ -1,0 +1,182 @@
+{
+  "schema_version": 1,
+  "generated_at_utc": "2026-08-03T00:36:48.423442+00:00",
+  "git_sha": "d172a4d",
+  "status": "ok",
+  "shape": {
+    "out_features": 16,
+    "in_features": 16
+  },
+  "fixed_quantizer_lanes": 16,
+  "requant": {
+    "enable": true,
+    "multiplier": 11,
+    "right_shift": 6,
+    "rounding_mode": "arithmetic_right_shift_truncation",
+    "mode": "per_layer_symmetric"
+  },
+  "pipe_depths": [
+    0,
+    3
+  ],
+  "batches": [
+    1,
+    4,
+    16,
+    32
+  ],
+  "fmax_mhz_closed": {
+    "0": 50.0,
+    "3": 100.0
+  },
+  "fmax_provenance": {
+    "0": "combo PIPE_DEPTH=0 Step1+2 closed_config @ 20 ns (50 MHz)",
+    "3": "timing_closure_sweep.json requant_fmax_mb4_clk10_pd3 closed @ 10 ns (100 MHz)"
+  },
+  "cases": [
+    {
+      "batch_size": 1,
+      "quantizer_pipe_depth": 0,
+      "quantizer_lanes": 16,
+      "rtl_sim_passed": true,
+      "total_program_cycles": 1446,
+      "finalize_requant_cycles": 1,
+      "rtl_busy_counter": 40,
+      "compute_span_cycles": 40,
+      "fmax_mhz_closed": 50.0,
+      "wall_clock_ns_from_total_program_cycles": 28920.0
+    },
+    {
+      "batch_size": 1,
+      "quantizer_pipe_depth": 3,
+      "quantizer_lanes": 16,
+      "rtl_sim_passed": true,
+      "total_program_cycles": 1449,
+      "finalize_requant_cycles": 4,
+      "rtl_busy_counter": 40,
+      "compute_span_cycles": 40,
+      "fmax_mhz_closed": 100.0,
+      "wall_clock_ns_from_total_program_cycles": 14490.0
+    },
+    {
+      "batch_size": 4,
+      "quantizer_pipe_depth": 0,
+      "quantizer_lanes": 16,
+      "rtl_sim_passed": true,
+      "total_program_cycles": 2100,
+      "finalize_requant_cycles": 4,
+      "rtl_busy_counter": 43,
+      "compute_span_cycles": 43,
+      "fmax_mhz_closed": 50.0,
+      "wall_clock_ns_from_total_program_cycles": 42000.0
+    },
+    {
+      "batch_size": 4,
+      "quantizer_pipe_depth": 3,
+      "quantizer_lanes": 16,
+      "rtl_sim_passed": true,
+      "total_program_cycles": 2112,
+      "finalize_requant_cycles": 16,
+      "rtl_busy_counter": 43,
+      "compute_span_cycles": 43,
+      "fmax_mhz_closed": 100.0,
+      "wall_clock_ns_from_total_program_cycles": 21120.0
+    },
+    {
+      "batch_size": 16,
+      "quantizer_pipe_depth": 0,
+      "quantizer_lanes": 16,
+      "rtl_sim_passed": true,
+      "total_program_cycles": 4716,
+      "finalize_requant_cycles": 16,
+      "rtl_busy_counter": 55,
+      "compute_span_cycles": 55,
+      "fmax_mhz_closed": 50.0,
+      "wall_clock_ns_from_total_program_cycles": 94320.0
+    },
+    {
+      "batch_size": 16,
+      "quantizer_pipe_depth": 3,
+      "quantizer_lanes": 16,
+      "rtl_sim_passed": true,
+      "total_program_cycles": 4764,
+      "finalize_requant_cycles": 64,
+      "rtl_busy_counter": 55,
+      "compute_span_cycles": 55,
+      "fmax_mhz_closed": 100.0,
+      "wall_clock_ns_from_total_program_cycles": 47640.0
+    },
+    {
+      "batch_size": 32,
+      "quantizer_pipe_depth": 0,
+      "quantizer_lanes": 16,
+      "rtl_sim_passed": true,
+      "total_program_cycles": 8212,
+      "finalize_requant_cycles": 32,
+      "rtl_busy_counter": 71,
+      "compute_span_cycles": 71,
+      "fmax_mhz_closed": 50.0,
+      "wall_clock_ns_from_total_program_cycles": 164240.0
+    },
+    {
+      "batch_size": 32,
+      "quantizer_pipe_depth": 3,
+      "quantizer_lanes": 16,
+      "rtl_sim_passed": true,
+      "total_program_cycles": 8308,
+      "finalize_requant_cycles": 128,
+      "rtl_busy_counter": 71,
+      "compute_span_cycles": 71,
+      "fmax_mhz_closed": 100.0,
+      "wall_clock_ns_from_total_program_cycles": 83080.0
+    }
+  ],
+  "deltas_by_batch": {
+    "1": {
+      "finalize_cycles_depth0": 1,
+      "finalize_cycles_depth3": 4,
+      "delta_finalize_cycles": 3,
+      "total_program_cycles_depth0": 1446,
+      "total_program_cycles_depth3": 1449,
+      "delta_total_program_cycles": 3,
+      "wall_clock_ns_depth0": 28920.0,
+      "wall_clock_ns_depth3": 14490.0,
+      "wall_clock_speedup_depth3_vs_0": 1.9959
+    },
+    "4": {
+      "finalize_cycles_depth0": 4,
+      "finalize_cycles_depth3": 16,
+      "delta_finalize_cycles": 12,
+      "total_program_cycles_depth0": 2100,
+      "total_program_cycles_depth3": 2112,
+      "delta_total_program_cycles": 12,
+      "wall_clock_ns_depth0": 42000.0,
+      "wall_clock_ns_depth3": 21120.0,
+      "wall_clock_speedup_depth3_vs_0": 1.9886
+    },
+    "16": {
+      "finalize_cycles_depth0": 16,
+      "finalize_cycles_depth3": 64,
+      "delta_finalize_cycles": 48,
+      "total_program_cycles_depth0": 4716,
+      "total_program_cycles_depth3": 4764,
+      "delta_total_program_cycles": 48,
+      "wall_clock_ns_depth0": 94320.0,
+      "wall_clock_ns_depth3": 47640.0,
+      "wall_clock_speedup_depth3_vs_0": 1.9798
+    },
+    "32": {
+      "finalize_cycles_depth0": 32,
+      "finalize_cycles_depth3": 128,
+      "delta_finalize_cycles": 96,
+      "total_program_cycles_depth0": 8212,
+      "total_program_cycles_depth3": 8308,
+      "delta_total_program_cycles": 96,
+      "wall_clock_ns_depth0": 164240.0,
+      "wall_clock_ns_depth3": 83080.0,
+      "wall_clock_speedup_depth3_vs_0": 1.9769
+    }
+  },
+  "verdict": "report_both_human_decision",
+  "action": "Depth=3 pays ~per-column pipe fill under the current finalize FSM (fill re-armed each column). Report wall-clock both ways; do not auto-flip default."
+}
