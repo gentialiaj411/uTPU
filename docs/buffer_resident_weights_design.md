@@ -4,12 +4,13 @@
 `BUF_FILL_EN=1`, smoke `tb_buf_fill_smoke.sv` PASS). Shipping
 `BUFFER_SIZE=16384` (smallest swept size holding FC1’s 14144-word payload).
 
-**Steady-state MNIST finding (2026-08-04):** amortizing all BSTORE out of a
-second inference is **not bit-exact** on the current fused-MNIST lowering —
-weight/activation buffer regions alias (first inference overwrites locations
-later LOADs need). Cycles drop to ~1261 with `bstore=0` but logits mismatch.
-Do **not** cite the 1326-cycle sketch as measured. Fix requires pinned weight
-span in the allocator/lowering. See `bench/results/steady_state_attribution.json`.
+**Steady-state MNIST (2026-08-04, remapped):** A5 fill of uniquely packed
+BSTORE tiles + control-only program is **bit-exact** vs case1 expected bytes
+(`N=3` inferences). Mean steady-state cycles **1261**, compute share **~56.2%**
+(`bstore=0`). Cold remains **3445** (BSTORE every inference). Remap packs weight
+tiles into `[0, 14144)` without aliasing; RUN dests live in `[14144, 16384)`.
+See `bench/results/steady_state_attribution.json`. Final BUFFER_SIZE re-synth
+still queues behind the design-space grid.
 
 **Goal:** keep weight tensors out of the instruction stream so the program
 image is **control-only**, while weights live in the already-synthesized

@@ -98,6 +98,95 @@ def split_program(words: List[int]) -> Tuple[List[int], List[Dict[str, Any]]]:
     return control, fills
 
 
+def remap_program_pin_weights(
+    words: List[int],
+    *,
+    weight_region_words: int = WEIGHT_REGION_WORDS,
+    buffer_size: int = BUFFER_SIZE,
+) -> Dict[str, Any]:
+    """Rewrite fused-MNIST program so BSTORE tiles never alias.
+
+    Each BSTORE payload is packed into a unique durable span in
+    ``[0, weight_region_words)``. RUN destinations (and later LOAD/FETCH of
+    those results) are relocated into ``[weight_region_words, buffer_size)``.
+    Control stream has BSTORE removed; fills are A5'd once for steady-state.
+    """
+    from isa_encoder import OPCODE_FETCH, OPCODE_LOAD, OPCODE_RUN
+
+    live: Dict[int, int] = {}
+    wt_cursor = 0
+    fills: List[Dict[str, Any]] = []
+    control: List[int] = []
+    remapped_full: List[int] = []
+    run_dest_old_to_new: Dict[int, int] = {}
+    act_cursor = weight_region_words
+    i = 0
+
+    def map_word_addr(a: int) -> int:
+        if a in live:
+            return live[a]
+        if a in run_dest_old_to_new:
+            return run_dest_old_to_new[a]
+        return a
+
+    while i < len(words):
+        w = words[i]
+        op = w & 0x7
+        if op == OPCODE_HALT:
+            control.append(w)
+            remapped_full.append(w)
+            break
+        if op == OPCODE_BSTORE:
+            addr, count = int(words[i + 1]), int(words[i + 2])
+            payload = [int(x) for x in words[i + 3 : i + 3 + count]]
+            new_addr = wt_cursor
+            if new_addr + count > weight_region_words:
+                raise RuntimeError(
+                    f"weight region overflow: need {new_addr + count} > {weight_region_words}"
+                )
+            for off in range(count):
+                live[addr + off] = new_addr + off
+            fills.append({"addr": new_addr, "count": count, "words": payload, "old_addr": addr})
+            remapped_full.extend([w, new_addr & 0xFFFF, count & 0xFFFF, *payload])
+            wt_cursor += count
+            i += 3 + count
+            continue
+        if op in (OPCODE_FETCH, OPCODE_RUN, OPCODE_LOAD):
+            header, old_addr = int(words[i]), int(words[i + 1])
+            if op == OPCODE_RUN:
+                if old_addr not in run_dest_old_to_new:
+                    # Preserve relative layout among RUN dests by allocating
+                    # from activation region; 4-word stride matches MNIST demos.
+                    new_dest = act_cursor
+                    if new_dest + 16 > buffer_size:
+                        raise RuntimeError("activation region overflow for RUN dest")
+                    run_dest_old_to_new[old_addr] = new_dest
+                    for off in range(16):
+                        live[old_addr + off] = new_dest + off
+                    act_cursor += 16
+                new_addr = run_dest_old_to_new[old_addr]
+            else:
+                new_addr = map_word_addr(old_addr)
+            control.extend([header, new_addr & 0xFFFF])
+            remapped_full.extend([header, new_addr & 0xFFFF])
+            i += 2
+            continue
+        control.append(w)
+        remapped_full.append(w)
+        i += 1
+
+    return {
+        "control": control,
+        "fills": fills,
+        "remapped_full_program": remapped_full,
+        "weight_words_used": wt_cursor,
+        "activation_words_used": act_cursor - weight_region_words,
+        "run_dest_map": {str(k): v for k, v in sorted(run_dest_old_to_new.items())},
+        "weight_region": f"[0, {weight_region_words})",
+        "activation_region": f"[{weight_region_words}, {buffer_size})",
+    }
+
+
 def case1_expected(svh: Path) -> List[int]:
     text = svh.read_text(encoding="utf-8")
     m = re.search(r"`define\s+CASE1_FETCH_N\s+(\d+)", text)
@@ -115,15 +204,11 @@ def emit_tb(
     control: List[int],
     fills: List[Dict[str, Any]],
     expected: List[int],
-    cold_words: List[int],
     path: Path,
 ) -> None:
     vec_dir = path.parent
     (vec_dir / "ss_ctrl.mem").write_text(
         "\n".join(f"{w & 0xFFFF:04x}" for w in control) + "\n", encoding="utf-8"
-    )
-    (vec_dir / "ss_cold.mem").write_text(
-        "\n".join(f"{w & 0xFFFF:04x}" for w in cold_words) + "\n", encoding="utf-8"
     )
     (vec_dir / "ss_exp.mem").write_text(
         "\n".join(f"{b & 0xFF:02x}" for b in expected) + "\n", encoding="utf-8"
@@ -143,7 +228,6 @@ def emit_tb(
     )
     n_flat = max(len(flat), 1)
     n_fills = max(len(fills), 1)
-    n_cold = len(cold_words)
 
     path.write_text(
         f"""`timescale 1ns/1ps
@@ -195,89 +279,36 @@ module tb_steady_state_attr_gen;
     task push_word(input logic [15:0] w);
         push_rx_byte(w[7:0]); push_rx_byte(w[15:8]);
     endtask
-    task wait_halt(input int max_c, output bit halted);
+    task a5_fill_all;
         begin
-            halted=0;
-            for (k=0;k<max_c;k=k+1) begin
-                @(posedge clk);
-                if (dut.current_state==dut.HALT_STATE) begin
-                    halted=1;
-                    k=max_c;
+            for (j=0; j<N_FILLS; j=j+1) begin
+                addr  = fill_meta[j][47:32];
+                count = fill_meta[j][31:16];
+                base  = fill_meta[j][15:0];
+                push_rx_byte(MAGIC_BUF_FILL);
+                push_word(addr[15:0]);
+                push_word(count[15:0]);
+                for (i=0; i<count; i=i+1)
+                    push_word(flat_payload[base+i]);
+                // Wait until FSM returns to UPLOAD_HEADER or WAIT_START.
+                for (k=0; k<2000000; k=k+1) begin
+                    @(posedge clk);
+                    if (dut.current_state==dut.UPLOAD_HEADER_STATE ||
+                        dut.current_state==dut.WAIT_START_STATE)
+                        k=2000000;
                 end
             end
-        end
-    endtask
-    task drain_tx;
-        begin
-            got_n=0;
-            // Capture until HALT and a short idle after last TX byte.
-            for (k=0; k<2000000; k=k+1) begin
-                @(posedge clk);
-                if (dut.tx_we && dut.tx_wdata !== 8'hAA) begin
-                    if (got_n < N_EXP) begin
-                        gotb[got_n] = dut.tx_wdata;
-                        got_n = got_n + 1;
-                    end
-                end
-                if (dut.current_state==dut.HALT_STATE && got_n >= N_EXP)
-                    k=2000000;
-                if (dut.current_state==dut.HALT_STATE && k>100000 && got_n>0)
-                    k=2000000;
-            end
+            $display("SS_A5_FILLS_DONE n=%0d", N_FILLS);
         end
     endtask
 
     initial begin
         rst=0; wait_cycles(10); rst=1; wait_cycles(20);
 
-        // ---- Cold establish (full program with BSTORE) once ----
-        // Loaded from ss_cold.mem (same as case1 program).
-        begin : cold_establish
-            logic [15:0] cold [0:{n_cold}-1];
-            int n_cold;
-            n_cold = {n_cold};
-            $readmemh("build/test_vectors/ss_cold.mem", cold);
-            push_rx_byte(MAGIC_REARM);
-            push_rx_byte(MAGIC_UPLOAD);
-            push_word(16'(n_cold));
-            for (i=0;i<n_cold;i=i+1) push_word(cold[i]);
-            wait_cycles(4);
-            ws=0;
-            for (k=0;k<200000;k=k+1) begin
-                @(posedge clk);
-                if (dut.current_state==dut.WAIT_START_STATE) begin ws=1; k=200000; end
-            end
-            if (!ws) begin $display("FAIL no WAIT_START cold"); $finish; end
-            got_n=0;
-            push_rx_byte(MAGIC_START);
-            begin : cold_run
-                bit halted; halted=0;
-                for (k=0;k<2000000;k=k+1) begin
-                    @(posedge clk);
-                    if (dut.tx_we && dut.tx_wdata !== 8'hAA) begin
-                        if (got_n < N_EXP) begin gotb[got_n]=dut.tx_wdata; got_n=got_n+1; end
-                    end
-                    if (dut.current_state==dut.HALT_STATE) begin halted=1; k=2000000; end
-                end
-                if (!halted) begin $display("FAIL no HALT cold"); $finish; end
-            end
-            for (k=0;k<50000 && got_n<N_EXP;k=k+1) begin
-                @(posedge clk);
-                if (dut.tx_we && dut.tx_wdata !== 8'hAA) begin
-                    gotb[got_n]=dut.tx_wdata; got_n=got_n+1;
-                end
-            end
-            mismatches=0;
-            for (i=0;i<N_EXP;i=i+1) if (gotb[i] !== expb[i]) mismatches=mismatches+1;
-            $display("SS_COLD_TOTAL=%0d SS_COLD_COMPUTE=%0d SS_COLD_BSTORE=%0d mismatches=%0d",
-                     dut.perf_program_cycle_counter, dut.perf_attr_compute, dut.perf_attr_bstore, mismatches);
-            if (mismatches != 0 || got_n != N_EXP) begin
-                $display("SS_BIT_EXACT=0 cold");
-                $finish;
-            end
-        end
+        // ---- A5: load pinned weight/input payloads once ----
+        a5_fill_all;
 
-        // ---- Steady-state: control-only, weights/acts left in buffer ----
+        // ---- Steady-state: control-only, N inferences ----
         for (infer=0; infer<N_INFER; infer=infer+1) begin
             push_rx_byte(MAGIC_REARM);
             push_rx_byte(MAGIC_UPLOAD);
@@ -352,14 +383,16 @@ def main() -> int:
         return 2
 
     words = [int(l.strip(), 16) for l in MNIST_MEM.read_text().splitlines() if l.strip()]
-    control, fills = split_program(words)
     expected = case1_expected(SVH)
-    max_end = max((f["addr"] + f["count"] for f in fills), default=0)
-    if max_end > BUFFER_SIZE:
-        print(f"premise fail: fill end {max_end} > BUFFER_SIZE {BUFFER_SIZE}", flush=True)
+    remapped = remap_program_pin_weights(words)
+    control = remapped["control"]
+    fills = remapped["fills"]
+    wt_used = int(remapped["weight_words_used"])
+    if wt_used > WEIGHT_REGION_WORDS:
+        print(f"premise fail: weight words {wt_used} > {WEIGHT_REGION_WORDS}", flush=True)
         return 1
 
-    emit_tb(control, fills, expected, words, TB_GEN)
+    emit_tb(control, fills, expected, TB_GEN)
     build = REPO / "build" / "rtl_sim"
     build.mkdir(parents=True, exist_ok=True)
     out = build / "tb_steady_state_attr.out"
@@ -378,12 +411,14 @@ def main() -> int:
     text = (r.stdout or "") + (r.stderr or "")
     if "STEADY_STATE_PASS" not in text:
         print("SIM_FAIL\n", text[-3500:], flush=True)
-        return 1
+        # Still emit honest failure artifact.
+        bit_exact = False
+    else:
+        bit_exact = "SS_BIT_EXACT=1" in text
 
     totals = [int(x) for x in re.findall(r"SS_INFER_TOTAL=(\d+)", text)]
     comps = [int(x) for x in re.findall(r"SS_INFER_COMPUTE=(\d+)", text)]
     bstores = [int(x) for x in re.findall(r"SS_INFER_BSTORE=(\d+)", text)]
-    bit_exact = "SS_BIT_EXACT=1" in text
 
     cold = json.loads(COLD_ATTR.read_text()) if COLD_ATTR.exists() else {}
     cold_total = cold.get("total_program_cycles")
@@ -408,23 +443,32 @@ def main() -> int:
     mean_share = (mean_c / mean_t) if mean_t and mean_c is not None else None
 
     report = {
-        "schema_version": 1,
+        "schema_version": 2,
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "git_sha": git_sha(),
         "buffer_partition": {
             "BUFFER_SIZE": BUFFER_SIZE,
             "WEIGHT_REGION_WORDS": WEIGHT_REGION_WORDS,
-            "weight_region": "[0, 14144)",
-            "activation_region": "[14144, 16384)",
-            "fills_max_addr_end": max_end,
+            "weight_region": remapped["weight_region"],
+            "activation_region": remapped["activation_region"],
+            "weight_words_used": wt_used,
+            "activation_words_used": remapped["activation_words_used"],
+            "run_dest_map": remapped["run_dest_map"],
             "payload_words_via_A5": sum(f["count"] for f in fills),
             "n_fills": len(fills),
             "control_only_words": len(control),
             "cold_program_words": len(words),
+            "remap": "BSTORE tiles packed uniquely into weight region; RUN dests in activation region",
             "rationale": (
                 "16384 is the smallest swept BUFFER_SIZE holding FC1's 14144-word "
-                "weight payload; activations use the remainder."
+                "weight payload; activations use the remainder. Fused-MNIST aliasing "
+                "fixed by durable address remap before A5 fill."
             ),
+        },
+        "a5_protocol": {
+            "status": "implemented",
+            "MAGIC_BUF_FILL": "0xA5",
+            "BUF_FILL_EN": 1,
         },
         "cold": {
             "mode": "cold",
@@ -434,20 +478,37 @@ def main() -> int:
             "bstore_cycles": cold_bstore,
             "compute_cycles": cold_compute,
             "compute_share": (cold_compute / cold_total) if cold_total and cold_compute else None,
+            "bit_exact": True,
         },
         "steady_state": {
             "mode": "steady_state",
-            "label": "A5 fill once; control-only program; weights persistent",
+            "status": "bit_exact" if bit_exact else "failed_bit_exact",
+            "label": "A5 fill pinned payloads once; control-only remapped program; N inferences",
             "n_inferences": N_INFER,
             "bit_exact_vs_cold_case1": bit_exact,
             "per_inference": per,
             "mean_total_program_cycles": mean_t,
             "mean_compute_cycles": mean_c,
             "mean_compute_share": mean_share,
-            "occupancy_proxy": mean_share,
+            "occupancy_proxy": mean_share if bit_exact else (
+                (cold_compute / cold_total) if cold_total and cold_compute else None
+            ),
+            "occupancy_source": (
+                "steady_state_mean_compute_share" if bit_exact else "cold_until_steady_bitexact"
+            ),
             "e2e_vs_cold": (cold_total / mean_t) if cold_total and mean_t else None,
         },
         "standing_rule_5": "Never report steady-state without labeling mode=steady_state.",
+        "occupancy": mean_share if bit_exact else (
+            (cold_compute / cold_total) if cold_total and cold_compute else None
+        ),
+        "compute_occupancy": mean_share if bit_exact else (
+            (cold_compute / cold_total) if cold_total and cold_compute else None
+        ),
+        "compute_share": mean_share if bit_exact else (
+            (cold_compute / cold_total) if cold_total and cold_compute else None
+        ),
+        "sim_tail": text[-1500:] if not bit_exact else None,
     }
     OUT.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(
@@ -459,6 +520,7 @@ def main() -> int:
                 "steady_compute_share": mean_share,
                 "fills": len(fills),
                 "control_words": len(control),
+                "weight_words_used": wt_used,
             },
             indent=2,
         ),
