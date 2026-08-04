@@ -7,9 +7,11 @@ module unified_buffer #(
 	parameter FIFO_DATA_WIDTH    = 8,    // Number of bits recieved/sent from/to fifos
 	parameter COMPUTE_DATA_WIDTH = 4,  // Number of bits recieved/sent from/to compute unit
 	parameter ADDRESS_SIZE       = $clog2(BUFFER_SIZE),
-	parameter ARRAY_SIZE         = 8,
+    parameter ARRAY_SIZE         = 8,
 	parameter NUM_COMPUTE_LANES  = ARRAY_SIZE*ARRAY_SIZE,
-	parameter STORE_DATA_WIDTH   = 16
+	parameter STORE_DATA_WIDTH   = 16,
+    // Max parallel store words per we beat (BSTORE write-arm widen).
+    parameter int STORE_WIDE     = 8
     ) (
 	input  logic clk, we, re, compute_en, fifo_en, store_en,
 	output logic 			      done,
@@ -20,8 +22,12 @@ module unified_buffer #(
 	input  logic signed [COMPUTE_DATA_WIDTH-1:0] compute_in [NUM_COMPUTE_LANES-1:0], 
 	output logic signed [COMPUTE_DATA_WIDTH-1:0] compute_out [NUM_COMPUTE_LANES-1:0],
 	input  logic [STORE_DATA_WIDTH-1:0]   store_in,
-	output logic [STORE_DATA_WIDTH-1:0]   store_out
-    ); 
+	output logic [STORE_DATA_WIDTH-1:0]   store_out,
+    // store_count==0 or 1 → legacy single store_in at `address`.
+    // store_count>1 → write store_wide_in[0..store_count-1] to address..+n-1.
+    input  logic [$clog2(STORE_WIDE+1)-1:0] store_count,
+    input  logic [STORE_DATA_WIDTH-1:0] store_wide_in [STORE_WIDE-1:0]
+    );
     
     localparam int ITEMS_IN_SLOT = BUFFER_WORD_SIZE/COMPUTE_DATA_WIDTH;
     localparam int BANKS         = NUM_COMPUTE_LANES/ITEMS_IN_SLOT;
@@ -133,8 +139,31 @@ module unified_buffer #(
                     ? {fifo_in, 8'h00}
                     : {8'h00, fifo_in};
             end else if (store_en) begin
-                bank_we[base_bank] = 2'b11;
-                bank_din[base_bank] = store_in;
+                // Wide BSTORE: consecutive addresses map to consecutive banks
+                // (addr % BANKS). STORE_WIDE must be <= BANKS to avoid collisions.
+                if (store_count > 1) begin
+                    for (int wi = 0; wi < STORE_WIDE; wi++) begin
+                        if (wi < int'(store_count)) begin
+                            int unsigned a_i;
+                            int unsigned b_i;
+                            int unsigned r_i;
+                            a_i = int'(address) + wi;
+`ifdef ICARUS
+                            b_i = a_i % BANKS;
+                            r_i = a_i / BANKS;
+`else
+                            b_i = a_i % BANKS;
+                            r_i = a_i / BANKS;
+`endif
+                            bank_we[b_i]    = 2'b11;
+                            bank_din[b_i]   = store_wide_in[wi];
+                            bank_waddr[b_i] = r_i[BANK_ADDR_W-1:0];
+                        end
+                    end
+                end else begin
+                    bank_we[base_bank] = 2'b11;
+                    bank_din[base_bank] = store_in;
+                end
             end
         end
 

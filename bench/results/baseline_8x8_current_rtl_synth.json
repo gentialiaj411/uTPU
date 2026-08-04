@@ -2,7 +2,7 @@
   "version": 1,
   "generated_at_utc": "2026-06-18T18:45:15.5293241Z",
   "git_sha": "48fe65a2a98775c33d3e84e268fad06502e6efbc",
-  "provenance_note": "current RTL (post-batching, post-X-bug-fix), MAX_BATCH_COUNT set via synth generic; supersedes the stale p4_2 8x8 numbers. The original 100 MHz sweep below did not close for any tested MAX_BATCH_COUNT in {16,8,4}.",
+  "provenance_note": "current RTL (post-batching, post-X-bug-fix), MAX_BATCH_COUNT set via synth generic; supersedes the stale p4_2 8x8 numbers. The original 100 MHz sweep below did not close for any tested MAX_BATCH_COUNT in {16,8,4}. SUPERSEDED as shipping Fmax by timing_closure_sweep.json requant_fmax_mb4_clk10_pd3 (100 MHz, PIPE_DEPTH=3). Keep this file for DSP/history.",
   "closed_config": {
     "name": "current_rtl_mb4_clk20_dcp",
     "params": {
@@ -175,5 +175,10 @@
         "build/reports/current_rtl_mb4.bit"
       ]
     }
-  ]
+  ],
+  "superseded_by": {
+    "artifact": "bench/results/timing_closure_sweep.json",
+    "report_prefix": "requant_fmax_mb4_clk10_pd3",
+    "frequency_mhz": 100.0
+  }
 }

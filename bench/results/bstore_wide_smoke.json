@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "generated_at_utc": "2026-08-04T04:15:30.795587+00:00",
+  "BSTORE_WIDTH": 8,
+  "payload_words": 16,
+  "status": "pass",
+  "returncode": 0,
+  "attr_bstore": 27,
+  "cycles_per_payload_word": 1.6875,
+  "stdout_tail": "=================================================\nBSTORE wide smoke  WIDTH=8 COUNT=16\n=================================================\n[ OK ] BSTORE_WIDTH==8\n[ OK ] Reached WAIT_START after upload\n[ OK ] Reached HALT after start\n[ OK ] buffer[0]==0x1000\n[ OK ] buffer[1]==0x1001\n[ OK ] buffer[2]==0x1002\n[ OK ] buffer[3]==0x1003\n[ OK ] buffer[4]==0x1004\n[ OK ] buffer[5]==0x1005\n[ OK ] buffer[6]==0x1006\n[ OK ] buffer[7]==0x1007\n[ OK ] buffer[8]==0x1008\n[ OK ] buffer[9]==0x1009\n[ OK ] buffer[10]==0x100a\n[ OK ] buffer[11]==0x100b\n[ OK ] buffer[12]==0x100c\n[ OK ] buffer[13]==0x100d\n[ OK ] buffer[14]==0x100e\n[ OK ] buffer[15]==0x100f\nATTR_BSTORE=27 cyc_per_word=1.687500\n[ OK ] cyc_per_word < 2.0 (legacy was 4.0)\n[ OK ] cyc_per_word > 0\nBSTORE_WIDE_SMOKE_PASS tests=21 attr=27 cyc_per_word=1.687500\nrtl/tb/tb_bstore_wide_smoke.sv:159: $finish called at 2035000 (1ps)\n"
+}

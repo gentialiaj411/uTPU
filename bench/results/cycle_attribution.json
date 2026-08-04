@@ -1,0 +1,819 @@
+{
+  "schema_version": 1,
+  "generated_at_utc": "2026-08-03T14:26:52.981117+00:00",
+  "git_sha": "47865fa",
+  "methodology": {
+    "source": "RTL FSM state-group counters in rtl/top/top.sv, streamed via MAGIC_READ_PERF (0xA4) after legacy 4x64 words",
+    "window": "Same START->HALT window as total_program_cycles / perf_program_cycle_counter (on-chip core cycles; fast-UART TB).",
+    "array_size": 16,
+    "note": "isa_simulator.py cycle_count_sequential is NOT absolute-RTL-faithful (1-cycle-per-op); attribution is measured in iverilog RTL.",
+    "groups": [
+      "fetch_decode",
+      "store",
+      "load",
+      "compute",
+      "writeback",
+      "bstore",
+      "ext_addr",
+      "requant",
+      "result_fetch"
+    ],
+    "uart_baud_hz_testbench": 100000000,
+    "uart_baud_hz_shipping_default": 115200,
+    "uart_baud_speedup_vs_shipping": 868.0555555555555,
+    "measurement_scope": "On-chip core cycles in rtl/tb/tb_batched_gemm.sv with UART_BAUD=100000000 (~868x shipping UART_BAUD=115200). NOT board wall-clock at real baud. result_fetch is optimistically cheap under the fast-UART testbench."
+  },
+  "hypothesis": {
+    "claim": "Instruction stream dominates on-chip core cycles (fast-UART TB); buffer->PE weight LOAD is a few cycles per tile and cannot materially move duty cycle via PE-level double-buffering alone.",
+    "analytical_sketch": "FETCH_BRAM+WAIT+DECODE >= 3 cycles/instruction; ~217 words/tile \u21d2 >=650 fetch/decode cycles/tile vs compute 2N+B-1."
+  },
+  "verdict": "confirmed_fetch_stream_dominates_load_negligible",
+  "verdict_reason": "On 64x64 B=48 N=16 (fast-UART TB): instruction-stream=66.2%, load=1.1%, compute=5.7%, result_fetch=26.7% of on-chip core cycles. PE-level concurrent LOAD+COMPUTE cannot materially help. Redirect to descriptor ISA. Part A Amdahl ceiling <=2.96x on-chip; post-cut compute share ~0.17 vs array ceiling 0.600@N=16.",
+  "cases": [
+    {
+      "shape": {
+        "out_features": 16,
+        "in_features": 16
+      },
+      "batch_size": 1,
+      "array_size": 16,
+      "hoist_tile_payloads": false,
+      "program_words": 217,
+      "rtl_sim_passed": true,
+      "total_program_cycles": 731,
+      "attr_sum_cycles": 731,
+      "attr_sum_vs_total_delta": 0,
+      "groups": {
+        "fetch_decode": {
+          "cycles": 246,
+          "pct_of_total_program_cycles": 0.33652530779753764
+        },
+        "store": {
+          "cycles": 408,
+          "pct_of_total_program_cycles": 0.5581395348837209
+        },
+        "load": {
+          "cycles": 6,
+          "pct_of_total_program_cycles": 0.008207934336525308
+        },
+        "compute": {
+          "cycles": 36,
+          "pct_of_total_program_cycles": 0.049247606019151846
+        },
+        "writeback": {
+          "cycles": 3,
+          "pct_of_total_program_cycles": 0.004103967168262654
+        },
+        "bstore": {
+          "cycles": 0,
+          "pct_of_total_program_cycles": 0.0
+        },
+        "ext_addr": {
+          "cycles": 0,
+          "pct_of_total_program_cycles": 0.0
+        },
+        "requant": {
+          "cycles": 0,
+          "pct_of_total_program_cycles": 0.0
+        },
+        "result_fetch": {
+          "cycles": 32,
+          "pct_of_total_program_cycles": 0.04377564979480164
+        }
+      },
+      "hypothesis_metrics": {
+        "fetch_decode_cycles": 246,
+        "load_cycles": 6,
+        "compute_cycles": 36,
+        "fetch_decode_over_compute": 6.833333333333333,
+        "load_over_total": 0.008207934336525308,
+        "fetch_decode_over_total": 0.33652530779753764,
+        "compute_over_total": 0.049247606019151846,
+        "analytical_compute_cycles_2N_B_1_times_tiles": 32,
+        "tiles": 1
+      },
+      "log_tail": "PERF_CYCLE_COUNTER=2072\nPERF_BUSY_COUNTER=38\nPERF_PROGRAM_COUNT=1\nTOTAL_PROGRAM_CYCLES=731\nATTR_FETCH_DECODE=246\nATTR_STORE=408\nATTR_LOAD=6\nATTR_COMPUTE=36\nATTR_WRITEBACK=3\nATTR_BSTORE=0\nATTR_EXT_ADDR=0\nATTR_REQUANT=0\nATTR_RESULT_FETCH=32\nCOMPUTE_BUSY_CYCLES=38\nCOMPUTE_SPAN_CYCLES=38\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:318: $finish called at 21875000 (1ps)\n"
+    },
+    {
+      "shape": {
+        "out_features": 16,
+        "in_features": 16
+      },
+      "batch_size": 4,
+      "array_size": 16,
+      "hoist_tile_payloads": false,
+      "program_words": 313,
+      "rtl_sim_passed": true,
+      "total_program_cycles": 1082,
+      "attr_sum_cycles": 1082,
+      "attr_sum_vs_total_delta": 0,
+      "groups": {
+        "fetch_decode": {
+          "cycles": 354,
+          "pct_of_total_program_cycles": 0.32717190388170053
+        },
+        "store": {
+          "cycles": 480,
+          "pct_of_total_program_cycles": 0.4436229205175601
+        },
+        "load": {
+          "cycles": 6,
+          "pct_of_total_program_cycles": 0.005545286506469501
+        },
+        "compute": {
+          "cycles": 39,
+          "pct_of_total_program_cycles": 0.036044362292051754
+        },
+        "writeback": {
+          "cycles": 3,
+          "pct_of_total_program_cycles": 0.0027726432532347504
+        },
+        "bstore": {
+          "cycles": 0,
+          "pct_of_total_program_cycles": 0.0
+        },
+        "ext_addr": {
+          "cycles": 72,
+          "pct_of_total_program_cycles": 0.066543438077634
+        },
+        "requant": {
+          "cycles": 0,
+          "pct_of_total_program_cycles": 0.0
+        },
+        "result_fetch": {
+          "cycles": 128,
+          "pct_of_total_program_cycles": 0.11829944547134935
+        }
+      },
+      "hypothesis_metrics": {
+        "fetch_decode_cycles": 354,
+        "load_cycles": 6,
+        "compute_cycles": 39,
+        "fetch_decode_over_compute": 9.076923076923077,
+        "load_over_total": 0.005545286506469501,
+        "fetch_decode_over_total": 0.32717190388170053,
+        "compute_over_total": 0.036044362292051754,
+        "analytical_compute_cycles_2N_B_1_times_tiles": 35,
+        "tiles": 1
+      },
+      "log_tail": "PERF_CYCLE_COUNTER=2999\nPERF_BUSY_COUNTER=43\nPERF_PROGRAM_COUNT=1\nTOTAL_PROGRAM_CYCLES=1082\nATTR_FETCH_DECODE=354\nATTR_STORE=480\nATTR_LOAD=6\nATTR_COMPUTE=39\nATTR_WRITEBACK=3\nATTR_BSTORE=0\nATTR_EXT_ADDR=72\nATTR_REQUANT=0\nATTR_RESULT_FETCH=128\nCOMPUTE_BUSY_CYCLES=43\nCOMPUTE_SPAN_CYCLES=43\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:318: $finish called at 31145000 (1ps)\n"
+    },
+    {
+      "shape": {
+        "out_features": 16,
+        "in_features": 16
+      },
+      "batch_size": 16,
+      "array_size": 16,
+      "hoist_tile_payloads": false,
+      "program_words": 649,
+      "rtl_sim_passed": true,
+      "total_program_cycles": 2390,
+      "attr_sum_cycles": 2390,
+      "attr_sum_vs_total_delta": 0,
+      "groups": {
+        "fetch_decode": {
+          "cycles": 786,
+          "pct_of_total_program_cycles": 0.3288702928870293
+        },
+        "store": {
+          "cycles": 768,
+          "pct_of_total_program_cycles": 0.3213389121338912
+        },
+        "load": {
+          "cycles": 6,
+          "pct_of_total_program_cycles": 0.002510460251046025
+        },
+        "compute": {
+          "cycles": 51,
+          "pct_of_total_program_cycles": 0.021338912133891212
+        },
+        "writeback": {
+          "cycles": 3,
+          "pct_of_total_program_cycles": 0.0012552301255230125
+        },
+        "bstore": {
+          "cycles": 0,
+          "pct_of_total_program_cycles": 0.0
+        },
+        "ext_addr": {
+          "cycles": 264,
+          "pct_of_total_program_cycles": 0.11046025104602511
+        },
+        "requant": {
+          "cycles": 0,
+          "pct_of_total_program_cycles": 0.0
+        },
+        "result_fetch": {
+          "cycles": 512,
+          "pct_of_total_program_cycles": 0.21422594142259413
+        }
+      },
+      "hypothesis_metrics": {
+        "fetch_decode_cycles": 786,
+        "load_cycles": 6,
+        "compute_cycles": 51,
+        "fetch_decode_over_compute": 15.411764705882353,
+        "load_over_total": 0.002510460251046025,
+        "fetch_decode_over_total": 0.3288702928870293,
+        "compute_over_total": 0.021338912133891212,
+        "analytical_compute_cycles_2N_B_1_times_tiles": 47,
+        "tiles": 1
+      },
+      "log_tail": "PERF_CYCLE_COUNTER=6323\nPERF_BUSY_COUNTER=55\nPERF_PROGRAM_COUNT=1\nTOTAL_PROGRAM_CYCLES=2390\nATTR_FETCH_DECODE=786\nATTR_STORE=768\nATTR_LOAD=6\nATTR_COMPUTE=51\nATTR_WRITEBACK=3\nATTR_BSTORE=0\nATTR_EXT_ADDR=264\nATTR_REQUANT=0\nATTR_RESULT_FETCH=512\nCOMPUTE_BUSY_CYCLES=55\nCOMPUTE_SPAN_CYCLES=55\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:318: $finish called at 64385000 (1ps)\n"
+    },
+    {
+      "shape": {
+        "out_features": 16,
+        "in_features": 16
+      },
+      "batch_size": 48,
+      "array_size": 16,
+      "hoist_tile_payloads": false,
+      "program_words": 1545,
+      "rtl_sim_passed": true,
+      "total_program_cycles": 5898,
+      "attr_sum_cycles": 5898,
+      "attr_sum_vs_total_delta": 0,
+      "groups": {
+        "fetch_decode": {
+          "cycles": 1938,
+          "pct_of_total_program_cycles": 0.3285859613428281
+        },
+        "store": {
+          "cycles": 1536,
+          "pct_of_total_program_cycles": 0.26042726347914547
+        },
+        "load": {
+          "cycles": 16,
+          "pct_of_total_program_cycles": 0.0027127839945744322
+        },
+        "compute": {
+          "cycles": 83,
+          "pct_of_total_program_cycles": 0.014072566971854866
+        },
+        "writeback": {
+          "cycles": 13,
+          "pct_of_total_program_cycles": 0.002204136995591726
+        },
+        "bstore": {
+          "cycles": 0,
+          "pct_of_total_program_cycles": 0.0
+        },
+        "ext_addr": {
+          "cycles": 776,
+          "pct_of_total_program_cycles": 0.13157002373685994
+        },
+        "requant": {
+          "cycles": 0,
+          "pct_of_total_program_cycles": 0.0
+        },
+        "result_fetch": {
+          "cycles": 1536,
+          "pct_of_total_program_cycles": 0.26042726347914547
+        }
+      },
+      "hypothesis_metrics": {
+        "fetch_decode_cycles": 1938,
+        "load_cycles": 16,
+        "compute_cycles": 83,
+        "fetch_decode_over_compute": 23.349397590361445,
+        "load_over_total": 0.0027127839945744322,
+        "fetch_decode_over_total": 0.3285859613428281,
+        "compute_over_total": 0.014072566971854866,
+        "analytical_compute_cycles_2N_B_1_times_tiles": 79,
+        "tiles": 1
+      },
+      "log_tail": "PERF_CYCLE_COUNTER=15207\nPERF_BUSY_COUNTER=87\nPERF_PROGRAM_COUNT=1\nTOTAL_PROGRAM_CYCLES=5898\nATTR_FETCH_DECODE=1938\nATTR_STORE=1536\nATTR_LOAD=16\nATTR_COMPUTE=83\nATTR_WRITEBACK=13\nATTR_BSTORE=0\nATTR_EXT_ADDR=776\nATTR_REQUANT=0\nATTR_RESULT_FETCH=1536\nCOMPUTE_BUSY_CYCLES=87\nCOMPUTE_SPAN_CYCLES=87\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:318: $finish called at 153225000 (1ps)\n"
+    },
+    {
+      "shape": {
+        "out_features": 32,
+        "in_features": 32
+      },
+      "batch_size": 1,
+      "array_size": 16,
+      "hoist_tile_payloads": true,
+      "program_words": 847,
+      "rtl_sim_passed": true,
+      "total_program_cycles": 2780,
+      "attr_sum_cycles": 2780,
+      "attr_sum_vs_total_delta": 0,
+      "groups": {
+        "fetch_decode": {
+          "cycles": 912,
+          "pct_of_total_program_cycles": 0.32805755395683456
+        },
+        "store": {
+          "cycles": 1632,
+          "pct_of_total_program_cycles": 0.5870503597122302
+        },
+        "load": {
+          "cycles": 24,
+          "pct_of_total_program_cycles": 0.008633093525179856
+        },
+        "compute": {
+          "cycles": 142,
+          "pct_of_total_program_cycles": 0.05107913669064748
+        },
+        "writeback": {
+          "cycles": 6,
+          "pct_of_total_program_cycles": 0.002158273381294964
+        },
+        "bstore": {
+          "cycles": 0,
+          "pct_of_total_program_cycles": 0.0
+        },
+        "ext_addr": {
+          "cycles": 0,
+          "pct_of_total_program_cycles": 0.0
+        },
+        "requant": {
+          "cycles": 0,
+          "pct_of_total_program_cycles": 0.0
+        },
+        "result_fetch": {
+          "cycles": 64,
+          "pct_of_total_program_cycles": 0.02302158273381295
+        }
+      },
+      "hypothesis_metrics": {
+        "fetch_decode_cycles": 912,
+        "load_cycles": 24,
+        "compute_cycles": 142,
+        "fetch_decode_over_compute": 6.422535211267606,
+        "load_over_total": 0.008633093525179856,
+        "fetch_decode_over_total": 0.32805755395683456,
+        "compute_over_total": 0.05107913669064748,
+        "analytical_compute_cycles_2N_B_1_times_tiles": 128,
+        "tiles": 4
+      },
+      "log_tail": "PERF_CYCLE_COUNTER=7901\nPERF_BUSY_COUNTER=150\nPERF_PROGRAM_COUNT=1\nTOTAL_PROGRAM_CYCLES=2780\nATTR_FETCH_DECODE=912\nATTR_STORE=1632\nATTR_LOAD=24\nATTR_COMPUTE=142\nATTR_WRITEBACK=6\nATTR_BSTORE=0\nATTR_EXT_ADDR=0\nATTR_REQUANT=0\nATTR_RESULT_FETCH=64\nCOMPUTE_BUSY_CYCLES=150\nCOMPUTE_SPAN_CYCLES=1400\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:318: $finish called at 80165000 (1ps)\n"
+    },
+    {
+      "shape": {
+        "out_features": 32,
+        "in_features": 32
+      },
+      "batch_size": 4,
+      "array_size": 16,
+      "hoist_tile_payloads": true,
+      "program_words": 463,
+      "rtl_sim_passed": true,
+      "total_program_cycles": 2024,
+      "attr_sum_cycles": 2024,
+      "attr_sum_vs_total_delta": 0,
+      "groups": {
+        "fetch_decode": {
+          "cycles": 258,
+          "pct_of_total_program_cycles": 0.1274703557312253
+        },
+        "store": {
+          "cycles": 0,
+          "pct_of_total_program_cycles": 0.0
+        },
+        "load": {
+          "cycles": 24,
+          "pct_of_total_program_cycles": 0.011857707509881422
+        },
+        "compute": {
+          "cycles": 154,
+          "pct_of_total_program_cycles": 0.07608695652173914
+        },
+        "writeback": {
+          "cycles": 6,
+          "pct_of_total_program_cycles": 0.0029644268774703555
+        },
+        "bstore": {
+          "cycles": 1158,
+          "pct_of_total_program_cycles": 0.5721343873517787
+        },
+        "ext_addr": {
+          "cycles": 168,
+          "pct_of_total_program_cycles": 0.08300395256916997
+        },
+        "requant": {
+          "cycles": 0,
+          "pct_of_total_program_cycles": 0.0
+        },
+        "result_fetch": {
+          "cycles": 256,
+          "pct_of_total_program_cycles": 0.12648221343873517
+        }
+      },
+      "hypothesis_metrics": {
+        "fetch_decode_cycles": 258,
+        "load_cycles": 24,
+        "compute_cycles": 154,
+        "fetch_decode_over_compute": 1.6753246753246753,
+        "load_over_total": 0.011857707509881422,
+        "fetch_decode_over_total": 0.1274703557312253,
+        "compute_over_total": 0.07608695652173914,
+        "analytical_compute_cycles_2N_B_1_times_tiles": 140,
+        "tiles": 4
+      },
+      "log_tail": "PERF_CYCLE_COUNTER=2036040\nPERF_BUSY_COUNTER=170\nPERF_PROGRAM_COUNT=1\nTOTAL_PROGRAM_CYCLES=2024\nATTR_FETCH_DECODE=258\nATTR_STORE=0\nATTR_LOAD=24\nATTR_COMPUTE=154\nATTR_WRITEBACK=6\nATTR_BSTORE=1158\nATTR_EXT_ADDR=168\nATTR_REQUANT=0\nATTR_RESULT_FETCH=256\nCOMPUTE_BUSY_CYCLES=170\nCOMPUTE_SPAN_CYCLES=204\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:318: $finish called at 20360505000 (1ps)\n"
+    },
+    {
+      "shape": {
+        "out_features": 32,
+        "in_features": 32
+      },
+      "batch_size": 16,
+      "array_size": 16,
+      "hoist_tile_payloads": true,
+      "program_words": 943,
+      "rtl_sim_passed": true,
+      "total_program_cycles": 4184,
+      "attr_sum_cycles": 4184,
+      "attr_sum_vs_total_delta": 0,
+      "groups": {
+        "fetch_decode": {
+          "cycles": 834,
+          "pct_of_total_program_cycles": 0.19933078393881454
+        },
+        "store": {
+          "cycles": 0,
+          "pct_of_total_program_cycles": 0.0
+        },
+        "load": {
+          "cycles": 24,
+          "pct_of_total_program_cycles": 0.0057361376673040155
+        },
+        "compute": {
+          "cycles": 202,
+          "pct_of_total_program_cycles": 0.0482791586998088
+        },
+        "writeback": {
+          "cycles": 6,
+          "pct_of_total_program_cycles": 0.0014340344168260039
+        },
+        "bstore": {
+          "cycles": 1542,
+          "pct_of_total_program_cycles": 0.368546845124283
+        },
+        "ext_addr": {
+          "cycles": 552,
+          "pct_of_total_program_cycles": 0.13193116634799235
+        },
+        "requant": {
+          "cycles": 0,
+          "pct_of_total_program_cycles": 0.0
+        },
+        "result_fetch": {
+          "cycles": 1024,
+          "pct_of_total_program_cycles": 0.2447418738049713
+        }
+      },
+      "hypothesis_metrics": {
+        "fetch_decode_cycles": 834,
+        "load_cycles": 24,
+        "compute_cycles": 202,
+        "fetch_decode_over_compute": 4.128712871287129,
+        "load_over_total": 0.0057361376673040155,
+        "fetch_decode_over_total": 0.19933078393881454,
+        "compute_over_total": 0.0482791586998088,
+        "analytical_compute_cycles_2N_B_1_times_tiles": 188,
+        "tiles": 4
+      },
+      "log_tail": "PERF_CYCLE_COUNTER=9881\nPERF_BUSY_COUNTER=218\nPERF_PROGRAM_COUNT=1\nTOTAL_PROGRAM_CYCLES=4184\nATTR_FETCH_DECODE=834\nATTR_STORE=0\nATTR_LOAD=24\nATTR_COMPUTE=202\nATTR_WRITEBACK=6\nATTR_BSTORE=1542\nATTR_EXT_ADDR=552\nATTR_REQUANT=0\nATTR_RESULT_FETCH=1024\nCOMPUTE_BUSY_CYCLES=218\nCOMPUTE_SPAN_CYCLES=252\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:318: $finish called at 99965000 (1ps)\n"
+    },
+    {
+      "shape": {
+        "out_features": 32,
+        "in_features": 32
+      },
+      "batch_size": 48,
+      "array_size": 16,
+      "hoist_tile_payloads": true,
+      "program_words": 2223,
+      "rtl_sim_passed": true,
+      "total_program_cycles": 10004,
+      "attr_sum_cycles": 10004,
+      "attr_sum_vs_total_delta": 0,
+      "groups": {
+        "fetch_decode": {
+          "cycles": 2370,
+          "pct_of_total_program_cycles": 0.23690523790483806
+        },
+        "store": {
+          "cycles": 0,
+          "pct_of_total_program_cycles": 0.0
+        },
+        "load": {
+          "cycles": 64,
+          "pct_of_total_program_cycles": 0.006397441023590564
+        },
+        "compute": {
+          "cycles": 330,
+          "pct_of_total_program_cycles": 0.032986805277888845
+        },
+        "writeback": {
+          "cycles": 26,
+          "pct_of_total_program_cycles": 0.0025989604158336665
+        },
+        "bstore": {
+          "cycles": 2566,
+          "pct_of_total_program_cycles": 0.2564974010395842
+        },
+        "ext_addr": {
+          "cycles": 1576,
+          "pct_of_total_program_cycles": 0.15753698520591763
+        },
+        "requant": {
+          "cycles": 0,
+          "pct_of_total_program_cycles": 0.0
+        },
+        "result_fetch": {
+          "cycles": 3072,
+          "pct_of_total_program_cycles": 0.30707716913234706
+        }
+      },
+      "hypothesis_metrics": {
+        "fetch_decode_cycles": 2370,
+        "load_cycles": 64,
+        "compute_cycles": 330,
+        "fetch_decode_over_compute": 7.181818181818182,
+        "load_over_total": 0.006397441023590564,
+        "fetch_decode_over_total": 0.23690523790483806,
+        "compute_over_total": 0.032986805277888845,
+        "analytical_compute_cycles_2N_B_1_times_tiles": 316,
+        "tiles": 4
+      },
+      "log_tail": "PERF_CYCLE_COUNTER=23381\nPERF_BUSY_COUNTER=346\nPERF_PROGRAM_COUNT=1\nTOTAL_PROGRAM_CYCLES=10004\nATTR_FETCH_DECODE=2370\nATTR_STORE=0\nATTR_LOAD=64\nATTR_COMPUTE=330\nATTR_WRITEBACK=26\nATTR_BSTORE=2566\nATTR_EXT_ADDR=1576\nATTR_REQUANT=0\nATTR_RESULT_FETCH=3072\nCOMPUTE_BUSY_CYCLES=346\nCOMPUTE_SPAN_CYCLES=400\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:318: $finish called at 234965000 (1ps)\n"
+    },
+    {
+      "shape": {
+        "out_features": 64,
+        "in_features": 64
+      },
+      "batch_size": 1,
+      "array_size": 16,
+      "hoist_tile_payloads": true,
+      "program_words": 3349,
+      "rtl_sim_passed": true,
+      "total_program_cycles": 10850,
+      "attr_sum_cycles": 10850,
+      "attr_sum_vs_total_delta": 0,
+      "groups": {
+        "fetch_decode": {
+          "cycles": 3522,
+          "pct_of_total_program_cycles": 0.32460829493087556
+        },
+        "store": {
+          "cycles": 6528,
+          "pct_of_total_program_cycles": 0.6016589861751153
+        },
+        "load": {
+          "cycles": 96,
+          "pct_of_total_program_cycles": 0.008847926267281106
+        },
+        "compute": {
+          "cycles": 564,
+          "pct_of_total_program_cycles": 0.0519815668202765
+        },
+        "writeback": {
+          "cycles": 12,
+          "pct_of_total_program_cycles": 0.0011059907834101382
+        },
+        "bstore": {
+          "cycles": 0,
+          "pct_of_total_program_cycles": 0.0
+        },
+        "ext_addr": {
+          "cycles": 0,
+          "pct_of_total_program_cycles": 0.0
+        },
+        "requant": {
+          "cycles": 0,
+          "pct_of_total_program_cycles": 0.0
+        },
+        "result_fetch": {
+          "cycles": 128,
+          "pct_of_total_program_cycles": 0.011797235023041475
+        }
+      },
+      "hypothesis_metrics": {
+        "fetch_decode_cycles": 3522,
+        "load_cycles": 96,
+        "compute_cycles": 564,
+        "fetch_decode_over_compute": 6.24468085106383,
+        "load_over_total": 0.008847926267281106,
+        "fetch_decode_over_total": 0.32460829493087556,
+        "compute_over_total": 0.0519815668202765,
+        "analytical_compute_cycles_2N_B_1_times_tiles": 512,
+        "tiles": 16
+      },
+      "log_tail": "PERF_CYCLE_COUNTER=30983\nPERF_BUSY_COUNTER=596\nPERF_PROGRAM_COUNT=1\nTOTAL_PROGRAM_CYCLES=10850\nATTR_FETCH_DECODE=3522\nATTR_STORE=6528\nATTR_LOAD=96\nATTR_COMPUTE=564\nATTR_WRITEBACK=12\nATTR_BSTORE=0\nATTR_EXT_ADDR=0\nATTR_REQUANT=0\nATTR_RESULT_FETCH=128\nCOMPUTE_BUSY_CYCLES=596\nCOMPUTE_SPAN_CYCLES=8096\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:318: $finish called at 310985000 (1ps)\n"
+    },
+    {
+      "shape": {
+        "out_features": 64,
+        "in_features": 64
+      },
+      "batch_size": 4,
+      "array_size": 16,
+      "hoist_tile_payloads": true,
+      "program_words": 1509,
+      "rtl_sim_passed": true,
+      "total_program_cycles": 6610,
+      "attr_sum_cycles": 6610,
+      "attr_sum_vs_total_delta": 0,
+      "groups": {
+        "fetch_decode": {
+          "cycles": 606,
+          "pct_of_total_program_cycles": 0.09167927382753403
+        },
+        "store": {
+          "cycles": 0,
+          "pct_of_total_program_cycles": 0.0
+        },
+        "load": {
+          "cycles": 96,
+          "pct_of_total_program_cycles": 0.014523449319213313
+        },
+        "compute": {
+          "cycles": 612,
+          "pct_of_total_program_cycles": 0.09258698940998487
+        },
+        "writeback": {
+          "cycles": 12,
+          "pct_of_total_program_cycles": 0.001815431164901664
+        },
+        "bstore": {
+          "cycles": 4372,
+          "pct_of_total_program_cycles": 0.6614220877458397
+        },
+        "ext_addr": {
+          "cycles": 400,
+          "pct_of_total_program_cycles": 0.060514372163388806
+        },
+        "requant": {
+          "cycles": 0,
+          "pct_of_total_program_cycles": 0.0
+        },
+        "result_fetch": {
+          "cycles": 512,
+          "pct_of_total_program_cycles": 0.07745839636913766
+        }
+      },
+      "hypothesis_metrics": {
+        "fetch_decode_cycles": 606,
+        "load_cycles": 96,
+        "compute_cycles": 612,
+        "fetch_decode_over_compute": 0.9901960784313726,
+        "load_over_total": 0.014523449319213313,
+        "fetch_decode_over_total": 0.09167927382753403,
+        "compute_over_total": 0.09258698940998487,
+        "analytical_compute_cycles_2N_B_1_times_tiles": 560,
+        "tiles": 16
+      },
+      "log_tail": "PERF_CYCLE_COUNTER=15703\nPERF_BUSY_COUNTER=676\nPERF_PROGRAM_COUNT=1\nTOTAL_PROGRAM_CYCLES=6610\nATTR_FETCH_DECODE=606\nATTR_STORE=0\nATTR_LOAD=96\nATTR_COMPUTE=612\nATTR_WRITEBACK=12\nATTR_BSTORE=4372\nATTR_EXT_ADDR=400\nATTR_REQUANT=0\nATTR_RESULT_FETCH=512\nCOMPUTE_BUSY_CYCLES=676\nCOMPUTE_SPAN_CYCLES=880\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:318: $finish called at 158185000 (1ps)\n"
+    },
+    {
+      "shape": {
+        "out_features": 64,
+        "in_features": 64
+      },
+      "batch_size": 16,
+      "array_size": 16,
+      "hoist_tile_payloads": true,
+      "program_words": 2469,
+      "rtl_sim_passed": true,
+      "total_program_cycles": 11026,
+      "attr_sum_cycles": 11026,
+      "attr_sum_vs_total_delta": 0,
+      "groups": {
+        "fetch_decode": {
+          "cycles": 1758,
+          "pct_of_total_program_cycles": 0.159441320515146
+        },
+        "store": {
+          "cycles": 0,
+          "pct_of_total_program_cycles": 0.0
+        },
+        "load": {
+          "cycles": 96,
+          "pct_of_total_program_cycles": 0.008706693270451659
+        },
+        "compute": {
+          "cycles": 804,
+          "pct_of_total_program_cycles": 0.07291855614003265
+        },
+        "writeback": {
+          "cycles": 12,
+          "pct_of_total_program_cycles": 0.0010883366588064574
+        },
+        "bstore": {
+          "cycles": 5140,
+          "pct_of_total_program_cycles": 0.46617086885543263
+        },
+        "ext_addr": {
+          "cycles": 1168,
+          "pct_of_total_program_cycles": 0.10593143479049519
+        },
+        "requant": {
+          "cycles": 0,
+          "pct_of_total_program_cycles": 0.0
+        },
+        "result_fetch": {
+          "cycles": 2048,
+          "pct_of_total_program_cycles": 0.1857427897696354
+        }
+      },
+      "hypothesis_metrics": {
+        "fetch_decode_cycles": 1758,
+        "load_cycles": 96,
+        "compute_cycles": 804,
+        "fetch_decode_over_compute": 2.1865671641791047,
+        "load_over_total": 0.008706693270451659,
+        "fetch_decode_over_total": 0.159441320515146,
+        "compute_over_total": 0.07291855614003265,
+        "analytical_compute_cycles_2N_B_1_times_tiles": 752,
+        "tiles": 16
+      },
+      "log_tail": "PERF_CYCLE_COUNTER=25879\nPERF_BUSY_COUNTER=868\nPERF_PROGRAM_COUNT=1\nTOTAL_PROGRAM_CYCLES=11026\nATTR_FETCH_DECODE=1758\nATTR_STORE=0\nATTR_LOAD=96\nATTR_COMPUTE=804\nATTR_WRITEBACK=12\nATTR_BSTORE=5140\nATTR_EXT_ADDR=1168\nATTR_REQUANT=0\nATTR_RESULT_FETCH=2048\nCOMPUTE_BUSY_CYCLES=868\nCOMPUTE_SPAN_CYCLES=1072\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:318: $finish called at 259945000 (1ps)\n"
+    },
+    {
+      "shape": {
+        "out_features": 64,
+        "in_features": 64
+      },
+      "batch_size": 48,
+      "array_size": 16,
+      "hoist_tile_payloads": true,
+      "program_words": 5029,
+      "rtl_sim_passed": true,
+      "total_program_cycles": 23002,
+      "attr_sum_cycles": 23002,
+      "attr_sum_vs_total_delta": 0,
+      "groups": {
+        "fetch_decode": {
+          "cycles": 4830,
+          "pct_of_total_program_cycles": 0.20998174071819842
+        },
+        "store": {
+          "cycles": 0,
+          "pct_of_total_program_cycles": 0.0
+        },
+        "load": {
+          "cycles": 256,
+          "pct_of_total_program_cycles": 0.011129467002869316
+        },
+        "compute": {
+          "cycles": 1316,
+          "pct_of_total_program_cycles": 0.057212416311625075
+        },
+        "writeback": {
+          "cycles": 52,
+          "pct_of_total_program_cycles": 0.0022606729849578297
+        },
+        "bstore": {
+          "cycles": 7188,
+          "pct_of_total_program_cycles": 0.31249456568994
+        },
+        "ext_addr": {
+          "cycles": 3216,
+          "pct_of_total_program_cycles": 0.13981392922354577
+        },
+        "requant": {
+          "cycles": 0,
+          "pct_of_total_program_cycles": 0.0
+        },
+        "result_fetch": {
+          "cycles": 6144,
+          "pct_of_total_program_cycles": 0.26710720806886357
+        }
+      },
+      "hypothesis_metrics": {
+        "fetch_decode_cycles": 4830,
+        "load_cycles": 256,
+        "compute_cycles": 1316,
+        "fetch_decode_over_compute": 3.6702127659574466,
+        "load_over_total": 0.011129467002869316,
+        "fetch_decode_over_total": 0.20998174071819842,
+        "compute_over_total": 0.057212416311625075,
+        "analytical_compute_cycles_2N_B_1_times_tiles": 1264,
+        "tiles": 16,
+        "instruction_stream_pct": 0.6622902356316841,
+        "instruction_stream_cycles": 15234
+      },
+      "log_tail": "PERF_CYCLE_COUNTER=53215\nPERF_BUSY_COUNTER=1380\nPERF_PROGRAM_COUNT=1\nTOTAL_PROGRAM_CYCLES=23002\nATTR_FETCH_DECODE=4830\nATTR_STORE=0\nATTR_LOAD=256\nATTR_COMPUTE=1316\nATTR_WRITEBACK=52\nATTR_BSTORE=7188\nATTR_EXT_ADDR=3216\nATTR_REQUANT=0\nATTR_RESULT_FETCH=6144\nCOMPUTE_BUSY_CYCLES=1380\nCOMPUTE_SPAN_CYCLES=1704\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:318: $finish called at 533305000 (1ps)\n"
+    }
+  ],
+  "amdahl_part_a": {
+    "flagship": "64x64_B48_N16",
+    "total_program_cycles": 23002,
+    "instruction_stream_pct": 0.662,
+    "cycles_if_instruction_stream_removed": 7768,
+    "speedup_ceiling": 2.961122554067971,
+    "post_cut_compute_share_approx": 0.1694129763130793,
+    "post_cut_result_fetch_share_approx": 0.7909371781668383,
+    "array_streaming_ceiling_B_over_2N_B": {
+      "N": 16,
+      "B": 48,
+      "value": 0.6
+    },
+    "note": "0.600 is the isolated array streaming ceiling at measured N=16,B=48. Post-descriptor end-to-end compute share stays ~0.17 under this TB profile because result_fetch remains. Do not conflate the two."
+  }
+}

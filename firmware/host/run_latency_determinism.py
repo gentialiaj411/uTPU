@@ -118,6 +118,19 @@ WEIGHT_SEED_BASE = 0xC0DE
 
 SCHEMA_VERSION = 1
 
+# Measured closed constraint from bench/results/timing_closure_sweep.json
+# (requant_fmax_mb4_clk10_pd3 @ clock_period_ns=10.0). Wall-clock conversion
+# for cycle counts uses this frequency; stated explicitly in the artifact.
+FPGA_CLOCK_MHZ = 100.0
+FPGA_CLOCK_SOURCE = (
+    "bench/results/timing_closure_sweep.json::requant_fmax_mb4_clk10_pd3 "
+    "(clock_period_ns=10.0, frequency_mhz_constraint=100.0, status=closed)"
+)
+
+# Extra random-input RTL trials beyond the 5 adversarial distributions.
+# Each trial is one iverilog vvp invocation (compile-once + plusargs).
+DEFAULT_E2E_RANDOM_TRIALS = 32
+
 DESIGN_FILES = [
     "rtl/tb/xpm_memory_sdpram_stub.sv",
     "rtl/top/top.sv",
@@ -424,12 +437,50 @@ def _compile_testbench(iv_bin: str) -> Tuple[bool, str, Path]:
     return proc.returncode == 0, proc.stdout, out_vvp
 
 
+def _cycles_to_wall_ns(cycles: int, clock_mhz: float = FPGA_CLOCK_MHZ) -> float:
+    """Convert RTL cycle count to nanoseconds at the stated FPGA clock."""
+    return float(cycles) * (1000.0 / float(clock_mhz))
+
+
+def _wall_clock_block(cycles_list: Sequence[int]) -> Dict[str, object]:
+    """Provenance-bearing wall-clock conversion for a cycle sample list."""
+    ns = [_cycles_to_wall_ns(int(c)) for c in cycles_list]
+    return {
+        "clock_mhz": float(FPGA_CLOCK_MHZ),
+        "clock_source": FPGA_CLOCK_SOURCE,
+        "conversion": "wall_ns = cycles * (1000 / clock_mhz)  # i.e. 10 ns/cycle at 100 MHz",
+        "samples_ns": [float(v) for v in ns],
+        "samples_us": [float(v) / 1000.0 for v in ns],
+        "median_ns": float(statistics.median(ns)) if ns else None,
+        "min_ns": float(min(ns)) if ns else None,
+        "max_ns": float(max(ns)) if ns else None,
+        "stddev_ns": float(statistics.pstdev(ns)) if len(ns) > 1 else (0.0 if ns else None),
+        "jitter_ns": float(max(ns) - min(ns)) if ns else None,
+        "jitter_cycles": int(max(cycles_list) - min(cycles_list)) if cycles_list else None,
+    }
+
+
 def _run_one_trial(
-    vv_bin: str, vvp_path: Path
+    vv_bin: str,
+    vvp_path: Path,
+    *,
+    mem_path: Optional[Path] = None,
+    program_words: Optional[int] = None,
+    shape_tag: Optional[str] = None,
+    distribution_tag: Optional[str] = None,
 ) -> Tuple[bool, str, Optional[int]]:
-    """Run vvp once after the per-trial header has been regenerated."""
+    """Run vvp once; pass trial metadata via plusargs when provided."""
+    cmd: List[str] = [vv_bin, str(vvp_path)]
+    if mem_path is not None:
+        cmd.append(f"+LATENCY_MEM={mem_path.as_posix()}")
+    if program_words is not None:
+        cmd.append(f"+LATENCY_WORDS={int(program_words)}")
+    if shape_tag is not None:
+        cmd.append(f"+LATENCY_SHAPE_TAG={shape_tag}")
+    if distribution_tag is not None:
+        cmd.append(f"+LATENCY_DIST_TAG={distribution_tag}")
     proc = subprocess.run(
-        [vv_bin, str(vvp_path)],
+        cmd,
         cwd=str(REPO_ROOT),
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -448,61 +499,84 @@ def _run_one_trial(
     return ok, log, cycles
 
 
+def _prepare_trial_mem(
+    out_features: int,
+    in_features: int,
+    tag: str,
+    x_vector: np.ndarray,
+) -> Dict[str, object]:
+    """Compile one program and write its .mem; return trial metadata."""
+    case = _compile_program(out_features, in_features, x_vector=x_vector)
+    mem_path = TEST_VECTOR_DIR / f"latency_{out_features}x{in_features}_{tag}.mem"
+    TEST_VECTOR_DIR.mkdir(parents=True, exist_ok=True)
+    mem_path.write_text(_bytes_to_mem_text(case["program"]), encoding="utf-8")
+    return {
+        "tag": tag,
+        "program_words": int(case["program_words"]),
+        "mem_path": mem_path,
+        "x_bytes_first8": case["x_bytes"][:8],
+    }
+
+
 def _rtl_arm_for_distribution_sweep(
     shape: Tuple[int, int],
     distributions: Sequence[str],
     rng_seed: int,
     iv_bin: str,
     vv_bin: str,
+    *,
+    e2e_random_trials: int = DEFAULT_E2E_RANDOM_TRIALS,
 ) -> Dict[str, object]:
-    """For one shape × distribution sweep: capture RTL cycles per distribution."""
+    """Capture RTL cycles across adversarial + many random inputs.
+
+    Compiles the testbench once (header provides fallback `defines), then
+    re-runs ``vvp`` per trial with plusargs so end-to-end latency across
+    many inputs does not require a recompile per vector.
+    """
     out_features, in_features = shape
     shape_tag = _shape_tag(out_features, in_features)
 
-    # NOTE: we do NOT do an initial pre-compile — the testbench
-    # includes ``build/test_vectors/latency_expected.svh`` which is
-    # regenerated per trial (the path + word count is encoded as
-    # ``define`` and is compile-time, not runtime). The per-trial loop
-    # below regenerates the header and recompiles before each vvp run.
+    # Seed header so the `include resolves at compile time even when
+    # every live trial overrides via plusargs.
+    seed_x = _draw_input_vector("zero", in_features, np.random.default_rng(rng_seed))
+    seed_trial = _prepare_trial_mem(out_features, in_features, "seed_header", seed_x)
+    _write_latency_expected_svh(
+        seed_trial["mem_path"],
+        int(seed_trial["program_words"]),
+        shape_tag,
+        "seed_header",
+    )
+    compile_ok, compile_stdout, vvp_path = _compile_testbench(iv_bin)
+    if not compile_ok:
+        return {
+            "shape": shape_tag,
+            "iverilog_compile_ok": False,
+            "compile_stdout": compile_stdout,
+            "per_distribution": [],
+            "e2e_trials": [],
+            "rtl_cycles_invariant_across_distributions": False,
+            "rtl_cycle_variance": None,
+            "rtl_cycles_observed": [],
+            "all_trials_passed": False,
+            "wall_clock": None,
+        }
+
     per_dist: List[Dict[str, object]] = []
     cycles_seen: List[int] = []
     overall_pass = True
-    initial_compile_failures = 0
-    initial_compile_stdout = ""
+
     for i, dist in enumerate(distributions):
         rng = np.random.default_rng(rng_seed + i)
         x = _draw_input_vector(dist, in_features, rng)
-        case = _compile_program(out_features, in_features, x_vector=x)
-        prog = case["program"]
-        program_words = int(case["program_words"])
-
-        mem_path = TEST_VECTOR_DIR / f"latency_{out_features}x{in_features}_{dist}.mem"
-        mem_path.write_text(_bytes_to_mem_text(prog), encoding="utf-8")
-        _write_latency_expected_svh(
-            mem_path,
-            program_words,
-            shape_tag,
-            dist,
+        trial = _prepare_trial_mem(out_features, in_features, dist, x)
+        ok, log, cycles = _run_one_trial(
+            vv_bin,
+            vvp_path,
+            mem_path=trial["mem_path"],
+            program_words=int(trial["program_words"]),
+            shape_tag=shape_tag,
+            distribution_tag=dist,
         )
-
-        # iverilog re-reads include files on each compile; recompile so
-        # the per-trial header takes effect (system Verilog `define is
-        # compile-time, not runtime).
-        compile_ok2, compile_stdout2, vvp_path2 = _compile_testbench(iv_bin)
-        if not compile_ok2:
-            overall_pass = False
-            initial_compile_failures += 1
-            initial_compile_stdout = compile_stdout2
-            per_dist.append(
-                {
-                    "distribution": dist,
-                    "rtl_cycles": None,
-                    "iverilog_recompile_ok": False,
-                    "compile_stdout": compile_stdout2,
-                }
-            )
-            continue
-        ok, log, cycles = _run_one_trial(vv_bin, vvp_path2)
         if not ok or cycles is None:
             overall_pass = False
         else:
@@ -513,22 +587,87 @@ def _rtl_arm_for_distribution_sweep(
                 "rtl_cycles": int(cycles) if cycles is not None else None,
                 "iverilog_recompile_ok": True,
                 "tb_result_pass": bool(ok),
-                "program_words": program_words,
-                "mem_path": mem_path.as_posix(),
-                "x_bytes_first8": case["x_bytes"][:8],
+                "program_words": int(trial["program_words"]),
+                "mem_path": trial["mem_path"].as_posix(),
+                "x_bytes_first8": trial["x_bytes_first8"],
                 "vvp_log_tail": "\n".join(log.splitlines()[-12:]),
+                "wall_ns": (
+                    _cycles_to_wall_ns(int(cycles)) if cycles is not None else None
+                ),
             }
         )
 
-    rtl_invariant = bool(len(cycles_seen) == len(distributions) and len(set(cycles_seen)) == 1)
+    # Many-input end-to-end sweep: additional random activation vectors
+    # against the same weight seed / shape (data-independence witness).
+    e2e_trials: List[Dict[str, object]] = []
+    e2e_cycles: List[int] = []
+    n_e2e = max(0, int(e2e_random_trials))
+    for j in range(n_e2e):
+        rng = np.random.default_rng(rng_seed + 10_000 + j)
+        x = _draw_input_vector("random", in_features, rng)
+        tag = f"e2e_random_{j:04d}"
+        trial = _prepare_trial_mem(out_features, in_features, tag, x)
+        ok, log, cycles = _run_one_trial(
+            vv_bin,
+            vvp_path,
+            mem_path=trial["mem_path"],
+            program_words=int(trial["program_words"]),
+            shape_tag=shape_tag,
+            distribution_tag=tag,
+        )
+        if not ok or cycles is None:
+            overall_pass = False
+        else:
+            e2e_cycles.append(int(cycles))
+            cycles_seen.append(int(cycles))
+        e2e_trials.append(
+            {
+                "trial_index": int(j),
+                "tag": tag,
+                "rtl_cycles": int(cycles) if cycles is not None else None,
+                "tb_result_pass": bool(ok),
+                "program_words": int(trial["program_words"]),
+                "mem_path": trial["mem_path"].as_posix(),
+                "x_bytes_first8": trial["x_bytes_first8"],
+                "wall_ns": (
+                    _cycles_to_wall_ns(int(cycles)) if cycles is not None else None
+                ),
+                "vvp_log_tail": "\n".join(log.splitlines()[-8:]),
+            }
+        )
+
+    all_expected = len(distributions) + n_e2e
+    dist_cycles = [
+        int(d["rtl_cycles"]) for d in per_dist if d.get("rtl_cycles") is not None
+    ]
+    dist_invariant = bool(
+        len(dist_cycles) == len(distributions) and len(set(dist_cycles)) == 1
+    )
+    e2e_invariant = (
+        bool(len(e2e_cycles) == n_e2e and len(set(e2e_cycles)) == 1)
+        if n_e2e > 0
+        else None
+    )
+    wall = _wall_clock_block(cycles_seen) if cycles_seen else None
     return {
         "shape": shape_tag,
-        "iverilog_compile_ok": bool(initial_compile_failures == 0),
+        "iverilog_compile_ok": True,
+        "compile_once": True,
+        "plusargs_dispatch": True,
         "per_distribution": per_dist,
-        "rtl_cycles_invariant_across_distributions": bool(rtl_invariant),
+        "e2e_random_trials_requested": int(n_e2e),
+        "e2e_trials": e2e_trials,
+        "e2e_rtl_cycles_observed": list(e2e_cycles),
+        "e2e_rtl_cycle_variance": int(_int_variance(e2e_cycles)) if e2e_cycles else None,
+        "e2e_rtl_cycles_invariant": e2e_invariant,
+        "rtl_cycles_invariant_across_distributions": bool(dist_invariant),
+        "distribution_rtl_cycles_observed": list(dist_cycles),
+        "distribution_rtl_cycle_variance": int(_int_variance(dist_cycles)),
         "rtl_cycle_variance": int(_int_variance(cycles_seen)) if cycles_seen else None,
         "rtl_cycles_observed": list(cycles_seen),
-        "all_trials_passed": bool(overall_pass and len(cycles_seen) == len(distributions)),
+        "n_e2e_inputs_measured": int(len(cycles_seen)),
+        "all_trials_passed": bool(overall_pass and len(cycles_seen) == all_expected),
+        "wall_clock": wall,
     }
 
 
@@ -560,6 +699,7 @@ def _build_artifact(
     iv_bin: Optional[str],
     vv_bin: Optional[str],
     skip_iverilog: bool,
+    e2e_random_trials: int = DEFAULT_E2E_RANDOM_TRIALS,
 ) -> Dict[str, object]:
     static_vs_sim_entries: List[Dict[str, object]] = []
     proof_observed_union: set = set()
@@ -592,9 +732,28 @@ def _build_artifact(
         rtl_arm = None
     else:
         rtl_arm = _rtl_arm_for_distribution_sweep(
-            distribution_shape, distributions, rng_seed, iv_bin, vv_bin
+            distribution_shape,
+            distributions,
+            rng_seed,
+            iv_bin,
+            vv_bin,
+            e2e_random_trials=int(e2e_random_trials),
         )
         on_silicon_status = "rtl_sim"
+
+    # Distribution-only RTL invariance (legacy gate) vs all-input e2e.
+    dist_rtl_cycles: List[int] = []
+    if rtl_arm is not None:
+        for d in rtl_arm.get("per_distribution") or []:
+            if d.get("rtl_cycles") is not None:
+                dist_rtl_cycles.append(int(d["rtl_cycles"]))
+    dist_rtl_invariant = bool(
+        len(dist_rtl_cycles) == len(distributions) and len(set(dist_rtl_cycles)) == 1
+    )
+    if rtl_arm is not None:
+        rtl_arm["rtl_cycles_invariant_across_distributions"] = dist_rtl_invariant
+        rtl_arm["distribution_rtl_cycle_variance"] = int(_int_variance(dist_rtl_cycles))
+        rtl_arm["distribution_rtl_cycles_observed"] = list(dist_rtl_cycles)
 
     data_independence_block = {
         "shape": dist_static["shape"],
@@ -615,8 +774,16 @@ def _build_artifact(
         "rtl_cycle_invariant": bool(
             rtl_arm is not None
             and rtl_arm.get("rtl_cycles_invariant_across_distributions", False)
+            and (
+                rtl_arm.get("e2e_rtl_cycles_invariant") in (True, None)
+            )
         ),
         "rtl_arm_present": rtl_arm is not None,
+        "n_e2e_inputs_measured": (
+            int(rtl_arm.get("n_e2e_inputs_measured") or 0) if rtl_arm else 0
+        ),
+        "fpga_clock_mhz": float(FPGA_CLOCK_MHZ),
+        "fpga_clock_source": FPGA_CLOCK_SOURCE,
     }
 
     overall_static_arm_ok = bool(
@@ -676,21 +843,32 @@ def _build_artifact(
             "program (empirical) AND every opcode in the swept programs "
             "is in the data-independent allowlist (static proof)."
         ),
+        "fpga_clock": {
+            "mhz": float(FPGA_CLOCK_MHZ),
+            "source": FPGA_CLOCK_SOURCE,
+            "conversion": "wall_ns = cycles * (1000 / mhz)  # 10 ns/cycle at 100 MHz",
+            "note": (
+                "Wall-clock figures are simulated RTL cycles converted at the "
+                "measured closed 100 MHz constraint; not on-board silicon timing."
+            ),
+        },
         "methodology": {
             "summary": (
                 "Three-arm verification of cycle-deterministic execution: "
                 "(1) exact static cycle model matches isa_simulator accounting "
                 "byte-for-byte across N shapes; (2) static cycle count "
                 "invariant across M adversarial input distributions on a "
-                "representative shape; (3) optional empirical RTL arm "
-                "shows variance==0 across the same M distributions when "
-                "iverilog is available."
+                "representative shape; (3) empirical RTL arm shows variance==0 "
+                "across the same M distributions PLUS many additional random "
+                "end-to-end inputs when iverilog is available (compile-once + "
+                "plusargs dispatch). Cycle counts convert to wall-clock at the "
+                f"measured {FPGA_CLOCK_MHZ:g} MHz FPGA clock."
             ),
             "headline_assertions": [
                 "static_cycles == simulator_cycles on every swept shape",
                 "data_independence_proven on every swept shape",
                 "static_cycles invariant across all input distributions for the distribution-sweep shape",
-                "RTL cycle variance == 0 across distributions (iverilog arm; skipped if no iverilog)",
+                "RTL cycle variance == 0 across distributions + e2e random inputs (iverilog arm; skipped if no iverilog)",
             ],
             "tools": {
                 "static_model": "firmware/host/latency_analysis.py::static_cycles_simulator",
@@ -702,6 +880,8 @@ def _build_artifact(
             "shape_sweep_seed_base": int(WEIGHT_SEED_BASE),
             "distribution_sweep_seed": int(rng_seed),
             "array_size": int(ARRAY_SIZE),
+            "e2e_random_trials": int(e2e_random_trials),
+            "fpga_clock_mhz": float(FPGA_CLOCK_MHZ),
         },
     }
     return artifact
@@ -761,6 +941,15 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         action="store_true",
         help="Emit static-only artifact regardless of iverilog availability (stub-mode).",
     )
+    parser.add_argument(
+        "--e2e-random-trials",
+        type=int,
+        default=DEFAULT_E2E_RANDOM_TRIALS,
+        help=(
+            "Additional random-input RTL end-to-end trials beyond the adversarial "
+            f"distribution set (default: {DEFAULT_E2E_RANDOM_TRIALS})."
+        ),
+    )
     args = parser.parse_args(argv)
 
     shapes = (
@@ -784,6 +973,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         iv_bin=iv_bin,
         vv_bin=vv_bin,
         skip_iverilog=bool(args.skip_iverilog),
+        e2e_random_trials=int(args.e2e_random_trials),
     )
 
     out_path = Path(args.output)

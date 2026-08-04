@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "generated_at_utc": "2026-08-04T04:15:30.649646+00:00",
+  "status": "pass",
+  "depths": [
+    8192,
+    16384,
+    32768,
+    65536,
+    131072
+  ],
+  "points": [
+    {
+      "PROG_DEPTH": 8192,
+      "status": "pass",
+      "returncode": 0,
+      "stdout_tail": "=================================================\nPROG_DEPTH smoke TB  depth=8192\n=================================================\n[ OK ] UPLOAD_LEN_MAX covers PROG_WORDS\n[ OK ] PC_WIDTH matches clog2(PROG_DEPTH)\n[ OK ] Reached WAIT_START after upload\n[ OK ] instr_bram[0]=STORE_HDR\n[ OK ] instr_bram[1]=STORE_VAL\n[ OK ] instr_bram[2]=STORE_ADDR\n[ OK ] instr_bram[3]=HALT\n[ OK ] Reached HALT after start\n[ OK ] buffer[0]==0xA5A5 after STORE\nPROG_DEPTH_SMOKE_PASS depth=8192 tests=9\nrtl/tb/tb_prog_depth_smoke.sv:165: $finish called at 845000 (1ps)\n"
+    },
+    {
+      "PROG_DEPTH": 16384,
+      "status": "pass",
+      "returncode": 0,
+      "stdout_tail": "=================================================\nPROG_DEPTH smoke TB  depth=16384\n=================================================\n[ OK ] UPLOAD_LEN_MAX covers PROG_WORDS\n[ OK ] PC_WIDTH matches clog2(PROG_DEPTH)\n[ OK ] Reached WAIT_START after upload\n[ OK ] instr_bram[0]=STORE_HDR\n[ OK ] instr_bram[1]=STORE_VAL\n[ OK ] instr_bram[2]=STORE_ADDR\n[ OK ] instr_bram[3]=HALT\n[ OK ] Reached HALT after start\n[ OK ] buffer[0]==0xA5A5 after STORE\nPROG_DEPTH_SMOKE_PASS depth=16384 tests=9\nrtl/tb/tb_prog_depth_smoke.sv:165: $finish called at 845000 (1ps)\n"
+    },
+    {
+      "PROG_DEPTH": 32768,
+      "status": "pass",
+      "returncode": 0,
+      "stdout_tail": "=================================================\nPROG_DEPTH smoke TB  depth=32768\n=================================================\n[ OK ] UPLOAD_LEN_MAX covers PROG_WORDS\n[ OK ] PC_WIDTH matches clog2(PROG_DEPTH)\n[ OK ] Reached WAIT_START after upload\n[ OK ] instr_bram[0]=STORE_HDR\n[ OK ] instr_bram[1]=STORE_VAL\n[ OK ] instr_bram[2]=STORE_ADDR\n[ OK ] instr_bram[3]=HALT\n[ OK ] Reached HALT after start\n[ OK ] buffer[0]==0xA5A5 after STORE\nPROG_DEPTH_SMOKE_PASS depth=32768 tests=9\nrtl/tb/tb_prog_depth_smoke.sv:165: $finish called at 845000 (1ps)\n"
+    },
+    {
+      "PROG_DEPTH": 65536,
+      "status": "pass",
+      "returncode": 0,
+      "stdout_tail": "=================================================\nPROG_DEPTH smoke TB  depth=65536\n=================================================\n[ OK ] UPLOAD_LEN_MAX covers PROG_WORDS\n[ OK ] PC_WIDTH matches clog2(PROG_DEPTH)\n[ OK ] Reached WAIT_START after upload\n[ OK ] instr_bram[0]=STORE_HDR\n[ OK ] instr_bram[1]=STORE_VAL\n[ OK ] instr_bram[2]=STORE_ADDR\n[ OK ] instr_bram[3]=HALT\n[ OK ] Reached HALT after start\n[ OK ] buffer[0]==0xA5A5 after STORE\nPROG_DEPTH_SMOKE_PASS depth=65536 tests=9\nrtl/tb/tb_prog_depth_smoke.sv:165: $finish called at 845000 (1ps)\n"
+    },
+    {
+      "PROG_DEPTH": 131072,
+      "status": "pass",
+      "returncode": 0,
+      "stdout_tail": "=================================================\nPROG_DEPTH smoke TB  depth=131072\n=================================================\n[ OK ] UPLOAD_LEN_MAX covers PROG_WORDS\n[ OK ] PC_WIDTH matches clog2(PROG_DEPTH)\n[ OK ] Reached WAIT_START after upload\n[ OK ] instr_bram[0]=STORE_HDR\n[ OK ] instr_bram[1]=STORE_VAL\n[ OK ] instr_bram[2]=STORE_ADDR\n[ OK ] instr_bram[3]=HALT\n[ OK ] Reached HALT after start\n[ OK ] buffer[0]==0xA5A5 after STORE\nPROG_DEPTH_SMOKE_PASS depth=131072 tests=9\nrtl/tb/tb_prog_depth_smoke.sv:165: $finish called at 845000 (1ps)\n"
+    }
+  ],
+  "note": "Functional regression for upload-path width bugs: PROG_DEPTH[15:0] truncation at 65536 and upload_count[PC_WIDTH-1:0] OOR at 131072."
+}

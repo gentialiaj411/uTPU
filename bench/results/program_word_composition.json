@@ -1,0 +1,643 @@
+{
+  "schema_version": 1,
+  "generated_at_utc": "2026-08-03T16:55:12.226071+00:00",
+  "git_sha": "47865fa",
+  "methodology": {
+    "board_fit_shapes": "run_board_fit_audit.SHAPE_GRID via same _lower()",
+    "mnist_fused": "mnist_case1_program.mem",
+    "fc1_capstone": "lower_blocked_fc_program_utpu(256,196) DEFAULT_CFG",
+    "classification": "embedded_payload = BSTORE payload words + STORE-immediate data words; control = all other instruction words",
+    "part_a_sketch": "part_a_control_only_size_ratio / after_part_a sketch replaces all control with one 6-word TILE_GEMM and keeps embedded payload \u2014 optimistic upper bound on Part A program-size reduction"
+  },
+  "verdict": "payload_absolute_blocks_capacity_part_a_must_rescope",
+  "verdict_detail": {
+    "fused_mnist_path": "fused_mnist_payload_dominates",
+    "board_fit_median_payload_fraction": 0.3257753862356607,
+    "fc1_payload_alone_exceeds_8192": true,
+    "implication": "Fused/BSTORE programs are ~87% payload \u2014 Part A compresses ~1.14x words. Legacy board_fit programs are ~33% payload / ~67% control by fraction, but capstone FC1 payload alone (14144) already exceeds PROG_DEPTH=8192, so control compression cannot make that model fit. Capacity unlock for real models requires sourcing weights outside the program image (Phase 6 forward)."
+  },
+  "headline": {
+    "board_fit_median_embedded_payload_fraction": 0.3257753862356607,
+    "fc1_program_words": 43201,
+    "fc1_embedded_payload_words": 14144,
+    "fc1_control_words": 29057,
+    "fc1_embedded_payload_fraction": 0.3273998287076688,
+    "fc1_after_part_a_control_strip_sketch_words": 14150,
+    "fc1_fits_prog_depth_8192_after_part_a_sketch": false,
+    "mnist_fused_embedded_payload_fraction": 0.8721399730820996,
+    "mnist_fused_words": 1486,
+    "mnist_fused_payload_words": 1296,
+    "mnist_fused_control_words": 190,
+    "historical_fc1_claim_words": 52225,
+    "historical_vs_regen_fc1_delta": 9024
+  },
+  "cases": [
+    {
+      "name": "board_fit_16x16",
+      "tag": "demo_smallest",
+      "shape": {
+        "out_features": 16,
+        "in_features": 16,
+        "array_size": 16,
+        "batch": 1
+      },
+      "notes": "board_fit_audit lowering: DEFAULT_CFG legacy, B=1, STORE-immediate payloads",
+      "program_instruction_words": 217,
+      "bstore_payload_words": 0,
+      "store_immediate_payload_words": 68,
+      "embedded_payload_words": 68,
+      "control_words": 149,
+      "bstore_bursts": 0,
+      "store_immediate_ops": 68,
+      "embedded_payload_fraction": 0.31336405529953915,
+      "control_fraction": 0.6866359447004609,
+      "part_a_control_only_size_ratio": 0.34101382488479265,
+      "by_opcode_control_words": {
+        "STORE_framing": 136,
+        "LOAD": 2,
+        "RUN": 2,
+        "FETCH": 8,
+        "HALT": 1
+      },
+      "ops_seen": {
+        "STORE": 68,
+        "LOAD": 2,
+        "RUN": 2,
+        "FETCH": 8,
+        "HALT": 1
+      },
+      "accounted_words": 217,
+      "accounted_ok": true,
+      "extended_address": false
+    },
+    {
+      "name": "board_fit_16x32",
+      "tag": "demo_tiny",
+      "shape": {
+        "out_features": 16,
+        "in_features": 32,
+        "array_size": 16,
+        "batch": 1
+      },
+      "notes": "board_fit_audit lowering: DEFAULT_CFG legacy, B=1, STORE-immediate payloads",
+      "program_instruction_words": 424,
+      "bstore_payload_words": 0,
+      "store_immediate_payload_words": 136,
+      "embedded_payload_words": 136,
+      "control_words": 288,
+      "bstore_bursts": 0,
+      "store_immediate_ops": 136,
+      "embedded_payload_fraction": 0.32075471698113206,
+      "control_fraction": 0.6792452830188679,
+      "part_a_control_only_size_ratio": 0.33490566037735847,
+      "by_opcode_control_words": {
+        "STORE_framing": 272,
+        "LOAD": 4,
+        "RUN": 3,
+        "FETCH": 8,
+        "HALT": 1
+      },
+      "ops_seen": {
+        "STORE": 136,
+        "LOAD": 4,
+        "RUN": 3,
+        "FETCH": 8,
+        "HALT": 1
+      },
+      "accounted_words": 424,
+      "accounted_ok": true,
+      "extended_address": false
+    },
+    {
+      "name": "board_fit_16x64",
+      "tag": "demo_small_K",
+      "shape": {
+        "out_features": 16,
+        "in_features": 64,
+        "array_size": 16,
+        "batch": 1
+      },
+      "notes": "board_fit_audit lowering: DEFAULT_CFG legacy, B=1, STORE-immediate payloads",
+      "program_instruction_words": 838,
+      "bstore_payload_words": 0,
+      "store_immediate_payload_words": 272,
+      "embedded_payload_words": 272,
+      "control_words": 566,
+      "bstore_bursts": 0,
+      "store_immediate_ops": 272,
+      "embedded_payload_fraction": 0.324582338902148,
+      "control_fraction": 0.6754176610978521,
+      "part_a_control_only_size_ratio": 0.3317422434367542,
+      "by_opcode_control_words": {
+        "STORE_framing": 544,
+        "LOAD": 8,
+        "RUN": 5,
+        "FETCH": 8,
+        "HALT": 1
+      },
+      "ops_seen": {
+        "STORE": 272,
+        "LOAD": 8,
+        "RUN": 5,
+        "FETCH": 8,
+        "HALT": 1
+      },
+      "accounted_words": 838,
+      "accounted_ok": true,
+      "extended_address": false
+    },
+    {
+      "name": "board_fit_32x32",
+      "tag": "demo_2x2_blocks",
+      "shape": {
+        "out_features": 32,
+        "in_features": 32,
+        "array_size": 16,
+        "batch": 1
+      },
+      "notes": "board_fit_audit lowering: DEFAULT_CFG legacy, B=1, STORE-immediate payloads",
+      "program_instruction_words": 847,
+      "bstore_payload_words": 0,
+      "store_immediate_payload_words": 272,
+      "embedded_payload_words": 272,
+      "control_words": 575,
+      "bstore_bursts": 0,
+      "store_immediate_ops": 272,
+      "embedded_payload_fraction": 0.32113341204250295,
+      "control_fraction": 0.6788665879574971,
+      "part_a_control_only_size_ratio": 0.3282172373081464,
+      "by_opcode_control_words": {
+        "STORE_framing": 544,
+        "LOAD": 8,
+        "RUN": 6,
+        "FETCH": 16,
+        "HALT": 1
+      },
+      "ops_seen": {
+        "STORE": 272,
+        "LOAD": 8,
+        "RUN": 6,
+        "FETCH": 16,
+        "HALT": 1
+      },
+      "accounted_words": 847,
+      "accounted_ok": true,
+      "extended_address": false
+    },
+    {
+      "name": "board_fit_32x64",
+      "tag": "first_overflow_pynqz2_baseline",
+      "shape": {
+        "out_features": 32,
+        "in_features": 64,
+        "array_size": 16,
+        "batch": 1
+      },
+      "notes": "board_fit_audit lowering: DEFAULT_CFG legacy, B=1, STORE-immediate payloads",
+      "program_instruction_words": 1675,
+      "bstore_payload_words": 0,
+      "store_immediate_payload_words": 544,
+      "embedded_payload_words": 544,
+      "control_words": 1131,
+      "bstore_bursts": 0,
+      "store_immediate_ops": 544,
+      "embedded_payload_fraction": 0.32477611940298506,
+      "control_fraction": 0.6752238805970149,
+      "part_a_control_only_size_ratio": 0.3283582089552239,
+      "by_opcode_control_words": {
+        "STORE_framing": 1088,
+        "LOAD": 16,
+        "RUN": 10,
+        "FETCH": 16,
+        "HALT": 1
+      },
+      "ops_seen": {
+        "STORE": 544,
+        "LOAD": 16,
+        "RUN": 10,
+        "FETCH": 16,
+        "HALT": 1
+      },
+      "accounted_words": 1675,
+      "accounted_ok": true,
+      "extended_address": false
+    },
+    {
+      "name": "board_fit_64x64",
+      "tag": "phase1_calibration_small",
+      "shape": {
+        "out_features": 64,
+        "in_features": 64,
+        "array_size": 16,
+        "batch": 1
+      },
+      "notes": "board_fit_audit lowering: DEFAULT_CFG legacy, B=1, STORE-immediate payloads",
+      "program_instruction_words": 3349,
+      "bstore_payload_words": 0,
+      "store_immediate_payload_words": 1088,
+      "embedded_payload_words": 1088,
+      "control_words": 2261,
+      "bstore_bursts": 0,
+      "store_immediate_ops": 1088,
+      "embedded_payload_fraction": 0.3248730964467005,
+      "control_fraction": 0.6751269035532995,
+      "part_a_control_only_size_ratio": 0.32666467602269333,
+      "by_opcode_control_words": {
+        "STORE_framing": 2176,
+        "LOAD": 32,
+        "RUN": 20,
+        "FETCH": 32,
+        "HALT": 1
+      },
+      "ops_seen": {
+        "STORE": 1088,
+        "LOAD": 32,
+        "RUN": 20,
+        "FETCH": 32,
+        "HALT": 1
+      },
+      "accounted_words": 3349,
+      "accounted_ok": true,
+      "extended_address": false
+    },
+    {
+      "name": "board_fit_64x128",
+      "tag": "single_tile_mlp_class",
+      "shape": {
+        "out_features": 64,
+        "in_features": 128,
+        "array_size": 16,
+        "batch": 1
+      },
+      "notes": "board_fit_audit lowering: DEFAULT_CFG legacy, B=1, STORE-immediate payloads",
+      "program_instruction_words": 6661,
+      "bstore_payload_words": 0,
+      "store_immediate_payload_words": 2176,
+      "embedded_payload_words": 2176,
+      "control_words": 4485,
+      "bstore_bursts": 0,
+      "store_immediate_ops": 2176,
+      "embedded_payload_fraction": 0.32667767602462094,
+      "control_fraction": 0.6733223239753791,
+      "part_a_control_only_size_ratio": 0.3275784416754241,
+      "by_opcode_control_words": {
+        "STORE_framing": 4352,
+        "LOAD": 64,
+        "RUN": 36,
+        "FETCH": 32,
+        "HALT": 1
+      },
+      "ops_seen": {
+        "STORE": 2176,
+        "LOAD": 64,
+        "RUN": 36,
+        "FETCH": 32,
+        "HALT": 1
+      },
+      "accounted_words": 6661,
+      "accounted_ok": true,
+      "extended_address": false
+    },
+    {
+      "name": "board_fit_128x128",
+      "tag": "single_tile_mlp_class",
+      "shape": {
+        "out_features": 128,
+        "in_features": 128,
+        "array_size": 16,
+        "batch": 1
+      },
+      "notes": "board_fit_audit lowering: DEFAULT_CFG legacy, B=1, STORE-immediate payloads",
+      "program_instruction_words": 13321,
+      "bstore_payload_words": 0,
+      "store_immediate_payload_words": 4352,
+      "embedded_payload_words": 4352,
+      "control_words": 8969,
+      "bstore_bursts": 0,
+      "store_immediate_ops": 4352,
+      "embedded_payload_fraction": 0.32670219953456947,
+      "control_fraction": 0.6732978004654305,
+      "part_a_control_only_size_ratio": 0.3271526161699572,
+      "by_opcode_control_words": {
+        "STORE_framing": 8704,
+        "LOAD": 128,
+        "RUN": 72,
+        "FETCH": 64,
+        "HALT": 1
+      },
+      "ops_seen": {
+        "STORE": 4352,
+        "LOAD": 128,
+        "RUN": 72,
+        "FETCH": 64,
+        "HALT": 1
+      },
+      "accounted_words": 13321,
+      "accounted_ok": true,
+      "extended_address": false
+    },
+    {
+      "name": "board_fit_256x16",
+      "tag": "phase1_calibration",
+      "shape": {
+        "out_features": 256,
+        "in_features": 16,
+        "array_size": 16,
+        "batch": 1
+      },
+      "notes": "board_fit_audit lowering: DEFAULT_CFG legacy, B=1, STORE-immediate payloads",
+      "program_instruction_words": 3457,
+      "bstore_payload_words": 0,
+      "store_immediate_payload_words": 1088,
+      "embedded_payload_words": 1088,
+      "control_words": 2369,
+      "bstore_bursts": 0,
+      "store_immediate_ops": 1088,
+      "embedded_payload_fraction": 0.3147237489152444,
+      "control_fraction": 0.6852762510847555,
+      "part_a_control_only_size_ratio": 0.3164593578247035,
+      "by_opcode_control_words": {
+        "STORE_framing": 2176,
+        "LOAD": 32,
+        "RUN": 32,
+        "FETCH": 128,
+        "HALT": 1
+      },
+      "ops_seen": {
+        "STORE": 1088,
+        "LOAD": 32,
+        "RUN": 32,
+        "FETCH": 128,
+        "HALT": 1
+      },
+      "accounted_words": 3457,
+      "accounted_ok": true,
+      "extended_address": false
+    },
+    {
+      "name": "board_fit_256x256",
+      "tag": "phase1_calibration",
+      "shape": {
+        "out_features": 256,
+        "in_features": 256,
+        "array_size": 16,
+        "batch": 1
+      },
+      "notes": "board_fit_audit lowering: DEFAULT_CFG legacy, B=1, STORE-immediate payloads",
+      "program_instruction_words": 53137,
+      "bstore_payload_words": 0,
+      "store_immediate_payload_words": 17408,
+      "embedded_payload_words": 17408,
+      "control_words": 35729,
+      "bstore_bursts": 0,
+      "store_immediate_ops": 17408,
+      "embedded_payload_fraction": 0.32760599958597586,
+      "control_fraction": 0.6723940004140241,
+      "part_a_control_only_size_ratio": 0.32771891525678903,
+      "by_opcode_control_words": {
+        "STORE_framing": 34816,
+        "LOAD": 512,
+        "RUN": 272,
+        "FETCH": 128,
+        "HALT": 1
+      },
+      "ops_seen": {
+        "STORE": 17408,
+        "LOAD": 512,
+        "RUN": 272,
+        "FETCH": 128,
+        "HALT": 1
+      },
+      "accounted_words": 53137,
+      "accounted_ok": true,
+      "extended_address": false
+    },
+    {
+      "name": "board_fit_256x512",
+      "tag": "phase3_under_capacity",
+      "shape": {
+        "out_features": 256,
+        "in_features": 512,
+        "array_size": 16,
+        "batch": 1
+      },
+      "notes": "board_fit_audit lowering: DEFAULT_CFG legacy, B=1, STORE-immediate payloads",
+      "program_instruction_words": 106129,
+      "bstore_payload_words": 0,
+      "store_immediate_payload_words": 34816,
+      "embedded_payload_words": 34816,
+      "control_words": 71313,
+      "bstore_bursts": 0,
+      "store_immediate_ops": 34816,
+      "embedded_payload_fraction": 0.3280535951530684,
+      "control_fraction": 0.6719464048469316,
+      "part_a_control_only_size_ratio": 0.3281101301246596,
+      "by_opcode_control_words": {
+        "STORE_framing": 69632,
+        "LOAD": 1024,
+        "RUN": 528,
+        "FETCH": 128,
+        "HALT": 1
+      },
+      "ops_seen": {
+        "STORE": 34816,
+        "LOAD": 1024,
+        "RUN": 528,
+        "FETCH": 128,
+        "HALT": 1
+      },
+      "accounted_words": 106129,
+      "accounted_ok": true,
+      "extended_address": false
+    },
+    {
+      "name": "board_fit_512x256",
+      "tag": "phase1_calibration_large",
+      "shape": {
+        "out_features": 512,
+        "in_features": 256,
+        "array_size": 16,
+        "batch": 1
+      },
+      "notes": "board_fit_audit lowering: DEFAULT_CFG legacy, B=1, STORE-immediate payloads",
+      "program_instruction_words": 106273,
+      "bstore_payload_words": 0,
+      "store_immediate_payload_words": 34816,
+      "embedded_payload_words": 34816,
+      "control_words": 71457,
+      "bstore_bursts": 0,
+      "store_immediate_ops": 34816,
+      "embedded_payload_fraction": 0.32760908226924995,
+      "control_fraction": 0.6723909177307501,
+      "part_a_control_only_size_ratio": 0.3276655406359094,
+      "by_opcode_control_words": {
+        "STORE_framing": 69632,
+        "LOAD": 1024,
+        "RUN": 544,
+        "FETCH": 256,
+        "HALT": 1
+      },
+      "ops_seen": {
+        "STORE": 34816,
+        "LOAD": 1024,
+        "RUN": 544,
+        "FETCH": 256,
+        "HALT": 1
+      },
+      "accounted_words": 106273,
+      "accounted_ok": true,
+      "extended_address": false
+    },
+    {
+      "name": "board_fit_512x512",
+      "tag": "phase1_calibration_largest",
+      "shape": {
+        "out_features": 512,
+        "in_features": 512,
+        "array_size": 16,
+        "batch": 1
+      },
+      "notes": "board_fit_audit lowering: DEFAULT_CFG legacy, B=1, STORE-immediate payloads",
+      "program_instruction_words": 212257,
+      "bstore_payload_words": 0,
+      "store_immediate_payload_words": 69632,
+      "embedded_payload_words": 69632,
+      "control_words": 142625,
+      "bstore_bursts": 0,
+      "store_immediate_ops": 69632,
+      "embedded_payload_fraction": 0.3280551407020734,
+      "control_fraction": 0.6719448592979266,
+      "part_a_control_only_size_ratio": 0.32808340832104477,
+      "by_opcode_control_words": {
+        "STORE_framing": 139264,
+        "LOAD": 2048,
+        "RUN": 1056,
+        "FETCH": 256,
+        "HALT": 1
+      },
+      "ops_seen": {
+        "STORE": 69632,
+        "LOAD": 2048,
+        "RUN": 1056,
+        "FETCH": 256,
+        "HALT": 1
+      },
+      "accounted_words": 212257,
+      "accounted_ok": true,
+      "extended_address": false
+    },
+    {
+      "name": "board_fit_1536x512",
+      "tag": "phase3_at_capacity_largest_single_tile",
+      "shape": {
+        "out_features": 1536,
+        "in_features": 512,
+        "array_size": 16,
+        "batch": 1
+      },
+      "notes": "board_fit_audit lowering: DEFAULT_CFG legacy, B=1, STORE-immediate payloads",
+      "program_instruction_words": 636769,
+      "bstore_payload_words": 0,
+      "store_immediate_payload_words": 208896,
+      "embedded_payload_words": 208896,
+      "control_words": 427873,
+      "bstore_bursts": 0,
+      "store_immediate_ops": 208896,
+      "embedded_payload_fraction": 0.32805617107616736,
+      "control_fraction": 0.6719438289238326,
+      "part_a_control_only_size_ratio": 0.3280655936454193,
+      "by_opcode_control_words": {
+        "STORE_framing": 417792,
+        "LOAD": 6144,
+        "RUN": 3168,
+        "FETCH": 768,
+        "HALT": 1
+      },
+      "ops_seen": {
+        "STORE": 208896,
+        "LOAD": 6144,
+        "RUN": 3168,
+        "FETCH": 768,
+        "HALT": 1
+      },
+      "accounted_words": 636769,
+      "accounted_ok": true,
+      "extended_address": false
+    },
+    {
+      "name": "mnist_fused_case1",
+      "tag": "multi_layer_reference",
+      "shape": {
+        "fc": "64->64->10",
+        "array_size": 16,
+        "batch": 1
+      },
+      "notes": "build/test_vectors/mnist_case1_program.mem (fused compressed)",
+      "program_instruction_words": 1486,
+      "bstore_payload_words": 1296,
+      "store_immediate_payload_words": 0,
+      "embedded_payload_words": 1296,
+      "control_words": 190,
+      "bstore_bursts": 13,
+      "store_immediate_ops": 0,
+      "embedded_payload_fraction": 0.8721399730820996,
+      "control_fraction": 0.1278600269179004,
+      "part_a_control_only_size_ratio": 0.8761776581426649,
+      "by_opcode_control_words": {
+        "BSTORE_framing": 39,
+        "LOAD": 80,
+        "RUN": 58,
+        "FETCH": 12,
+        "HALT": 1
+      },
+      "ops_seen": {
+        "BSTORE": 13,
+        "LOAD": 40,
+        "RUN": 29,
+        "FETCH": 6,
+        "HALT": 1
+      },
+      "accounted_words": 1486,
+      "accounted_ok": true,
+      "extended_address": true
+    },
+    {
+      "name": "mnist_capstone_fc1_256x196",
+      "tag": "capacity_claim_fc1",
+      "shape": {
+        "out_features": 256,
+        "in_features": 196,
+        "array_size": 16,
+        "batch": 1
+      },
+      "notes": "blocked-FC legacy lowering; program_instruction_words=43201 (historical claim cited 52225 \u2014 compare)",
+      "program_instruction_words": 43201,
+      "bstore_payload_words": 0,
+      "store_immediate_payload_words": 14144,
+      "embedded_payload_words": 14144,
+      "control_words": 29057,
+      "bstore_bursts": 0,
+      "store_immediate_ops": 14144,
+      "embedded_payload_fraction": 0.3273998287076688,
+      "control_fraction": 0.6726001712923312,
+      "part_a_control_only_size_ratio": 0.32753871438161153,
+      "by_opcode_control_words": {
+        "STORE_framing": 28288,
+        "LOAD": 416,
+        "RUN": 224,
+        "FETCH": 128,
+        "HALT": 1
+      },
+      "ops_seen": {
+        "STORE": 14144,
+        "LOAD": 416,
+        "RUN": 224,
+        "FETCH": 128,
+        "HALT": 1
+      },
+      "accounted_words": 43201,
+      "accounted_ok": true,
+      "extended_address": false
+    }
+  ]
+}

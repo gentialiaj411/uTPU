@@ -21,11 +21,12 @@ module tb_perf_counters;
 
     int tests = 0;
     int errors = 0;
-    byte perf_bytes [0:31];
+    byte perf_bytes [0:103];
     logic [63:0] cycle_ctr;
     logic [63:0] busy_ctr;
     logic [63:0] program_ctr;
     logic [63:0] program_cycle_ctr;
+    localparam int TB_PERF_BYTES = 104;
 
     top #(
         .ARRAY_SIZE(TB_ARRAY_SIZE),
@@ -73,7 +74,7 @@ module tb_perf_counters;
         int i;
         got = 0;
         i = 0;
-        while (i < 100000 && got < 32) begin
+        while (i < 100000 && got < TB_PERF_BYTES) begin
             @(posedge clk);
             if (dut.tx_we && dut.tx_wdata !== 8'hAA) begin
                 perf_bytes[got] = dut.tx_wdata;
@@ -118,10 +119,10 @@ module tb_perf_counters;
         wait_for_state(dut.HALT_STATE, 20000, reached_halt);
         CHECK("Reached HALT after start", reached_halt);
 
-        // Request perf counters and collect 32-byte response.
+        // Request perf counters and collect 104-byte response (legacy 32 + attribution).
         push_rx_byte(MAGIC_READ_PERF);
         collect_perf_bytes(got_perf);
-        CHECK("Received 32 perf bytes", got_perf == 32);
+        CHECK("Received 104 perf bytes", got_perf == TB_PERF_BYTES);
 
         cycle_ctr = '0;
         busy_ctr = '0;

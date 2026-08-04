@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "generated_at_utc": "2026-08-04T14:49:14.776530+00:00",
+  "buffer_partition": {
+    "BUFFER_SIZE": 16384,
+    "WEIGHT_REGION_WORDS": 14144,
+    "weight_region": "[0, 14144)",
+    "activation_region": "[14144, 16384)",
+    "rationale": "16384 is smallest swept BUFFER_SIZE holding FC1 14144-word payload."
+  },
+  "a5_protocol": {
+    "status": "implemented",
+    "MAGIC_BUF_FILL": "0xA5",
+    "BUF_FILL_EN": 1,
+    "smoke": "rtl/tb/tb_buf_fill_smoke.sv PASS",
+    "note": "A5 fill is functionally correct; host can load weight region without PROG_DEPTH tax."
+  },
+  "cold": {
+    "mode": "cold",
+    "label": "weights embedded via BSTORE every inference",
+    "total_program_cycles": 3445,
+    "bstore_cycles": 2119,
+    "compute_cycles": 709,
+    "compute_share": 0.20580551523947752,
+    "bit_exact": true
+  },
+  "steady_state": {
+    "mode": "steady_state",
+    "status": "premise_disproven_for_mnist_fused_lowering",
+    "label": "control-only after cold establish OR A5-all-at-start",
+    "bit_exact_vs_cold_case1": false,
+    "measured_attempt": {
+      "after_cold_establish_control_only_total": 1261,
+      "compute": 709,
+      "bstore": 0,
+      "mismatches": 2,
+      "interpretation": "Cycle count matches amortized sketch (~1261 vs 1326) but OUTPUTS differ \u2014 weight/activation buffer regions alias; first inference overwrites locations subsequent control-only LOADs need."
+    },
+    "analytical_if_partition_fixed": {
+      "total_program_cycles_sketch": 1326,
+      "compute_share_sketch": 0.5346907993966817,
+      "note": "Do not cite as measured. Requires lowering that pins weights outside activation scratch."
+    },
+    "occupancy_proxy_for_track4": 0.20580551523947752,
+    "occupancy_source": "cold_compute_share_until_steady_bitexact"
+  },
+  "standing_rule_5": "Steady-state must be labeled; measured steady-state is NOT bit-exact on current MNIST fused program.",
+  "occupancy": 0.20580551523947752,
+  "compute_occupancy": 0.20580551523947752,
+  "compute_share": 0.20580551523947752
+}

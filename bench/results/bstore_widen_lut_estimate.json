@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "generated_at_utc": "2026-08-04T03:59:47.327500+00:00",
+  "part": "xc7a100tcsg324-1",
+  "module": "rtl/top/bstore_wide_arm_ooc.sv",
+  "headroom": {
+    "lut_used": 41631,
+    "lut_available": 63400,
+    "lut_free": 21769,
+    "mb64_failed_lut": 67217,
+    "source": "prog_depth_sweep.json PROG_DEPTH=65536 closed + timing_closure mb64 fail"
+  },
+  "points": [
+    {
+      "width": 1,
+      "status": "ok",
+      "lut": 4,
+      "ff": 47,
+      "report": "build/reports/bstore_wide_ooc_w1_utilization.rpt"
+    },
+    {
+      "width": 2,
+      "status": "ok",
+      "lut": 7,
+      "ff": 92,
+      "report": "build/reports/bstore_wide_ooc_w2_utilization.rpt"
+    },
+    {
+      "width": 4,
+      "status": "ok",
+      "lut": 14,
+      "ff": 180,
+      "report": "build/reports/bstore_wide_ooc_w4_utilization.rpt"
+    },
+    {
+      "width": 8,
+      "status": "ok",
+      "lut": 27,
+      "ff": 353,
+      "report": "build/reports/bstore_wide_ooc_w8_utilization.rpt"
+    }
+  ],
+  "recommendation": {
+    "recommended_width": 8,
+    "lut_budget_for_arm_delta": 13769,
+    "spare_lut_held_back": 8000,
+    "rationale": "Headroom 21769 LUTs at shipping PROG_DEPTH=65536/mb48/pd3; hold back 8000 for top integration. Arm delta budget=13769. OOC arm is tiny vs budget \u2014 recommend 8x (largest measured) for cycle leverage (~3.3x e2e sketch), not the buffer's full 32 words/cycle.",
+    "rows": [
+      {
+        "width": 1,
+        "lut": 4,
+        "ff": 47,
+        "delta_vs_w1": 0,
+        "fits_budget": true,
+        "amdahl_e2e_sketch_x": 1.0
+      },
+      {
+        "width": 2,
+        "lut": 7,
+        "ff": 92,
+        "delta_vs_w1": 3,
+        "fits_budget": true,
+        "amdahl_e2e_sketch_x": 1.66
+      },
+      {
+        "width": 4,
+        "lut": 14,
+        "ff": 180,
+        "delta_vs_w1": 10,
+        "fits_budget": true,
+        "amdahl_e2e_sketch_x": 2.47
+      },
+      {
+        "width": 8,
+        "lut": 27,
+        "ff": 353,
+        "delta_vs_w1": 23,
+        "fits_budget": true,
+        "amdahl_e2e_sketch_x": 3.3
+      }
+    ]
+  }
+}

@@ -8,7 +8,8 @@ module pe_controller #(
 	parameter BUFFER_WORD_SIZE       = 16,
 	parameter NUM_COMPUTE_LANES      = BUFFER_WORD_SIZE/COMPUTE_DATA_WIDTH,
 	parameter MAX_BATCH_COUNT        = 64,
-	parameter BATCH_COUNT_WIDTH      = $clog2(MAX_BATCH_COUNT + 1)
+	parameter BATCH_COUNT_WIDTH      = $clog2(MAX_BATCH_COUNT + 1),
+	parameter WEIGHT_OVERLAP_EN      = 0
     ) (
 	input  logic clk, rst, compute, load_en, weight_commit,
 	input  logic [BATCH_COUNT_WIDTH-1:0] batch_count,
@@ -103,7 +104,8 @@ module pe_controller #(
 	.COMPUTE_DATA_WIDTH(COMPUTE_DATA_WIDTH),
 	.ACCUMULATOR_DATA_WIDTH(ACCUMULATOR_DATA_WIDTH),
 	.BUFFER_WORD_SIZE(BUFFER_WORD_SIZE),
-	.NUM_COMPUTE_LANES(NUM_COMPUTE_LANES)
+	.NUM_COMPUTE_LANES(NUM_COMPUTE_LANES),
+	.WEIGHT_OVERLAP_EN(WEIGHT_OVERLAP_EN)
     ) u_pe_array (
 	.clk(clk),
 	.rst(rst),

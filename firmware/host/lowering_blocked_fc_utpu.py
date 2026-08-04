@@ -81,6 +81,7 @@ def lower_blocked_fc_program_utpu(
     cfg: IsaConfig = DEFAULT_CFG,
     hoist_tile_payloads: bool = False,
     requant_params: Optional[RequantParams] = None,
+    weight_overlap: bool = False,
 ) -> Dict[str, Any]:
     schedule = build_blocked_fc_schedule(
         problem=BlockedFCProblem(
@@ -99,6 +100,8 @@ def lower_blocked_fc_program_utpu(
         raise ValueError(f"batch_size={batch_size} exceeds max supported batch size {MAX_BATCH_SIZE}")
     if batch_size > 1 and not cfg.extended_address:
         raise ValueError("batched blocked-FC lowering requires extended-address ISA encoding")
+    if weight_overlap and not cfg.extended_address:
+        raise ValueError("weight_overlap lowering requires extended-address ISA encoding")
     if requant_params is not None and requant_params.is_per_channel:
         if not cfg.extended_address:
             raise ValueError("per-channel requant lowering requires extended-address ISA encoding")
@@ -189,30 +192,84 @@ def lower_blocked_fc_program_utpu(
                 input_tile_addr = hoisted_input_addr + (
                     ib * ((array_size * batch_size) // cfg.items_per_word)
                 )
-                encoder.loadWeights(weight_tile_addr)
             else:
-                _store_int4_array_to_buffer(encoder, weight_addr, weight_block)
-                encoder.loadWeights(weight_addr)
-            if batch_size == 1:
-                _store_int4_array_to_buffer(encoder, input_addr, input_block[0])
-                encoder.loadInputs(input_addr, batch_count=1)
-            else:
-                if not use_hoisted_tiles:
-                    input_matrix = np.zeros((array_size, batch_size), dtype=np.int8)
-                    input_matrix[:, :batch_size] = input_block.T
-                    _store_int4_array_to_buffer(encoder, input_addr, input_matrix, order="F")
-                encoder.loadInputs(
-                    input_tile_addr if use_hoisted_tiles else input_addr,
+                weight_tile_addr = weight_addr
+                input_tile_addr = input_addr
+                if not weight_overlap or (ob == 0 and ib == 0):
+                    # Non-hoisted path still stores the active tile payload before LOAD.
+                    # Overlap prefetch of N+1 stores happen below when needed.
+                    _store_int4_array_to_buffer(encoder, weight_addr, weight_block)
+
+            tile_index = ob * in_blocks + ib
+            n_tiles = out_blocks * in_blocks
+            is_first_tile = tile_index == 0
+            is_last_tile = tile_index + 1 >= n_tiles
+
+            if weight_overlap:
+                # Contract (docs/weight_overlap_ordering.md):
+                #   prologue: loadWeights(0, commit_after=True)
+                #   then per tile: loadInputs(N); [loadWeights(N+1)]; run(N)
+                #   hardware auto-commits after accumulate run (run → commit)
+                if is_first_tile:
+                    encoder.loadWeights(weight_tile_addr, commit_after=True)
+                if batch_size == 1:
+                    if not use_hoisted_tiles:
+                        _store_int4_array_to_buffer(encoder, input_addr, input_block[0])
+                    encoder.loadInputs(input_tile_addr, batch_count=1)
+                else:
+                    if not use_hoisted_tiles:
+                        input_matrix = np.zeros((array_size, batch_size), dtype=np.int8)
+                        input_matrix[:, :batch_size] = input_block.T
+                        _store_int4_array_to_buffer(encoder, input_addr, input_matrix, order="F")
+                    encoder.loadInputs(input_tile_addr, batch_count=batch_size)
+                if not is_last_tile:
+                    # Prefetch W_{N+1} into shadow before run(N).
+                    next_ob, next_ib = divmod(tile_index + 1, in_blocks)
+                    if use_hoisted_tiles:
+                        next_w_addr = weight_addr + (
+                            (next_ob * in_blocks + next_ib)
+                            * ((array_size * array_size) // cfg.items_per_word)
+                        )
+                    else:
+                        next_o0 = next_ob * array_size
+                        next_i0 = next_ib * array_size
+                        next_w = w_pad[next_o0:next_o0 + array_size, next_i0:next_i0 + array_size]
+                        _store_int4_array_to_buffer(encoder, weight_addr, next_w)
+                        next_w_addr = weight_addr
+                    encoder.loadWeights(next_w_addr, commit_after=False)
+                encoder.run(
+                    out_base_addr,
+                    compute=True,
+                    quantize=False,
+                    relu=False,
+                    acc_clear=(ib == 0),
                     batch_count=batch_size,
                 )
-            encoder.run(
-                out_base_addr,
-                compute=True,
-                quantize=False,
-                relu=False,
-                acc_clear=(ib == 0),
-                batch_count=batch_size,
-            )
+            else:
+                if use_hoisted_tiles:
+                    encoder.loadWeights(weight_tile_addr)
+                else:
+                    encoder.loadWeights(weight_addr)
+                if batch_size == 1:
+                    _store_int4_array_to_buffer(encoder, input_addr, input_block[0])
+                    encoder.loadInputs(input_addr, batch_count=1)
+                else:
+                    if not use_hoisted_tiles:
+                        input_matrix = np.zeros((array_size, batch_size), dtype=np.int8)
+                        input_matrix[:, :batch_size] = input_block.T
+                        _store_int4_array_to_buffer(encoder, input_addr, input_matrix, order="F")
+                    encoder.loadInputs(
+                        input_tile_addr if use_hoisted_tiles else input_addr,
+                        batch_count=batch_size,
+                    )
+                encoder.run(
+                    out_base_addr,
+                    compute=True,
+                    quantize=False,
+                    relu=False,
+                    acc_clear=(ib == 0),
+                    batch_count=batch_size,
+                )
             block_ops += 1
 
         if requant_params is not None and requant_params.is_per_channel:
@@ -264,6 +321,7 @@ def lower_blocked_fc_program_utpu(
         "block_ops": int(block_ops),
         "batch_size": int(batch_size),
         "hoist_tile_payloads": bool(use_hoisted_tiles),
+        "weight_overlap": bool(weight_overlap),
         "requant_params": requant_params.as_dict() if requant_params is not None else None,
         "executable_on_current_fpga_path": bool(executable),
         "int32_accumulation_supported": True,

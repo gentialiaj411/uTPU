@@ -92,7 +92,9 @@ RTL_STUBS := rtl/tb/xpm_memory_sdpram_stub.sv
 
 .PHONY: sim-units sim-all sim-perf clean-sim bench test-host \
         sim-iverilog-fused sim-iverilog-perf sim-iverilog-batched sim-iverilog-phase4-widen \
-        sim-iverilog-scheduler-cross-check sim-iverilog-latency sim-packed-pair sim-packed-array sim-packed-array-hardened sim-packed-cycles sim-packed-top \
+        sim-iverilog-scheduler-cross-check sim-iverilog-latency sim-iverilog-prog-depth \
+        sim-iverilog-bstore-wide \
+        sim-packed-pair sim-packed-array sim-packed-array-hardened sim-packed-cycles sim-packed-top \
         sim-iverilog-all clean-sim-iverilog \
         repro repro-host repro-cuda \
         fuzz fuzz-discovery superopt latency-determinism \
@@ -170,7 +172,30 @@ sim-iverilog-batched:
 	"$(VVP)" "$(SIM_IVERILOG_OUT)/tb_batched_gemm.out"
 	@echo "[sim-iverilog-batched] VCD: $(SIM_IVERILOG_OUT)/tb_batched_gemm.vcd"
 
-sim-iverilog-all: sim-iverilog-fused sim-iverilog-perf sim-iverilog-batched sim-iverilog-phase4-widen sim-iverilog-scheduler-cross-check sim-iverilog-latency
+sim-iverilog-all: sim-iverilog-fused sim-iverilog-perf sim-iverilog-batched sim-iverilog-phase4-widen sim-iverilog-scheduler-cross-check sim-iverilog-latency sim-iverilog-prog-depth sim-iverilog-bstore-wide sim-iverilog-buf-fill
+
+# Upload-path width regression across supported PROG_DEPTH values. Catches
+# silent constant-fold (65536) and hard OOR (131072) classes that synth-only
+# discovery previously missed. Emits bench/results/prog_depth_smoke.json.
+sim-iverilog-prog-depth:
+	mkdir -p "$(SIM_IVERILOG_OUT)" bench/results
+	$(PYTHON) firmware/host/run_prog_depth_smoke.py
+	@echo "[sim-iverilog-prog-depth] artifact: bench/results/prog_depth_smoke.json"
+
+# BSTORE write-arm widen (default BSTORE_WIDTH=8): functional + cycle smoke.
+# Emits bench/results/bstore_wide_smoke.json.
+sim-iverilog-bstore-wide:
+	mkdir -p "$(SIM_IVERILOG_OUT)" bench/results
+	$(PYTHON) firmware/host/run_bstore_wide_smoke.py
+	@echo "[sim-iverilog-bstore-wide] artifact: bench/results/bstore_wide_smoke.json"
+
+# A5 buffer-resident weight fill smoke.
+sim-iverilog-buf-fill:
+	mkdir -p "$(SIM_IVERILOG_OUT)"
+	"$(IVERILOG)" -g2012 -DICARUS -o "$(SIM_IVERILOG_OUT)/tb_buf_fill_smoke.out" \
+		rtl/tb/tb_buf_fill_smoke.sv $(RTL_STUBS) $(RTL_DESIGN)
+	"$(VVP)" "$(SIM_IVERILOG_OUT)/tb_buf_fill_smoke.out"
+	@echo "[sim-iverilog-buf-fill] done"
 
 # Task 4: deterministic-latency RTL data-independence sweep. Drives
 # rtl/tb/tb_latency_determinism.sv across 5 adversarial input

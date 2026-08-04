@@ -8,9 +8,11 @@
 *      unit to the left, the sum is passed downward. To load the weights from
 *      B, load_en must be on.
 *
-*      Weight double-buffer: load_en writes weight_shadow; weight_commit swaps
-*      shadow into the active weight used by MAC. This lets the array load tile
-*      N+1 weights while still computing tile N (FSM must overlap LOAD/COMPUTE).
+*      Weight double-buffer (WEIGHT_OVERLAP_EN=1): load_en writes weight_shadow
+*      only; weight_commit swaps shadow into the active MAC weight. Legacy mode
+*      (WEIGHT_OVERLAP_EN=0, default): load_en also writes active weight so
+*      existing LOAD→COMPUTE programs stay bit-exact. Overlap mode removes
+*      load_en from the partial_sum_out CE path (100 MHz binder).
 */
 
 `timescale 1ns/1ps
@@ -18,7 +20,8 @@
 
 module pe #(
 	parameter COMPUTE_DATA_WIDTH = 4,
-	parameter ACCUMULATOR_DATA_WIDTH = 16
+	parameter ACCUMULATOR_DATA_WIDTH = 16,
+	parameter WEIGHT_OVERLAP_EN = 0
     ) (
 	input  logic clk, rst, compute, load_en, weight_commit,
 	input  logic signed [COMPUTE_DATA_WIDTH-1:0]     data_in,
@@ -64,12 +67,9 @@ module pe #(
 `else
 		weight_shadow <= weight_in;
 `endif
-            // weight_commit: swap shadow into active (double-buffer path).
-            // load_en without commit: legacy direct write into active weight so
-            // existing LOAD→COMPUTE sequences stay bit-exact.
             if (weight_commit)
                 weight <= weight_shadow;
-	    else if (load_en)
+            else if (WEIGHT_OVERLAP_EN == 0 && load_en)
 `ifdef ICARUS
                 weight <= (^weight_in === 1'bx) ? '0 : weight_in;
 `else

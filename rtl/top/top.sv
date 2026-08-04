@@ -11,7 +11,7 @@ module top #(
     parameter ARRAY_SIZE_WIDTH       = $clog2(ARRAY_SIZE),
     parameter FIFO_WIDTH             = 256,
     parameter FIFO_DATA_WIDTH        = 8,
-    parameter BUFFER_SIZE            = 512,
+    parameter BUFFER_SIZE            = 16384,
     parameter BUFFER_WORD_SIZE       = 16,
     parameter ADDRESS_SIZE           = $clog2(BUFFER_SIZE),
     // Phase 4 widening: when 1, FETCH/RUN/LOAD/BSTORE use a 2-word extended
@@ -25,9 +25,16 @@ module top #(
     // restore the legacy one-cycle tile-wide requant/ReLU (A/B testable).
     parameter QUANTIZER_LANES        = ARRAY_SIZE,
     parameter RELU_LANES             = ARRAY_SIZE,
-    // 0=combo (default until Fmax proves pipeline worth it), 1=Step2b,
-    // 3=product/shift/clamp stages (DSP MREG target).
-    parameter int QUANTIZER_PIPE_DEPTH = 0,
+    // 0=combo (legacy), 1=Step2b registered, 3=product/shift/clamp (shipping default).
+    parameter int QUANTIZER_PIPE_DEPTH = 3,
+    // 0=legacy load_en→active weight; 1=load_en→shadow only, weight_commit swaps.
+    parameter WEIGHT_OVERLAP_EN      = 0,
+    // BSTORE write-arm widen: words written per buffer we-beat after skid fill.
+    // OOC LUT delta is tiny (+23 @ W=8); shipping default 8. Set 1 for legacy.
+    parameter int BSTORE_WIDTH       = 8,
+    // Host A5 direct buffer fill (buffer-resident weights). Default on; legacy
+    // A1/A2/A3/A4 paths unchanged. Set 0 to ignore MAGIC_BUF_FILL.
+    parameter int BUF_FILL_EN        = 1,
     parameter RELU_SIZE              = RELU_LANES,
     parameter RELU_SIZE_WIDTH        = $clog2(RELU_SIZE),
     parameter QUANTIZER_SIZE         = QUANTIZER_LANES,
@@ -43,8 +50,11 @@ module top #(
     parameter STORE_DATA_WIDTH       = 16,
     parameter DEBUG_STORE_ACK        = 0,
     parameter DEBUG_FETCH_ACK        = 0,
-    // Instruction BRAM depth (must be power of 2; 1024 words = 2 KB)
-    parameter PROG_DEPTH             = 1024,
+    // Instruction BRAM depth. Shipping Artix default is 65536 (fillable via
+    // the two-byte UART length field up to 65535). Do not default to 131072:
+    // that depth closes in synth but is unloadable without a wider length
+    // protocol (see improvement_plan.md deferred bundle).
+    parameter PROG_DEPTH             = 65536,
     parameter PC_WIDTH               = $clog2(PROG_DEPTH)
 ) (
     input  logic clk, rst,
@@ -60,12 +70,22 @@ module top #(
     localparam logic [7:0] MAGIC_START  = 8'hA2; // host: start execution
     localparam logic [7:0] MAGIC_REARM  = 8'hA3; // host: re-arm from HALT
     localparam logic [7:0] MAGIC_READ_PERF = 8'hA4; // host: stream perf counters
-    localparam logic [3:0] NOP_SUBOP_REQUANT = 4'b0001;
+    localparam logic [7:0] MAGIC_BUF_FILL = 8'hA5; // host: fill unified buffer words
+    // FC1-class weight region on BUFFER_SIZE=16384 (smallest swept that holds
+    // 14144 payload words). Activations use [WEIGHT_REGION_WORDS .. BUFFER_SIZE).
+    localparam int WEIGHT_REGION_WORDS = 14144;    localparam logic [3:0] NOP_SUBOP_REQUANT = 4'b0001;
     localparam int STREAM_CHUNK_WORDS = (ARRAY_SIZE * ARRAY_SIZE) / ITEMS_IN_SLOT;
     // Narrow finalize: QUANTIZER_SIZE == ARRAY_SIZE streams one output column
     // per cycle. Wide finalize: QUANTIZER_SIZE == NUM_COMPUTE_LANES keeps the
     // legacy one-cycle tile requant.
     localparam bit REQUANT_NARROW = (QUANTIZER_SIZE == ARRAY_SIZE);
+    // Upload length is a two-byte UART field (max 65535 words). Cap the HW
+    // reject threshold at min(PROG_DEPTH, 65535). NEVER use PROG_DEPTH[15:0]:
+    // at PROG_DEPTH=65536 that slice truncates to 0 and rejects every upload,
+    // which constant-folds the fetch/decode datapath away (observed: LUT~11k,
+    // RAMB36=2). At PROG_DEPTH>65536 the 16-bit protocol cannot fill the full
+    // BRAM; UPLOAD_LEN_MAX stays 65535 until the length field is widened.
+    localparam int UPLOAD_LEN_MAX = (PROG_DEPTH > 65535) ? 65535 : PROG_DEPTH;
 
     // -----------------------------------------------------------------------
     // Controller registers
@@ -114,6 +134,8 @@ module top #(
     // MAC Array
     logic compute_start, compute_load_en, compute_done;
     logic compute_weight_commit;
+    logic load_weight_commit_after;  // LOAD bit4: request commit after weight load
+    logic load_commit_pending;       // delay commit one cycle after load_en (NBA-safe)
     logic compute_done_d;
     logic signed [COMPUTE_DATA_WIDTH-1:0]     compute_weights_in [NUM_COMPUTE_LANES-1:0];
     logic signed [COMPUTE_DATA_WIDTH-1:0]     compute_stream_in  [MAX_STREAM_LANES-1:0];
@@ -170,13 +192,25 @@ module top #(
     // Program wall-clock: MAGIC_START -> HALT (excludes UART upload / post-HALT idle).
     logic [63:0] perf_program_cycle_counter;
     logic         perf_program_active;
-    logic [255:0] perf_snapshot;
+    // Per-state-group attribution (same START->HALT window as program_cycles).
+    // Streamed after the legacy 4x64 MAGIC_READ_PERF words (13x64 = 104 bytes).
+    logic [63:0] perf_attr_fetch_decode;
+    logic [63:0] perf_attr_store;
+    logic [63:0] perf_attr_load;
+    logic [63:0] perf_attr_compute;
+    logic [63:0] perf_attr_writeback;
+    logic [63:0] perf_attr_bstore;
+    logic [63:0] perf_attr_ext_addr;
+    logic [63:0] perf_attr_requant;
+    logic [63:0] perf_attr_result_fetch; // FETCH_BUFFER_STATE (UART result drain)
+    logic [831:0] perf_snapshot;         // 13 x 64-bit words
     logic         perf_stream_active;
-    logic [4:0]   perf_stream_idx;
+    logic [6:0]   perf_stream_idx;       // 0..103
     logic         perf_busy_active;
     logic         perf_waiting_for_immediate_finalize;
     logic         perf_span_measuring;
     logic [63:0]  perf_compute_span_counter;
+    localparam int PERF_STREAM_BYTES = 104; // 13 * 8
 
     // -----------------------------------------------------------------------
     // Instruction BRAM + program counter
@@ -194,6 +228,11 @@ module top #(
     logic [15:0] upload_count;    // # of 16-bit words written so far
     logic        upload_byte_half; // 0 = waiting for low byte, 1 = waiting for high byte
     logic [7:0]  upload_byte_lo;
+    // A5 buffer-fill assembly (reuses upload_byte_* for packing)
+    logic [ADDRESS_SIZE-1:0] buf_fill_addr;
+    logic [15:0] buf_fill_remain;
+    logic        buf_fill_from_wait;
+    logic        buf_fill_issue; // we asserted; wait for buffer_done
 
     // -----------------------------------------------------------------------
     // Active-low external reset → active-high internal
@@ -252,7 +291,8 @@ module top #(
         .BUFFER_WORD_SIZE(BUFFER_WORD_SIZE),
         .NUM_COMPUTE_LANES(NUM_COMPUTE_LANES),
         .MAX_BATCH_COUNT(MAX_BATCH_COUNT),
-        .BATCH_COUNT_WIDTH(MAX_BATCH_COUNT_WIDTH)
+        .BATCH_COUNT_WIDTH(MAX_BATCH_COUNT_WIDTH),
+        .WEIGHT_OVERLAP_EN(WEIGHT_OVERLAP_EN)
     ) u_pe_array (
         .clk(clk), .rst(rst_int),
         .compute(compute_start),
@@ -297,7 +337,8 @@ module top #(
         .FIFO_DATA_WIDTH(FIFO_DATA_WIDTH),
         .COMPUTE_DATA_WIDTH(COMPUTE_DATA_WIDTH),
         .ADDRESS_SIZE(ADDRESS_SIZE),
-        .ARRAY_SIZE(ARRAY_SIZE)
+        .ARRAY_SIZE(ARRAY_SIZE),
+        .STORE_WIDE(BSTORE_WIDTH)
     ) u_unified_buffer (
         .clk(clk),
         .we(buffer_we), .re(buffer_re),
@@ -312,7 +353,9 @@ module top #(
         .compute_in(compute_to_buffer),
         .compute_out(mem_to_compute),
         .store_in(controller_to_buffer),
-        .store_out(buffer_to_controller)
+        .store_out(buffer_to_controller),
+        .store_count(buffer_store_count),
+        .store_wide_in(buffer_store_wide)
     );
 
     instr_bram #(
@@ -344,9 +387,9 @@ module top #(
     // -----------------------------------------------------------------------
     // State encoding
     // -----------------------------------------------------------------------
-    typedef enum logic [4:0] {
+    typedef enum logic [5:0] {
         RESET_STATE,           // 0
-        UPLOAD_HEADER_STATE,   // 1  wait for 0xA1
+        UPLOAD_HEADER_STATE,   // 1  wait for 0xA1 / 0xA5
         UPLOAD_LEN_LO_STATE,   // 2  receive length low byte
         UPLOAD_LEN_HI_STATE,   // 3  receive length high byte, latch prog_len
         UPLOAD_BODY_STATE,     // 4  receive instruction bytes, write to BRAM
@@ -372,7 +415,12 @@ module top #(
         EXT_ADDR_LATCH_STATE,     // 24 (EXT_ADDR_EN=1) latch address word, route to target state
         REQUANT_FETCH_MULT_STATE, // 25 read requant multiplier payload
         REQUANT_FETCH_SHIFT_STATE,// 26 latch multiplier, read right-shift payload
-        REQUANT_LATCH_STATE       // 27 latch right-shift payload
+        REQUANT_LATCH_STATE,      // 27 latch right-shift payload
+        BUF_FILL_DEST_LO_STATE,   // 28 A5 dest address low
+        BUF_FILL_DEST_HI_STATE,   // 29 A5 dest address high
+        BUF_FILL_COUNT_LO_STATE,  // 30 A5 word count low
+        BUF_FILL_COUNT_HI_STATE,  // 31 A5 word count high
+        BUF_FILL_BODY_STATE       // 32 A5 payload → unified buffer
     } state_e;
 
     state_e current_state, next_state;
@@ -394,6 +442,14 @@ module top #(
     logic [15:0] bstore_index;
     logic [ADDRESS_SIZE-1:0] bstore_base_addr;
     logic [BUFFER_WORD_SIZE-1:0] bstore_data_word;
+    logic [BUFFER_WORD_SIZE-1:0] bstore_skid [BSTORE_WIDTH-1:0];
+    logic [$clog2(BSTORE_WIDTH+1)-1:0] bstore_fill;
+    logic [$clog2(BSTORE_WIDTH+1)-1:0] buffer_store_count;
+    logic [BUFFER_WORD_SIZE-1:0] buffer_store_wide [BSTORE_WIDTH-1:0];
+    logic bstore_skid_ready;
+    logic bstore_more;
+    logic bstore_count_latched;
+    logic bstore_refill; // prime BRAM read between wide WRITE beats
     logic                        load_clear_pending;
     logic                        load_is_weights;
     logic                        residual_en;
@@ -579,6 +635,15 @@ module top #(
             perf_waiting_for_immediate_finalize <= 1'b0;
             perf_span_measuring <= 1'b0;
             perf_compute_span_counter <= '0;
+            perf_attr_fetch_decode <= '0;
+            perf_attr_store <= '0;
+            perf_attr_load <= '0;
+            perf_attr_compute <= '0;
+            perf_attr_writeback <= '0;
+            perf_attr_bstore <= '0;
+            perf_attr_ext_addr <= '0;
+            perf_attr_requant <= '0;
+            perf_attr_result_fetch <= '0;
         end else begin
             perf_cycle_counter <= perf_cycle_counter + 1'b1;
             if (perf_busy_active)
@@ -592,10 +657,53 @@ module top #(
                 rx_fifo_to_mem == MAGIC_START) begin
                 perf_program_cycle_counter <= '0;
                 perf_program_active <= 1'b1;
+                perf_attr_fetch_decode <= '0;
+                perf_attr_store <= '0;
+                perf_attr_load <= '0;
+                perf_attr_compute <= '0;
+                perf_attr_writeback <= '0;
+                perf_attr_bstore <= '0;
+                perf_attr_ext_addr <= '0;
+                perf_attr_requant <= '0;
+                perf_attr_result_fetch <= '0;
             end else if (current_state == HALT_STATE) begin
                 perf_program_active <= 1'b0;
             end else if (perf_program_active) begin
                 perf_program_cycle_counter <= perf_program_cycle_counter + 1'b1;
+                // State-group attribution (mutually exclusive groups).
+                case (current_state)
+                    FETCH_BRAM_STATE,
+                    FETCH_BRAM_WAIT_STATE,
+                    DECODE_STATE:
+                        perf_attr_fetch_decode <= perf_attr_fetch_decode + 1'b1;
+                    STORE_FETCH_W2_STATE,
+                    STORE_FETCH_W3_STATE,
+                    STORE_DECIDE_STATE,
+                    FETCH_ADDRESS_STATE,
+                    STORE_STATE:
+                        perf_attr_store <= perf_attr_store + 1'b1;
+                    LOAD_STATE:
+                        perf_attr_load <= perf_attr_load + 1'b1;
+                    RESIDUAL_FETCH_STATE,
+                    COMPUTE_STATE:
+                        perf_attr_compute <= perf_attr_compute + 1'b1;
+                    COMPUTE_WRITEBACK_STATE:
+                        perf_attr_writeback <= perf_attr_writeback + 1'b1;
+                    BSTORE_FETCH_COUNT_STATE,
+                    BSTORE_FETCH_DATA_STATE,
+                    BSTORE_WRITE_STATE:
+                        perf_attr_bstore <= perf_attr_bstore + 1'b1;
+                    EXT_ADDR_FETCH_STATE,
+                    EXT_ADDR_LATCH_STATE:
+                        perf_attr_ext_addr <= perf_attr_ext_addr + 1'b1;
+                    REQUANT_FETCH_MULT_STATE,
+                    REQUANT_FETCH_SHIFT_STATE,
+                    REQUANT_LATCH_STATE:
+                        perf_attr_requant <= perf_attr_requant + 1'b1;
+                    FETCH_BUFFER_STATE:
+                        perf_attr_result_fetch <= perf_attr_result_fetch + 1'b1;
+                    default: ;
+                endcase
             end
         end
     end
@@ -640,6 +748,8 @@ module top #(
             UPLOAD_HEADER_STATE:
                 if (rx_rvalid && rx_fifo_to_mem == MAGIC_UPLOAD)
                     next_state = UPLOAD_LEN_LO_STATE;
+                else if (BUF_FILL_EN != 0 && rx_rvalid && rx_fifo_to_mem == MAGIC_BUF_FILL)
+                    next_state = BUF_FILL_DEST_LO_STATE;
 
             UPLOAD_LEN_LO_STATE:
                 if (rx_rvalid)
@@ -648,8 +758,9 @@ module top #(
             UPLOAD_LEN_HI_STATE:
                 if (rx_rvalid) begin
                     // Reject malformed/oversized uploads in hardware, not just host software.
+                    // Compare against UPLOAD_LEN_MAX (not PROG_DEPTH[15:0] — truncates at 64k).
                     if (({rx_fifo_to_mem, upload_byte_lo} == 16'd0) ||
-                        ({rx_fifo_to_mem, upload_byte_lo} > PROG_DEPTH[15:0]))
+                        ({rx_fifo_to_mem, upload_byte_lo} > UPLOAD_LEN_MAX))
                         next_state = HALT_STATE;
                     else
                         next_state = UPLOAD_BODY_STATE;
@@ -662,6 +773,39 @@ module top #(
             WAIT_START_STATE:
                 if (rx_rvalid && rx_fifo_to_mem == MAGIC_START)
                     next_state = FETCH_BRAM_STATE;
+                else if (BUF_FILL_EN != 0 && rx_rvalid && rx_fifo_to_mem == MAGIC_BUF_FILL)
+                    next_state = BUF_FILL_DEST_LO_STATE;
+
+            BUF_FILL_DEST_LO_STATE:
+                if (rx_rvalid)
+                    next_state = BUF_FILL_DEST_HI_STATE;
+
+            BUF_FILL_DEST_HI_STATE:
+                if (rx_rvalid)
+                    next_state = BUF_FILL_COUNT_LO_STATE;
+
+            BUF_FILL_COUNT_LO_STATE:
+                if (rx_rvalid)
+                    next_state = BUF_FILL_COUNT_HI_STATE;
+
+            BUF_FILL_COUNT_HI_STATE:
+                if (rx_rvalid) begin
+                    // Reject zero / OOR fills (dest+count > BUFFER_SIZE).
+                    if (({rx_fifo_to_mem, upload_byte_lo} == 16'd0) ||
+                        ((32'(buf_fill_addr) + 32'({rx_fifo_to_mem, upload_byte_lo}))
+                            > 32'(BUFFER_SIZE)))
+                        next_state = HALT_STATE;
+                    else
+                        next_state = BUF_FILL_BODY_STATE;
+                end
+
+            BUF_FILL_BODY_STATE:
+                if (buf_fill_remain == 16'd0 && ~buf_fill_issue) begin
+                    if (buf_fill_from_wait)
+                        next_state = WAIT_START_STATE;
+                    else
+                        next_state = UPLOAD_HEADER_STATE;
+                end
 
             // --- Execution phase: fetch from BRAM ---
             FETCH_BRAM_STATE:
@@ -758,14 +902,28 @@ module top #(
                 next_state = BSTORE_FETCH_DATA_STATE;
 
             BSTORE_FETCH_DATA_STATE:
-                next_state = BSTORE_WRITE_STATE;
+                if (BSTORE_WIDTH == 1 || bstore_skid_ready)
+                    next_state = BSTORE_WRITE_STATE;
+                else
+                    next_state = BSTORE_FETCH_DATA_STATE;
 
             BSTORE_WRITE_STATE:
+                // Combinational completion check (not registered bstore_more —
+                // that lags one cycle and would exit after the first beat).
                 if (buffer_done) begin
-                    if ((bstore_index + 1'b1) >= bstore_count)
-                        next_state = FETCH_BRAM_STATE;
-                    else
-                        next_state = BSTORE_FETCH_DATA_STATE;
+                    if (BSTORE_WIDTH == 1) begin
+                        if ((bstore_index + 1'b1) >= bstore_count)
+                            next_state = FETCH_BRAM_STATE;
+                        else
+                            next_state = BSTORE_FETCH_DATA_STATE;
+                    end else begin
+                        if ((bstore_index +
+                             {{(16-$clog2(BSTORE_WIDTH+1)){1'b0}}, buffer_store_count})
+                            >= bstore_count)
+                            next_state = FETCH_BRAM_STATE;
+                        else
+                            next_state = BSTORE_FETCH_DATA_STATE;
+                    end
                 end
 
             // Phase 4 EXT_ADDR_EN: 2-word fetch path. Issue BRAM read for the
@@ -822,10 +980,14 @@ module top #(
     // Main FSM sequential output logic
     // -----------------------------------------------------------------------
     always_ff @(posedge clk) begin
-        // Default: no BRAM writes, no buffer ops
+        // Default: no BRAM writes, no buffer ops, one-cycle commit pulse
         tx_we      <= 1'b0;
         bram_wr_en <= 1'b0;
         bram_rd_en <= 1'b0;
+        compute_weight_commit <= 1'b0;
+        // Legacy single-word stores unless BSTORE_WRITE overrides.
+        if (current_state != BSTORE_WRITE_STATE && current_state != BSTORE_FETCH_DATA_STATE)
+            buffer_store_count <= '0;
 
         case (current_state)
 
@@ -839,6 +1001,10 @@ module top #(
                 upload_count     <= '0;
                 upload_byte_half <= 1'b0;
                 upload_byte_lo   <= '0;
+                buf_fill_addr    <= '0;
+                buf_fill_remain  <= '0;
+                buf_fill_from_wait <= 1'b0;
+                buf_fill_issue   <= 1'b0;
                 rx_pending       <= 1'b0;
                 rx_re            <= 1'b0;
                 buffer_re        <= 1'b0;
@@ -882,6 +1048,8 @@ module top #(
                 acc_clear_en     <= 1'b0;
                 compute_load_en  <= 1'b0;
                 compute_weight_commit <= 1'b0;
+                load_weight_commit_after <= 1'b0;
+                load_commit_pending <= 1'b0;
                 load_clear_pending <= 1'b0;
                 buffer_fifo_en   <= 1'b0;
                 buffer_compute_en<= 1'b0;
@@ -892,6 +1060,12 @@ module top #(
                 bstore_index     <= '0;
                 bstore_base_addr <= '0;
                 bstore_data_word <= '0;
+                bstore_fill      <= '0;
+                bstore_skid_ready <= 1'b0;
+                bstore_more      <= 1'b0;
+                bstore_count_latched <= 1'b0;
+                bstore_refill    <= 1'b0;
+                buffer_store_count <= '0;
                 load_is_weights  <= 1'b0;
                 residual_en      <= 1'b0;
                 residual_source_addr <= '0;
@@ -944,13 +1118,20 @@ module top #(
             UPLOAD_LEN_HI_STATE,
             UPLOAD_BODY_STATE,
             WAIT_START_STATE,
-            HALT_STATE: begin
+            HALT_STATE,
+            BUF_FILL_DEST_LO_STATE,
+            BUF_FILL_DEST_HI_STATE,
+            BUF_FILL_COUNT_LO_STATE,
+            BUF_FILL_COUNT_HI_STATE: begin
                 rx_re <= 1'b0;
                 if (rx_rvalid) begin
                     rx_pending <= 1'b0;
 
                     case (current_state)
-                        UPLOAD_HEADER_STATE: ; // next_state logic handles transition on MAGIC_UPLOAD
+                        UPLOAD_HEADER_STATE: begin
+                            if (BUF_FILL_EN != 0 && rx_fifo_to_mem == MAGIC_BUF_FILL)
+                                buf_fill_from_wait <= 1'b0;
+                        end
 
                         UPLOAD_LEN_LO_STATE: begin
                             upload_byte_lo <= rx_fifo_to_mem;
@@ -958,8 +1139,9 @@ module top #(
 
                         UPLOAD_LEN_HI_STATE: begin
                             // Guard upload length in RTL to prevent BRAM write-pointer wrap.
+                            // UPLOAD_LEN_MAX = min(PROG_DEPTH, 65535); see localparam note.
                             if (({rx_fifo_to_mem, upload_byte_lo} == 16'd0) ||
-                                ({rx_fifo_to_mem, upload_byte_lo} > PROG_DEPTH[15:0])) begin
+                                ({rx_fifo_to_mem, upload_byte_lo} > UPLOAD_LEN_MAX)) begin
                                 prog_len         <= '0;
                                 upload_count     <= '0;
                                 upload_byte_half <= 1'b0;
@@ -981,17 +1163,29 @@ module top #(
                                 // high byte: pack and write to BRAM
                                 bram_wr_data     <= {rx_fifo_to_mem, upload_byte_lo};
                                 bram_wr_en       <= 1'b1;
-                                bram_wr_addr     <= upload_count[PC_WIDTH-1:0];
+                                // Width-safe: SV truncates/zero-extends to PC_WIDTH.
+                                // Do NOT use upload_count[PC_WIDTH-1:0] — illegal when
+                                // PC_WIDTH > 16 (upload_count is only [15:0]).
+                                bram_wr_addr     <= upload_count;
                                 upload_count     <= upload_count + 1'b1;
                                 upload_byte_half <= 1'b0;
                             end
                         end
 
                         WAIT_START_STATE: begin
-                            if (rx_fifo_to_mem == MAGIC_READ_PERF) begin
-                                // 32 bytes: cycle, busy, program_count, program_cycles (START->HALT)
-                                perf_snapshot <= {perf_cycle_counter, perf_busy_counter,
-                                                  perf_program_count, perf_program_cycle_counter};
+                            if (BUF_FILL_EN != 0 && rx_fifo_to_mem == MAGIC_BUF_FILL) begin
+                                buf_fill_from_wait <= 1'b1;
+                            end else if (rx_fifo_to_mem == MAGIC_READ_PERF) begin
+                                // 104 bytes: legacy 4x64 + 9x64 state-group attribution
+                                perf_snapshot <= {
+                                    perf_cycle_counter, perf_busy_counter,
+                                    perf_program_count, perf_program_cycle_counter,
+                                    perf_attr_fetch_decode, perf_attr_store,
+                                    perf_attr_load, perf_attr_compute,
+                                    perf_attr_writeback, perf_attr_bstore,
+                                    perf_attr_ext_addr, perf_attr_requant,
+                                    perf_attr_result_fetch
+                                };
                                 perf_stream_active <= 1'b1;
                                 perf_stream_idx <= '0;
                             end
@@ -999,12 +1193,41 @@ module top #(
 
                         HALT_STATE: begin
                             if (rx_fifo_to_mem == MAGIC_READ_PERF) begin
-                                perf_snapshot <= {perf_cycle_counter, perf_busy_counter,
-                                                  perf_program_count, perf_program_cycle_counter};
+                                perf_snapshot <= {
+                                    perf_cycle_counter, perf_busy_counter,
+                                    perf_program_count, perf_program_cycle_counter,
+                                    perf_attr_fetch_decode, perf_attr_store,
+                                    perf_attr_load, perf_attr_compute,
+                                    perf_attr_writeback, perf_attr_bstore,
+                                    perf_attr_ext_addr, perf_attr_requant,
+                                    perf_attr_result_fetch
+                                };
                                 perf_stream_active <= 1'b1;
                                 perf_stream_idx <= '0;
                             end
                         end
+
+                        BUF_FILL_DEST_LO_STATE: begin
+                            upload_byte_lo <= rx_fifo_to_mem;
+                        end
+
+                        BUF_FILL_DEST_HI_STATE: begin
+                            logic [15:0] dest_word;
+                            dest_word = {rx_fifo_to_mem, upload_byte_lo};
+                            buf_fill_addr <= dest_word[ADDRESS_SIZE-1:0];
+                        end
+
+                        BUF_FILL_COUNT_LO_STATE: begin
+                            upload_byte_lo <= rx_fifo_to_mem;
+                        end
+
+                        BUF_FILL_COUNT_HI_STATE: begin
+                            buf_fill_remain  <= {rx_fifo_to_mem, upload_byte_lo};
+                            upload_byte_half <= 1'b0;
+                            buf_fill_issue   <= 1'b0;
+                        end
+
+                        default: ;
                     endcase
 
                 end else if (~rx_pending && ~rx_we && ~rx_empty) begin
@@ -1019,6 +1242,39 @@ module top #(
                 end
             end
 
+            BUF_FILL_BODY_STATE: begin
+                rx_re <= 1'b0;
+                if (buf_fill_issue) begin
+                    if (buffer_done) begin
+                        buffer_we       <= 1'b0;
+                        buffer_store_en <= 1'b0;
+                        buf_fill_issue  <= 1'b0;
+                        buf_fill_addr   <= buf_fill_addr + 1'b1;
+                        buf_fill_remain <= buf_fill_remain - 1'b1;
+                    end
+                end else if (buf_fill_remain != 16'd0 && rx_rvalid) begin
+                    rx_pending <= 1'b0;
+                    if (~upload_byte_half) begin
+                        upload_byte_lo   <= rx_fifo_to_mem;
+                        upload_byte_half <= 1'b1;
+                    end else begin
+                        controller_to_buffer <= {rx_fifo_to_mem, upload_byte_lo};
+                        address              <= buf_fill_addr;
+                        buffer_store_count   <= 1'b1;
+                        buffer_we            <= 1'b1;
+                        buffer_store_en      <= 1'b1;
+                        buffer_re            <= 1'b0;
+                        buffer_fifo_en       <= 1'b0;
+                        buffer_compute_en    <= 1'b0;
+                        upload_byte_half     <= 1'b0;
+                        buf_fill_issue       <= 1'b1;
+                    end
+                end else if (~rx_pending && ~rx_we && ~rx_empty && buf_fill_remain != 16'd0) begin
+                    rx_re      <= 1'b1;
+                    rx_pending <= 1'b1;
+                end
+            end
+
             // -----------------------------------------------------------------
             // Execution: BRAM fetch
             // -----------------------------------------------------------------
@@ -1029,6 +1285,10 @@ module top #(
                 if (load_clear_pending) begin
                     compute_load_en    <= 1'b0;
                     load_clear_pending <= 1'b0;
+                end
+                if (load_commit_pending) begin
+                    compute_weight_commit <= 1'b1;
+                    load_commit_pending   <= 1'b0;
                 end
             end
 
@@ -1087,6 +1347,8 @@ module top #(
                     LOAD_OP: begin
                         // Defer actual load_en pulse to LOAD_STATE when buffer data is valid.
                         load_is_weights    <= instruction[3];
+                        // Bit4 on weight LOAD: commit shadow→active after load (overlap prologue).
+                        load_weight_commit_after <= (WEIGHT_OVERLAP_EN != 0) && instruction[3] && instruction[4];
                         input_batch_count  <= (EXT_ADDR_EN && ~instruction[3]) ? (instruction[15:8] + MAX_BATCH_COUNT_WIDTH'(1)) : MAX_BATCH_COUNT_WIDTH'(1);
                         load_chunk_index   <= '0;
                         load_chunk_count   <= instruction[3]
@@ -1356,6 +1618,11 @@ module top #(
                         buffer_compute_en <= 1'b0;
                         load_chunk_index  <= '0;
                         load_wait_clear   <= 1'b0;
+                        // Overlap prologue: arm commit for next cycle (after shadow captures).
+                        if (load_is_weights && load_weight_commit_after) begin
+                            load_commit_pending <= 1'b1;
+                            load_weight_commit_after <= 1'b0;
+                        end
                     end
                 end
                 end
@@ -1530,6 +1797,9 @@ module top #(
 `endif
                         compute_start <= 1'b0;
                         perf_waiting_for_immediate_finalize <= 1'b1;
+                        // Overlap contract: run(N) -> commit (shadow holds W_{N+1}).
+                        if (WEIGHT_OVERLAP_EN != 0)
+                            compute_weight_commit <= 1'b1;
                     end else if (~compute_start) begin
                         for (int ci = 0; ci < MAX_STREAM_LANES; ci++)
                             compute_stream_in[ci] <= '0;
@@ -1740,21 +2010,64 @@ module top #(
                 bram_rd_addr <= pc[PC_WIDTH-1:0];
                 bram_rd_en   <= 1'b1;
                 pc           <= pc + 1'b1;
-                // Legacy: base address lives in the opcode word's high bits.
-                // Ext-addr: it was already latched in EXT_ADDR_LATCH_STATE
-                // (do not overwrite here).
                 if (!EXT_ADDR_EN)
                     bstore_base_addr <= instruction[BUFFER_WORD_SIZE-1:BUFFER_WORD_SIZE-ADDRESS_SIZE];
                 bstore_index <= '0;
+                bstore_fill  <= '0;
+                bstore_skid_ready <= 1'b0;
+                bstore_more  <= 1'b0;
+                bstore_count_latched <= 1'b0;
+                bstore_refill <= 1'b0;
+                buffer_store_count <= '0;
             end
 
             BSTORE_FETCH_DATA_STATE: begin
-                if (bstore_index == '0) begin
+                if (BSTORE_WIDTH == 1) begin
+                    // Legacy 1-word path — keep pre-widen cycle structure.
+                    if (bstore_index == '0)
+                        bstore_count <= bram_rd_data;
+                    bram_rd_addr <= pc[PC_WIDTH-1:0];
+                    bram_rd_en   <= 1'b1;
+                    pc           <= pc + 1'b1;
+                    bstore_skid_ready <= 1'b1;
+                end else if (bstore_skid_ready) begin
+                    // Skid full; hold PC. next_state advances to WRITE.
+                end else if (!bstore_count_latched) begin
+                    // First beat after COUNT: latch count, prefetch first payload.
                     bstore_count <= bram_rd_data;
+                    bstore_count_latched <= 1'b1;
+                    bram_rd_addr <= pc[PC_WIDTH-1:0];
+                    bram_rd_en   <= 1'b1;
+                    pc           <= pc + 1'b1;
+                    bstore_fill <= '0;
+                    bstore_skid_ready <= 1'b0;
+                end else if (bstore_refill) begin
+                    // Re-prime after a wide WRITE beat (1-cycle BRAM latency).
+                    bram_rd_addr <= pc[PC_WIDTH-1:0];
+                    bram_rd_en   <= 1'b1;
+                    pc           <= pc + 1'b1;
+                    bstore_refill <= 1'b0;
+                    bstore_fill <= '0;
+                end else begin
+                    // Fill skid from prefetched BRAM word.
+                    bstore_skid[bstore_fill] <= bram_rd_data;
+                    begin
+                        logic [$clog2(BSTORE_WIDTH+1)-1:0] nf;
+                        logic [15:0] probe;
+                        nf = bstore_fill + 1'b1;
+                        probe = bstore_index + {{(16-$clog2(BSTORE_WIDTH+1)){1'b0}}, nf};
+                        bstore_fill <= nf;
+                        if (nf == BSTORE_WIDTH[$clog2(BSTORE_WIDTH+1)-1:0] || probe >= bstore_count) begin
+                            bstore_skid_ready <= 1'b1;
+                            buffer_store_count <= nf;
+                        end else begin
+                            bstore_skid_ready <= 1'b0;
+                            bram_rd_addr <= pc[PC_WIDTH-1:0];
+                            bram_rd_en   <= 1'b1;
+                            pc           <= pc + 1'b1;
+                        end
+                    end
                 end
-                bram_rd_addr <= pc[PC_WIDTH-1:0];
-                bram_rd_en   <= 1'b1;
-                pc           <= pc + 1'b1;
             end
 
             BSTORE_WRITE_STATE: begin
@@ -1762,16 +2075,42 @@ module top #(
                 buffer_fifo_en     <= 1'b0;
                 buffer_compute_en  <= 1'b0;
                 address            <= bstore_base_addr + bstore_index[ADDRESS_SIZE-1:0];
-                // Issue exactly one write pulse per payload word, then wait for done.
-                if (~buffer_done && ~buffer_we) begin
-                    bstore_data_word     <= bram_rd_data;
-                    controller_to_buffer <= bram_rd_data;
-                    buffer_we            <= 1'b1;
-                    buffer_store_en      <= 1'b1;
-                end else if (buffer_done) begin
-                    buffer_we       <= 1'b0;
-                    buffer_store_en <= 1'b0;
-                    bstore_index    <= bstore_index + 1'b1;
+                if (BSTORE_WIDTH == 1) begin
+                    // Legacy: one word per WRITE beat using bram_rd_data.
+                    if (~buffer_done && ~buffer_we) begin
+                        bstore_data_word     <= bram_rd_data;
+                        controller_to_buffer <= bram_rd_data;
+                        buffer_store_count   <= 1'b1;
+                        buffer_we            <= 1'b1;
+                        buffer_store_en      <= 1'b1;
+                    end else if (buffer_done) begin
+                        buffer_we       <= 1'b0;
+                        buffer_store_en <= 1'b0;
+                        buffer_store_count <= '0;
+                        bstore_index    <= bstore_index + 1'b1;
+                        bstore_skid_ready <= 1'b0;
+                        bstore_more <= ((bstore_index + 1'b1) < bstore_count);
+                    end
+                end else begin
+                    if (~buffer_done && ~buffer_we) begin
+                        for (int si = 0; si < BSTORE_WIDTH; si++)
+                            buffer_store_wide[si] <= bstore_skid[si];
+                        // store_count==1 uses store_in (legacy bank path).
+                        controller_to_buffer <= bstore_skid[0];
+                        buffer_we       <= 1'b1;
+                        buffer_store_en <= 1'b1;
+                    end else if (buffer_done) begin
+                        buffer_we       <= 1'b0;
+                        buffer_store_en <= 1'b0;
+                        bstore_index    <= bstore_index + {{(16-$clog2(BSTORE_WIDTH+1)){1'b0}}, buffer_store_count};
+                        bstore_more     <= ((bstore_index + {{(16-$clog2(BSTORE_WIDTH+1)){1'b0}}, buffer_store_count}) < bstore_count);
+                        bstore_fill     <= '0;
+                        bstore_skid_ready <= 1'b0;
+                        // Next FETCH beat must re-prime BRAM (1-cycle latency).
+                        if ((bstore_index + {{(16-$clog2(BSTORE_WIDTH+1)){1'b0}}, buffer_store_count}) < bstore_count)
+                            bstore_refill <= 1'b1;
+                        buffer_store_count <= '0;
+                    end
                 end
             end
 
@@ -1793,8 +2132,8 @@ module top #(
             end
         end else if (perf_stream_active && ~tx_full) begin
             tx_we    <= 1'b1;
-            tx_wdata <= perf_snapshot[255 - (perf_stream_idx * 8) -: 8];
-            if (perf_stream_idx == 5'd31) begin
+            tx_wdata <= perf_snapshot[831 - (perf_stream_idx * 8) -: 8];
+            if (perf_stream_idx == 7'd103) begin
                 perf_stream_active <= 1'b0;
                 perf_stream_idx    <= '0;
             end else begin

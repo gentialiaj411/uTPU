@@ -39,6 +39,9 @@ from isa_encoder import (
     IsaConfig,
     NOP_SUBOP_REQUANT,
     OPCODE_DTYPE,
+    OPCODE_TILE_GEMM,
+    TILE_GEMM_WORD_COUNT,
+    decodeTileGemmWords,
 )
 from requantization import requantize_value
 
@@ -143,6 +146,7 @@ class ISASimulationResult:
 class _PEState:
     buffer: List[int]
     weights: List[List[int]]
+    weight_shadow: List[List[int]]
     inputs: List[int]
     input_matrix: List[List[int]]
     acc_partial_sums: List[int]
@@ -150,9 +154,11 @@ class _PEState:
 
     @classmethod
     def create(cls, array_size: int, buffer_size: int, max_batch_size: int) -> "_PEState":
+        zeros = [[0 for _ in range(array_size)] for _ in range(array_size)]
         return cls(
             buffer=[0] * buffer_size,
-            weights=[[0 for _ in range(array_size)] for _ in range(array_size)],
+            weights=[row[:] for row in zeros],
+            weight_shadow=[row[:] for row in zeros],
             inputs=[0 for _ in range(array_size)],
             acc_partial_sums=[0 for _ in range(array_size)],
             input_matrix=[[0 for _ in range(max_batch_size)] for _ in range(array_size)],
@@ -243,6 +249,7 @@ class UTPUISASimulator:
         self._compute_runs = 0
         self._total_macs = 0
         self._loaded_input_batch_count = 1
+        self._weight_overlap_active = False
         self._requant_enable = False
         self._requant_multipliers = [1 for _ in range(self.array_size)]
         self._requant_right_shifts = [0 for _ in range(self.array_size)]
@@ -276,7 +283,7 @@ class UTPUISASimulator:
     # weight / input loading + compute (parameter-driven on cfg)
     # ------------------------------------------------------------------
 
-    def _load_weights(self, pe_id: int, addr: int) -> None:
+    def _load_weights(self, pe_id: int, addr: int, *, to_shadow_only: bool = False) -> None:
         pe = self._pe(pe_id)
         items_per_word = self.cfg.items_per_word
         words_needed = (self.array_size * self.array_size) // items_per_word
@@ -285,7 +292,14 @@ class UTPUISASimulator:
             flat.extend(_unpack_compute_word(self._read_word(pe_id, addr + offset), self.cfg))
         for row in range(self.array_size):
             start = row * self.array_size
-            pe.weights[row] = flat[start:start + self.array_size]
+            pe.weight_shadow[row] = flat[start:start + self.array_size]
+            if not to_shadow_only:
+                pe.weights[row] = pe.weight_shadow[row][:]
+
+    def _commit_weights(self, pe_id: int) -> None:
+        pe = self._pe(pe_id)
+        for row in range(self.array_size):
+            pe.weights[row] = pe.weight_shadow[row][:]
 
     def _load_inputs(self, pe_id: int, addr: int, batch_count: int = 1) -> None:
         pe = self._pe(pe_id)
@@ -450,6 +464,64 @@ class UTPUISASimulator:
             value = self._read_word(src_pe, src_addr + offset)
             self._write_word(dst_pe, dst_addr + offset, value)
 
+    def _execute_tile_gemm(self, pe_id: int, desc: dict) -> None:
+        """Golden-model expansion of TILE_GEMM into LOAD/RUN semantics.
+
+        Requires hoist_payloads=True for Part A v1 (payloads already in buffer).
+        Weight-overlap flag is parked and ignored here.
+        """
+        if int(desc["array_size"]) != int(self.array_size):
+            raise ValueError(
+                f"TILE_GEMM array_size={desc['array_size']} != simulator array_size={self.array_size}"
+            )
+        if int(desc["dtype_code"]) != int(self.cfg.compute_data_width):
+            raise ValueError(
+                f"TILE_GEMM dtype_code={desc['dtype_code']} != compute_data_width={self.cfg.compute_data_width}"
+            )
+        if not desc["hoist_payloads"]:
+            raise ValueError(
+                "TILE_GEMM golden model v1 requires hoist_payloads=1 "
+                "(non-hoist payload stores remain host BSTORE/STORE)"
+            )
+        if desc.get("weight_overlap"):
+            # Parked: Approach A concurrency not part of Part A golden expansion.
+            pass
+
+        n = int(self.array_size)
+        batch = int(desc["batch_size"])
+        out_blocks = int(desc["out_blocks"])
+        in_blocks = int(desc["in_blocks"])
+        items = int(self.cfg.items_per_word)
+        w_words = (n * n) // items
+        x_words = (n * batch) // items
+        # Match lowering_blocked_fc_utpu hoist result stride (padded batch cols to N).
+        out_chunks = max(1, (batch + n - 1) // n)
+        y_words = ((n * n) // items) * out_chunks
+        weight_base = int(desc["weight_base"])
+        input_base = int(desc["input_base"])
+        result_base = int(desc["result_base"])
+
+        for ob in range(out_blocks):
+            out_addr = result_base + ob * y_words
+            for ib in range(in_blocks):
+                w_addr = weight_base + (ob * in_blocks + ib) * w_words
+                x_addr = input_base + ib * x_words
+                self._load_weights(pe_id, w_addr, to_shadow_only=False)
+                self._load_inputs(pe_id, x_addr, batch_count=batch)
+                acc_clear = bool(desc["acc_clear_first"]) and (ib == 0)
+                self._run_accumulate(pe_id, acc_clear=acc_clear, batch_count=batch)
+            if desc["finalize_last"]:
+                # Part A v1: quantize+writeback only. ReLU is not in the frozen
+                # TILE_GEMM flags yet (matches blocked-FC calls with apply_relu=False).
+                self._run_finalize(
+                    pe_id,
+                    out_addr,
+                    quantize=True,
+                    relu=False,
+                    residual_addr=None,
+                    batch_count=batch,
+                )
+
     def _record_cycle(self, pe_id: int, cost: int = 1) -> None:
         self._cycle_count_sequential += int(cost)
         self._current_section[pe_id] = self._current_section.get(pe_id, 0) + int(cost)
@@ -500,10 +572,30 @@ class UTPUISASimulator:
             steps += 1
             instruction = words[pc] & 0xFFFF
             pe_id = int(self._active_pe)
-            opcode = instruction & 0x7
+            # TILE_GEMM is exactly low-nibble 0x8. Do NOT treat all bit[3]=1 as
+            # 4-bit opcodes: legacy FETCH/LOAD/RUN/NOP already use bit[3] as flags.
+            low4 = instruction & 0xF
+            if self.cfg.descriptor_isa and low4 == OPCODE_TILE_GEMM:
+                opcode = OPCODE_TILE_GEMM
+            else:
+                opcode = instruction & 0x7
             pc += 1
 
-            if opcode == OPCODE_STORE:
+            if opcode == OPCODE_TILE_GEMM:
+                if not self.cfg.descriptor_isa:
+                    raise ValueError("TILE_GEMM requires IsaConfig(descriptor_isa=True)")
+                # Header already consumed; need words[pc-1] plus 5 trailers.
+                desc_words = [instruction] + list(words[pc : pc + TILE_GEMM_WORD_COUNT - 1])
+                if len(desc_words) < TILE_GEMM_WORD_COUNT:
+                    raise ValueError("truncated TILE_GEMM descriptor")
+                pc += TILE_GEMM_WORD_COUNT - 1
+                desc = decodeTileGemmWords(desc_words, cfg=self.cfg)
+                self._execute_tile_gemm(pe_id, desc)
+                self.executed_ops.setdefault("tile_gemm", 0)
+                self.executed_ops["tile_gemm"] += 1
+                self._record_cycle(pe_id)
+
+            elif opcode == OPCODE_STORE:
                 # STORE is multi-word in both legacy and extended layouts.
                 # word2 = source / immediate; word3 = destination address
                 # (low ``address_width`` bits in extended mode, low 9 bits
@@ -554,12 +646,20 @@ class UTPUISASimulator:
                 else:
                     addr = self._legacy_addr(instruction)
                 load_batch_count = (((instruction >> 8) & 0xFF) + 1) if extended_addr and (((instruction >> 3) & 0x1) == 0) else 1
-                if (instruction >> 3) & 0x1:
-                    self._load_weights(pe_id, addr)
+                is_weights = bool((instruction >> 3) & 0x1)
+                commit_after = bool((instruction >> 4) & 0x1) and is_weights
+                if is_weights:
+                    if commit_after or self._weight_overlap_active:
+                        self._weight_overlap_active = True
+                        self._load_weights(pe_id, addr, to_shadow_only=True)
+                        if commit_after:
+                            self._commit_weights(pe_id)
+                    else:
+                        self._load_weights(pe_id, addr, to_shadow_only=False)
                 else:
                     self._load_inputs(pe_id, addr, batch_count=load_batch_count)
                 self.executed_ops["load"] += 1
-                if (instruction >> 3) & 0x1:
+                if is_weights:
                     self.executed_ops.setdefault("load_weights", 0)
                     self.executed_ops["load_weights"] += 1
                 else:
@@ -588,6 +688,8 @@ class UTPUISASimulator:
                     residual_addr = consume_addr_word()
                 if compute and not quantize and not relu:
                     self._run_accumulate(pe_id, acc_clear=acc_clear, batch_count=run_batch_count)
+                    if self._weight_overlap_active:
+                        self._commit_weights(pe_id)
                 elif (not compute) and quantize:
                     self._run_finalize(
                         pe_id,

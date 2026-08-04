@@ -104,12 +104,41 @@ class BoardConfig:
         )
 
     @classmethod
-    def reference_set(cls) -> List["BoardConfig"]:
-        return [
+    def artix_a7100t_bram_max(cls, prog_depth: int = 65536) -> "BoardConfig":
+        """Artix-7 A7-100T with instruction BRAM grown into free BRAM36.
+
+        Default PROG_DEPTH=65536 — closes after the UPLOAD_LEN_MAX fix
+        (`bench/results/prog_depth_sweep.json`). Two-byte UART length still
+        caps uploadable words at 65535 (=DEPTH−1); that is enough for FC1 and
+        board-fit 256×256. Datapath matches shipping synth (N=8 INT8, buffer 4096).
+        """
+        return cls(
+            name="artix_a7100t_bram_max",
+            prog_depth=int(prog_depth),
+            buffer_size=16384,
+            array_size=8,
+            data_width_bits=8,
+            notes=(
+                f"Artix-7 xc7a100tcsg324-1 with PROG_DEPTH={int(prog_depth)} "
+                "and BUFFER_SIZE=16384 (smallest swept size that holds FC1 "
+                "14144-word weight payload; activations in [14144, 16384)). "
+                "Requires UPLOAD_LEN_MAX fix (never PROG_DEPTH[15:0]). "
+                "UART length field still maxes at 65535 words. A5 buf-fill enabled."
+            ),
+        )
+
+    @classmethod
+    def reference_set(cls, artix_prog_depth: int | None = None) -> List["BoardConfig"]:
+        boards = [
             cls.pynqz2_baseline(),
             cls.pynqz2_bram_max(),
             cls.vu13p_uram(),
         ]
+        if artix_prog_depth is not None:
+            boards.append(cls.artix_a7100t_bram_max(artix_prog_depth))
+        else:
+            boards.append(cls.artix_a7100t_bram_max())
+        return boards
 
     def fits(self, program_instruction_words: int) -> bool:
         return int(program_instruction_words) <= int(self.prog_depth)

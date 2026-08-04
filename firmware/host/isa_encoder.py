@@ -36,7 +36,15 @@ OPCODE_HALT = 0b100   # 4 - stop execution
 OPCODE_NOP = 0b101    # 5 - no operation
 OPCODE_BSTORE = 0b110 # 6 - burst store sequential 16-bit words to buffer
 OPCODE_DTYPE = 0b111  # 7 - multi-PE / dataflow extensions (sim-validated; not in current RTL)
+# Part A descriptor ISA (4-bit opcode, bit[3]=1). Frozen in docs/descriptor_isa_part_a_design.md.
+OPCODE_TILE_GEMM = 0x8
 NOP_SUBOP_REQUANT = 0b1
+
+TILE_GEMM_FLAG_ACC_CLEAR_FIRST = 1 << 0
+TILE_GEMM_FLAG_FINALIZE_LAST = 1 << 1
+TILE_GEMM_FLAG_HOIST_PAYLOADS = 1 << 2
+TILE_GEMM_FLAG_WEIGHT_OVERLAP = 1 << 3  # parked; golden model ignores unless overlap enabled
+TILE_GEMM_WORD_COUNT = 6
 
 DTYPE_SUBOP_BUFFER_XFER = 0b00
 DTYPE_SUBOP_BARRIER = 0b01
@@ -71,11 +79,15 @@ class IsaConfig:
         many elements pack into a 16-bit ``BUFFER_WORD_SIZE`` slot.
     items_per_word
         ``instruction_width // compute_data_width``. Cached for clarity.
+    descriptor_isa
+        When True, allow 4-bit opcodes including TILE_GEMM (Part A).
+        Default False keeps legacy 3-bit decode / byte-identical programs.
     """
 
     instruction_width: int = 16
     address_width: int = 9
     compute_data_width: int = 4
+    descriptor_isa: bool = False
 
     @property
     def items_per_word(self) -> int:
@@ -88,6 +100,10 @@ class IsaConfig:
     @property
     def extended_address(self) -> bool:
         return self.address_width > 9
+
+    @property
+    def opcode_width(self) -> int:
+        return 4 if self.descriptor_isa else 3
 
     def __post_init__(self) -> None:
         if self.instruction_width != 16:
@@ -245,19 +261,31 @@ def encodeLoad(
     is_weights: bool,
     cfg: Optional[IsaConfig] = None,
     batch_count: int = 1,
+    *,
+    commit_after: bool = False,
 ) -> bytes:
     cfg = _resolve_cfg(cfg)
     addr = encodeAddress(addr, cfg)
     if is_weights and int(batch_count) != 1:
         raise ValueError("weight loads do not accept batch_count > 1")
+    if commit_after and not is_weights:
+        raise ValueError("commit_after is only valid on weight loads")
     header = OPCODE_LOAD | ((1 if is_weights else 0) << 3)
+    if commit_after:
+        # Bit4: WEIGHT_OVERLAP prologue — commit shadow→active one cycle after load.
+        header |= 1 << 4
     if not is_weights:
         header |= _encode_batch_count_header_bits(batch_count, cfg=cfg)
     return _emit_with_addr(header, addr, cfg)
 
 
-def encodeLoadWeights(addr: int, cfg: Optional[IsaConfig] = None) -> bytes:
-    return encodeLoad(addr, is_weights=True, cfg=cfg, batch_count=1)
+def encodeLoadWeights(
+    addr: int,
+    cfg: Optional[IsaConfig] = None,
+    *,
+    commit_after: bool = False,
+) -> bytes:
+    return encodeLoad(addr, is_weights=True, cfg=cfg, batch_count=1, commit_after=commit_after)
 
 
 def encodeLoadInputs(
@@ -505,6 +533,104 @@ def encodeBurstStore(addr: int, words: List[int], cfg: Optional[IsaConfig] = Non
     return b"".join(payload)
 
 
+def encodeTileGemm(
+    *,
+    weight_base: int,
+    input_base: int,
+    result_base: int,
+    out_blocks: int,
+    in_blocks: int,
+    batch_size: int,
+    array_size: int,
+    cfg: Optional[IsaConfig] = None,
+    acc_clear_first: bool = True,
+    finalize_last: bool = True,
+    hoist_payloads: bool = True,
+    weight_overlap: bool = False,
+) -> bytes:
+    """Encode a frozen 6-word TILE_GEMM descriptor (Part A).
+
+    Requires ``cfg.descriptor_isa=True``. Layout locked in
+    ``docs/descriptor_isa_part_a_design.md`` §2.
+    """
+    cfg = _resolve_cfg(cfg)
+    if not cfg.descriptor_isa:
+        raise ValueError("encodeTileGemm requires IsaConfig(descriptor_isa=True)")
+    if batch_size < 1 or batch_size > 64:
+        raise ValueError(f"batch_size must be in [1, 64]; got {batch_size}")
+    if out_blocks < 1 or out_blocks > 255 or in_blocks < 1 or in_blocks > 255:
+        raise ValueError(
+            f"out_blocks/in_blocks must be in [1, 255]; got {out_blocks}/{in_blocks}"
+        )
+    if array_size < 1 or array_size > 255:
+        raise ValueError(f"array_size must be in [1, 255]; got {array_size}")
+    weight_base = encodeAddress(weight_base, cfg)
+    input_base = encodeAddress(input_base, cfg)
+    result_base = encodeAddress(result_base, cfg)
+    flags = 0
+    if acc_clear_first:
+        flags |= TILE_GEMM_FLAG_ACC_CLEAR_FIRST
+    if finalize_last:
+        flags |= TILE_GEMM_FLAG_FINALIZE_LAST
+    if hoist_payloads:
+        flags |= TILE_GEMM_FLAG_HOIST_PAYLOADS
+    if weight_overlap:
+        flags |= TILE_GEMM_FLAG_WEIGHT_OVERLAP
+    header = (
+        OPCODE_TILE_GEMM
+        | ((flags & 0xF) << 6)
+        | (((batch_size - 1) & 0x3F) << 10)
+    )
+    word4 = ((out_blocks & 0xFF) << 8) | (in_blocks & 0xFF)
+    word5 = ((array_size & 0xFF) << 8) | (cfg.compute_data_width & 0xFF)
+    return b"".join(
+        instructionToBytes(w)
+        for w in (header, weight_base, input_base, result_base, word4, word5)
+    )
+
+
+def decodeTileGemmHeader(word0: int) -> dict:
+    """Decode TILE_GEMM word0 fields (does not validate opcode)."""
+    opcode = int(word0) & 0xF
+    flags = (int(word0) >> 6) & 0xF
+    batch_m1 = (int(word0) >> 10) & 0x3F
+    return {
+        "opcode": opcode,
+        "flags": flags,
+        "acc_clear_first": bool(flags & TILE_GEMM_FLAG_ACC_CLEAR_FIRST),
+        "finalize_last": bool(flags & TILE_GEMM_FLAG_FINALIZE_LAST),
+        "hoist_payloads": bool(flags & TILE_GEMM_FLAG_HOIST_PAYLOADS),
+        "weight_overlap": bool(flags & TILE_GEMM_FLAG_WEIGHT_OVERLAP),
+        "batch_size": batch_m1 + 1,
+    }
+
+
+def decodeTileGemmWords(words: Sequence[int], cfg: Optional[IsaConfig] = None) -> dict:
+    """Decode a full 6-word TILE_GEMM descriptor starting at words[0]."""
+    cfg = _resolve_cfg(cfg)
+    if len(words) < TILE_GEMM_WORD_COUNT:
+        raise ValueError("truncated TILE_GEMM descriptor")
+    header = decodeTileGemmHeader(words[0])
+    if header["opcode"] != OPCODE_TILE_GEMM:
+        raise ValueError(f"expected TILE_GEMM opcode 0x8, got {header['opcode']:#x}")
+    addr_mask = (1 << cfg.address_width) - 1
+    out_blocks = (int(words[4]) >> 8) & 0xFF
+    in_blocks = int(words[4]) & 0xFF
+    array_size = (int(words[5]) >> 8) & 0xFF
+    dtype_code = int(words[5]) & 0xFF
+    return {
+        **header,
+        "weight_base": int(words[1]) & addr_mask,
+        "input_base": int(words[2]) & addr_mask,
+        "result_base": int(words[3]) & addr_mask,
+        "out_blocks": out_blocks,
+        "in_blocks": in_blocks,
+        "array_size": array_size,
+        "dtype_code": dtype_code,
+        "word_count": TILE_GEMM_WORD_COUNT,
+    }
+
+
 # ---------------------------------------------------------------------------
 # ISAEncoder convenience class
 # ---------------------------------------------------------------------------
@@ -521,8 +647,8 @@ class ISAEncoder:
         self.instructions.append(encodeStoreValues(addr, values, cfg=self.cfg))
         return self
 
-    def loadWeights(self, addr: int) -> "ISAEncoder":
-        self.instructions.append(encodeLoadWeights(addr, cfg=self.cfg))
+    def loadWeights(self, addr: int, *, commit_after: bool = False) -> "ISAEncoder":
+        self.instructions.append(encodeLoadWeights(addr, cfg=self.cfg, commit_after=commit_after))
         return self
 
     def loadInputs(self, addr: int, batch_count: int = 1) -> "ISAEncoder":
@@ -598,6 +724,39 @@ class ISAEncoder:
 
     def burst_store(self, addr: int, words: List[int]) -> "ISAEncoder":
         self.instructions.append(encodeBurstStore(addr, words, cfg=self.cfg))
+        return self
+
+    def tileGemm(
+        self,
+        *,
+        weight_base: int,
+        input_base: int,
+        result_base: int,
+        out_blocks: int,
+        in_blocks: int,
+        batch_size: int,
+        array_size: int,
+        acc_clear_first: bool = True,
+        finalize_last: bool = True,
+        hoist_payloads: bool = True,
+        weight_overlap: bool = False,
+    ) -> "ISAEncoder":
+        self.instructions.append(
+            encodeTileGemm(
+                weight_base=weight_base,
+                input_base=input_base,
+                result_base=result_base,
+                out_blocks=out_blocks,
+                in_blocks=in_blocks,
+                batch_size=batch_size,
+                array_size=array_size,
+                cfg=self.cfg,
+                acc_clear_first=acc_clear_first,
+                finalize_last=finalize_last,
+                hoist_payloads=hoist_payloads,
+                weight_overlap=weight_overlap,
+            )
+        )
         return self
 
     def buffer_xfer(

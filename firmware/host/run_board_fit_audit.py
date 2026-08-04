@@ -194,8 +194,8 @@ def _methodology(boards: List[BoardConfig]) -> Dict[str, Any]:
     }
 
 
-def _build_payload() -> Dict[str, Any]:
-    boards = BoardConfig.reference_set()
+def _build_payload(artix_prog_depth: int | None = None) -> Dict[str, Any]:
+    boards = BoardConfig.reference_set(artix_prog_depth=artix_prog_depth)
     per_shape = _per_shape_audit(boards, SHAPE_GRID)
     return {
         "generated_at_utc": _dt.datetime.now(_dt.timezone.utc).isoformat(),
@@ -204,7 +204,7 @@ def _build_payload() -> Dict[str, Any]:
             "Reports which boards (PROG_DEPTH) admit which shapes' lowered "
             "instruction streams. No execution; no claim about correctness "
             "beyond the existing tiling-correctness artifact for in-bound "
-            "shapes."
+            "shapes. Includes artix_a7100t_bram_max when PROG_DEPTH sweep closes."
         ),
         "methodology": _methodology(boards),
         "per_shape": per_shape,
@@ -212,11 +212,46 @@ def _build_payload() -> Dict[str, Any]:
     }
 
 
+def _largest_closing_artix_prog_depth() -> int | None:
+    """Largest closed PROG_DEPTH that the two-byte UART length can fill.
+
+    Sweep may close 131072 BRAM, but UPLOAD_LEN_MAX caps uploadable words at
+    65535 — do not advertise a board depth the host protocol cannot fill.
+    """
+    sweep = REPO_ROOT / "bench" / "results" / "prog_depth_sweep.json"
+    if not sweep.exists():
+        return None
+    try:
+        data = json.loads(sweep.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+    points = data.get("summary", {}).get("prog_depth_points") or data.get("points") or []
+    closed = [
+        int(p["PROG_DEPTH"])
+        for p in points
+        if p.get("status") == "closed"
+        and int(p.get("BUFFER_SIZE") or 0) == 4096
+        and int(p.get("PROG_DEPTH") or 0) <= 65536
+    ]
+    return max(closed) if closed else data.get("summary", {}).get(
+        "largest_closing_PROG_DEPTH_at_buffer_4096"
+    )
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", type=str, default=str(DEFAULT_OUT_PATH))
+    parser.add_argument(
+        "--artix-prog-depth",
+        type=int,
+        default=None,
+        help="Override artix_a7100t_bram_max PROG_DEPTH (default: from prog_depth_sweep.json or 65536)",
+    )
     args = parser.parse_args()
-    payload = _build_payload()
+    artix = args.artix_prog_depth
+    if artix is None:
+        artix = _largest_closing_artix_prog_depth()
+    payload = _build_payload(artix_prog_depth=artix)
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")

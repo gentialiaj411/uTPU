@@ -1,6 +1,53 @@
 {
   "aggregate": {
     "per_board": {
+      "artix_a7100t_bram_max": {
+        "prog_depth": 65536,
+        "shapes_fit": [
+          {
+            "in_features": 16,
+            "out_features": 16
+          },
+          {
+            "in_features": 32,
+            "out_features": 16
+          },
+          {
+            "in_features": 64,
+            "out_features": 16
+          },
+          {
+            "in_features": 32,
+            "out_features": 32
+          },
+          {
+            "in_features": 64,
+            "out_features": 32
+          },
+          {
+            "in_features": 64,
+            "out_features": 64
+          },
+          {
+            "in_features": 128,
+            "out_features": 64
+          },
+          {
+            "in_features": 128,
+            "out_features": 128
+          },
+          {
+            "in_features": 16,
+            "out_features": 256
+          },
+          {
+            "in_features": 256,
+            "out_features": 256
+          }
+        ],
+        "shapes_fit_count": 10,
+        "shapes_fit_fraction": 0.7142857142857143
+      },
       "pynqz2_baseline": {
         "prog_depth": 1024,
         "shapes_fit": [
@@ -121,7 +168,7 @@
     },
     "shape_count": 14
   },
-  "generated_at_utc": "2026-06-13T03:50:55.331633+00:00",
+  "generated_at_utc": "2026-08-04T04:16:10.336206+00:00",
   "methodology": {
     "api": "firmware/host/run_board_fit_audit.py",
     "boards": [
@@ -148,6 +195,14 @@
         "name": "vu13p_uram",
         "notes": "Larger Xilinx Ultrascale+ part with the instruction memory placed in URAM (PROG_DEPTH=131072 = 256 KiB) and the unified buffer at 4096 words. Covers the full Phase 3 tiling-correctness shape grid in a single tile.",
         "prog_depth": 131072
+      },
+      {
+        "array_size": 8,
+        "buffer_size": 4096,
+        "data_width_bits": 8,
+        "name": "artix_a7100t_bram_max",
+        "notes": "Artix-7 xc7a100tcsg324-1 with PROG_DEPTH=65536 (instruction BRAM grown into free BRAM36; baseline ~21/135). Requires UPLOAD_LEN_MAX fix (never PROG_DEPTH[15:0]). UART length field still maxes at 65535 words.",
+        "prog_depth": 65536
       }
     ],
     "fit_criterion": "program_instruction_words <= board.prog_depth (each 16-bit instruction word; the encoder produces a deterministic byte stream so the count is reproducible per shape).",
@@ -164,6 +219,7 @@
     {
       "block_ops": 1,
       "fits_per_board": {
+        "artix_a7100t_bram_max": true,
         "pynqz2_baseline": true,
         "pynqz2_bram_max": true,
         "vu13p_uram": true
@@ -181,6 +237,7 @@
     {
       "block_ops": 2,
       "fits_per_board": {
+        "artix_a7100t_bram_max": true,
         "pynqz2_baseline": true,
         "pynqz2_bram_max": true,
         "vu13p_uram": true
@@ -198,6 +255,7 @@
     {
       "block_ops": 4,
       "fits_per_board": {
+        "artix_a7100t_bram_max": true,
         "pynqz2_baseline": true,
         "pynqz2_bram_max": true,
         "vu13p_uram": true
@@ -215,6 +273,7 @@
     {
       "block_ops": 4,
       "fits_per_board": {
+        "artix_a7100t_bram_max": true,
         "pynqz2_baseline": true,
         "pynqz2_bram_max": true,
         "vu13p_uram": true
@@ -232,6 +291,7 @@
     {
       "block_ops": 8,
       "fits_per_board": {
+        "artix_a7100t_bram_max": true,
         "pynqz2_baseline": false,
         "pynqz2_bram_max": true,
         "vu13p_uram": true
@@ -249,6 +309,7 @@
     {
       "block_ops": 16,
       "fits_per_board": {
+        "artix_a7100t_bram_max": true,
         "pynqz2_baseline": false,
         "pynqz2_bram_max": true,
         "vu13p_uram": true
@@ -266,6 +327,7 @@
     {
       "block_ops": 32,
       "fits_per_board": {
+        "artix_a7100t_bram_max": true,
         "pynqz2_baseline": false,
         "pynqz2_bram_max": true,
         "vu13p_uram": true
@@ -283,6 +345,7 @@
     {
       "block_ops": 64,
       "fits_per_board": {
+        "artix_a7100t_bram_max": true,
         "pynqz2_baseline": false,
         "pynqz2_bram_max": false,
         "vu13p_uram": true
@@ -300,6 +363,7 @@
     {
       "block_ops": 16,
       "fits_per_board": {
+        "artix_a7100t_bram_max": true,
         "pynqz2_baseline": false,
         "pynqz2_bram_max": true,
         "vu13p_uram": true
@@ -317,6 +381,7 @@
     {
       "block_ops": 256,
       "fits_per_board": {
+        "artix_a7100t_bram_max": true,
         "pynqz2_baseline": false,
         "pynqz2_bram_max": false,
         "vu13p_uram": true
@@ -334,6 +399,7 @@
     {
       "block_ops": 512,
       "fits_per_board": {
+        "artix_a7100t_bram_max": false,
         "pynqz2_baseline": false,
         "pynqz2_bram_max": false,
         "vu13p_uram": true
@@ -351,6 +417,7 @@
     {
       "block_ops": 512,
       "fits_per_board": {
+        "artix_a7100t_bram_max": false,
         "pynqz2_baseline": false,
         "pynqz2_bram_max": false,
         "vu13p_uram": true
@@ -368,6 +435,7 @@
     {
       "block_ops": 1024,
       "fits_per_board": {
+        "artix_a7100t_bram_max": false,
         "pynqz2_baseline": false,
         "pynqz2_bram_max": false,
         "vu13p_uram": false
@@ -385,6 +453,7 @@
     {
       "block_ops": 3072,
       "fits_per_board": {
+        "artix_a7100t_bram_max": false,
         "pynqz2_baseline": false,
         "pynqz2_bram_max": false,
         "vu13p_uram": false
@@ -401,5 +470,5 @@
     }
   ],
   "phase": "phase_7_remediation_p3_board_fit_audit",
-  "scope": "Reports which boards (PROG_DEPTH) admit which shapes' lowered instruction streams. No execution; no claim about correctness beyond the existing tiling-correctness artifact for in-bound shapes."
+  "scope": "Reports which boards (PROG_DEPTH) admit which shapes' lowered instruction streams. No execution; no claim about correctness beyond the existing tiling-correctness artifact for in-bound shapes. Includes artix_a7100t_bram_max when PROG_DEPTH sweep closes."
 }

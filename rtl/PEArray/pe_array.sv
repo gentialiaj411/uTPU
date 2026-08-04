@@ -20,7 +20,8 @@ module pe_array #(
 	parameter COMPUTE_DATA_WIDTH     = 4,
 	parameter ACCUMULATOR_DATA_WIDTH = 16,
 	parameter BUFFER_WORD_SIZE       = 16,
-	parameter NUM_COMPUTE_LANES      = BUFFER_WORD_SIZE/COMPUTE_DATA_WIDTH
+	parameter NUM_COMPUTE_LANES      = BUFFER_WORD_SIZE/COMPUTE_DATA_WIDTH,
+	parameter WEIGHT_OVERLAP_EN      = 0
     ) (
 	input  logic clk, rst, compute, load_en, weight_commit,
 	input  logic signed [COMPUTE_DATA_WIDTH-1:0]     datas_in   [ARRAY_SIZE-1:0],
@@ -47,8 +48,9 @@ module pe_array #(
 	    for (j = 0; j < ARRAY_SIZE; j++) begin: gen_cols
                 if (i == 0) begin: gen_top_row
 		    pe #(
-		        COMPUTE_DATA_WIDTH,
-		        ACCUMULATOR_DATA_WIDTH
+		        .COMPUTE_DATA_WIDTH(COMPUTE_DATA_WIDTH),
+		        .ACCUMULATOR_DATA_WIDTH(ACCUMULATOR_DATA_WIDTH),
+		        .WEIGHT_OVERLAP_EN(WEIGHT_OVERLAP_EN)
 		    ) u_pe (
 		        .clk(clk),
 		        .rst(rst),
@@ -63,8 +65,9 @@ module pe_array #(
 		    );
                 end else begin: gen_non_top_row
 		    pe #(
-		        COMPUTE_DATA_WIDTH,
-		        ACCUMULATOR_DATA_WIDTH
+		        .COMPUTE_DATA_WIDTH(COMPUTE_DATA_WIDTH),
+		        .ACCUMULATOR_DATA_WIDTH(ACCUMULATOR_DATA_WIDTH),
+		        .WEIGHT_OVERLAP_EN(WEIGHT_OVERLAP_EN)
 		    ) u_pe (
 		        .clk(clk),
 		        .rst(rst),

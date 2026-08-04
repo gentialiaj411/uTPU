@@ -2,37 +2,25 @@
 `include "build/test_vectors/latency_expected.svh"
 
 // -----------------------------------------------------------------------------
-// Task 4 — deterministic-latency RTL data-independence testbench.
+// Task 4 / Track 3 — deterministic-latency RTL data-independence testbench.
 //
-// Loads one compiled uTPU ISA program (path + word-count provided by
-// the generated header ``build/test_vectors/latency_expected.svh``),
-// streams it through the UART upload protocol, sends MAGIC_START,
-// and counts RTL clock cycles between MAGIC_START and HALT_STATE.
+// Loads one compiled uTPU ISA program, streams it through the UART upload
+// protocol, sends MAGIC_START, and counts RTL clock cycles between
+// MAGIC_START and HALT_STATE.
+//
+// Program path / word count / tags come from either:
+//   (a) plusargs: +LATENCY_MEM=... +LATENCY_WORDS=N +LATENCY_SHAPE_TAG=...
+//       +LATENCY_DIST_TAG=...  (preferred: compile once, many trials), or
+//   (b) the generated header ``build/test_vectors/latency_expected.svh``
+//       (`define LATENCY_MEM / LATENCY_WORDS / ...).
 //
 // The testbench prints exactly one line that the host harness parses:
 //
-//     LATENCY_CYCLES=<int>
+//     LATENCY_CYCLES=<int> SHAPE=<tag> DISTRIBUTION=<tag> WORDS=<int>
 //
-// This testbench is intentionally simpler than
-// ``tb_scheduler_cycles.sv``: it runs a SINGLE program (not a
-// naive-vs-scheduled pair), records its RTL cycle count, and exits.
-// The host harness (``firmware/host/run_latency_determinism.py``)
-// invokes this same testbench multiple times — once per (shape ×
-// input-distribution) — and asserts the cycle count is invariant
-// across distributions for the same shape. That invariance, together
-// with the static-cycle prover in
-// ``firmware/host/latency_analysis.py``, is the empirical
-// data-independence guarantee Task 4 delivers.
-//
-// The testbench does NOT cross-check absolute static-vs-RTL cycle
-// counts (Phase 7 remediation P4.1 has already established that the
-// simulator's 1-cycle-per-op accounting differs from the RTL FSM's
-// multi-cycle STORE/FETCH paths at the absolute count level; they
-// agree only at the ±2.0% percentage-cycle-reduction level). The
-// RTL cycle count this testbench emits is recorded in the artifact
-// as ``rtl_cycles_observed`` and used purely as a data-independence
-// witness (variance across distributions, not an absolute equality
-// check vs the static model).
+// Host harness: ``firmware/host/run_latency_determinism.py``.
+// Does NOT modify top.sv FSM; absolute static-vs-RTL cycle equality is
+// intentionally NOT gated (see P4.1 / scope_note in the JSON artifact).
 // -----------------------------------------------------------------------------
 
 module tb_latency_determinism;
@@ -76,6 +64,12 @@ module tb_latency_determinism;
     longint start_cycle = 0;
     longint halt_cycle = 0;
     longint observed_cycles = 0;
+
+    // Runtime overrides (plusargs). Fall back to `define header values.
+    string mem_path;
+    string shape_tag;
+    string dist_tag;
+    int program_words;
 
     task automatic CHECK(input string name, input bit cond);
         tests++;
@@ -132,27 +126,46 @@ module tb_latency_determinism;
         bit reached_wait_start;
         bit reached_halt;
         int slack;
+        bit got_mem;
+        bit got_words;
 
 `ifdef DUMP_VCD
         $dumpfile("build/sim_iverilog/tb_latency_determinism.vcd");
         $dumpvars(0, tb_latency_determinism);
 `endif
 
+        // Prefer plusargs so the host can compile once and re-run many
+        // input vectors without regenerating compile-time `defines.
+        got_mem = $value$plusargs("LATENCY_MEM=%s", mem_path);
+        got_words = $value$plusargs("LATENCY_WORDS=%d", program_words);
+        if (!$value$plusargs("LATENCY_SHAPE_TAG=%s", shape_tag)) begin
+            shape_tag = `LATENCY_SHAPE_TAG;
+        end
+        if (!$value$plusargs("LATENCY_DIST_TAG=%s", dist_tag)) begin
+            dist_tag = `LATENCY_DIST_TAG;
+        end
+        if (!got_mem) begin
+            mem_path = `LATENCY_MEM;
+        end
+        if (!got_words) begin
+            program_words = `LATENCY_WORDS;
+        end
+
         $display("=================================================");
         $display("Task 4 -- latency determinism RTL trial");
         $display("program=%s words=%0d shape=%s distribution=%s",
-                 `LATENCY_MEM, `LATENCY_WORDS, `LATENCY_SHAPE_TAG, `LATENCY_DIST_TAG);
+                 mem_path, program_words, shape_tag, dist_tag);
         $display("=================================================");
 
         for (int idx = 0; idx < TB_PROG_DEPTH; idx++) case_mem[idx] = 16'h0000;
-        $readmemh(`LATENCY_MEM, case_mem);
+        $readmemh(mem_path, case_mem);
 
         rst <= 0;
         wait_cycles(10);
         rst <= 1;
         wait_cycles(20);
 
-        stream_program(`LATENCY_WORDS);
+        stream_program(program_words);
         wait_for_state(dut.WAIT_START_STATE, 500000, reached_wait_start);
         CHECK("reached WAIT_START", reached_wait_start);
 
@@ -172,7 +185,7 @@ module tb_latency_determinism;
 
         observed_cycles = halt_cycle - start_cycle;
         $display("LATENCY_CYCLES=%0d SHAPE=%s DISTRIBUTION=%s WORDS=%0d",
-                 observed_cycles, `LATENCY_SHAPE_TAG, `LATENCY_DIST_TAG, `LATENCY_WORDS);
+                 observed_cycles, shape_tag, dist_tag, program_words);
 
         $display("=================================================");
         $display("DONE tests=%0d errors=%0d", tests, errors);

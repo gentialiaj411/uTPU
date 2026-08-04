@@ -1,0 +1,167 @@
+{
+  "schema_version": 2,
+  "generated_at_utc": "2026-08-04T04:19:55.838131+00:00",
+  "git_sha": "47865fa",
+  "implementation": {
+    "BSTORE_WIDTH_shipping": 8,
+    "status": "landed",
+    "sources": [
+      "rtl/top/top.sv",
+      "rtl/unified_buffer/unified_buffer.sv",
+      "firmware/host/run_bstore_wide_smoke.py"
+    ],
+    "post_widen_smoke": {
+      "status": "pass",
+      "attr_bstore": 27,
+      "cycles_per_payload_word": 1.6875,
+      "payload_words": 16
+    },
+    "post_widen_mnist_attr": {
+      "total_program_cycles": 3445,
+      "bstore_cycles": 2119,
+      "compute_cycles": 709,
+      "bstore_pct": 0.6150943396226415,
+      "amdahl_part_a_multilayer": {
+        "workload": "fused_mnist_case1_fast_uart_n16",
+        "assumption": "Part A removes control micro-ops; bstore payloads and compute survive",
+        "total_program_cycles": 3445,
+        "bstore_cycles": 2119,
+        "compute_cycles": 709,
+        "removable_cycles": 617,
+        "removable_fraction": 0.179100145137881,
+        "residual_cycles": 2828,
+        "ceiling_x": 1.2181753889674682,
+        "isolated_gemm_ceiling_x_do_not_use_here": 2.96
+      },
+      "e2e_speedup_vs_pre_widen": 1.8934687953555878,
+      "bstore_cyc_per_word": 1.6350308641975309
+    },
+    "ooc_lut_estimate": {
+      "recommended_width": 8,
+      "rows": [
+        {
+          "width": 1,
+          "lut": 4,
+          "ff": 47,
+          "delta_vs_w1": 0,
+          "fits_budget": true,
+          "amdahl_e2e_sketch_x": 1.0
+        },
+        {
+          "width": 2,
+          "lut": 7,
+          "ff": 92,
+          "delta_vs_w1": 3,
+          "fits_budget": true,
+          "amdahl_e2e_sketch_x": 1.66
+        },
+        {
+          "width": 4,
+          "lut": 14,
+          "ff": 180,
+          "delta_vs_w1": 10,
+          "fits_budget": true,
+          "amdahl_e2e_sketch_x": 2.47
+        },
+        {
+          "width": 8,
+          "lut": 27,
+          "ff": 353,
+          "delta_vs_w1": 23,
+          "fits_budget": true,
+          "amdahl_e2e_sketch_x": 3.3
+        }
+      ]
+    }
+  },
+  "workload": {
+    "name": "fused_mnist_case1",
+    "source_attr_live": "bench/results/cycle_attribution_mnist.json",
+    "program_mem": "build/test_vectors/mnist_case1_program.mem",
+    "pre_widen_total_program_cycles": 6523,
+    "pre_widen_bstore_cycles": 5197,
+    "pre_widen_bstore_pct": 0.7967193009351525,
+    "array_size": 16,
+    "uart_baud_hz_testbench": 100000000
+  },
+  "measured": {
+    "bstore_bursts": 13,
+    "bstore_payload_words": 1296,
+    "bstore_cycles": 5197,
+    "cycles_per_payload_word": 4.010030864197531,
+    "identity_check": {
+      "formula": "payload_words * 4 + bursts",
+      "value": 5197,
+      "matches_attr_bstore_cycles": true
+    },
+    "interpretation": "Pre-widen baseline (frozen): exactly 4 on-chip cycles per 16-bit payload word plus 1 COUNT cycle per burst (5197 = 1296*4 + 13)."
+  },
+  "unified_buffer_write_width": {
+    "sim_attr_path_n16_int4": {
+      "array_size": 16,
+      "compute_data_width": 4,
+      "buffer_word_bits": 16,
+      "items_in_slot": 4,
+      "num_compute_lanes": 256,
+      "banks": 64,
+      "compute_port_write_bits_per_cycle": 1024,
+      "compute_port_write_words_per_cycle": 64,
+      "store_port_write_words_per_cycle": 1,
+      "store_port_write_words_per_cycle_shipping": 8,
+      "note": "compute_en path asserts bank_we on all BANKS (tile-wide). Shipping BSTORE_WIDTH=8 writes up to 8 consecutive words/banks per we-beat."
+    },
+    "synth_path_n8_int8": {
+      "array_size": 8,
+      "compute_data_width": 8,
+      "buffer_word_bits": 16,
+      "items_in_slot": 2,
+      "num_compute_lanes": 64,
+      "banks": 32,
+      "compute_port_write_bits_per_cycle": 512,
+      "compute_port_write_words_per_cycle": 32,
+      "store_port_write_words_per_cycle": 1,
+      "store_port_write_words_per_cycle_shipping": 8,
+      "note": "compute_en path asserts bank_we on all BANKS (tile-wide). Shipping BSTORE_WIDTH=8 writes up to 8 consecutive words/banks per we-beat."
+    },
+    "burst_achieved_words_per_cycle": 0.2493746392149317,
+    "bandwidth_ratio_compute_port_vs_burst_n16": 256.641975308642,
+    "ordering_note": "BSTORE_WIDTH=8 landed. Pre-widen sketches retained for Amdahl comparison; live post-widen MNIST attr is under implementation.post_widen_mnist_attr."
+  },
+  "amdahl_sketches_same_workload": {
+    "part_a_if_bstore_and_compute_survive": {
+      "removable_cycles": 617,
+      "removable_fraction": 0.09458837957994788,
+      "ceiling_x": 1.1044700304774806
+    },
+    "bstore_pipeline_2x_e2e": 1.6621225633838705,
+    "bstore_widen_8x_e2e": 3.301739955710218,
+    "bstore_widen_16x_e2e": 3.9513875743005333
+  },
+  "bursts_head": [
+    {
+      "pc": 0,
+      "addr": 0,
+      "count": 16
+    },
+    {
+      "pc": 19,
+      "addr": 128,
+      "count": 128
+    },
+    {
+      "pc": 164,
+      "addr": 128,
+      "count": 128
+    },
+    {
+      "pc": 309,
+      "addr": 128,
+      "count": 128
+    },
+    {
+      "pc": 454,
+      "addr": 128,
+      "count": 128
+    }
+  ]
+}

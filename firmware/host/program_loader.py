@@ -30,7 +30,19 @@ from cuda_blocked_fc_backend import CUDABlockedFCExecutor
 MAGIC_UPLOAD = 0xA1   # begin program upload
 MAGIC_START  = 0xA2   # start execution
 MAGIC_REARM  = 0xA3   # re-arm from HALT (optional, requires hardware reset otherwise)
-MAGIC_READ_PERF = 0xA4  # read 4x64-bit perf counters (cycle, busy, program_count, program_cycles)
+MAGIC_READ_PERF = 0xA4  # read 13x64-bit perf words (104 bytes): legacy 4 + 9 state groups
+PERF_STREAM_BYTES = 104
+PERF_ATTR_GROUPS = (
+    "fetch_decode",
+    "store",
+    "load",
+    "compute",
+    "writeback",
+    "bstore",
+    "ext_addr",
+    "requant",
+    "result_fetch",
+)
 
 
 class ProgramLoader:
@@ -131,21 +143,31 @@ class ProgramLoader:
         self._log("Re-arm signal sent")
 
     def readPerfCounters(self, timeout: float = 0.5) -> Dict[str, int]:
-        """Read cycle, busy, program_count, and program_cycles over UART.
+        """Read legacy + state-group perf counters over UART (104 bytes).
 
         program_cycles is MAGIC_START -> HALT wall-clock (excludes UART upload).
+        State-group keys match rtl/top/top.sv::perf_attr_*.
         """
         self.uart.flush_input()
         self.uart.send_bytes_to_chip(bytes([MAGIC_READ_PERF]))
-        payload = self.uart.receive_exact(32, timeout=timeout)
-        if len(payload) != 32:
-            raise RuntimeError(f"Expected 32 perf bytes, received {len(payload)}")
-        return {
-            "cycle_counter": int.from_bytes(payload[0:8], byteorder="big", signed=False),
-            "busy_counter": int.from_bytes(payload[8:16], byteorder="big", signed=False),
-            "program_count": int.from_bytes(payload[16:24], byteorder="big", signed=False),
-            "program_cycles": int.from_bytes(payload[24:32], byteorder="big", signed=False),
+        payload = self.uart.receive_exact(PERF_STREAM_BYTES, timeout=timeout)
+        if len(payload) != PERF_STREAM_BYTES:
+            raise RuntimeError(
+                f"Expected {PERF_STREAM_BYTES} perf bytes, received {len(payload)}"
+            )
+
+        def u64(off: int) -> int:
+            return int.from_bytes(payload[off : off + 8], byteorder="big", signed=False)
+
+        out: Dict[str, int] = {
+            "cycle_counter": u64(0),
+            "busy_counter": u64(8),
+            "program_count": u64(16),
+            "program_cycles": u64(24),
         }
+        for i, name in enumerate(PERF_ATTR_GROUPS):
+            out[f"attr_{name}"] = u64(32 + 8 * i)
+        return out
 
     # ------------------------------------------------------------------
     # Array helpers (unchanged)

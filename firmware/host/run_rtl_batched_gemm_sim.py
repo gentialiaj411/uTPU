@@ -37,6 +37,7 @@ def _iverilog_run(
     quantizer_lanes: Optional[int] = None,
     relu_lanes: Optional[int] = None,
     quantizer_pipe_depth: Optional[int] = None,
+    weight_overlap_en: Optional[int] = None,
     out_vvp_name: str = "tb_batched_gemm.out",
 ) -> Tuple[bool, str]:
     iv_bin, vv_bin = _resolve_iverilog_tools()
@@ -73,6 +74,8 @@ def _iverilog_run(
         compile_cmd.append(f"-DBG_RELU_LANES={int(relu_lanes)}")
     if quantizer_pipe_depth is not None:
         compile_cmd.append(f"-DBG_QUANTIZER_PIPE_DEPTH={int(quantizer_pipe_depth)}")
+    if weight_overlap_en is not None:
+        compile_cmd.append(f"-DBG_WEIGHT_OVERLAP_EN={int(weight_overlap_en)}")
     compile_cmd.extend(srcs_abs)
     run_cmd = [vv_bin, out_vvp]
     env = os.environ.copy()
@@ -109,6 +112,7 @@ def run_rtl_batched_gemm_sim(
     quantizer_lanes: Optional[int] = None,
     relu_lanes: Optional[int] = None,
     quantizer_pipe_depth: Optional[int] = None,
+    weight_overlap: bool = False,
 ) -> Dict[str, Any]:
     root = _repo_root()
     os.chdir(root)
@@ -124,6 +128,7 @@ def run_rtl_batched_gemm_sim(
         cfg=cfg,
         accumulator_data_width=accumulator_data_width,
         requant_params=requant_params,
+        weight_overlap=weight_overlap,
     )
     metrics: Dict[str, Any] = {
         "rtl_sim_executed": False,
@@ -134,6 +139,7 @@ def run_rtl_batched_gemm_sim(
         "batch_size": vectors["batch_size"],
         "cfg": vectors["cfg"],
         "hoist_tile_payloads": bool(vectors.get("hoist_tile_payloads", False)),
+        "weight_overlap": bool(weight_overlap),
         "requant_params": vectors.get("requant_params"),
         "quantizer_lanes": quantizer_lanes,
         "relu_lanes": relu_lanes,
@@ -148,15 +154,17 @@ def run_rtl_batched_gemm_sim(
         "finalize_requant_cycles": None,
     }
     vvp_name = "tb_batched_gemm.out"
-    if quantizer_lanes is not None or quantizer_pipe_depth is not None:
+    if quantizer_lanes is not None or quantizer_pipe_depth is not None or weight_overlap:
         ql = "d" if quantizer_lanes is None else str(int(quantizer_lanes))
         pd = "d" if quantizer_pipe_depth is None else str(int(quantizer_pipe_depth))
-        vvp_name = f"tb_batched_gemm_ql{ql}_pd{pd}.out"
+        wo = "1" if weight_overlap else "0"
+        vvp_name = f"tb_batched_gemm_ql{ql}_pd{pd}_wo{wo}.out"
     ok, log = _iverilog_run(
         root,
         quantizer_lanes=quantizer_lanes,
         relu_lanes=relu_lanes if relu_lanes is not None else quantizer_lanes,
         quantizer_pipe_depth=quantizer_pipe_depth,
+        weight_overlap_en=1 if weight_overlap else None,
         out_vvp_name=vvp_name,
     )
     metrics["simulator_log"] = log

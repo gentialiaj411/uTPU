@@ -26,13 +26,26 @@ module tb_mnist_utpu_program;
     localparam logic [7:0] MAGIC_UPLOAD = 8'hA1;
     localparam logic [7:0] MAGIC_START  = 8'hA2;
     localparam logic [7:0] MAGIC_REARM  = 8'hA3;
+    localparam logic [7:0] MAGIC_READ_PERF = 8'hA4;
+    localparam int TB_PERF_BYTES = 104;
+    // Match tb_batched_gemm when MNIST_ATTR is set so result_fetch shares
+    // are comparable on-chip-core-cycle numbers (not shipping 115200 baud).
+`ifdef MNIST_ATTR
+    localparam int TB_UART_BAUD = 100000000;
+    localparam int TB_PERF_WAIT_MAX = 2000000;
+`else
+    localparam int TB_UART_BAUD = 115200;
+    localparam int TB_PERF_WAIT_MAX = 2000000;
+`endif
 
     top #(
         .ARRAY_SIZE(TB_ARRAY_SIZE),
         .BUFFER_SIZE(TB_BUFFER_SIZE),
         .FIFO_WIDTH(TB_FIFO_WIDTH),
         .PROG_DEPTH(`TB_PROG_DEPTH),
-        .EXT_ADDR_EN(1)
+        .EXT_ADDR_EN(1),
+        .UART_INPUT_CLK(100000000),
+        .UART_BAUD(TB_UART_BAUD)
     ) dut (
         .clk(clk), .rst(rst), .rx(rx), .tx(tx), .led_rst(led_rst)
     );
@@ -57,6 +70,7 @@ module tb_mnist_utpu_program;
     bit case3_passed;
 
     reg [15:0] case_mem [0:4095];
+    byte perf_bytes [0:103];
 
     function automatic byte expected_byte(input string case_name, input int idx);
         if (case_name == `CASE1_NAME) expected_byte = case1_expected[idx];
@@ -126,6 +140,99 @@ module tb_mnist_utpu_program;
                 done = 1'b1;
             end
         end
+    endtask
+
+    task automatic collect_perf_bytes(output int got);
+        int i;
+        got = 0;
+        i = 0;
+        while (i < TB_PERF_WAIT_MAX && got < TB_PERF_BYTES) begin
+            @(posedge clk);
+            if (dut.tx_we && dut.tx_wdata !== 8'hAA) begin
+                perf_bytes[got] = dut.tx_wdata;
+                got = got + 1;
+            end
+            i = i + 1;
+        end
+    endtask
+
+    function automatic logic [63:0] unpack_u64(input int base);
+        logic [63:0] v;
+        int j;
+        v = '0;
+        for (j = 0; j < 8; j++)
+            v = {v[55:0], perf_bytes[base + j]};
+        return v;
+    endfunction
+
+    task automatic dump_attr(input string case_name);
+        int got_perf;
+        logic [63:0] program_cycle_ctr;
+        logic [63:0] attr_fetch_decode;
+        logic [63:0] attr_store;
+        logic [63:0] attr_load;
+        logic [63:0] attr_compute;
+        logic [63:0] attr_writeback;
+        logic [63:0] attr_bstore;
+        logic [63:0] attr_ext_addr;
+        logic [63:0] attr_requant;
+        logic [63:0] attr_result_fetch;
+        push_rx_byte(MAGIC_READ_PERF);
+        collect_perf_bytes(got_perf);
+        program_cycle_ctr = '0;
+        attr_fetch_decode = '0;
+        attr_store = '0;
+        attr_load = '0;
+        attr_compute = '0;
+        attr_writeback = '0;
+        attr_bstore = '0;
+        attr_ext_addr = '0;
+        attr_requant = '0;
+        attr_result_fetch = '0;
+        if (got_perf == TB_PERF_BYTES) begin
+            program_cycle_ctr = unpack_u64(24);
+            attr_fetch_decode = unpack_u64(32);
+            attr_store = unpack_u64(40);
+            attr_load = unpack_u64(48);
+            attr_compute = unpack_u64(56);
+            attr_writeback = unpack_u64(64);
+            attr_bstore = unpack_u64(72);
+            attr_ext_addr = unpack_u64(80);
+            attr_requant = unpack_u64(88);
+            attr_result_fetch = unpack_u64(96);
+        end else begin
+            program_cycle_ctr = dut.perf_program_cycle_counter;
+            attr_fetch_decode = dut.perf_attr_fetch_decode;
+            attr_store = dut.perf_attr_store;
+            attr_load = dut.perf_attr_load;
+            attr_compute = dut.perf_attr_compute;
+            attr_writeback = dut.perf_attr_writeback;
+            attr_bstore = dut.perf_attr_bstore;
+            attr_ext_addr = dut.perf_attr_ext_addr;
+            attr_requant = dut.perf_attr_requant;
+            attr_result_fetch = dut.perf_attr_result_fetch;
+        end
+        $display("%s_TOTAL_PROGRAM_CYCLES=%0d", case_name, program_cycle_ctr);
+        $display("%s_ATTR_FETCH_DECODE=%0d", case_name, attr_fetch_decode);
+        $display("%s_ATTR_STORE=%0d", case_name, attr_store);
+        $display("%s_ATTR_LOAD=%0d", case_name, attr_load);
+        $display("%s_ATTR_COMPUTE=%0d", case_name, attr_compute);
+        $display("%s_ATTR_WRITEBACK=%0d", case_name, attr_writeback);
+        $display("%s_ATTR_BSTORE=%0d", case_name, attr_bstore);
+        $display("%s_ATTR_EXT_ADDR=%0d", case_name, attr_ext_addr);
+        $display("%s_ATTR_REQUANT=%0d", case_name, attr_requant);
+        $display("%s_ATTR_RESULT_FETCH=%0d", case_name, attr_result_fetch);
+        $display("TOTAL_PROGRAM_CYCLES=%0d", program_cycle_ctr);
+        $display("ATTR_FETCH_DECODE=%0d", attr_fetch_decode);
+        $display("ATTR_STORE=%0d", attr_store);
+        $display("ATTR_LOAD=%0d", attr_load);
+        $display("ATTR_COMPUTE=%0d", attr_compute);
+        $display("ATTR_WRITEBACK=%0d", attr_writeback);
+        $display("ATTR_BSTORE=%0d", attr_bstore);
+        $display("ATTR_EXT_ADDR=%0d", attr_ext_addr);
+        $display("ATTR_REQUANT=%0d", attr_requant);
+        $display("ATTR_RESULT_FETCH=%0d", attr_result_fetch);
+        $display("UART_BAUD_TB=%0d", TB_UART_BAUD);
     endtask
 
     task automatic wait_wait_start(input int max_cycles, input int start_cycle, output bit ok, output int wait_start_cycle);
@@ -210,6 +317,9 @@ module tb_mnist_utpu_program;
         $display("");
         $display("%s_CYCLES=%0d", case_name, cycle_ctr - start_cycle);
         passed = halted && (actual_n == exp_n) && (mismatch_count == 0);
+`ifdef MNIST_ATTR
+        dump_attr(case_name);
+`endif
     endtask
 
     always @(posedge clk) begin

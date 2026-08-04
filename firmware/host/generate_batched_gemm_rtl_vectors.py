@@ -87,6 +87,7 @@ def generate_vectors(
     result_addr: int | None = None,
     accumulator_data_width: int = 32,
     requant_params: RequantParams | None = None,
+    weight_overlap: bool = False,
 ) -> Dict[str, object]:
     seed = 0xBA7C + out_features * 37 + in_features * 13 + batch_size
     rng = np.random.default_rng(seed)
@@ -112,6 +113,7 @@ def generate_vectors(
         cfg=cfg,
         hoist_tile_payloads=hoist_tile_payloads,
         requant_params=requant_params,
+        weight_overlap=weight_overlap,
     )
     sim = simulate_program_bytes(
         lowered["program"],

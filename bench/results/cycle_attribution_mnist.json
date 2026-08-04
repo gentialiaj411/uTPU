@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "generated_at_utc": "2026-08-04T04:17:46.689060+00:00",
+  "git_sha": "47865fa",
+  "methodology": {
+    "program": "fused MNIST MLP (FC1 finalize_no_fetch \u2192 FC2 logits FETCH only)",
+    "tb": "rtl/tb/tb_mnist_utpu_program.sv with -DMNIST_ATTR -DMNIST_CASE_LIMIT=1",
+    "array_size": 16,
+    "uart_baud_hz_testbench": 100000000,
+    "uart_baud_hz_shipping_default": 115200,
+    "measurement_scope": "On-chip core cycles, fast-UART TB \u2014 same scope as cycle_attribution.json. Not board wall-clock.",
+    "svh_meta": {
+      "case1_words": 1486,
+      "case1_fetch_n": 6,
+      "tb_prog_depth": 8192,
+      "case1_name": "case1_mnist8x8_label7"
+    }
+  },
+  "rtl_sim_passed": true,
+  "total_program_cycles": 3445,
+  "attr_sum_cycles": 3445,
+  "attr_sum_vs_total_delta": 0,
+  "groups": {
+    "fetch_decode": {
+      "cycles": 270,
+      "pct_of_total_program_cycles": 0.0783744557329463
+    },
+    "store": {
+      "cycles": 0,
+      "pct_of_total_program_cycles": 0.0
+    },
+    "load": {
+      "cycles": 120,
+      "pct_of_total_program_cycles": 0.03483309143686502
+    },
+    "compute": {
+      "cycles": 709,
+      "pct_of_total_program_cycles": 0.20580551523947752
+    },
+    "writeback": {
+      "cycles": 27,
+      "pct_of_total_program_cycles": 0.00783744557329463
+    },
+    "bstore": {
+      "cycles": 2119,
+      "pct_of_total_program_cycles": 0.6150943396226415
+    },
+    "ext_addr": {
+      "cycles": 176,
+      "pct_of_total_program_cycles": 0.05108853410740203
+    },
+    "requant": {
+      "cycles": 0,
+      "pct_of_total_program_cycles": 0.0
+    },
+    "result_fetch": {
+      "cycles": 24,
+      "pct_of_total_program_cycles": 0.006966618287373005
+    }
+  },
+  "comparison_to_isolated_gemm_64x64_b48": {
+    "gemm_total_program_cycles": 23002,
+    "gemm_result_fetch_pct": 0.26710720806886357,
+    "mnist_result_fetch_pct": 0.006966618287373005,
+    "mnist_result_fetch_cycles": 24,
+    "fetch_bytes_expected_case1": 6
+  },
+  "verdict": "result_fetch_harness_artifact_confirmed",
+  "verdict_reason": "MNIST result_fetch=0.6967% vs GEMM flagship 26.7107%; inter-layer activations stay in buffer \u2014 drain is harness-only for single GEMM.",
+  "amdahl_part_a_multilayer": {
+    "workload": "fused_mnist_case1_fast_uart_n16",
+    "assumption": "Part A removes control micro-ops; bstore payloads and compute survive",
+    "total_program_cycles": 3445,
+    "bstore_cycles": 2119,
+    "compute_cycles": 709,
+    "removable_cycles": 617,
+    "removable_fraction": 0.179100145137881,
+    "residual_cycles": 2828,
+    "ceiling_x": 1.2181753889674682,
+    "isolated_gemm_ceiling_x_do_not_use_here": 2.96
+  },
+  "log_tail": "[ OK ] case1_mnist8x8_label7 byte 5\ncase1_mnist8x8_label7 byte mismatches: 0 / 6\ncase1_mnist8x8_label7_ACTUAL_BYTES=88,78,78,78,78,00\ncase1_mnist8x8_label7_CYCLES=54214\n[UPLOAD] full=0 occ=0 upload_count=1486 byte=a4\ncase1_mnist8x8_label7_TOTAL_PROGRAM_CYCLES=3445\ncase1_mnist8x8_label7_ATTR_FETCH_DECODE=270\ncase1_mnist8x8_label7_ATTR_STORE=0\ncase1_mnist8x8_label7_ATTR_LOAD=120\ncase1_mnist8x8_label7_ATTR_COMPUTE=709\ncase1_mnist8x8_label7_ATTR_WRITEBACK=27\ncase1_mnist8x8_label7_ATTR_BSTORE=2119\ncase1_mnist8x8_label7_ATTR_EXT_ADDR=176\ncase1_mnist8x8_label7_ATTR_REQUANT=0\ncase1_mnist8x8_label7_ATTR_RESULT_FETCH=24\nTOTAL_PROGRAM_CYCLES=3445\nATTR_FETCH_DECODE=270\nATTR_STORE=0\nATTR_LOAD=120\nATTR_COMPUTE=709\nATTR_WRITEBACK=27\nATTR_BSTORE=2119\nATTR_EXT_ADDR=176\nATTR_REQUANT=0\nATTR_RESULT_FETCH=24\nUART_BAUD_TB=100000000\nCASE1_PASS=1\nCASE2_PASS=0\nCASE3_PASS=0\nFIRST_FAILURE_STAGE=0\nFIRST_FAILURE_CYCLE=-1\nFIRST_FAILURE_INSTRUCTION=0000\nTOTAL_CYCLES=62513\nTRACE_LOG_PATH=build/reports/rtl_mnist_utpu_trace.log\n=================================================\nDONE tests=9 errors=0\n=================================================\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_mnist_utpu_program.sv:424: $finish called at 625135000 (1ps)\n"
+}

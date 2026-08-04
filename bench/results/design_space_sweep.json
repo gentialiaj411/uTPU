@@ -1,0 +1,216 @@
+{
+  "schema_version": 1,
+  "generated_at_utc": "2026-08-04T14:56:38.026899+00:00",
+  "git_sha": "47865fa",
+  "part": "xc7a100tcsg324-1",
+  "fixed_generics": {
+    "PROG_DEPTH": 65536,
+    "QUANTIZER_PIPE_DEPTH": 3,
+    "BUFFER_SIZE": 4096,
+    "EXT_ADDR_EN": 1
+  },
+  "methodology": "Full-top synth/impl via scripts/synth_design_space_point.tcl (route_design, no bitstream). Reuses matching build/reports prefixes including prog_depth_pd65536 alias for N=8 INT8 mb48 @20ns. Priority: N=8 INT8 mb{4,16,48} periods first. Skip tighter clocks after 15 ns timing fail; propagate LUT/DSP/BRAM overutilization across periods. Peak and achieved GOP/s are separate.",
+  "occupancy": {
+    "occupancy": 0.20580551523947752,
+    "occupancy_source": "cycle_attribution_mnist.json post-widen placeholder (compute 709/3445); steady_state_attribution.json absent",
+    "occupancy_note": "Placeholder cold-path compute share until buffer-resident / steady-state attribution lands. NOT peak; applied as achieved = peak * occupancy.",
+    "compute_cycles": 709,
+    "total_program_cycles": 3445,
+    "artifact": "bench/results/cycle_attribution_mnist.json"
+  },
+  "accuracy_pareto_reference": {
+    "int8_per_layer_accuracy": 0.9733,
+    "int4_per_layer_accuracy": 0.5832,
+    "artifact": "bench/results/real_model_accelerator.json",
+    "note": "Pareto uses measured per-layer accuracies 97.33% (INT8) vs 58.32% (INT4) from real_model_accelerator.json; not per-channel INT4."
+  },
+  "points": [
+    {
+      "report_prefix": "dss_n8_cdw8_mb48_clk10_pd3_prog65536",
+      "ARRAY_SIZE": 8,
+      "COMPUTE_DATA_WIDTH": 8,
+      "ACCUMULATOR_DATA_WIDTH": 32,
+      "MAX_BATCH_COUNT": 48,
+      "clock_period_ns": 10.0,
+      "frequency_mhz_constraint": 100.0,
+      "PROG_DEPTH": 65536,
+      "BUFFER_SIZE": 4096,
+      "QUANTIZER_PIPE_DEPTH": 3,
+      "QUANTIZER_LANES": 8,
+      "RELU_LANES": 8,
+      "EXT_ADDR_EN": 1,
+      "status": "missing_reports",
+      "failure_reason": "missing_reports",
+      "peak_gops": null,
+      "achieved_gops": null,
+      "occupancy_applied": 0.20580551523947752
+    },
+    {
+      "report_prefix": "dss_n8_cdw8_mb48_clk12_pd3_prog65536",
+      "ARRAY_SIZE": 8,
+      "COMPUTE_DATA_WIDTH": 8,
+      "ACCUMULATOR_DATA_WIDTH": 32,
+      "MAX_BATCH_COUNT": 48,
+      "clock_period_ns": 12.0,
+      "frequency_mhz_constraint": 83.33333333333333,
+      "PROG_DEPTH": 65536,
+      "BUFFER_SIZE": 4096,
+      "QUANTIZER_PIPE_DEPTH": 3,
+      "QUANTIZER_LANES": 8,
+      "RELU_LANES": 8,
+      "EXT_ADDR_EN": 1,
+      "status": "missing_reports",
+      "failure_reason": "missing_reports",
+      "peak_gops": null,
+      "achieved_gops": null,
+      "occupancy_applied": 0.20580551523947752
+    },
+    {
+      "report_prefix": "dss_n8_cdw8_mb48_clk15_pd3_prog65536",
+      "ARRAY_SIZE": 8,
+      "COMPUTE_DATA_WIDTH": 8,
+      "ACCUMULATOR_DATA_WIDTH": 32,
+      "MAX_BATCH_COUNT": 48,
+      "clock_period_ns": 15.0,
+      "frequency_mhz_constraint": 66.66666666666667,
+      "PROG_DEPTH": 65536,
+      "BUFFER_SIZE": 4096,
+      "QUANTIZER_PIPE_DEPTH": 3,
+      "QUANTIZER_LANES": 8,
+      "RELU_LANES": 8,
+      "EXT_ADDR_EN": 1,
+      "status": "missing_reports",
+      "failure_reason": "missing_reports",
+      "peak_gops": null,
+      "achieved_gops": null,
+      "occupancy_applied": 0.20580551523947752
+    },
+    {
+      "report_prefix": "prog_depth_pd65536_buf4096_mb48_clk20_pd3",
+      "ARRAY_SIZE": 8,
+      "COMPUTE_DATA_WIDTH": 8,
+      "ACCUMULATOR_DATA_WIDTH": 32,
+      "MAX_BATCH_COUNT": 48,
+      "clock_period_ns": 20.0,
+      "frequency_mhz_constraint": 50.0,
+      "PROG_DEPTH": 65536,
+      "BUFFER_SIZE": 4096,
+      "QUANTIZER_PIPE_DEPTH": 3,
+      "QUANTIZER_LANES": 8,
+      "RELU_LANES": 8,
+      "EXT_ADDR_EN": 1,
+      "status": "closed",
+      "utilization": {
+        "lut_used": 41631,
+        "lut_available": 63400,
+        "ff_used": 36664,
+        "ff_available": 126800,
+        "bram_36k_used": 49,
+        "bram_36k_available": 135,
+        "dsp_used": 72,
+        "dsp_available": 240
+      },
+      "timing": {
+        "raw_path": "build/reports/prog_depth_pd65536_buf4096_mb48_clk20_pd3_timing_summary.rpt",
+        "wns_ns": 2.789,
+        "tns_ns": 0.0,
+        "whs_ns": 0.014,
+        "data_path_delay_ns": 17.088,
+        "critical_source": "run_batch_count_reg[2]_rep/C",
+        "critical_destination": "acc_partial_matrix_reg[1][38][29]/D",
+        "all_paths_met": true
+      },
+      "achieved_fmax_mhz_from_period_minus_wns": 58.10237638719424,
+      "achieved_fmax_mhz_from_data_path_delay": 58.52059925093633,
+      "binding_detail": {
+        "binding_resource": "lut",
+        "used": 41631,
+        "available": 63400,
+        "oversubscribed": false,
+        "utilization_fraction": 0.6566403785488959,
+        "note": "Highest util resource (not necessarily oversubscribed)."
+      },
+      "binding_resource": "lut",
+      "peak_gops": 7.437104177560863,
+      "achieved_gops": 1.530597057152584,
+      "occupancy_applied": 0.20580551523947752,
+      "throughput_formulas": {
+        "peak_gops": "ARRAY_SIZE^2 * 2 * Fmax_GHz",
+        "achieved_gops": "peak_gops * occupancy",
+        "note": "peak and achieved are separate columns; never report peak as achieved"
+      }
+    }
+  ],
+  "shipping_point": {
+    "report_prefix": "prog_depth_pd65536_buf4096_mb48_clk20_pd3",
+    "ARRAY_SIZE": 8,
+    "COMPUTE_DATA_WIDTH": 8,
+    "ACCUMULATOR_DATA_WIDTH": 32,
+    "MAX_BATCH_COUNT": 48,
+    "clock_period_ns": 20.0,
+    "frequency_mhz_constraint": 50.0,
+    "PROG_DEPTH": 65536,
+    "BUFFER_SIZE": 4096,
+    "QUANTIZER_PIPE_DEPTH": 3,
+    "QUANTIZER_LANES": 8,
+    "RELU_LANES": 8,
+    "EXT_ADDR_EN": 1,
+    "status": "closed",
+    "utilization": {
+      "lut_used": 41631,
+      "lut_available": 63400,
+      "ff_used": 36664,
+      "ff_available": 126800,
+      "bram_36k_used": 49,
+      "bram_36k_available": 135,
+      "dsp_used": 72,
+      "dsp_available": 240
+    },
+    "timing": {
+      "raw_path": "build/reports/prog_depth_pd65536_buf4096_mb48_clk20_pd3_timing_summary.rpt",
+      "wns_ns": 2.789,
+      "tns_ns": 0.0,
+      "whs_ns": 0.014,
+      "data_path_delay_ns": 17.088,
+      "critical_source": "run_batch_count_reg[2]_rep/C",
+      "critical_destination": "acc_partial_matrix_reg[1][38][29]/D",
+      "all_paths_met": true
+    },
+    "achieved_fmax_mhz_from_period_minus_wns": 58.10237638719424,
+    "achieved_fmax_mhz_from_data_path_delay": 58.52059925093633,
+    "binding_detail": {
+      "binding_resource": "lut",
+      "used": 41631,
+      "available": 63400,
+      "oversubscribed": false,
+      "utilization_fraction": 0.6566403785488959,
+      "note": "Highest util resource (not necessarily oversubscribed)."
+    },
+    "binding_resource": "lut",
+    "peak_gops": 7.437104177560863,
+    "achieved_gops": 1.530597057152584,
+    "occupancy_applied": 0.20580551523947752,
+    "throughput_formulas": {
+      "peak_gops": "ARRAY_SIZE^2 * 2 * Fmax_GHz",
+      "achieved_gops": "peak_gops * occupancy",
+      "note": "peak and achieved are separate columns; never report peak as achieved"
+    }
+  },
+  "int4_pareto_point": null,
+  "summary": {
+    "n_points": 4,
+    "n_closed": 1,
+    "n_failed": 0,
+    "n_missing_or_skipped": 3,
+    "reused_report_prefixes": [
+      "prog_depth_pd65536_buf4096_mb48_clk20_pd3"
+    ],
+    "vivado_attempted_this_run": [
+      "dss_n8_cdw8_mb48_clk15_pd3_prog65536",
+      "dss_n8_cdw8_mb48_clk12_pd3_prog65536"
+    ],
+    "skipped": []
+  },
+  "plot_path": "docs/design_space_roofline.png",
+  "doc_path": "docs/HARDWARE_DESIGN_SPACE.md"
+}

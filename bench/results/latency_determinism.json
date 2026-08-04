@@ -1,0 +1,1262 @@
+{
+  "data_independence": [
+    {
+      "distributions_tested": [
+        "zero",
+        "saturating",
+        "random",
+        "sparse",
+        "alternating"
+      ],
+      "fpga_clock_mhz": 100.0,
+      "fpga_clock_source": "bench/results/timing_closure_sweep.json::requant_fmax_mb4_clk10_pd3 (clock_period_ns=10.0, frequency_mhz_constraint=100.0, status=closed)",
+      "n_e2e_inputs_measured": 37,
+      "rtl_arm_present": true,
+      "rtl_cycle_invariant": true,
+      "rtl_cycle_variance": 0,
+      "shape": "(M=32,K=32)",
+      "simulator_cycle_invariant": true,
+      "simulator_cycle_variance": 0,
+      "static_cycle_invariant": true,
+      "static_cycle_variance": 0
+    }
+  ],
+  "distribution_sweep_detail": {
+    "distributions": [
+      "zero",
+      "saturating",
+      "random",
+      "sparse",
+      "alternating"
+    ],
+    "in_features": 32,
+    "out_features": 32,
+    "per_distribution": [
+      {
+        "distribution": "zero",
+        "program_words": 847,
+        "simulator_cycles": 303,
+        "static_cycles": 303,
+        "static_equals_simulator": true,
+        "x_bytes_first8": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "distribution": "saturating",
+        "program_words": 847,
+        "simulator_cycles": 303,
+        "static_cycles": 303,
+        "static_equals_simulator": true,
+        "x_bytes_first8": [
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7
+        ]
+      },
+      {
+        "distribution": "random",
+        "program_words": 847,
+        "simulator_cycles": 303,
+        "static_cycles": 303,
+        "static_equals_simulator": true,
+        "x_bytes_first8": [
+          5,
+          -4,
+          2,
+          -6,
+          5,
+          -7,
+          -6,
+          -8
+        ]
+      },
+      {
+        "distribution": "sparse",
+        "program_words": 847,
+        "simulator_cycles": 303,
+        "static_cycles": 303,
+        "static_equals_simulator": true,
+        "x_bytes_first8": [
+          7,
+          7,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "distribution": "alternating",
+        "program_words": 847,
+        "simulator_cycles": 303,
+        "static_cycles": 303,
+        "static_equals_simulator": true,
+        "x_bytes_first8": [
+          7,
+          -8,
+          7,
+          -8,
+          7,
+          -8,
+          7,
+          -8
+        ]
+      }
+    ],
+    "shape": "(M=32,K=32)",
+    "simulator_cycle_variance": 0,
+    "simulator_cycles_invariant_across_distributions": true,
+    "static_cycle_variance": 0,
+    "static_cycles_invariant_across_distributions": true
+  },
+  "fpga_clock": {
+    "conversion": "wall_ns = cycles * (1000 / mhz)  # 10 ns/cycle at 100 MHz",
+    "mhz": 100.0,
+    "note": "Wall-clock figures are simulated RTL cycles converted at the measured closed 100 MHz constraint; not on-board silicon timing.",
+    "source": "bench/results/timing_closure_sweep.json::requant_fmax_mb4_clk10_pd3 (clock_period_ns=10.0, frequency_mhz_constraint=100.0, status=closed)"
+  },
+  "generated_at_utc": "2026-08-04T14:42:17.429826+00:00",
+  "git_sha": "47865fa144e2ae73457c533fbe1fccad4094a041",
+  "host": {
+    "machine": "AMD64",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "python_version": "3.11.9"
+  },
+  "iverilog_version": "Icarus Verilog version 12.0 (devel) (s20150603-1539-g2693dd32b)",
+  "methodology": {
+    "array_size": 16,
+    "distribution_sweep_seed": 20260527,
+    "e2e_random_trials": 32,
+    "fpga_clock_mhz": 100.0,
+    "headline_assertions": [
+      "static_cycles == simulator_cycles on every swept shape",
+      "data_independence_proven on every swept shape",
+      "static_cycles invariant across all input distributions for the distribution-sweep shape",
+      "RTL cycle variance == 0 across distributions + e2e random inputs (iverilog arm; skipped if no iverilog)"
+    ],
+    "shape_sweep_seed_base": 49374,
+    "summary": "Three-arm verification of cycle-deterministic execution: (1) exact static cycle model matches isa_simulator accounting byte-for-byte across N shapes; (2) static cycle count invariant across M adversarial input distributions on a representative shape; (3) empirical RTL arm shows variance==0 across the same M distributions PLUS many additional random end-to-end inputs when iverilog is available (compile-once + plusargs dispatch). Cycle counts convert to wall-clock at the measured 100 MHz FPGA clock.",
+    "tools": {
+      "lowering": "firmware/host/lowering_blocked_fc_utpu.py::lower_blocked_fc_program_utpu",
+      "prover": "firmware/host/latency_analysis.py::prove_data_independent",
+      "simulator": "firmware/host/isa_simulator.py::simulate_program_bytes",
+      "static_model": "firmware/host/latency_analysis.py::static_cycles_simulator",
+      "testbench": "rtl/tb/tb_latency_determinism.sv"
+    }
+  },
+  "on_silicon": {
+    "matches_static": null,
+    "note": "Arty A7 board not available at landing time; will be filled by program_loader.py::readPerfCounters() on board arrival (plan section 6.2.3.(c)).",
+    "onchip_counter_cycles": null,
+    "status": "rtl_sim"
+  },
+  "proof": {
+    "data_dependent_ops_found": [],
+    "data_independent_ops": [
+      "STORE",
+      "LOAD",
+      "RUN",
+      "FETCH",
+      "BSTORE",
+      "HALT",
+      "NOP",
+      "BUFFER_XFER",
+      "BARRIER",
+      "ACC_ADD",
+      "PE_SELECT"
+    ],
+    "data_independent_ops_observed_union": [
+      "FETCH",
+      "HALT",
+      "LOAD",
+      "RUN",
+      "STORE"
+    ]
+  },
+  "rtl_arm": {
+    "all_trials_passed": true,
+    "compile_once": true,
+    "distribution_rtl_cycle_variance": 0,
+    "distribution_rtl_cycles_observed": [
+      2784,
+      2784,
+      2784,
+      2784,
+      2784
+    ],
+    "e2e_random_trials_requested": 32,
+    "e2e_rtl_cycle_variance": 0,
+    "e2e_rtl_cycles_invariant": true,
+    "e2e_rtl_cycles_observed": [
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784
+    ],
+    "e2e_trials": [
+      {
+        "mem_path": "C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_e2e_random_0000.mem",
+        "program_words": 847,
+        "rtl_cycles": 2784,
+        "tag": "e2e_random_0000",
+        "tb_result_pass": true,
+        "trial_index": 0,
+        "vvp_log_tail": "[ OK ] reached WAIT_START\n[ OK ] reached HALT\nLATENCY_CYCLES=2784 SHAPE=(M=32,K=32) DISTRIBUTION=e2e_random_0000 WORDS=847\n=================================================\nDONE tests=2 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_latency_determinism.sv:198: $finish called at 79095000 (1ps)",
+        "wall_ns": 27840.0,
+        "x_bytes_first8": [
+          0,
+          -1,
+          1,
+          2,
+          -7,
+          -1,
+          -7,
+          -1
+        ]
+      },
+      {
+        "mem_path": "C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_e2e_random_0001.mem",
+        "program_words": 847,
+        "rtl_cycles": 2784,
+        "tag": "e2e_random_0001",
+        "tb_result_pass": true,
+        "trial_index": 1,
+        "vvp_log_tail": "[ OK ] reached WAIT_START\n[ OK ] reached HALT\nLATENCY_CYCLES=2784 SHAPE=(M=32,K=32) DISTRIBUTION=e2e_random_0001 WORDS=847\n=================================================\nDONE tests=2 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_latency_determinism.sv:198: $finish called at 79095000 (1ps)",
+        "wall_ns": 27840.0,
+        "x_bytes_first8": [
+          -6,
+          4,
+          -1,
+          -8,
+          6,
+          -3,
+          7,
+          5
+        ]
+      },
+      {
+        "mem_path": "C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_e2e_random_0002.mem",
+        "program_words": 847,
+        "rtl_cycles": 2784,
+        "tag": "e2e_random_0002",
+        "tb_result_pass": true,
+        "trial_index": 2,
+        "vvp_log_tail": "[ OK ] reached WAIT_START\n[ OK ] reached HALT\nLATENCY_CYCLES=2784 SHAPE=(M=32,K=32) DISTRIBUTION=e2e_random_0002 WORDS=847\n=================================================\nDONE tests=2 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_latency_determinism.sv:198: $finish called at 79095000 (1ps)",
+        "wall_ns": 27840.0,
+        "x_bytes_first8": [
+          6,
+          2,
+          -8,
+          -7,
+          -8,
+          0,
+          6,
+          0
+        ]
+      },
+      {
+        "mem_path": "C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_e2e_random_0003.mem",
+        "program_words": 847,
+        "rtl_cycles": 2784,
+        "tag": "e2e_random_0003",
+        "tb_result_pass": true,
+        "trial_index": 3,
+        "vvp_log_tail": "[ OK ] reached WAIT_START\n[ OK ] reached HALT\nLATENCY_CYCLES=2784 SHAPE=(M=32,K=32) DISTRIBUTION=e2e_random_0003 WORDS=847\n=================================================\nDONE tests=2 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_latency_determinism.sv:198: $finish called at 79095000 (1ps)",
+        "wall_ns": 27840.0,
+        "x_bytes_first8": [
+          5,
+          0,
+          -5,
+          4,
+          5,
+          -4,
+          -2,
+          0
+        ]
+      },
+      {
+        "mem_path": "C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_e2e_random_0004.mem",
+        "program_words": 847,
+        "rtl_cycles": 2784,
+        "tag": "e2e_random_0004",
+        "tb_result_pass": true,
+        "trial_index": 4,
+        "vvp_log_tail": "[ OK ] reached WAIT_START\n[ OK ] reached HALT\nLATENCY_CYCLES=2784 SHAPE=(M=32,K=32) DISTRIBUTION=e2e_random_0004 WORDS=847\n=================================================\nDONE tests=2 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_latency_determinism.sv:198: $finish called at 79095000 (1ps)",
+        "wall_ns": 27840.0,
+        "x_bytes_first8": [
+          -8,
+          -4,
+          1,
+          -6,
+          2,
+          7,
+          -6,
+          5
+        ]
+      },
+      {
+        "mem_path": "C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_e2e_random_0005.mem",
+        "program_words": 847,
+        "rtl_cycles": 2784,
+        "tag": "e2e_random_0005",
+        "tb_result_pass": true,
+        "trial_index": 5,
+        "vvp_log_tail": "[ OK ] reached WAIT_START\n[ OK ] reached HALT\nLATENCY_CYCLES=2784 SHAPE=(M=32,K=32) DISTRIBUTION=e2e_random_0005 WORDS=847\n=================================================\nDONE tests=2 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_latency_determinism.sv:198: $finish called at 79095000 (1ps)",
+        "wall_ns": 27840.0,
+        "x_bytes_first8": [
+          2,
+          -7,
+          2,
+          -4,
+          -7,
+          -8,
+          -8,
+          7
+        ]
+      },
+      {
+        "mem_path": "C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_e2e_random_0006.mem",
+        "program_words": 847,
+        "rtl_cycles": 2784,
+        "tag": "e2e_random_0006",
+        "tb_result_pass": true,
+        "trial_index": 6,
+        "vvp_log_tail": "[ OK ] reached WAIT_START\n[ OK ] reached HALT\nLATENCY_CYCLES=2784 SHAPE=(M=32,K=32) DISTRIBUTION=e2e_random_0006 WORDS=847\n=================================================\nDONE tests=2 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_latency_determinism.sv:198: $finish called at 79095000 (1ps)",
+        "wall_ns": 27840.0,
+        "x_bytes_first8": [
+          -5,
+          -5,
+          3,
+          -6,
+          3,
+          -3,
+          1,
+          4
+        ]
+      },
+      {
+        "mem_path": "C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_e2e_random_0007.mem",
+        "program_words": 847,
+        "rtl_cycles": 2784,
+        "tag": "e2e_random_0007",
+        "tb_result_pass": true,
+        "trial_index": 7,
+        "vvp_log_tail": "[ OK ] reached WAIT_START\n[ OK ] reached HALT\nLATENCY_CYCLES=2784 SHAPE=(M=32,K=32) DISTRIBUTION=e2e_random_0007 WORDS=847\n=================================================\nDONE tests=2 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_latency_determinism.sv:198: $finish called at 79095000 (1ps)",
+        "wall_ns": 27840.0,
+        "x_bytes_first8": [
+          2,
+          1,
+          -3,
+          4,
+          -1,
+          -6,
+          3,
+          -2
+        ]
+      },
+      {
+        "mem_path": "C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_e2e_random_0008.mem",
+        "program_words": 847,
+        "rtl_cycles": 2784,
+        "tag": "e2e_random_0008",
+        "tb_result_pass": true,
+        "trial_index": 8,
+        "vvp_log_tail": "[ OK ] reached WAIT_START\n[ OK ] reached HALT\nLATENCY_CYCLES=2784 SHAPE=(M=32,K=32) DISTRIBUTION=e2e_random_0008 WORDS=847\n=================================================\nDONE tests=2 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_latency_determinism.sv:198: $finish called at 79095000 (1ps)",
+        "wall_ns": 27840.0,
+        "x_bytes_first8": [
+          2,
+          -5,
+          -4,
+          -6,
+          5,
+          -4,
+          -3,
+          -2
+        ]
+      },
+      {
+        "mem_path": "C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_e2e_random_0009.mem",
+        "program_words": 847,
+        "rtl_cycles": 2784,
+        "tag": "e2e_random_0009",
+        "tb_result_pass": true,
+        "trial_index": 9,
+        "vvp_log_tail": "[ OK ] reached WAIT_START\n[ OK ] reached HALT\nLATENCY_CYCLES=2784 SHAPE=(M=32,K=32) DISTRIBUTION=e2e_random_0009 WORDS=847\n=================================================\nDONE tests=2 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_latency_determinism.sv:198: $finish called at 79095000 (1ps)",
+        "wall_ns": 27840.0,
+        "x_bytes_first8": [
+          3,
+          -1,
+          3,
+          4,
+          5,
+          -1,
+          -4,
+          0
+        ]
+      },
+      {
+        "mem_path": "C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_e2e_random_0010.mem",
+        "program_words": 847,
+        "rtl_cycles": 2784,
+        "tag": "e2e_random_0010",
+        "tb_result_pass": true,
+        "trial_index": 10,
+        "vvp_log_tail": "[ OK ] reached WAIT_START\n[ OK ] reached HALT\nLATENCY_CYCLES=2784 SHAPE=(M=32,K=32) DISTRIBUTION=e2e_random_0010 WORDS=847\n=================================================\nDONE tests=2 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_latency_determinism.sv:198: $finish called at 79095000 (1ps)",
+        "wall_ns": 27840.0,
+        "x_bytes_first8": [
+          0,
+          2,
+          6,
+          1,
+          -6,
+          -7,
+          -5,
+          -3
+        ]
+      },
+      {
+        "mem_path": "C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_e2e_random_0011.mem",
+        "program_words": 847,
+        "rtl_cycles": 2784,
+        "tag": "e2e_random_0011",
+        "tb_result_pass": true,
+        "trial_index": 11,
+        "vvp_log_tail": "[ OK ] reached WAIT_START\n[ OK ] reached HALT\nLATENCY_CYCLES=2784 SHAPE=(M=32,K=32) DISTRIBUTION=e2e_random_0011 WORDS=847\n=================================================\nDONE tests=2 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_latency_determinism.sv:198: $finish called at 79095000 (1ps)",
+        "wall_ns": 27840.0,
+        "x_bytes_first8": [
+          -5,
+          6,
+          3,
+          1,
+          -8,
+          4,
+          -4,
+          -3
+        ]
+      },
+      {
+        "mem_path": "C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_e2e_random_0012.mem",
+        "program_words": 847,
+        "rtl_cycles": 2784,
+        "tag": "e2e_random_0012",
+        "tb_result_pass": true,
+        "trial_index": 12,
+        "vvp_log_tail": "[ OK ] reached WAIT_START\n[ OK ] reached HALT\nLATENCY_CYCLES=2784 SHAPE=(M=32,K=32) DISTRIBUTION=e2e_random_0012 WORDS=847\n=================================================\nDONE tests=2 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_latency_determinism.sv:198: $finish called at 79095000 (1ps)",
+        "wall_ns": 27840.0,
+        "x_bytes_first8": [
+          2,
+          6,
+          -5,
+          -2,
+          3,
+          -6,
+          1,
+          -2
+        ]
+      },
+      {
+        "mem_path": "C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_e2e_random_0013.mem",
+        "program_words": 847,
+        "rtl_cycles": 2784,
+        "tag": "e2e_random_0013",
+        "tb_result_pass": true,
+        "trial_index": 13,
+        "vvp_log_tail": "[ OK ] reached WAIT_START\n[ OK ] reached HALT\nLATENCY_CYCLES=2784 SHAPE=(M=32,K=32) DISTRIBUTION=e2e_random_0013 WORDS=847\n=================================================\nDONE tests=2 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_latency_determinism.sv:198: $finish called at 79095000 (1ps)",
+        "wall_ns": 27840.0,
+        "x_bytes_first8": [
+          -4,
+          4,
+          -5,
+          -6,
+          -8,
+          1,
+          -4,
+          -4
+        ]
+      },
+      {
+        "mem_path": "C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_e2e_random_0014.mem",
+        "program_words": 847,
+        "rtl_cycles": 2784,
+        "tag": "e2e_random_0014",
+        "tb_result_pass": true,
+        "trial_index": 14,
+        "vvp_log_tail": "[ OK ] reached WAIT_START\n[ OK ] reached HALT\nLATENCY_CYCLES=2784 SHAPE=(M=32,K=32) DISTRIBUTION=e2e_random_0014 WORDS=847\n=================================================\nDONE tests=2 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_latency_determinism.sv:198: $finish called at 79095000 (1ps)",
+        "wall_ns": 27840.0,
+        "x_bytes_first8": [
+          4,
+          -8,
+          2,
+          1,
+          -3,
+          3,
+          -4,
+          6
+        ]
+      },
+      {
+        "mem_path": "C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_e2e_random_0015.mem",
+        "program_words": 847,
+        "rtl_cycles": 2784,
+        "tag": "e2e_random_0015",
+        "tb_result_pass": true,
+        "trial_index": 15,
+        "vvp_log_tail": "[ OK ] reached WAIT_START\n[ OK ] reached HALT\nLATENCY_CYCLES=2784 SHAPE=(M=32,K=32) DISTRIBUTION=e2e_random_0015 WORDS=847\n=================================================\nDONE tests=2 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_latency_determinism.sv:198: $finish called at 79095000 (1ps)",
+        "wall_ns": 27840.0,
+        "x_bytes_first8": [
+          -7,
+          -1,
+          -3,
+          -4,
+          2,
+          2,
+          -7,
+          -3
+        ]
+      },
+      {
+        "mem_path": "C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_e2e_random_0016.mem",
+        "program_words": 847,
+        "rtl_cycles": 2784,
+        "tag": "e2e_random_0016",
+        "tb_result_pass": true,
+        "trial_index": 16,
+        "vvp_log_tail": "[ OK ] reached WAIT_START\n[ OK ] reached HALT\nLATENCY_CYCLES=2784 SHAPE=(M=32,K=32) DISTRIBUTION=e2e_random_0016 WORDS=847\n=================================================\nDONE tests=2 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_latency_determinism.sv:198: $finish called at 79095000 (1ps)",
+        "wall_ns": 27840.0,
+        "x_bytes_first8": [
+          6,
+          4,
+          -3,
+          -6,
+          1,
+          1,
+          -3,
+          -2
+        ]
+      },
+      {
+        "mem_path": "C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_e2e_random_0017.mem",
+        "program_words": 847,
+        "rtl_cycles": 2784,
+        "tag": "e2e_random_0017",
+        "tb_result_pass": true,
+        "trial_index": 17,
+        "vvp_log_tail": "[ OK ] reached WAIT_START\n[ OK ] reached HALT\nLATENCY_CYCLES=2784 SHAPE=(M=32,K=32) DISTRIBUTION=e2e_random_0017 WORDS=847\n=================================================\nDONE tests=2 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_latency_determinism.sv:198: $finish called at 79095000 (1ps)",
+        "wall_ns": 27840.0,
+        "x_bytes_first8": [
+          3,
+          -8,
+          4,
+          6,
+          -5,
+          4,
+          -6,
+          4
+        ]
+      },
+      {
+        "mem_path": "C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_e2e_random_0018.mem",
+        "program_words": 847,
+        "rtl_cycles": 2784,
+        "tag": "e2e_random_0018",
+        "tb_result_pass": true,
+        "trial_index": 18,
+        "vvp_log_tail": "[ OK ] reached WAIT_START\n[ OK ] reached HALT\nLATENCY_CYCLES=2784 SHAPE=(M=32,K=32) DISTRIBUTION=e2e_random_0018 WORDS=847\n=================================================\nDONE tests=2 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_latency_determinism.sv:198: $finish called at 79095000 (1ps)",
+        "wall_ns": 27840.0,
+        "x_bytes_first8": [
+          -8,
+          -7,
+          -3,
+          6,
+          -7,
+          -1,
+          -3,
+          -7
+        ]
+      },
+      {
+        "mem_path": "C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_e2e_random_0019.mem",
+        "program_words": 847,
+        "rtl_cycles": 2784,
+        "tag": "e2e_random_0019",
+        "tb_result_pass": true,
+        "trial_index": 19,
+        "vvp_log_tail": "[ OK ] reached WAIT_START\n[ OK ] reached HALT\nLATENCY_CYCLES=2784 SHAPE=(M=32,K=32) DISTRIBUTION=e2e_random_0019 WORDS=847\n=================================================\nDONE tests=2 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_latency_determinism.sv:198: $finish called at 79095000 (1ps)",
+        "wall_ns": 27840.0,
+        "x_bytes_first8": [
+          -1,
+          -6,
+          3,
+          4,
+          3,
+          -7,
+          1,
+          5
+        ]
+      },
+      {
+        "mem_path": "C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_e2e_random_0020.mem",
+        "program_words": 847,
+        "rtl_cycles": 2784,
+        "tag": "e2e_random_0020",
+        "tb_result_pass": true,
+        "trial_index": 20,
+        "vvp_log_tail": "[ OK ] reached WAIT_START\n[ OK ] reached HALT\nLATENCY_CYCLES=2784 SHAPE=(M=32,K=32) DISTRIBUTION=e2e_random_0020 WORDS=847\n=================================================\nDONE tests=2 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_latency_determinism.sv:198: $finish called at 79095000 (1ps)",
+        "wall_ns": 27840.0,
+        "x_bytes_first8": [
+          -4,
+          -6,
+          -2,
+          -3,
+          -7,
+          -7,
+          -7,
+          7
+        ]
+      },
+      {
+        "mem_path": "C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_e2e_random_0021.mem",
+        "program_words": 847,
+        "rtl_cycles": 2784,
+        "tag": "e2e_random_0021",
+        "tb_result_pass": true,
+        "trial_index": 21,
+        "vvp_log_tail": "[ OK ] reached WAIT_START\n[ OK ] reached HALT\nLATENCY_CYCLES=2784 SHAPE=(M=32,K=32) DISTRIBUTION=e2e_random_0021 WORDS=847\n=================================================\nDONE tests=2 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_latency_determinism.sv:198: $finish called at 79095000 (1ps)",
+        "wall_ns": 27840.0,
+        "x_bytes_first8": [
+          -4,
+          -7,
+          -6,
+          0,
+          -8,
+          6,
+          5,
+          4
+        ]
+      },
+      {
+        "mem_path": "C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_e2e_random_0022.mem",
+        "program_words": 847,
+        "rtl_cycles": 2784,
+        "tag": "e2e_random_0022",
+        "tb_result_pass": true,
+        "trial_index": 22,
+        "vvp_log_tail": "[ OK ] reached WAIT_START\n[ OK ] reached HALT\nLATENCY_CYCLES=2784 SHAPE=(M=32,K=32) DISTRIBUTION=e2e_random_0022 WORDS=847\n=================================================\nDONE tests=2 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_latency_determinism.sv:198: $finish called at 79095000 (1ps)",
+        "wall_ns": 27840.0,
+        "x_bytes_first8": [
+          -4,
+          2,
+          0,
+          -8,
+          3,
+          -2,
+          4,
+          0
+        ]
+      },
+      {
+        "mem_path": "C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_e2e_random_0023.mem",
+        "program_words": 847,
+        "rtl_cycles": 2784,
+        "tag": "e2e_random_0023",
+        "tb_result_pass": true,
+        "trial_index": 23,
+        "vvp_log_tail": "[ OK ] reached WAIT_START\n[ OK ] reached HALT\nLATENCY_CYCLES=2784 SHAPE=(M=32,K=32) DISTRIBUTION=e2e_random_0023 WORDS=847\n=================================================\nDONE tests=2 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_latency_determinism.sv:198: $finish called at 79095000 (1ps)",
+        "wall_ns": 27840.0,
+        "x_bytes_first8": [
+          7,
+          -2,
+          -4,
+          -4,
+          -5,
+          -5,
+          5,
+          6
+        ]
+      },
+      {
+        "mem_path": "C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_e2e_random_0024.mem",
+        "program_words": 847,
+        "rtl_cycles": 2784,
+        "tag": "e2e_random_0024",
+        "tb_result_pass": true,
+        "trial_index": 24,
+        "vvp_log_tail": "[ OK ] reached WAIT_START\n[ OK ] reached HALT\nLATENCY_CYCLES=2784 SHAPE=(M=32,K=32) DISTRIBUTION=e2e_random_0024 WORDS=847\n=================================================\nDONE tests=2 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_latency_determinism.sv:198: $finish called at 79095000 (1ps)",
+        "wall_ns": 27840.0,
+        "x_bytes_first8": [
+          6,
+          -3,
+          7,
+          0,
+          -6,
+          0,
+          2,
+          -1
+        ]
+      },
+      {
+        "mem_path": "C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_e2e_random_0025.mem",
+        "program_words": 847,
+        "rtl_cycles": 2784,
+        "tag": "e2e_random_0025",
+        "tb_result_pass": true,
+        "trial_index": 25,
+        "vvp_log_tail": "[ OK ] reached WAIT_START\n[ OK ] reached HALT\nLATENCY_CYCLES=2784 SHAPE=(M=32,K=32) DISTRIBUTION=e2e_random_0025 WORDS=847\n=================================================\nDONE tests=2 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_latency_determinism.sv:198: $finish called at 79095000 (1ps)",
+        "wall_ns": 27840.0,
+        "x_bytes_first8": [
+          -8,
+          7,
+          0,
+          4,
+          -4,
+          2,
+          -5,
+          7
+        ]
+      },
+      {
+        "mem_path": "C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_e2e_random_0026.mem",
+        "program_words": 847,
+        "rtl_cycles": 2784,
+        "tag": "e2e_random_0026",
+        "tb_result_pass": true,
+        "trial_index": 26,
+        "vvp_log_tail": "[ OK ] reached WAIT_START\n[ OK ] reached HALT\nLATENCY_CYCLES=2784 SHAPE=(M=32,K=32) DISTRIBUTION=e2e_random_0026 WORDS=847\n=================================================\nDONE tests=2 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_latency_determinism.sv:198: $finish called at 79095000 (1ps)",
+        "wall_ns": 27840.0,
+        "x_bytes_first8": [
+          1,
+          -3,
+          -4,
+          -2,
+          5,
+          -3,
+          -5,
+          -8
+        ]
+      },
+      {
+        "mem_path": "C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_e2e_random_0027.mem",
+        "program_words": 847,
+        "rtl_cycles": 2784,
+        "tag": "e2e_random_0027",
+        "tb_result_pass": true,
+        "trial_index": 27,
+        "vvp_log_tail": "[ OK ] reached WAIT_START\n[ OK ] reached HALT\nLATENCY_CYCLES=2784 SHAPE=(M=32,K=32) DISTRIBUTION=e2e_random_0027 WORDS=847\n=================================================\nDONE tests=2 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_latency_determinism.sv:198: $finish called at 79095000 (1ps)",
+        "wall_ns": 27840.0,
+        "x_bytes_first8": [
+          7,
+          -2,
+          1,
+          4,
+          -6,
+          5,
+          -8,
+          -6
+        ]
+      },
+      {
+        "mem_path": "C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_e2e_random_0028.mem",
+        "program_words": 847,
+        "rtl_cycles": 2784,
+        "tag": "e2e_random_0028",
+        "tb_result_pass": true,
+        "trial_index": 28,
+        "vvp_log_tail": "[ OK ] reached WAIT_START\n[ OK ] reached HALT\nLATENCY_CYCLES=2784 SHAPE=(M=32,K=32) DISTRIBUTION=e2e_random_0028 WORDS=847\n=================================================\nDONE tests=2 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_latency_determinism.sv:198: $finish called at 79095000 (1ps)",
+        "wall_ns": 27840.0,
+        "x_bytes_first8": [
+          -7,
+          3,
+          5,
+          -2,
+          -5,
+          2,
+          5,
+          1
+        ]
+      },
+      {
+        "mem_path": "C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_e2e_random_0029.mem",
+        "program_words": 847,
+        "rtl_cycles": 2784,
+        "tag": "e2e_random_0029",
+        "tb_result_pass": true,
+        "trial_index": 29,
+        "vvp_log_tail": "[ OK ] reached WAIT_START\n[ OK ] reached HALT\nLATENCY_CYCLES=2784 SHAPE=(M=32,K=32) DISTRIBUTION=e2e_random_0029 WORDS=847\n=================================================\nDONE tests=2 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_latency_determinism.sv:198: $finish called at 79095000 (1ps)",
+        "wall_ns": 27840.0,
+        "x_bytes_first8": [
+          5,
+          -4,
+          3,
+          2,
+          -4,
+          7,
+          4,
+          2
+        ]
+      },
+      {
+        "mem_path": "C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_e2e_random_0030.mem",
+        "program_words": 847,
+        "rtl_cycles": 2784,
+        "tag": "e2e_random_0030",
+        "tb_result_pass": true,
+        "trial_index": 30,
+        "vvp_log_tail": "[ OK ] reached WAIT_START\n[ OK ] reached HALT\nLATENCY_CYCLES=2784 SHAPE=(M=32,K=32) DISTRIBUTION=e2e_random_0030 WORDS=847\n=================================================\nDONE tests=2 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_latency_determinism.sv:198: $finish called at 79095000 (1ps)",
+        "wall_ns": 27840.0,
+        "x_bytes_first8": [
+          -6,
+          -8,
+          -5,
+          -1,
+          0,
+          -7,
+          -3,
+          -3
+        ]
+      },
+      {
+        "mem_path": "C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_e2e_random_0031.mem",
+        "program_words": 847,
+        "rtl_cycles": 2784,
+        "tag": "e2e_random_0031",
+        "tb_result_pass": true,
+        "trial_index": 31,
+        "vvp_log_tail": "[ OK ] reached WAIT_START\n[ OK ] reached HALT\nLATENCY_CYCLES=2784 SHAPE=(M=32,K=32) DISTRIBUTION=e2e_random_0031 WORDS=847\n=================================================\nDONE tests=2 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_latency_determinism.sv:198: $finish called at 79095000 (1ps)",
+        "wall_ns": 27840.0,
+        "x_bytes_first8": [
+          -7,
+          -3,
+          -8,
+          2,
+          4,
+          -4,
+          5,
+          1
+        ]
+      }
+    ],
+    "iverilog_compile_ok": true,
+    "n_e2e_inputs_measured": 37,
+    "per_distribution": [
+      {
+        "distribution": "zero",
+        "iverilog_recompile_ok": true,
+        "mem_path": "C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_zero.mem",
+        "program_words": 847,
+        "rtl_cycles": 2784,
+        "tb_result_pass": true,
+        "vvp_log_tail": "Task 4 -- latency determinism RTL trial\nprogram=C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_zero.mem words=847 shape=(M=32,K=32) distribution=zero\n=================================================\nWARNING: rtl/tb/tb_latency_determinism.sv:161: $readmemh(C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_zero.mem): Not enough words in the file for the requested range [0:1023].\n[ OK ] reached WAIT_START\n[ OK ] reached HALT\nLATENCY_CYCLES=2784 SHAPE=(M=32,K=32) DISTRIBUTION=zero WORDS=847\n=================================================\nDONE tests=2 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_latency_determinism.sv:198: $finish called at 79095000 (1ps)",
+        "wall_ns": 27840.0,
+        "x_bytes_first8": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "distribution": "saturating",
+        "iverilog_recompile_ok": true,
+        "mem_path": "C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_saturating.mem",
+        "program_words": 847,
+        "rtl_cycles": 2784,
+        "tb_result_pass": true,
+        "vvp_log_tail": "Task 4 -- latency determinism RTL trial\nprogram=C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_saturating.mem words=847 shape=(M=32,K=32) distribution=saturating\n=================================================\nWARNING: rtl/tb/tb_latency_determinism.sv:161: $readmemh(C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_saturating.mem): Not enough words in the file for the requested range [0:1023].\n[ OK ] reached WAIT_START\n[ OK ] reached HALT\nLATENCY_CYCLES=2784 SHAPE=(M=32,K=32) DISTRIBUTION=saturating WORDS=847\n=================================================\nDONE tests=2 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_latency_determinism.sv:198: $finish called at 79095000 (1ps)",
+        "wall_ns": 27840.0,
+        "x_bytes_first8": [
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7,
+          7
+        ]
+      },
+      {
+        "distribution": "random",
+        "iverilog_recompile_ok": true,
+        "mem_path": "C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_random.mem",
+        "program_words": 847,
+        "rtl_cycles": 2784,
+        "tb_result_pass": true,
+        "vvp_log_tail": "Task 4 -- latency determinism RTL trial\nprogram=C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_random.mem words=847 shape=(M=32,K=32) distribution=random\n=================================================\nWARNING: rtl/tb/tb_latency_determinism.sv:161: $readmemh(C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_random.mem): Not enough words in the file for the requested range [0:1023].\n[ OK ] reached WAIT_START\n[ OK ] reached HALT\nLATENCY_CYCLES=2784 SHAPE=(M=32,K=32) DISTRIBUTION=random WORDS=847\n=================================================\nDONE tests=2 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_latency_determinism.sv:198: $finish called at 79095000 (1ps)",
+        "wall_ns": 27840.0,
+        "x_bytes_first8": [
+          5,
+          -4,
+          2,
+          -6,
+          5,
+          -7,
+          -6,
+          -8
+        ]
+      },
+      {
+        "distribution": "sparse",
+        "iverilog_recompile_ok": true,
+        "mem_path": "C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_sparse.mem",
+        "program_words": 847,
+        "rtl_cycles": 2784,
+        "tb_result_pass": true,
+        "vvp_log_tail": "Task 4 -- latency determinism RTL trial\nprogram=C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_sparse.mem words=847 shape=(M=32,K=32) distribution=sparse\n=================================================\nWARNING: rtl/tb/tb_latency_determinism.sv:161: $readmemh(C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_sparse.mem): Not enough words in the file for the requested range [0:1023].\n[ OK ] reached WAIT_START\n[ OK ] reached HALT\nLATENCY_CYCLES=2784 SHAPE=(M=32,K=32) DISTRIBUTION=sparse WORDS=847\n=================================================\nDONE tests=2 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_latency_determinism.sv:198: $finish called at 79095000 (1ps)",
+        "wall_ns": 27840.0,
+        "x_bytes_first8": [
+          7,
+          7,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "distribution": "alternating",
+        "iverilog_recompile_ok": true,
+        "mem_path": "C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_alternating.mem",
+        "program_words": 847,
+        "rtl_cycles": 2784,
+        "tb_result_pass": true,
+        "vvp_log_tail": "Task 4 -- latency determinism RTL trial\nprogram=C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_alternating.mem words=847 shape=(M=32,K=32) distribution=alternating\n=================================================\nWARNING: rtl/tb/tb_latency_determinism.sv:161: $readmemh(C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/latency_32x32_alternating.mem): Not enough words in the file for the requested range [0:1023].\n[ OK ] reached WAIT_START\n[ OK ] reached HALT\nLATENCY_CYCLES=2784 SHAPE=(M=32,K=32) DISTRIBUTION=alternating WORDS=847\n=================================================\nDONE tests=2 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_latency_determinism.sv:198: $finish called at 79095000 (1ps)",
+        "wall_ns": 27840.0,
+        "x_bytes_first8": [
+          7,
+          -8,
+          7,
+          -8,
+          7,
+          -8,
+          7,
+          -8
+        ]
+      }
+    ],
+    "plusargs_dispatch": true,
+    "rtl_cycle_variance": 0,
+    "rtl_cycles_invariant_across_distributions": true,
+    "rtl_cycles_observed": [
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784,
+      2784
+    ],
+    "shape": "(M=32,K=32)",
+    "wall_clock": {
+      "clock_mhz": 100.0,
+      "clock_source": "bench/results/timing_closure_sweep.json::requant_fmax_mb4_clk10_pd3 (clock_period_ns=10.0, frequency_mhz_constraint=100.0, status=closed)",
+      "conversion": "wall_ns = cycles * (1000 / clock_mhz)  # i.e. 10 ns/cycle at 100 MHz",
+      "jitter_cycles": 0,
+      "jitter_ns": 0.0,
+      "max_ns": 27840.0,
+      "median_ns": 27840.0,
+      "min_ns": 27840.0,
+      "samples_ns": [
+        27840.0,
+        27840.0,
+        27840.0,
+        27840.0,
+        27840.0,
+        27840.0,
+        27840.0,
+        27840.0,
+        27840.0,
+        27840.0,
+        27840.0,
+        27840.0,
+        27840.0,
+        27840.0,
+        27840.0,
+        27840.0,
+        27840.0,
+        27840.0,
+        27840.0,
+        27840.0,
+        27840.0,
+        27840.0,
+        27840.0,
+        27840.0,
+        27840.0,
+        27840.0,
+        27840.0,
+        27840.0,
+        27840.0,
+        27840.0,
+        27840.0,
+        27840.0,
+        27840.0,
+        27840.0,
+        27840.0,
+        27840.0,
+        27840.0
+      ],
+      "samples_us": [
+        27.84,
+        27.84,
+        27.84,
+        27.84,
+        27.84,
+        27.84,
+        27.84,
+        27.84,
+        27.84,
+        27.84,
+        27.84,
+        27.84,
+        27.84,
+        27.84,
+        27.84,
+        27.84,
+        27.84,
+        27.84,
+        27.84,
+        27.84,
+        27.84,
+        27.84,
+        27.84,
+        27.84,
+        27.84,
+        27.84,
+        27.84,
+        27.84,
+        27.84,
+        27.84,
+        27.84,
+        27.84,
+        27.84,
+        27.84,
+        27.84,
+        27.84,
+        27.84
+      ],
+      "stddev_ns": 0.0
+    }
+  },
+  "schema_version": 1,
+  "scope_note": "Constant-time over the supported data-independent op set (['ACC_ADD', 'BARRIER', 'BSTORE', 'BUFFER_XFER', 'FETCH', 'HALT', 'LOAD', 'NOP', 'PE_SELECT', 'RUN', 'STORE']); COMPUTE latency only; UART/IO framing bounded separately. The static cycle model matches the in-order ISA simulator's cycle accounting exactly (verified by static_vs_sim[].exact_match=True on all swept shapes); the simulator is RTL-corroborated at the cycle-reduction-percentage level by Phase 7 remediation P4.1 (\u00b12.0% per bench/results/scheduler_rtl_crosscheck.json), NOT at the absolute count level. The data-independence claim this artifact establishes is: RTL cycle variance across adversarial input distributions == 0 for the same compiled program (empirical) AND every opcode in the swept programs is in the data-independent allowlist (static proof).",
+  "shapes": [
+    "(M=32,K=32)",
+    "(M=32,K=64)",
+    "(M=64,K=32)",
+    "(M=64,K=64)"
+  ],
+  "static_arm_all_shapes_exact_match": true,
+  "static_vs_sim": [
+    {
+      "data_dependent_ops_found": [],
+      "data_independence_proven": true,
+      "data_independent_ops_observed": [
+        "FETCH",
+        "HALT",
+        "LOAD",
+        "RUN",
+        "STORE"
+      ],
+      "exact_match": true,
+      "halted": true,
+      "in_features": 32,
+      "out_features": 32,
+      "per_opcode_counts": {
+        "FETCH": 16,
+        "HALT": 1,
+        "LOAD": 8,
+        "RUN": 6,
+        "STORE": 272
+      },
+      "per_opcode_cycles": {
+        "FETCH": 16,
+        "HALT": 1,
+        "LOAD": 8,
+        "RUN": 6,
+        "STORE": 272
+      },
+      "program_words": 847,
+      "shape": "(M=32,K=32)",
+      "simulator_cycles": 303,
+      "static_cycles": 303
+    },
+    {
+      "data_dependent_ops_found": [],
+      "data_independence_proven": true,
+      "data_independent_ops_observed": [
+        "FETCH",
+        "HALT",
+        "LOAD",
+        "RUN",
+        "STORE"
+      ],
+      "exact_match": true,
+      "halted": true,
+      "in_features": 64,
+      "out_features": 32,
+      "per_opcode_counts": {
+        "FETCH": 16,
+        "HALT": 1,
+        "LOAD": 16,
+        "RUN": 10,
+        "STORE": 544
+      },
+      "per_opcode_cycles": {
+        "FETCH": 16,
+        "HALT": 1,
+        "LOAD": 16,
+        "RUN": 10,
+        "STORE": 544
+      },
+      "program_words": 1675,
+      "shape": "(M=32,K=64)",
+      "simulator_cycles": 587,
+      "static_cycles": 587
+    },
+    {
+      "data_dependent_ops_found": [],
+      "data_independence_proven": true,
+      "data_independent_ops_observed": [
+        "FETCH",
+        "HALT",
+        "LOAD",
+        "RUN",
+        "STORE"
+      ],
+      "exact_match": true,
+      "halted": true,
+      "in_features": 32,
+      "out_features": 64,
+      "per_opcode_counts": {
+        "FETCH": 32,
+        "HALT": 1,
+        "LOAD": 16,
+        "RUN": 12,
+        "STORE": 544
+      },
+      "per_opcode_cycles": {
+        "FETCH": 32,
+        "HALT": 1,
+        "LOAD": 16,
+        "RUN": 12,
+        "STORE": 544
+      },
+      "program_words": 1693,
+      "shape": "(M=64,K=32)",
+      "simulator_cycles": 605,
+      "static_cycles": 605
+    },
+    {
+      "data_dependent_ops_found": [],
+      "data_independence_proven": true,
+      "data_independent_ops_observed": [
+        "FETCH",
+        "HALT",
+        "LOAD",
+        "RUN",
+        "STORE"
+      ],
+      "exact_match": true,
+      "halted": true,
+      "in_features": 64,
+      "out_features": 64,
+      "per_opcode_counts": {
+        "FETCH": 32,
+        "HALT": 1,
+        "LOAD": 32,
+        "RUN": 20,
+        "STORE": 1088
+      },
+      "per_opcode_cycles": {
+        "FETCH": 32,
+        "HALT": 1,
+        "LOAD": 32,
+        "RUN": 20,
+        "STORE": 1088
+      },
+      "program_words": 3349,
+      "shape": "(M=64,K=64)",
+      "simulator_cycles": 1173,
+      "static_cycles": 1173
+    }
+  ],
+  "status": "rtl_sim"
+}

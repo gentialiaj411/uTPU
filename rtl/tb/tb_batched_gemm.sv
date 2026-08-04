@@ -45,9 +45,14 @@ module tb_batched_gemm;
     localparam int TB_RELU_LANES = `BG_RELU_LANES;
 `endif
 `ifndef BG_QUANTIZER_PIPE_DEPTH
-    localparam int TB_QUANTIZER_PIPE_DEPTH = 0;
+    localparam int TB_QUANTIZER_PIPE_DEPTH = 3;
 `else
     localparam int TB_QUANTIZER_PIPE_DEPTH = `BG_QUANTIZER_PIPE_DEPTH;
+`endif
+`ifndef BG_WEIGHT_OVERLAP_EN
+    localparam int TB_WEIGHT_OVERLAP_EN = 0;
+`else
+    localparam int TB_WEIGHT_OVERLAP_EN = `BG_WEIGHT_OVERLAP_EN;
 `endif
     localparam int TB_WAIT_START_MAX = 200000 + (`BG_WORDS * 16);
     localparam int TB_FETCH_SPIN_MAX = 200000 + (`BG_FETCH_N * 8192);
@@ -65,6 +70,7 @@ module tb_batched_gemm;
         .QUANTIZER_LANES(TB_QUANTIZER_LANES),
         .RELU_LANES(TB_RELU_LANES),
         .QUANTIZER_PIPE_DEPTH(TB_QUANTIZER_PIPE_DEPTH),
+        .WEIGHT_OVERLAP_EN(TB_WEIGHT_OVERLAP_EN),
         .UART_INPUT_CLK(100000000),
         .UART_BAUD(100000000)
     ) dut (
@@ -76,13 +82,23 @@ module tb_batched_gemm;
     reg [7:0] expected [0:`BG_FETCH_N-1];
     reg [7:0] actual [0:`BG_FETCH_N-1];
     reg [15:0] case_mem [0:TB_PROG_DEPTH-1];
-    byte perf_bytes [0:31];
-    bit quantizer_x_seen;
-    int finalize_requant_cycles;
+    byte perf_bytes [0:103];
     logic [63:0] cycle_ctr;
     logic [63:0] busy_ctr;
     logic [63:0] program_ctr;
     logic [63:0] program_cycle_ctr;
+    logic [63:0] attr_fetch_decode;
+    logic [63:0] attr_store;
+    logic [63:0] attr_load;
+    logic [63:0] attr_compute;
+    logic [63:0] attr_writeback;
+    logic [63:0] attr_bstore;
+    logic [63:0] attr_ext_addr;
+    logic [63:0] attr_requant;
+    logic [63:0] attr_result_fetch;
+    localparam int TB_PERF_BYTES = 104;
+    bit quantizer_x_seen;
+    int finalize_requant_cycles;
 
     task automatic CHECK(input string name, input bit cond);
         tests++;
@@ -138,7 +154,7 @@ module tb_batched_gemm;
         int i;
         got = 0;
         i = 0;
-        while (i < TB_PERF_WAIT_MAX && got < 32) begin
+        while (i < TB_PERF_WAIT_MAX && got < TB_PERF_BYTES) begin
             @(posedge clk);
             if (dut.tx_we && dut.tx_wdata !== 8'hAA) begin
                 perf_bytes[got] = dut.tx_wdata;
@@ -147,6 +163,15 @@ module tb_batched_gemm;
             i = i + 1;
         end
     endtask
+
+    function automatic logic [63:0] unpack_u64(input int base);
+        logic [63:0] v;
+        int j;
+        v = '0;
+        for (j = 0; j < 8; j++)
+            v = {v[55:0], perf_bytes[base + j]};
+        return v;
+    endfunction
 
     initial begin
         bit reached_wait_start;
@@ -221,21 +246,48 @@ module tb_batched_gemm;
 
         push_rx_byte(MAGIC_READ_PERF);
         collect_perf_bytes(got_perf);
-        CHECK("Received 32 perf bytes", got_perf == 32 || dut.perf_cycle_counter > 0);
+        CHECK("Received 104 perf bytes", got_perf == TB_PERF_BYTES || dut.perf_cycle_counter > 0);
         cycle_ctr = '0;
         busy_ctr = '0;
         program_ctr = '0;
         program_cycle_ctr = '0;
-        if (got_perf == 32) begin
-            for (i = 0; i < 8; i++) cycle_ctr = {cycle_ctr[55:0], perf_bytes[i]};
-            for (i = 8; i < 16; i++) busy_ctr = {busy_ctr[55:0], perf_bytes[i]};
-            for (i = 16; i < 24; i++) program_ctr = {program_ctr[55:0], perf_bytes[i]};
-            for (i = 24; i < 32; i++) program_cycle_ctr = {program_cycle_ctr[55:0], perf_bytes[i]};
+        attr_fetch_decode = '0;
+        attr_store = '0;
+        attr_load = '0;
+        attr_compute = '0;
+        attr_writeback = '0;
+        attr_bstore = '0;
+        attr_ext_addr = '0;
+        attr_requant = '0;
+        attr_result_fetch = '0;
+        if (got_perf == TB_PERF_BYTES) begin
+            cycle_ctr = unpack_u64(0);
+            busy_ctr = unpack_u64(8);
+            program_ctr = unpack_u64(16);
+            program_cycle_ctr = unpack_u64(24);
+            attr_fetch_decode = unpack_u64(32);
+            attr_store = unpack_u64(40);
+            attr_load = unpack_u64(48);
+            attr_compute = unpack_u64(56);
+            attr_writeback = unpack_u64(64);
+            attr_bstore = unpack_u64(72);
+            attr_ext_addr = unpack_u64(80);
+            attr_requant = unpack_u64(88);
+            attr_result_fetch = unpack_u64(96);
         end else begin
             cycle_ctr = dut.perf_cycle_counter;
             busy_ctr = dut.perf_busy_counter;
             program_ctr = dut.perf_program_count;
             program_cycle_ctr = dut.perf_program_cycle_counter;
+            attr_fetch_decode = dut.perf_attr_fetch_decode;
+            attr_store = dut.perf_attr_store;
+            attr_load = dut.perf_attr_load;
+            attr_compute = dut.perf_attr_compute;
+            attr_writeback = dut.perf_attr_writeback;
+            attr_bstore = dut.perf_attr_bstore;
+            attr_ext_addr = dut.perf_attr_ext_addr;
+            attr_requant = dut.perf_attr_requant;
+            attr_result_fetch = dut.perf_attr_result_fetch;
         end
         CHECK("Busy counter bounded by cycle counter", busy_ctr <= cycle_ctr);
         CHECK("Program count incremented on HALT", program_ctr >= 64'd1);
@@ -244,6 +296,15 @@ module tb_batched_gemm;
         $display("PERF_BUSY_COUNTER=%0d", busy_ctr);
         $display("PERF_PROGRAM_COUNT=%0d", program_ctr);
         $display("TOTAL_PROGRAM_CYCLES=%0d", program_cycle_ctr);
+        $display("ATTR_FETCH_DECODE=%0d", attr_fetch_decode);
+        $display("ATTR_STORE=%0d", attr_store);
+        $display("ATTR_LOAD=%0d", attr_load);
+        $display("ATTR_COMPUTE=%0d", attr_compute);
+        $display("ATTR_WRITEBACK=%0d", attr_writeback);
+        $display("ATTR_BSTORE=%0d", attr_bstore);
+        $display("ATTR_EXT_ADDR=%0d", attr_ext_addr);
+        $display("ATTR_REQUANT=%0d", attr_requant);
+        $display("ATTR_RESULT_FETCH=%0d", attr_result_fetch);
         $display("COMPUTE_BUSY_CYCLES=%0d", dut.perf_busy_counter);
         $display("COMPUTE_SPAN_CYCLES=%0d", dut.perf_compute_span_counter);
         $display("FINALIZE_REQUANT_CYCLES=%0d", finalize_requant_cycles);
