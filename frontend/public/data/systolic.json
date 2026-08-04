@@ -1,0 +1,53 @@
+{
+  "tier": "sim",
+  "source_artifact": "bench/results/systolic_characterization.json",
+  "array_size": 16,
+  "streaming_ceiling_formula": "B/(2N+B) occupancy ceiling; per-tile busy \u2248 2N+B-2",
+  "cases": [
+    {
+      "batch_size": 1,
+      "pe_occupancy": 0.02631578947368421,
+      "rtl_busy_counter": 38,
+      "rtl_cycle_counter": 2072,
+      "busy_fraction": 0.01833976833976834,
+      "model_per_tile_busy": 31,
+      "streaming_ceiling": 0.12109375
+    },
+    {
+      "batch_size": 4,
+      "pe_occupancy": 0.09302325581395349,
+      "rtl_busy_counter": 43,
+      "rtl_cycle_counter": 2999,
+      "busy_fraction": 0.014338112704234745,
+      "model_per_tile_busy": 34,
+      "streaming_ceiling": 0.1328125
+    },
+    {
+      "batch_size": 16,
+      "pe_occupancy": 0.2909090909090909,
+      "rtl_busy_counter": 55,
+      "rtl_cycle_counter": 6323,
+      "busy_fraction": 0.00869840265696663,
+      "model_per_tile_busy": 46,
+      "streaming_ceiling": 0.1796875
+    },
+    {
+      "batch_size": 32,
+      "pe_occupancy": 0.4507042253521127,
+      "rtl_busy_counter": 71,
+      "rtl_cycle_counter": 10765,
+      "busy_fraction": 0.006595448211797492,
+      "model_per_tile_busy": 62,
+      "streaming_ceiling": 0.2421875
+    },
+    {
+      "batch_size": 64,
+      "pe_occupancy": 0.6213592233009708,
+      "rtl_busy_counter": 103,
+      "rtl_cycle_counter": 19649,
+      "busy_fraction": 0.005241997048195837,
+      "model_per_tile_busy": 94,
+      "streaming_ceiling": 0.3671875
+    }
+  ]
+}

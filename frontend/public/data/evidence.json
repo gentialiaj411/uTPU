@@ -1,0 +1,2328 @@
+{
+  "meta": {
+    "generated_at_utc": "2026-08-04T18:22:51.154317+00:00",
+    "artifact_count": 50,
+    "claim_count": 75,
+    "artifacts": [
+      "bench/results/_latency_vs_gpu_cuda_subprocess.json",
+      "bench/results/_latency_vs_gpu_cuda_subprocess.samples.json",
+      "bench/results/baseline_8x8_current_rtl_synth.json",
+      "bench/results/batched_gemm_correctness.json",
+      "bench/results/board_fit_audit.json",
+      "bench/results/bstore_path_measure.json",
+      "bench/results/bstore_wide_smoke.json",
+      "bench/results/bstore_widen_lut_estimate.json",
+      "bench/results/cost_model_heldout.json",
+      "bench/results/cost_model_regression.json",
+      "bench/results/cost_model_selection.json",
+      "bench/results/cublas_baseline.json",
+      "bench/results/cycle_attribution.json",
+      "bench/results/cycle_attribution_mnist.json",
+      "bench/results/design_space_sweep.json",
+      "bench/results/double_buffer_overlap.json",
+      "bench/results/fusion_payoff.json",
+      "bench/results/latency_determinism.json",
+      "bench/results/latency_determinism_vs_gpu.json",
+      "bench/results/learned_cost_model_comparison.json",
+      "bench/results/megakernel_payoff.json",
+      "bench/results/multi_pe_sim.json",
+      "bench/results/p4_2_vivado_reports.json",
+      "bench/results/packed_array_cycle_compare.json",
+      "bench/results/packed_dsp_synth.json",
+      "bench/results/pe_array_packed_hardened.json",
+      "bench/results/pe_array_packed_sim.json",
+      "bench/results/pe_packed_pair_sim.json",
+      "bench/results/prog_depth_smoke.json",
+      "bench/results/prog_depth_sweep.json",
+      "bench/results/program_word_composition.json",
+      "bench/results/quantizer_pipe_depth_cost.json",
+      "bench/results/real_model_accelerator.json",
+      "bench/results/real_model_end_to_end.json",
+      "bench/results/requant_rightsizing_synth.json",
+      "bench/results/scheduler_cycles.json",
+      "bench/results/scheduler_rtl_crosscheck.json",
+      "bench/results/scheduler_rtl_crosscheck_bigmlp.json",
+      "bench/results/selection_ab.json",
+      "bench/results/steady_state_attribution.json",
+      "bench/results/superopt_payoff.json",
+      "bench/results/systolic_characterization.json",
+      "bench/results/tiling_correctness.json",
+      "bench/results/timing_closure_sweep.json",
+      "bench/results/top_packed_smoke.json",
+      "bench/results/uart_preboard_roundtrip.json",
+      "bench/results/utpu_attention_hybrid.json",
+      "bench/results/utpu_conv2d_validation.json",
+      "bench/results/utpu_cycle_model_heldout.json",
+      "bench/results/utpu_small_cnn_validation.json"
+    ],
+    "github_repo": "gentialiaj411/uTPU",
+    "silicon_tier_note": "P0 on-board execution is OPEN \u2014 silicon tier renders empty until captured."
+  },
+  "claims": [
+    {
+      "id": "rtl_synth_8x8_timing_closed",
+      "category": "FPGA synthesis",
+      "headline": "Current RTL 8\u00d78 INT8 timing closure",
+      "value": 50.0,
+      "unit": "MHz",
+      "tier": "synth",
+      "source_artifact": "bench/results/baseline_8x8_current_rtl_synth.json",
+      "fence_note": "Vivado P&R on current RTL; supersedes stale p4_2 100 MHz numbers.",
+      "tags": [],
+      "raw": {
+        "wns_ns": 0.416,
+        "clock_period_ns": 20.0
+      }
+    },
+    {
+      "id": "rtl_synth_8x8_dsp",
+      "category": "FPGA synthesis",
+      "headline": "DSP utilization (current RTL 8\u00d78)",
+      "value": "192/240",
+      "unit": "DSP",
+      "tier": "synth",
+      "source_artifact": "bench/results/baseline_8x8_current_rtl_synth.json",
+      "fence_note": "Post-route utilization from baseline_8x8_current_rtl_synth.json.",
+      "tags": [],
+      "raw": {
+        "lut_used": 25221,
+        "lut_available": 63400,
+        "ff_used": 6819,
+        "ff_available": 126800,
+        "bram_36k_used": 21,
+        "bram_36k_available": 135,
+        "dsp_used": 192,
+        "dsp_available": 240
+      }
+    },
+    {
+      "id": "rtl_synth_8x8_bit",
+      "category": "FPGA synthesis",
+      "headline": "Bitstream generated",
+      "value": true,
+      "unit": "bool",
+      "tier": "synth",
+      "source_artifact": "bench/results/baseline_8x8_current_rtl_synth.json",
+      "fence_note": "Synthesized bit exists; on-board execution not captured (P0 open).",
+      "tags": [],
+      "raw": {
+        "bit_generated": true,
+        "route_status": "clean"
+      }
+    },
+    {
+      "id": "batched_gemm_correctness_aggregate_all_cases_bit_exact_vs_oracle",
+      "category": "Batched Gemm Correctness",
+      "headline": "all cases bit exact vs oracle",
+      "value": true,
+      "unit": "",
+      "tier": "ci",
+      "source_artifact": "bench/results/batched_gemm_correctness.json",
+      "fence_note": "Auto-extracted from aggregate block.",
+      "tags": [],
+      "raw": {
+        "all_cases_bit_exact_vs_oracle": true
+      }
+    },
+    {
+      "id": "batched_gemm_correctness_aggregate_all_cases_deterministic",
+      "category": "Batched Gemm Correctness",
+      "headline": "all cases deterministic",
+      "value": true,
+      "unit": "",
+      "tier": "ci",
+      "source_artifact": "bench/results/batched_gemm_correctness.json",
+      "fence_note": "Auto-extracted from aggregate block.",
+      "tags": [],
+      "raw": {
+        "all_cases_deterministic": true
+      }
+    },
+    {
+      "id": "batched_gemm_correctness_aggregate_all_b1_programs_byte_identical",
+      "category": "Batched Gemm Correctness",
+      "headline": "all b1 programs byte identical",
+      "value": true,
+      "unit": "",
+      "tier": "ci",
+      "source_artifact": "bench/results/batched_gemm_correctness.json",
+      "fence_note": "Auto-extracted from aggregate block.",
+      "tags": [],
+      "raw": {
+        "all_b1_programs_byte_identical": true
+      }
+    },
+    {
+      "id": "board_fit_bram_max_fraction",
+      "category": "Board fit",
+      "headline": "Shapes fitting pynqz2_bram_max (PROG_DEPTH=8192)",
+      "value": 0.5714285714285714,
+      "unit": "fraction",
+      "tier": "ci",
+      "source_artifact": "bench/results/board_fit_audit.json",
+      "fence_note": "Host lowering audit vs instruction BRAM depth; not on-silicon.",
+      "tags": [],
+      "raw": {
+        "prog_depth": 8192,
+        "shapes_fit": [
+          {
+            "in_features": 16,
+            "out_features": 16
+          },
+          {
+            "in_features": 32,
+            "out_features": 16
+          },
+          {
+            "in_features": 64,
+            "out_features": 16
+          },
+          {
+            "in_features": 32,
+            "out_features": 32
+          },
+          {
+            "in_features": 64,
+            "out_features": 32
+          },
+          {
+            "in_features": 64,
+            "out_features": 64
+          },
+          {
+            "in_features": 128,
+            "out_features": 64
+          },
+          {
+            "in_features": 16,
+            "out_features": 256
+          }
+        ],
+        "shapes_fit_count": 8,
+        "shapes_fit_fraction": 0.5714285714285714
+      }
+    },
+    {
+      "id": "board_fit_baseline_shapes",
+      "category": "Board fit",
+      "headline": "Shapes fitting pynqz2_baseline (PROG_DEPTH=1024)",
+      "value": 4,
+      "unit": "shapes",
+      "tier": "ci",
+      "source_artifact": "bench/results/board_fit_audit.json",
+      "fence_note": "Historical shipping PROG_DEPTH=1024 admits 4/14 shapes.",
+      "tags": [],
+      "raw": {
+        "prog_depth": 1024,
+        "shapes_fit": [
+          {
+            "in_features": 16,
+            "out_features": 16
+          },
+          {
+            "in_features": 32,
+            "out_features": 16
+          },
+          {
+            "in_features": 64,
+            "out_features": 16
+          },
+          {
+            "in_features": 32,
+            "out_features": 32
+          }
+        ],
+        "shapes_fit_count": 4,
+        "shapes_fit_fraction": 0.2857142857142857
+      }
+    },
+    {
+      "id": "board_fit_artix_bram_max_shapes",
+      "category": "Board fit",
+      "headline": "Shapes fitting artix_a7100t_bram_max (PROG_DEPTH=65536)",
+      "value": 10,
+      "unit": "shapes",
+      "tier": "ci",
+      "source_artifact": "bench/results/board_fit_audit.json",
+      "fence_note": "Shipping Artix PROG_DEPTH=65536 admits 10/14 shapes; host audit only.",
+      "tags": [],
+      "raw": {
+        "prog_depth": 65536,
+        "shapes_fit": [
+          {
+            "in_features": 16,
+            "out_features": 16
+          },
+          {
+            "in_features": 32,
+            "out_features": 16
+          },
+          {
+            "in_features": 64,
+            "out_features": 16
+          },
+          {
+            "in_features": 32,
+            "out_features": 32
+          },
+          {
+            "in_features": 64,
+            "out_features": 32
+          },
+          {
+            "in_features": 64,
+            "out_features": 64
+          },
+          {
+            "in_features": 128,
+            "out_features": 64
+          },
+          {
+            "in_features": 128,
+            "out_features": 128
+          },
+          {
+            "in_features": 16,
+            "out_features": 256
+          },
+          {
+            "in_features": 256,
+            "out_features": 256
+          }
+        ],
+        "shapes_fit_count": 10,
+        "shapes_fit_fraction": 0.7142857142857143
+      }
+    },
+    {
+      "id": "bstore_widen_e2e_speedup",
+      "category": "BSTORE widen",
+      "headline": "BSTORE_WIDTH=8 end-to-end speedup vs pre-widen (fused MNIST)",
+      "value": 1.89,
+      "unit": "x",
+      "tier": "sim",
+      "source_artifact": "bench/results/bstore_path_measure.json",
+      "fence_note": "Multi-layer fused MNIST case1; iverilog attr, not silicon.",
+      "tags": [],
+      "raw": {
+        "total_program_cycles": 3445,
+        "bstore_cycles": 2119,
+        "compute_cycles": 709,
+        "bstore_pct": 0.6150943396226415,
+        "amdahl_part_a_multilayer": {
+          "workload": "fused_mnist_case1_fast_uart_n16",
+          "assumption": "Part A removes control micro-ops; bstore payloads and compute survive",
+          "total_program_cycles": 3445,
+          "bstore_cycles": 2119,
+          "compute_cycles": 709,
+          "removable_cycles": 617,
+          "removable_fraction": 0.179100145137881,
+          "residual_cycles": 2828,
+          "ceiling_x": 1.2181753889674682,
+          "isolated_gemm_ceiling_x_do_not_use_here": 2.96
+        },
+        "e2e_speedup_vs_pre_widen": 1.8934687953555878,
+        "bstore_cyc_per_word": 1.6350308641975309
+      }
+    },
+    {
+      "id": "bstore_pre_widen_cyc_per_word",
+      "category": "BSTORE widen",
+      "headline": "Pre-widen BSTORE cycles per payload word",
+      "value": 4.010030864197531,
+      "unit": "cyc/word",
+      "tier": "sim",
+      "source_artifact": "bench/results/bstore_path_measure.json",
+      "fence_note": "Frozen pre-widen baseline identity: payload*4 + bursts.",
+      "tags": [],
+      "raw": {
+        "bstore_bursts": 13,
+        "bstore_payload_words": 1296,
+        "bstore_cycles": 5197,
+        "cycles_per_payload_word": 4.010030864197531,
+        "identity_check": {
+          "formula": "payload_words * 4 + bursts",
+          "value": 5197,
+          "matches_attr_bstore_cycles": true
+        },
+        "interpretation": "Pre-widen baseline (frozen): exactly 4 on-chip cycles per 16-bit payload word plus 1 COUNT cycle per burst (5197 = 1296*4 + 13)."
+      }
+    },
+    {
+      "id": "cost_model_heldout_log_r2",
+      "category": "Cost model",
+      "headline": "Held-out log R\u00b2",
+      "value": 0.9260877254038729,
+      "unit": "ratio",
+      "tier": "ci",
+      "source_artifact": "bench/results/cost_model_heldout.json",
+      "fence_note": "Replay-only; no live CUDA in this artifact.",
+      "tags": [],
+      "raw": {
+        "log_r2": 0.9260877254038729,
+        "mape_pct": 14.322911565575378,
+        "p95_abs_rel_error_pct": 36.37573726053376
+      }
+    },
+    {
+      "id": "cost_model_heldout_mape",
+      "category": "Cost model",
+      "headline": "Held-out latency MAPE",
+      "value": 14.322911565575378,
+      "unit": "%",
+      "tier": "ci",
+      "source_artifact": "bench/results/cost_model_heldout.json",
+      "fence_note": "Generalization to unseen layer shapes.",
+      "tags": [],
+      "raw": {
+        "log_r2": 0.9260877254038729,
+        "mape_pct": 14.322911565575378,
+        "p95_abs_rel_error_pct": 36.37573726053376
+      }
+    },
+    {
+      "id": "cost_model_heldout_regret_median",
+      "category": "Cost model",
+      "headline": "Held-out selection regret (median)",
+      "value": 4.521414515181826,
+      "unit": "%",
+      "tier": "ci",
+      "source_artifact": "bench/results/cost_model_heldout.json",
+      "fence_note": "Measured regret vs autotuner-best on held-out shapes.",
+      "tags": [],
+      "raw": {
+        "max_regret_pct": 11.896080661081237,
+        "mean_regret_pct": 5.207717437306103,
+        "median_regret_pct": 4.521414515181826,
+        "n_held_out_shapes_with_multi_schedule": 5,
+        "p95_regret_pct": 10.831481958233875,
+        "top1_accuracy": 0.0,
+        "within_10pct_fraction": 0.8,
+        "within_5pct_fraction": 0.6
+      }
+    },
+    {
+      "id": "cost_model_replay_median_error",
+      "category": "Cost model",
+      "headline": "Replay median abs % error",
+      "value": 8.980322270668616,
+      "unit": "%",
+      "tier": "sim",
+      "source_artifact": "bench/results/cost_model_regression.json",
+      "fence_note": "Measured-data replay; frozen baseline coefficients.",
+      "tags": [],
+      "raw": {
+        "max_abs_percent_error": 18.22785862198709,
+        "mean_abs_percent_error": 8.876591774739131,
+        "median_abs_percent_error": 8.980322270668616,
+        "p95_abs_percent_error": 15.712799495192879,
+        "regression_ceiling_abs_percent_error": 15.712799495192879,
+        "regression_tolerance_pct_points": 6.7324772245242634
+      }
+    },
+    {
+      "id": "cost_model_selection_summary_max_regret_pct",
+      "category": "Cost Model Selection",
+      "headline": "max regret pct",
+      "value": 8.038716857071023,
+      "unit": "",
+      "tier": "ci",
+      "source_artifact": "bench/results/cost_model_selection.json",
+      "fence_note": "Auto-extracted from summary block.",
+      "tags": [],
+      "raw": {
+        "max_regret_pct": 8.038716857071023
+      }
+    },
+    {
+      "id": "cost_model_selection_summary_mean_confidence",
+      "category": "Cost Model Selection",
+      "headline": "mean confidence",
+      "value": 0.0269472774747128,
+      "unit": "",
+      "tier": "ci",
+      "source_artifact": "bench/results/cost_model_selection.json",
+      "fence_note": "Auto-extracted from summary block.",
+      "tags": [],
+      "raw": {
+        "mean_confidence": 0.0269472774747128
+      }
+    },
+    {
+      "id": "cost_model_selection_summary_mean_margin_pct",
+      "category": "Cost Model Selection",
+      "headline": "mean margin pct",
+      "value": 0.14541174653216263,
+      "unit": "",
+      "tier": "ci",
+      "source_artifact": "bench/results/cost_model_selection.json",
+      "fence_note": "Auto-extracted from summary block.",
+      "tags": [],
+      "raw": {
+        "mean_margin_pct": 0.14541174653216263
+      }
+    },
+    {
+      "id": "cost_model_selection_summary_mean_regret_pct",
+      "category": "Cost Model Selection",
+      "headline": "mean regret pct",
+      "value": 2.5560239547837607,
+      "unit": "",
+      "tier": "ci",
+      "source_artifact": "bench/results/cost_model_selection.json",
+      "fence_note": "Auto-extracted from summary block.",
+      "tags": [],
+      "raw": {
+        "mean_regret_pct": 2.5560239547837607
+      }
+    },
+    {
+      "id": "cost_model_selection_summary_median_confidence",
+      "category": "Cost Model Selection",
+      "headline": "median confidence",
+      "value": 0.0,
+      "unit": "",
+      "tier": "ci",
+      "source_artifact": "bench/results/cost_model_selection.json",
+      "fence_note": "Auto-extracted from summary block.",
+      "tags": [],
+      "raw": {
+        "median_confidence": 0.0
+      }
+    },
+    {
+      "id": "cost_model_selection_summary_median_regret_pct",
+      "category": "Cost Model Selection",
+      "headline": "median regret pct",
+      "value": 2.505298201127843,
+      "unit": "",
+      "tier": "ci",
+      "source_artifact": "bench/results/cost_model_selection.json",
+      "fence_note": "Auto-extracted from summary block.",
+      "tags": [],
+      "raw": {
+        "median_regret_pct": 2.505298201127843
+      }
+    },
+    {
+      "id": "cublas_gap_median",
+      "category": "CUDA baseline",
+      "headline": "Gap vs cuBLAS GEMV (median of shapes)",
+      "value": 145.1671828568185,
+      "unit": "%",
+      "tier": "ci",
+      "source_artifact": "bench/results/cublas_baseline.json",
+      "fence_note": "[needs-locked-clock-artifact] \u2014 latency medians unstable on unlocked clocks.",
+      "tags": [
+        "unstable_latency"
+      ],
+      "raw": {
+        "cublas_gap_pct_median_of_shapes": 145.1671828568185
+      }
+    },
+    {
+      "id": "cublaslt_int8_gap_median",
+      "category": "CUDA baseline",
+      "headline": "Gap vs cuBLASLt IMMA INT8 (median)",
+      "value": 780.3983721297005,
+      "unit": "%",
+      "tier": "ci",
+      "source_artifact": "bench/results/cublas_baseline.json",
+      "fence_note": "Dtype-matched INT8 comparison; [needs-locked-clock-artifact] for latency.",
+      "tags": [
+        "unstable_latency"
+      ],
+      "raw": {
+        "cublaslt_int8_gap_pct_median_of_shapes": 780.3983721297005
+      }
+    },
+    {
+      "id": "cycle_attr_instruction_stream_pct",
+      "category": "Cycle attribution",
+      "headline": "Instruction-stream share of on-chip cycles (64x64 B=48)",
+      "value": 66.2,
+      "unit": "%",
+      "tier": "sim",
+      "source_artifact": "bench/results/cycle_attribution.json",
+      "fence_note": "Fast-UART TB on-chip core cycles; isolated GEMM harness, not multi-layer.",
+      "tags": [],
+      "raw": {
+        "groups": {
+          "fetch_decode": {
+            "cycles": 4830,
+            "pct_of_total_program_cycles": 0.20998174071819842
+          },
+          "store": {
+            "cycles": 0,
+            "pct_of_total_program_cycles": 0.0
+          },
+          "load": {
+            "cycles": 256,
+            "pct_of_total_program_cycles": 0.011129467002869316
+          },
+          "compute": {
+            "cycles": 1316,
+            "pct_of_total_program_cycles": 0.057212416311625075
+          },
+          "writeback": {
+            "cycles": 52,
+            "pct_of_total_program_cycles": 0.0022606729849578297
+          },
+          "bstore": {
+            "cycles": 7188,
+            "pct_of_total_program_cycles": 0.31249456568994
+          },
+          "ext_addr": {
+            "cycles": 3216,
+            "pct_of_total_program_cycles": 0.13981392922354577
+          },
+          "requant": {
+            "cycles": 0,
+            "pct_of_total_program_cycles": 0.0
+          },
+          "result_fetch": {
+            "cycles": 6144,
+            "pct_of_total_program_cycles": 0.26710720806886357
+          }
+        },
+        "verdict_reason": "On 64x64 B=48 N=16 (fast-UART TB): instruction-stream=66.2%, load=1.1%, compute=5.7%, result_fetch=26.7% of on-chip core cycles. PE-level concurrent LOAD+COMPUTE cannot materially help. Redirect to descriptor ISA. Part A Amdahl ceiling <=2.96x on-chip; post-cut compute share ~0.17 vs array ceiling 0.600@N=16."
+      }
+    },
+    {
+      "id": "cycle_attr_load_pct",
+      "category": "Cycle attribution",
+      "headline": "LOAD share of on-chip cycles (64x64 B=48)",
+      "value": 1.1,
+      "unit": "%",
+      "tier": "sim",
+      "source_artifact": "bench/results/cycle_attribution.json",
+      "fence_note": "Buffer\u2192PE weight LOAD is negligible vs instruction stream.",
+      "tags": [],
+      "raw": {
+        "cycles": 256,
+        "pct_of_total_program_cycles": 0.011129467002869316
+      }
+    },
+    {
+      "id": "cycle_attr_mnist_total_cycles",
+      "category": "Cycle attribution (MNIST)",
+      "headline": "Fused MNIST total program cycles (post BSTORE widen)",
+      "value": 3445,
+      "unit": "cycles",
+      "tier": "sim",
+      "source_artifact": "bench/results/cycle_attribution_mnist.json",
+      "fence_note": "Fused MNIST case1, fast-UART TB, N=16; post BSTORE_WIDTH=8.",
+      "tags": [],
+      "raw": {
+        "total_program_cycles": 3445,
+        "groups": {
+          "fetch_decode": {
+            "cycles": 270,
+            "pct_of_total_program_cycles": 0.0783744557329463
+          },
+          "store": {
+            "cycles": 0,
+            "pct_of_total_program_cycles": 0.0
+          },
+          "load": {
+            "cycles": 120,
+            "pct_of_total_program_cycles": 0.03483309143686502
+          },
+          "compute": {
+            "cycles": 709,
+            "pct_of_total_program_cycles": 0.20580551523947752
+          },
+          "writeback": {
+            "cycles": 27,
+            "pct_of_total_program_cycles": 0.00783744557329463
+          },
+          "bstore": {
+            "cycles": 2119,
+            "pct_of_total_program_cycles": 0.6150943396226415
+          },
+          "ext_addr": {
+            "cycles": 176,
+            "pct_of_total_program_cycles": 0.05108853410740203
+          },
+          "requant": {
+            "cycles": 0,
+            "pct_of_total_program_cycles": 0.0
+          },
+          "result_fetch": {
+            "cycles": 24,
+            "pct_of_total_program_cycles": 0.006966618287373005
+          }
+        }
+      }
+    },
+    {
+      "id": "cycle_attr_mnist_compute_pct",
+      "category": "Cycle attribution (MNIST)",
+      "headline": "Cold fused-MNIST compute share",
+      "value": 20.6,
+      "unit": "%",
+      "tier": "sim",
+      "source_artifact": "bench/results/cycle_attribution_mnist.json",
+      "fence_note": "Cold path with program-embedded weights; contrast steady_state_attribution.json.",
+      "tags": [],
+      "raw": {
+        "cycles": 709,
+        "pct_of_total_program_cycles": 0.20580551523947752
+      }
+    },
+    {
+      "id": "design_space_shipping_mhz",
+      "category": "Design-space sweep",
+      "headline": "Shipping close frequency (N=8 INT8 mb48)",
+      "value": 83.33333333333333,
+      "unit": "MHz",
+      "tier": "synth",
+      "source_artifact": "bench/results/design_space_sweep.json",
+      "fence_note": "Post-route on xc7a100tcsg324-1; period=12.0 ns; WNS=0.271 ns.",
+      "tags": [],
+      "raw": {
+        "report_prefix": "dss_n8_cdw8_mb48_clk12_pd3_prog65536",
+        "ARRAY_SIZE": 8,
+        "COMPUTE_DATA_WIDTH": 8,
+        "ACCUMULATOR_DATA_WIDTH": 32,
+        "MAX_BATCH_COUNT": 48,
+        "clock_period_ns": 12.0,
+        "frequency_mhz_constraint": 83.33333333333333,
+        "PROG_DEPTH": 65536,
+        "BUFFER_SIZE": 4096,
+        "QUANTIZER_PIPE_DEPTH": 3,
+        "QUANTIZER_LANES": 8,
+        "RELU_LANES": 8,
+        "EXT_ADDR_EN": 1,
+        "status": "closed",
+        "utilization": {
+          "lut_used": 45885,
+          "lut_available": 63400,
+          "ff_used": 36972,
+          "ff_available": 126800,
+          "bram_36k_used": 49,
+          "bram_36k_available": 135,
+          "dsp_used": 72,
+          "dsp_available": 240
+        },
+        "timing": {
+          "raw_path": "build/reports/dss_n8_cdw8_mb48_clk12_pd3_prog65536_timing_summary.rpt",
+          "wns_ns": 0.271,
+          "tns_ns": 0.0,
+          "whs_ns": 0.014,
+          "data_path_delay_ns": 11.451,
+          "critical_source": "u_pe_array/u_pe_array/gen_rows[7].gen_cols[2].gen_non_top_row.u_pe/partial_sum_out_reg/CLK",
+          "critical_destination": "u_pe_array/results_arr_reg[194][6]/D",
+          "dsp_path_style_hint": "may_include_registered_dsp",
+          "all_paths_met": true
+        },
+        "achieved_fmax_mhz_from_period_minus_wns": 85.2587603376247,
+        "achieved_fmax_mhz_from_data_path_delay": 87.32861758798357,
+        "binding_detail": {
+          "binding_resource": "lut",
+          "used": 45885,
+          "available": 63400,
+          "oversubscribed": false,
+          "utilization_fraction": 0.7237381703470032,
+          "note": "Highest util resource (not necessarily oversubscribed)."
+        },
+        "binding_resource": "lut",
+        "margin_class": "thin",
+        "fmax_derivation": {
+          "formula": "achieved_fmax_mhz_from_period_minus_wns = 1000 / (clock_period_ns - WNS_ns)",
+          "note": "This understates capability at loose constraints: Vivado stops optimizing once the applied period is met, so loose-period (period\u2212WNS) Fmax values are floors, not measurements of the design's true speed. Throughput (peak/achieved GOP/s) is therefore taken from each configuration's tightest closing period only."
+        },
+        "peak_gops": null,
+        "achieved_gops": null,
+        "occupancy_applied": 0.20580551523947752,
+        "throughput_note": "Per-period rows are timing evidence only; plotted GOP/s come from throughput_by_config (one entry per ARRAY_SIZE\u00d7CDW\u00d7MAX_BATCH_COUNT, tightest closing period).",
+        "throughput_from_tightest_close": {
+          "source_clock_period_ns": 10.0,
+          "source_wns_ns": 0.012,
+          "peak_gops": 12.815378454144975,
+          "achieved_gops": 2.6374755657442055,
+          "margin_class": "marginal"
+        }
+      }
+    },
+    {
+      "id": "design_space_shipping_wns",
+      "category": "Design-space sweep",
+      "headline": "Shipping close WNS",
+      "value": 0.271,
+      "unit": "ns",
+      "tier": "synth",
+      "source_artifact": "bench/results/design_space_sweep.json",
+      "fence_note": "Thin positive slack at 12 ns / ~83.3 MHz.",
+      "tags": [],
+      "raw": {
+        "raw_path": "build/reports/dss_n8_cdw8_mb48_clk12_pd3_prog65536_timing_summary.rpt",
+        "wns_ns": 0.271,
+        "tns_ns": 0.0,
+        "whs_ns": 0.014,
+        "data_path_delay_ns": 11.451,
+        "critical_source": "u_pe_array/u_pe_array/gen_rows[7].gen_cols[2].gen_non_top_row.u_pe/partial_sum_out_reg/CLK",
+        "critical_destination": "u_pe_array/results_arr_reg[194][6]/D",
+        "dsp_path_style_hint": "may_include_registered_dsp",
+        "all_paths_met": true
+      }
+    },
+    {
+      "id": "design_space_fmax_ceiling_mhz",
+      "category": "Design-space sweep",
+      "headline": "Demonstrated Fmax ceiling",
+      "value": 100.0,
+      "unit": "MHz",
+      "tier": "synth",
+      "source_artifact": "bench/results/design_space_sweep.json",
+      "fence_note": "Ceiling only; WNS=0.012 ns \u2014 do not ship at this margin.",
+      "tags": [],
+      "raw": {
+        "label": "demonstrated_100mhz_ceiling",
+        "ARRAY_SIZE": 8,
+        "COMPUTE_DATA_WIDTH": 8,
+        "MAX_BATCH_COUNT": 48,
+        "clock_period_ns": 10.0,
+        "frequency_mhz_constraint": 100.0,
+        "report_prefix": "dss_n8_cdw8_mb48_clk10_pd3_prog65536",
+        "wns_ns": 0.012,
+        "margin_class": "marginal",
+        "achieved_fmax_mhz_from_period_minus_wns": 100.12014417300762,
+        "claim_rule": "Any claim citing 100 MHz must carry the WNS value inline (WNS=0.012 ns, margin_class=marginal). Shipping default remains 12 ns / ~83 MHz."
+      }
+    },
+    {
+      "id": "fusion_numpy_median_delta",
+      "category": "Fusion",
+      "headline": "NumPy-reference fusion throughput delta (median)",
+      "value": -1.2665883379528446,
+      "unit": "%",
+      "tier": "ci",
+      "source_artifact": "bench/results/fusion_payoff.json",
+      "fence_note": "CPU NumPy reference path; positive => fusion wins.",
+      "tags": [],
+      "raw": {
+        "all_correctness_within_tolerance": true,
+        "max_throughput_delta_pct": 16.155590782612308,
+        "mean_throughput_delta_pct": -6.202717151177253,
+        "median_throughput_delta_pct": -1.2665883379528446,
+        "min_throughput_delta_pct": -33.49715389819122,
+        "workload_count": 3
+      }
+    },
+    {
+      "id": "fusion_cuda_all_correct",
+      "category": "Fusion",
+      "headline": "CUDA fusion correctness (all workloads)",
+      "value": true,
+      "unit": "bool",
+      "tier": "ci",
+      "source_artifact": "bench/results/fusion_payoff.json",
+      "fence_note": "Eager vs Inductor FP32; GPU fusion speedup not claimed at tiny shapes.",
+      "tags": [],
+      "raw": {
+        "status": "ok"
+      }
+    },
+    {
+      "id": "latency_fpga_cycle_variance",
+      "category": "Latency determinism",
+      "headline": "FPGA/RTL cycle variance across adversarial+random inputs",
+      "value": 0,
+      "unit": "cycles",
+      "tier": "sim",
+      "source_artifact": "bench/results/latency_determinism_vs_gpu.json",
+      "fence_note": "iverilog RTL sim; not on-board silicon.",
+      "tags": [],
+      "raw": {
+        "fpga_arm": {
+          "clock_mhz": 83.33333333333333,
+          "clock_source": "bench/results/design_space_sweep.json::shipping_point N=8 INT8 MAX_BATCH_COUNT=48 @ 12 ns (WNS=+0.271, margin_class=thin)",
+          "conversion": "wall_ns = cycles * (1000 / clock_mhz)  # 12.0 ns/cycle at shipping ~83.333 MHz",
+          "dtype": {
+            "W": "int4",
+            "accum": "int16_or_wider_rtl",
+            "note": "uTPU ISA/RTL blocked-FC INT4 datapath (simulation)",
+            "out": "int4_quantised",
+            "x": "int4"
+          },
+          "iverilog_version": "Icarus Verilog version 12.0 (devel) (s20150603-1539-g2693dd32b)",
+          "jitter_cycles": 0,
+          "jitter_ns": 0.0,
+          "max_ns": 33408.0,
+          "n_inputs_measured": 37,
+          "on_silicon": {
+            "matches_static": null,
+            "note": "Arty A7 board not available at landing time; will be filled by program_loader.py::readPerfCounters() on board arrival (plan section 6.2.3.(c)).",
+            "onchip_counter_cycles": null,
+            "status": "rtl_sim"
+          },
+          "p50_ns": 33408.0,
+          "p90_ns": 33408.0,
+          "p99_9_ns": 33408.0,
+          "p99_ns": 33408.0,
+          "rtl_cycle_variance": 0,
+          "rtl_cycles_invariant": true,
+          "rtl_cycles_observed": [
+            2784,
+            2784,
+            2784,
+            2784,
+            2784,
+            2784,
+            2784,
+            2784,
+            2784,
+            2784,
+            2784,
+            2784,
+            2784,
+            2784,
+            2784,
+            2784,
+            2784,
+            2784,
+            2784,
+            2784,
+            2784,
+            2784,
+            2784,
+            2784,
+            2784,
+            2784,
+            2784,
+            2784,
+            2784,
+            2784,
+            2784,
+            2784,
+            2784,
+            2784,
+            2784,
+            2784,
+            2784
+          ],
+          "samples_ns": [
+            33408.0,
+            33408.0,
+            33408.0,
+            33408.0,
+            33408.0,
+            33408.0,
+            33408.0,
+            33408.0,
+            33408.0,
+            33408.0,
+            33408.0,
+            33408.0,
+            33408.0,
+            33408.0,
+            33408.0,
+            33408.0,
+            33408.0,
+            33408.0,
+            33408.0,
+            33408.0,
+            33408.0,
+            33408.0,
+            33408.0,
+            33408.0,
+            33408.0,
+            33408.0,
+            33408.0,
+            33408.0,
+            33408.0,
+            33408.0,
+            33408.0,
+            33408.0,
+            33408.0,
+            33408.0,
+            33408.0,
+            33408.0,
+            33408.0
+          ],
+          "shape": "(M=32,K=32)",
+          "source_artifact": "C:/Users/bhask/Documents/PROJECTS/uTPU/bench/results/latency_determinism.json",
+          "stats": {
+            "p50_ns": 33408.0,
+            "p90_ns": 33408.0,
+            "p99_ns": 33408.0,
+            "p99_9_ns": 33408.0,
+            "max_ns": 33408.0,
+            "min_ns": 33408.0,
+            "mean_ns": 33408.0,
+            "stddev_ns": 0.0
+          },
+          "status": "ok",
+          "stddev_ns": 0.0,
+          "wall_clock_block": {
+            "clock_mhz": 100.0,
+            "clock_source": "bench/results/timing_closure_sweep.json::requant_fmax_mb4_clk10_pd3 (clock_period_ns=10.0, frequency_mhz_constraint=100.0, status=closed)",
+            "conversion": "wall_ns = cycles * (1000 / clock_mhz)  # i.e. 10 ns/cycle at 100 MHz",
+            "jitter_cycles": 0,
+            "jitter_ns": 0.0,
+            "max_ns": 27840.0,
+            "median_ns": 27840.0,
+            "min_ns": 27840.0,
+            "samples_ns": [
+              27840.0,
+              27840.0,
+              27840.0,
+              27840.0,
+              27840.0,
+              27840.0,
+              27840.0,
+              27840.0,
+              27840.0,
+              27840.0,
+              27840.0,
+              27840.0,
+              27840.0,
+              27840.0,
+              27840.0,
+              27840.0,
+              27840.0,
+              27840.0,
+              27840.0,
+              27840.0,
+              27840.0,
+              27840.0,
+              27840.0,
+              27840.0,
+              27840.0,
+              27840.0,
+              27840.0,
+              27840.0,
+              27840.0,
+              27840.0,
+              27840.0,
+              27840.0,
+              27840.0,
+              27840.0,
+              27840.0,
+              27840.0,
+              27840.0
+            ],
+            "samples_us": [
+              27.84,
+              27.84,
+              27.84,
+              27.84,
+              27.84,
+              27.84,
+              27.84,
+              27.84,
+              27.84,
+              27.84,
+              27.84,
+              27.84,
+              27.84,
+              27.84,
+              27.84,
+              27.84,
+              27.84,
+              27.84,
+              27.84,
+              27.84,
+              27.84,
+              27.84,
+              27.84,
+              27.84,
+              27.84,
+              27.84,
+              27.84,
+              27.84,
+              27.84,
+              27.84,
+              27.84,
+              27.84,
+              27.84,
+              27.84,
+              27.84,
+              27.84,
+              27.84
+            ],
+            "stddev_ns": 0.0
+          },
+          "clock_period_ns": 12.0,
+          "wns_ns": 0.271,
+          "margin_class": "thin",
+          "shipping_clock": {
+            "clock_mhz": 83.33333333333333,
+            "clock_period_ns": 12.0,
+            "wns_ns": 0.271,
+            "margin_class": "thin",
+            "source": "bench/results/design_space_sweep.json::shipping_point N=8 INT8 MAX_BATCH_COUNT=48 @ 12 ns (WNS=+0.271, margin_class=thin)",
+            "p50_ns": 33408.0,
+            "role": "headline_shipping_default"
+          },
+          "demonstrated_ceiling_clock": {
+            "clock_mhz": 100.0,
+            "clock_period_ns": 10.0,
+            "wns_ns": 0.012,
+            "margin_class": "marginal",
+            "source": "bench/results/design_space_sweep.json::demonstrated_fmax_ceiling N=8 INT8 mb48 @ 10 ns (WNS=+0.012, margin_class=marginal). Any 100 MHz claim must quote WNS=+0.012 ns inline.",
+            "p50_ns": 27840.0,
+            "role": "demonstrated_ceiling_not_shipping",
+            "claim_rule": "Any claim citing 100 MHz must carry WNS=+0.012 ns inline (margin_class=marginal). Shipping default remains 12 ns / ~83 MHz."
+          }
+        },
+        "shape": {
+          "K": 32,
+          "M": 32,
+          "N": 1
+        }
+      }
+    },
+    {
+      "id": "latency_median_loss_shipping_83mhz",
+      "category": "Latency determinism",
+      "headline": "Median latency loss vs GPU at shipping ~83 MHz",
+      "value": 1.89,
+      "unit": "x",
+      "tier": "sim",
+      "source_artifact": "bench/results/latency_determinism_vs_gpu.json",
+      "fence_note": "Shipping 12 ns close (WNS=+0.271); 100 MHz is ceiling only (WNS=+0.012).",
+      "tags": [],
+      "raw": {
+        "definition": "median_latency_loss_factor = fpga_p50_ns / gpu_p50_ns at the SHIPPING clock (12 ns / ~83.333 MHz, WNS=+0.271). Values >1 mean FPGA median is slower. Does NOT claim FPGA faster.",
+        "clock_basis": "shipping_12ns",
+        "clock_mhz": 83.33333333333333,
+        "wns_ns": 0.271,
+        "margin_class": "thin",
+        "fpga_p50_ns": 33408.0,
+        "gpu_p50_ns": 17699.989257380366,
+        "median_latency_loss_factor": 1.8874587726695857,
+        "median_latency_loss_ns": 15708.010742619634,
+        "populated": true,
+        "speedup_claim_forbidden": true,
+        "reason": "Headline uses shipping 12 ns / ~83 MHz (thin). 100 MHz is the demonstrated ceiling only (see median_latency_loss_at_100mhz_ceiling)."
+      }
+    },
+    {
+      "id": "megakernel_launch_reduction_pooled",
+      "category": "CUDA megakernel",
+      "headline": "Pooled CUDA launch reduction vs op-by-op",
+      "value": 62.5,
+      "unit": "%",
+      "tier": "ci",
+      "source_artifact": "bench/results/megakernel_payoff.json",
+      "fence_note": "Count-based stat; regen-stable. Integer launch counts per workload.",
+      "tags": [],
+      "raw": {
+        "launch_reduction_vs_op_by_op_pct_pooled": 62.5
+      }
+    },
+    {
+      "id": "megakernel_all_correct",
+      "category": "CUDA megakernel",
+      "headline": "All workloads bit-exact correct",
+      "value": true,
+      "unit": "bool",
+      "tier": "ci",
+      "source_artifact": "bench/results/megakernel_payoff.json",
+      "fence_note": "Differential oracle gate on fused-region kernels.",
+      "tags": [],
+      "raw": {
+        "all_workloads_correct": true
+      }
+    },
+    {
+      "id": "megakernel_latency_reduction_median",
+      "category": "CUDA megakernel",
+      "headline": "Latency reduction vs op-by-op (median)",
+      "value": 58.43343363026335,
+      "unit": "%",
+      "tier": "ci",
+      "source_artifact": "bench/results/megakernel_payoff.json",
+      "fence_note": "[needs-locked-clock-artifact] \u2014 not regen-stable on unlocked GPU clocks.",
+      "tags": [
+        "unstable_latency"
+      ],
+      "raw": {
+        "latency_reduction_vs_op_by_op_pct_median": 58.43343363026335
+      }
+    },
+    {
+      "id": "multi_pe_case2_multi_k_reduction",
+      "category": "Multi-PE ISA",
+      "headline": "2-PE cycle reduction (case2_multi_k)",
+      "value": 24.09,
+      "unit": "%",
+      "tier": "sim",
+      "source_artifact": "bench/results/multi_pe_sim.json",
+      "fence_note": "ISA simulator parallel estimate; no RTL multi-PE.",
+      "tags": [],
+      "raw": {
+        "case": "case2_multi_k",
+        "one_pe_cycles": 220,
+        "two_pe_cycles": 167
+      }
+    },
+    {
+      "id": "p4_2_pynqz2_bram_max_wns",
+      "category": "FPGA synthesis",
+      "headline": "P4.2 Vivado WNS (pynqz2_bram_max)",
+      "value": 0.101,
+      "unit": "ns",
+      "tier": "synth",
+      "source_artifact": "bench/results/p4_2_vivado_reports.json",
+      "fence_note": "Legacy p4_2 Vivado reports; prefer baseline_8x8_current_rtl_synth when present.",
+      "tags": [],
+      "raw": {
+        "name": "pynqz2_bram_max",
+        "params": {
+          "PROG_DEPTH": 8192,
+          "ARRAY_SIZE": 16,
+          "BUFFER_SIZE": 512,
+          "BUFFER_WORD_SIZE": 16,
+          "COMPUTE_DATA_WIDTH": 4,
+          "EXT_ADDR_EN": 0
+        },
+        "part": "xc7a100tcsg324-1",
+        "vivado_version": "2025.2",
+        "timing": {
+          "wns_ns": 0.101,
+          "whs_ns": 0.019,
+          "tns_ns": 0.0,
+          "ths_ns": 0.0,
+          "all_paths_met": true
+        },
+        "utilization": {
+          "lut_used": 6721,
+          "lut_available": 63400,
+          "ff_used": 8960,
+          "ff_available": 126800,
+          "bram_36k_used": 37,
+          "bram_36k_available": 135,
+          "dsp_used": 240,
+          "dsp_available": 240
+        },
+        "route_status": "clean",
+        "report_files": [
+          "build/reports/p4_2_run_a_timing_summary.rpt",
+          "build/reports/p4_2_run_a_utilization.rpt",
+          "build/reports/p4_2_run_a_route_status.rpt",
+          "build/reports/p4_2_run_a.bit"
+        ]
+      }
+    },
+    {
+      "id": "p4_2_widened_int8_wns",
+      "category": "FPGA synthesis",
+      "headline": "P4.2 Vivado WNS (widened_int8)",
+      "value": 1.163,
+      "unit": "ns",
+      "tier": "synth",
+      "source_artifact": "bench/results/p4_2_vivado_reports.json",
+      "fence_note": "Legacy p4_2 Vivado reports; prefer baseline_8x8_current_rtl_synth when present.",
+      "tags": [],
+      "raw": {
+        "name": "widened_int8",
+        "params": {
+          "PROG_DEPTH": 8192,
+          "COMPUTE_DATA_WIDTH": 8,
+          "ACCUMULATOR_DATA_WIDTH": 32,
+          "ARRAY_SIZE": 8,
+          "BUFFER_SIZE": 4096,
+          "EXT_ADDR_EN": 1
+        },
+        "part": "xc7a100tcsg324-1",
+        "vivado_version": "2025.2",
+        "timing": {
+          "wns_ns": 1.163,
+          "whs_ns": 0.017,
+          "tns_ns": 0.0,
+          "ths_ns": 0.0,
+          "all_paths_met": true
+        },
+        "utilization": {
+          "lut_used": 2883,
+          "lut_available": 63400,
+          "ff_used": 4764,
+          "ff_available": 126800,
+          "bram_36k_used": 21,
+          "bram_36k_available": 135,
+          "dsp_used": 64,
+          "dsp_available": 240
+        },
+        "route_status": "clean",
+        "report_files": [
+          "build/reports/p4_2_run_b_timing_summary.rpt",
+          "build/reports/p4_2_run_b_utilization.rpt",
+          "build/reports/p4_2_run_b_route_status.rpt",
+          "build/reports/p4_2_run_b.bit"
+        ]
+      }
+    },
+    {
+      "id": "packed_array_cycle_compare_status",
+      "category": "Packed cycle compare",
+      "headline": "Packed cycle compare status",
+      "value": "PASS",
+      "unit": "status",
+      "tier": "sim",
+      "source_artifact": "bench/results/packed_array_cycle_compare.json",
+      "fence_note": "iverilog / ISA-sim artifact; not hardware-executed.",
+      "tags": [],
+      "raw": {
+        "status": "ran",
+        "result": "PASS"
+      }
+    },
+    {
+      "id": "packed_dsp_synth_failed",
+      "category": "FPGA synthesis",
+      "headline": "Packed-DSP synthesis attempts",
+      "value": "0/3 synth_failed",
+      "unit": "runs",
+      "tier": "synth",
+      "source_artifact": "bench/results/packed_dsp_synth.json",
+      "fence_note": "All runs failed: pe_controller loop does not converge. Sim-only for packed path.",
+      "tags": [
+        "synth_failed"
+      ],
+      "raw": {
+        "runs": [
+          {
+            "name": "packed_mac_ooc_cell1",
+            "route_status": null
+          },
+          {
+            "name": "packed_mac_ooc_8x8",
+            "route_status": null
+          },
+          {
+            "name": "packed_mac_ooc_16x16",
+            "route_status": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "pe_array_packed_hardened_status",
+      "category": "Packed PE hardened",
+      "headline": "Packed PE hardened status",
+      "value": "PASS",
+      "unit": "status",
+      "tier": "sim",
+      "source_artifact": "bench/results/pe_array_packed_hardened.json",
+      "fence_note": "iverilog / ISA-sim artifact; not hardware-executed.",
+      "tags": [],
+      "raw": {
+        "status": "ran",
+        "result": "PASS"
+      }
+    },
+    {
+      "id": "pe_array_packed_sim_status",
+      "category": "Packed PE array",
+      "headline": "Packed PE array status",
+      "value": "PASS",
+      "unit": "status",
+      "tier": "sim",
+      "source_artifact": "bench/results/pe_array_packed_sim.json",
+      "fence_note": "iverilog / ISA-sim artifact; not hardware-executed.",
+      "tags": [],
+      "raw": {
+        "status": "ran",
+        "result": "PASS"
+      }
+    },
+    {
+      "id": "pe_packed_pair_sim_status",
+      "category": "Packed PE pair",
+      "headline": "Packed PE pair status",
+      "value": "PASS",
+      "unit": "status",
+      "tier": "sim",
+      "source_artifact": "bench/results/pe_packed_pair_sim.json",
+      "fence_note": "iverilog / ISA-sim artifact; not hardware-executed.",
+      "tags": [],
+      "raw": {
+        "status": "ran",
+        "result": "PASS"
+      }
+    },
+    {
+      "id": "prog_depth_65536_closes",
+      "category": "PROG_DEPTH sweep",
+      "headline": "PROG_DEPTH=65536 closes on Artix-7 A7-100T",
+      "value": true,
+      "unit": "bool",
+      "tier": "synth",
+      "source_artifact": "bench/results/prog_depth_sweep.json",
+      "fence_note": "Post-route Vivado; shipping instruction capacity for board-fit 10/14.",
+      "tags": [],
+      "raw": {
+        "summary_status": "closed",
+        "point": {
+          "report_prefix": "prog_depth_pd65536_buf4096_mb48_clk20_pd3",
+          "PROG_DEPTH": 65536,
+          "BUFFER_SIZE": 4096,
+          "PC_WIDTH": 16,
+          "ARRAY_SIZE": 8,
+          "COMPUTE_DATA_WIDTH": 8,
+          "MAX_BATCH_COUNT": 48,
+          "QUANTIZER_PIPE_DEPTH": 3,
+          "clock_period_ns": 20.0,
+          "banking": {
+            "buffer_size": 4096,
+            "array_size": 8,
+            "compute_data_width": 8,
+            "items_in_slot": 2,
+            "num_compute_lanes": 64,
+            "banks": 32,
+            "bank_depth": 128,
+            "banks_integral": true,
+            "bank_depth_integral": true,
+            "ok": true
+          },
+          "timing": {
+            "raw_path": "build/reports/prog_depth_pd65536_buf4096_mb48_clk20_pd3_timing_summary.rpt",
+            "wns_ns": 2.789,
+            "tns_ns": 0.0,
+            "whs_ns": 0.014,
+            "data_path_delay_ns": 17.088,
+            "critical_source": "run_batch_count_reg[2]_rep/C",
+            "critical_destination": "acc_partial_matrix_reg[1][38][29]/D",
+            "all_paths_met": true
+          },
+          "utilization": {
+            "lut_used": 41631,
+            "lut_available": 63400,
+            "ff_used": 36664,
+            "ff_available": 126800,
+            "bram_36k_used": 49,
+            "bram_36k_available": 135,
+            "dsp_used": 72,
+            "dsp_available": 240
+          },
+          "fetch_path": {
+            "fetch_related_in_source_or_dest": false,
+            "src_dst_hits": [],
+            "critical_source": "run_batch_count_reg[2]_rep/C",
+            "critical_destination": "acc_partial_matrix_reg[1][38][29]/D",
+            "note": "True means PC/instr-BRAM appears on the reported critical endpoints; False means some other path binds (often PE/compute/load)."
+          },
+          "memory_style": {
+            "lut_as_memory": 0,
+            "bram_36k_used": 49,
+            "possible_lutram_spill": false
+          },
+          "ramb36e1_only": 32,
+          "expected_instr_ramb36_min": 29,
+          "status": "closed"
+        }
+      }
+    },
+    {
+      "id": "prog_depth_65536_dsp",
+      "category": "PROG_DEPTH sweep",
+      "headline": "DSP used at PROG_DEPTH=65536 shipping close",
+      "value": 72,
+      "unit": "DSP",
+      "tier": "synth",
+      "source_artifact": "bench/results/prog_depth_sweep.json",
+      "fence_note": "WNS=2.789 ns @ 20.0 ns period.",
+      "tags": [],
+      "raw": {
+        "lut_used": 41631,
+        "lut_available": 63400,
+        "ff_used": 36664,
+        "ff_available": 126800,
+        "bram_36k_used": 49,
+        "bram_36k_available": 135,
+        "dsp_used": 72,
+        "dsp_available": 240
+      }
+    },
+    {
+      "id": "program_word_mnist_payload_fraction",
+      "category": "Program word composition",
+      "headline": "Fused MNIST embedded BSTORE payload fraction",
+      "value": 87.2,
+      "unit": "%",
+      "tier": "sim",
+      "source_artifact": "bench/results/program_word_composition.json",
+      "fence_note": "Host opcode split; weights in program image dominate instruction BRAM.",
+      "tags": [],
+      "raw": {
+        "board_fit_median_embedded_payload_fraction": 0.3257753862356607,
+        "fc1_program_words": 43201,
+        "fc1_embedded_payload_words": 14144,
+        "fc1_control_words": 29057,
+        "fc1_embedded_payload_fraction": 0.3273998287076688,
+        "fc1_after_part_a_control_strip_sketch_words": 14150,
+        "fc1_fits_prog_depth_8192_after_part_a_sketch": false,
+        "mnist_fused_embedded_payload_fraction": 0.8721399730820996,
+        "mnist_fused_words": 1486,
+        "mnist_fused_payload_words": 1296,
+        "mnist_fused_control_words": 190,
+        "historical_fc1_claim_words": 52225,
+        "historical_vs_regen_fc1_delta": 9024
+      }
+    },
+    {
+      "id": "program_word_board_fit_median_payload",
+      "category": "Program word composition",
+      "headline": "Board-fit median embedded payload fraction",
+      "value": 32.6,
+      "unit": "%",
+      "tier": "sim",
+      "source_artifact": "bench/results/program_word_composition.json",
+      "fence_note": "Median across board-fit audit shapes.",
+      "tags": [],
+      "raw": {
+        "board_fit_median_embedded_payload_fraction": 0.3257753862356607,
+        "fc1_program_words": 43201,
+        "fc1_embedded_payload_words": 14144,
+        "fc1_control_words": 29057,
+        "fc1_embedded_payload_fraction": 0.3273998287076688,
+        "fc1_after_part_a_control_strip_sketch_words": 14150,
+        "fc1_fits_prog_depth_8192_after_part_a_sketch": false,
+        "mnist_fused_embedded_payload_fraction": 0.8721399730820996,
+        "mnist_fused_words": 1486,
+        "mnist_fused_payload_words": 1296,
+        "mnist_fused_control_words": 190,
+        "historical_fc1_claim_words": 52225,
+        "historical_vs_regen_fc1_delta": 9024
+      }
+    },
+    {
+      "id": "resnet18_eager_parity",
+      "category": "Real model (CUDA)",
+      "headline": "ResNet-18 eager parity (all seeds)",
+      "value": true,
+      "unit": "bool",
+      "tier": "ci",
+      "source_artifact": "bench/results/real_model_end_to_end.json",
+      "fence_note": "CUDA graph backend vs eager PyTorch; 3 seeds in artifact.",
+      "tags": [],
+      "raw": {
+        "model": "resnet18",
+        "graph_op_count": 49
+      }
+    },
+    {
+      "id": "resnet18_inductor_parity",
+      "category": "Real model (CUDA)",
+      "headline": "ResNet-18 Inductor parity (all seeds)",
+      "value": true,
+      "unit": "bool",
+      "tier": "ci",
+      "source_artifact": "bench/results/real_model_end_to_end.json",
+      "fence_note": "TorchInductor oracle in isolated subprocess.",
+      "tags": [],
+      "raw": {
+        "execution_backend": "cuda_graph_executor"
+      }
+    },
+    {
+      "id": "requant_dsp_192_to_72",
+      "category": "Requant rightsizing",
+      "headline": "DSP after Step1+2 rightsizing (was 192)",
+      "value": 72,
+      "unit": "DSP",
+      "tier": "synth",
+      "source_artifact": "bench/results/requant_rightsizing_synth.json",
+      "fence_note": "Artix-7 A7-100T 8x8 INT8; baseline 192 \u2192 Step1+2 72.",
+      "tags": [],
+      "raw": {
+        "baseline_dsp": 192,
+        "step12_dsp": 72,
+        "gate": {
+          "part_dsp_available": 240,
+          "budget_table": [
+            {
+              "config": "8x8 unpacked MAC + tile requant (baseline pre-rightsizing)",
+              "dsp": 192,
+              "source": "measured baseline_8x8_current_rtl_synth.json",
+              "fits_240": true
+            },
+            {
+              "config": "8x8 + Step1 only (QUANTIZER_LANES=64)",
+              "dsp": 128,
+              "source": "measured requant_step1_wide_mb4_clk20",
+              "fits_240": true
+            },
+            {
+              "config": "8x8 + Step1+2 (QUANTIZER_LANES=8)",
+              "dsp": 72,
+              "source": "measured requant_step1_2_mb4_clk20",
+              "fits_240": true
+            },
+            {
+              "config": "16x16 packed MAC only (OOC pe_array_packed)",
+              "dsp": 240,
+              "source": "measured packed_mac_ooc_16x16",
+              "fits_240": false,
+              "note": "Part-capped; unconstrained need ~256 at 2 DSP/cell"
+            },
+            {
+              "config": "16x16 packed MAC + Step2 requant (16 lanes x 1 DSP) [estimate]",
+              "dsp": 256,
+              "source": "measured MAC + measured Step1 1DSP/quantizer scaled",
+              "fits_240": false,
+              "estimate_components": {
+                "mac_measured": 240,
+                "requant_estimate": 16
+              }
+            },
+            {
+              "config": "16x16 if packing were 1 DSP/cell (OLD estimate \u2014 INVALID)",
+              "dsp": 144,
+              "source": "engineering estimate \u2014 SUPERSEDED by Task B",
+              "fits_240": true,
+              "invalid": true
+            }
+          ],
+          "verdict_16x16_fits_240": false,
+          "plain_statement": "ARRAY_SIZE=16 does NOT fit Artix-7 A7-100T 240 DSP. Packed MAC alone measures 240/240 and would need ~256 unconstrained because each pe_packed_skewed cell infers a 2-DSP cascade, not 1 DSP for 2 MACs. Step2 requant rightsizing cannot rescue 16x16 on this part.",
+          "options_if_no": [
+            {
+              "option": "stay_array_size_8",
+              "dsp_measured": 72,
+              "fits": true,
+              "note": "Step1+2 already measured closed; ship 8x8 INT8"
+            },
+            {
+              "option": "redesign_packing_for_single_dsp48",
+              "dsp": "TODO/VERIFY",
+              "fits": "unknown",
+              "note": "Need PACK_SHIFT/operand widths that fit one 25x18 multiply per cell; current PACK_SHIFT=18 forces cascade."
+            },
+            {
+              "option": "smaller_than_16_array",
+              "example": "ARRAY_SIZE=10 or 12",
+              "dsp": "TODO/VERIFY",
+              "fits": "unknown until re-measured"
+            }
+          ],
+          "step2_rtl_note": "This prompt said not to start Step2 until the gate. In this workspace Step2 RTL already landed earlier in the session; the gate still says 16x16 is dead, but Step2 remains load-bearing for the measured 8x8 DSP win (192->72)."
+        }
+      }
+    },
+    {
+      "id": "scheduler_cycle_reduction",
+      "category": "Scheduler",
+      "headline": "Aggregate ISA-sim cycle reduction",
+      "value": 4.666666666666667,
+      "unit": "%",
+      "tier": "sim",
+      "source_artifact": "bench/results/scheduler_cycles.json",
+      "fence_note": "Python ISA simulator cycles; RTL absolute counts differ.",
+      "tags": [],
+      "raw": {
+        "all_fetch_bytes_match": true,
+        "cycle_reduction_pct": 4.666666666666667,
+        "cycles_saved_total": 672,
+        "macs_total": 50432,
+        "naive_cycles_total": 14400,
+        "naive_store_bytes_total": 26792,
+        "scheduled_cycles_total": 13728,
+        "scheduled_store_bytes_total": 25448,
+        "store_bytes_reduction_pct": 5.016422812779934,
+        "store_bytes_saved_total": 1344
+      }
+    },
+    {
+      "id": "scheduler_fetch_bytes_match",
+      "category": "Scheduler",
+      "headline": "All shapes fetch_bytes match naive",
+      "value": true,
+      "unit": "bool",
+      "tier": "sim",
+      "source_artifact": "bench/results/scheduler_cycles.json",
+      "fence_note": "Bit-exact fetch_bytes invariant vs naive lowering.",
+      "tags": [],
+      "raw": {
+        "all_fetch_bytes_match": true
+      }
+    },
+    {
+      "id": "scheduler_rtl_crosscheck_rtl_reduction_permille",
+      "category": "ISA vs RTL",
+      "headline": "RTL cycle reduction (32\u00d732)",
+      "value": 26,
+      "unit": "permille",
+      "tier": "sim",
+      "source_artifact": "bench/results/scheduler_rtl_crosscheck.json",
+      "fence_note": "iverilog RTL sim; percentage reduction within \u00b120 permille of ISA sim.",
+      "tags": [],
+      "raw": {
+        "expected": {
+          "array_size": 16,
+          "cycles_saved": 8,
+          "expected_fetch_bytes": [
+            119,
+            119,
+            135,
+            136,
+            119,
+            120,
+            119,
+            135,
+            119,
+            119,
+            136,
+            119,
+            120,
+            120,
+            120,
+            135
+          ],
+          "fetch_bytes_invariant_simulator": true,
+          "fetch_bytes_n": 16,
+          "input_addr": 0,
+          "naive_cycles": 303,
+          "naive_words": 847,
+          "reduction_permille": 26,
+          "result_addr": 320,
+          "sched_cycles": 295,
+          "sched_words": 823,
+          "shape": {
+            "in_features": 32,
+            "out_features": 32
+          },
+          "weight_addr": 256
+        },
+        "rtl": {},
+        "status": "ok"
+      }
+    },
+    {
+      "id": "scheduler_rtl_crosscheck_rtl_fetch_invariant",
+      "category": "ISA vs RTL",
+      "headline": "RTL fetch_bytes invariant",
+      "value": true,
+      "unit": "bool",
+      "tier": "sim",
+      "source_artifact": "bench/results/scheduler_rtl_crosscheck.json",
+      "fence_note": "RTL_naive_bytes === RTL_scheduled_bytes across fetch stream.",
+      "tags": [],
+      "raw": {
+        "fetch_bytes_n": 16
+      }
+    },
+    {
+      "id": "scheduler_rtl_bigmlp_all_ok",
+      "category": "ISA vs RTL",
+      "headline": "BigMLP scheduler RTL cases all OK",
+      "value": true,
+      "unit": "bool",
+      "tier": "sim",
+      "source_artifact": "bench/results/scheduler_rtl_crosscheck_bigmlp.json",
+      "fence_note": "5 blocked-FC shapes; RTL byte-exact vs ISA-scheduled programs.",
+      "tags": [],
+      "raw": {
+        "all_cases_ok": true,
+        "all_cases_rtl_byte_exact": true,
+        "board_layout": {
+          "array_size": 16,
+          "input_addr": 0,
+          "prog_depth": 8192,
+          "result_addr": 320,
+          "weight_addr": 256
+        },
+        "case_count": 5,
+        "cases_fit_bram": {
+          "bench_128x64": true,
+          "bench_32x32": true,
+          "bench_32x64": true,
+          "bench_64x32": true,
+          "bench_64x64": true
+        },
+        "ok_case_count": 5
+      }
+    },
+    {
+      "id": "scheduler_rtl_bigmlp_byte_exact",
+      "category": "ISA vs RTL",
+      "headline": "All cases RTL byte-exact",
+      "value": true,
+      "unit": "bool",
+      "tier": "sim",
+      "source_artifact": "bench/results/scheduler_rtl_crosscheck_bigmlp.json",
+      "fence_note": "iverilog cross-check across multiple MLP shapes.",
+      "tags": [],
+      "raw": {
+        "ok_case_count": 5,
+        "case_count": 5
+      }
+    },
+    {
+      "id": "selection_ab_regret_median",
+      "category": "Schedule selection",
+      "headline": "Realized regret median (cost-model vs oracle)",
+      "value": -0.1002591901329124,
+      "unit": "%",
+      "tier": "ci",
+      "source_artifact": "bench/results/selection_ab.json",
+      "fence_note": "Wall-clock NVRTC A/B; schedule_source=cost_model consumed at runtime.",
+      "tags": [
+        "unstable_latency"
+      ],
+      "raw": {
+        "realized_regret_pct_count": 24,
+        "realized_regret_pct_max": 3.3714805076036614,
+        "realized_regret_pct_mean": 0.10250847127025346,
+        "realized_regret_pct_median": -0.1002591901329124,
+        "realized_regret_pct_min": -2.3916950107357975,
+        "realized_regret_pct_p95": 2.209430695377766,
+        "realized_within_10pct_fraction": 1.0,
+        "realized_within_1pct_fraction": 0.6666666666666666,
+        "realized_within_5pct_fraction": 1.0
+      }
+    },
+    {
+      "id": "selection_ab_within_5pct",
+      "category": "Schedule selection",
+      "headline": "Fraction within 5% regret",
+      "value": 1.0,
+      "unit": "fraction",
+      "tier": "ci",
+      "source_artifact": "bench/results/selection_ab.json",
+      "fence_note": "Count-based quality metric on 24 shapes.",
+      "tags": [],
+      "raw": {
+        "realized_within_5pct_fraction": 1.0
+      }
+    },
+    {
+      "id": "steady_state_cold_compute_share",
+      "category": "Buffer-resident weights",
+      "headline": "Cold-path compute share (fused MNIST)",
+      "value": 20.6,
+      "unit": "%",
+      "tier": "sim",
+      "source_artifact": "bench/results/steady_state_attribution.json",
+      "fence_note": "Program-embedded weights; A5 protocol cold run.",
+      "tags": [],
+      "raw": {
+        "mode": "cold",
+        "label": "weights embedded via BSTORE every inference",
+        "source": "bench/results/cycle_attribution_mnist.json",
+        "total_program_cycles": 3445,
+        "bstore_cycles": 2119,
+        "compute_cycles": 709,
+        "compute_share": 0.20580551523947752,
+        "bit_exact": true
+      }
+    },
+    {
+      "id": "steady_state_compute_share",
+      "category": "Buffer-resident weights",
+      "headline": "Steady-state compute share with buffer-resident weights",
+      "value": 56.2,
+      "unit": "%",
+      "tier": "sim",
+      "source_artifact": "bench/results/steady_state_attribution.json",
+      "fence_note": "Bit-exact remapped fused MNIST; A5 once + control-only; iverilog.",
+      "tags": [],
+      "raw": {
+        "mode": "steady_state",
+        "status": "bit_exact",
+        "label": "A5 fill pinned payloads once; control-only remapped program; N inferences",
+        "n_inferences": 3,
+        "bit_exact_vs_cold_case1": true,
+        "per_inference": [
+          {
+            "inference_index": 0,
+            "total_program_cycles": 1261,
+            "compute_cycles": 709,
+            "bstore_cycles": 0,
+            "compute_share": 0.5622521808088818
+          },
+          {
+            "inference_index": 1,
+            "total_program_cycles": 1261,
+            "compute_cycles": 709,
+            "bstore_cycles": 0,
+            "compute_share": 0.5622521808088818
+          },
+          {
+            "inference_index": 2,
+            "total_program_cycles": 1261,
+            "compute_cycles": 709,
+            "bstore_cycles": 0,
+            "compute_share": 0.5622521808088818
+          }
+        ],
+        "mean_total_program_cycles": 1261.0,
+        "mean_compute_cycles": 709.0,
+        "mean_compute_share": 0.5622521808088818,
+        "occupancy_proxy": 0.5622521808088818,
+        "occupancy_source": "steady_state_mean_compute_share",
+        "e2e_vs_cold": 2.731958762886598
+      }
+    },
+    {
+      "id": "superopt_median_cost_reduction",
+      "category": "Superoptimizer",
+      "headline": "Median modeled ISA cost reduction",
+      "value": 0.0,
+      "unit": "%",
+      "tier": "sim",
+      "source_artifact": "bench/results/superopt_payoff.json",
+      "fence_note": "Equality-saturation e-graph; sim-only isa_cycle_model.",
+      "tags": [],
+      "raw": {
+        "cost_reduction_pct_max": 70.58823529411765,
+        "cost_reduction_pct_median": 0.0,
+        "median_egraph_cost": 95.0,
+        "median_pipeline_cost": 95.0,
+        "num_extractions_rejected_by_equiv_check": 0,
+        "num_graphs_evaluated": 36,
+        "num_phase_ordering_wins": 9,
+        "pct_graphs_with_any_win": 25.0
+      }
+    },
+    {
+      "id": "superopt_max_cost_reduction",
+      "category": "Superoptimizer",
+      "headline": "Max modeled ISA cost reduction",
+      "value": 70.58823529411765,
+      "unit": "%",
+      "tier": "sim",
+      "source_artifact": "bench/results/superopt_payoff.json",
+      "fence_note": "Random-corpus baseline is often 0%; max shows upper bound.",
+      "tags": [],
+      "raw": {
+        "pct_graphs_with_any_win": 25.0
+      }
+    },
+    {
+      "id": "systolic_pe_occupancy_b1",
+      "category": "Systolic array",
+      "headline": "PE occupancy (16\u00d716, B=1)",
+      "value": 2.63,
+      "unit": "%",
+      "tier": "sim",
+      "source_artifact": "bench/results/systolic_characterization.json",
+      "fence_note": "RTL perf counters via iverilog; simulated tier.",
+      "tags": [],
+      "raw": {
+        "shape": {
+          "out_features": 16,
+          "in_features": 16
+        },
+        "batch_size": 1,
+        "array_size": 16,
+        "items_per_word": 4,
+        "out_blocks": 1,
+        "in_blocks": 1,
+        "useful_macs": 256,
+        "fetch_bytes": 8,
+        "rtl_sim_passed": true,
+        "hoist_tile_payloads": false,
+        "measured": {
+          "rtl_cycle_counter": 2072,
+          "rtl_busy_counter": 38,
+          "total_program_cycles": 731,
+          "busy_fraction": 0.01833976833976834,
+          "pe_occupancy": 0.02631578947368421,
+          "compute_busy_cycles": 38,
+          "compute_span_cycles": 38,
+          "compute_span_duty_cycle": 1.0
+        },
+        "serial_baseline": null,
+        "model": {
+          "label": "secondary_zero_fit_weight_stationary_model",
+          "per_tile_busy_cycles": 31,
+          "total_busy_cycles": 31,
+          "pe_occupancy": 0.03225806451612903
+        },
+        "control_flow": {
+          "accumulate_runs_total": 1,
+          "out_blocks": 1,
+          "in_blocks": 1,
+          "note": "Single-tile 16x16 rows keep the legacy serialized payload path. Multi-tile rows may hoist weight/input tile payloads into distinct buffer slots before the first compute window so the compute-span duty metric can isolate inter-tile refill cost honestly without redefining the full rtl_cycle_counter denominator."
+        },
+        "simulator_log_tail": "[ OK ] Program cycles bounded by free-running cycle\nPERF_CYCLE_COUNTER=2072\nPERF_BUSY_COUNTER=38\nPERF_PROGRAM_COUNT=1\nTOTAL_PROGRAM_CYCLES=731\nCOMPUTE_BUSY_CYCLES=38\nCOMPUTE_SPAN_CYCLES=38\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:257: $finish called at 21155000 (1ps)\n"
+      }
+    },
+    {
+      "id": "systolic_pe_occupancy_b4",
+      "category": "Systolic array",
+      "headline": "PE occupancy (16\u00d716, B=4)",
+      "value": 9.3,
+      "unit": "%",
+      "tier": "sim",
+      "source_artifact": "bench/results/systolic_characterization.json",
+      "fence_note": "RTL perf counters via iverilog; simulated tier.",
+      "tags": [],
+      "raw": {
+        "shape": {
+          "out_features": 16,
+          "in_features": 16
+        },
+        "batch_size": 4,
+        "array_size": 16,
+        "items_per_word": 4,
+        "out_blocks": 1,
+        "in_blocks": 1,
+        "useful_macs": 1024,
+        "fetch_bytes": 32,
+        "rtl_sim_passed": true,
+        "hoist_tile_payloads": false,
+        "measured": {
+          "rtl_cycle_counter": 2999,
+          "rtl_busy_counter": 43,
+          "total_program_cycles": 1082,
+          "busy_fraction": 0.014338112704234745,
+          "pe_occupancy": 0.09302325581395349,
+          "compute_busy_cycles": 43,
+          "compute_span_cycles": 43,
+          "compute_span_duty_cycle": 1.0
+        },
+        "serial_baseline": null,
+        "model": {
+          "label": "secondary_zero_fit_weight_stationary_model",
+          "per_tile_busy_cycles": 34,
+          "total_busy_cycles": 34,
+          "pe_occupancy": 0.11764705882352941
+        },
+        "control_flow": {
+          "accumulate_runs_total": 1,
+          "out_blocks": 1,
+          "in_blocks": 1,
+          "note": "Single-tile 16x16 rows keep the legacy serialized payload path. Multi-tile rows may hoist weight/input tile payloads into distinct buffer slots before the first compute window so the compute-span duty metric can isolate inter-tile refill cost honestly without redefining the full rtl_cycle_counter denominator."
+        },
+        "simulator_log_tail": "[ OK ] Program cycles bounded by free-running cycle\nPERF_CYCLE_COUNTER=2999\nPERF_BUSY_COUNTER=43\nPERF_PROGRAM_COUNT=1\nTOTAL_PROGRAM_CYCLES=1082\nCOMPUTE_BUSY_CYCLES=43\nCOMPUTE_SPAN_CYCLES=43\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:257: $finish called at 30425000 (1ps)\n"
+      }
+    },
+    {
+      "id": "systolic_pe_occupancy_b16",
+      "category": "Systolic array",
+      "headline": "PE occupancy (16\u00d716, B=16)",
+      "value": 29.09,
+      "unit": "%",
+      "tier": "sim",
+      "source_artifact": "bench/results/systolic_characterization.json",
+      "fence_note": "RTL perf counters via iverilog; simulated tier.",
+      "tags": [],
+      "raw": {
+        "shape": {
+          "out_features": 16,
+          "in_features": 16
+        },
+        "batch_size": 16,
+        "array_size": 16,
+        "items_per_word": 4,
+        "out_blocks": 1,
+        "in_blocks": 1,
+        "useful_macs": 4096,
+        "fetch_bytes": 128,
+        "rtl_sim_passed": true,
+        "hoist_tile_payloads": false,
+        "measured": {
+          "rtl_cycle_counter": 6323,
+          "rtl_busy_counter": 55,
+          "total_program_cycles": 2390,
+          "busy_fraction": 0.00869840265696663,
+          "pe_occupancy": 0.2909090909090909,
+          "compute_busy_cycles": 55,
+          "compute_span_cycles": 55,
+          "compute_span_duty_cycle": 1.0
+        },
+        "serial_baseline": null,
+        "model": {
+          "label": "secondary_zero_fit_weight_stationary_model",
+          "per_tile_busy_cycles": 46,
+          "total_busy_cycles": 46,
+          "pe_occupancy": 0.34782608695652173
+        },
+        "control_flow": {
+          "accumulate_runs_total": 1,
+          "out_blocks": 1,
+          "in_blocks": 1,
+          "note": "Single-tile 16x16 rows keep the legacy serialized payload path. Multi-tile rows may hoist weight/input tile payloads into distinct buffer slots before the first compute window so the compute-span duty metric can isolate inter-tile refill cost honestly without redefining the full rtl_cycle_counter denominator."
+        },
+        "simulator_log_tail": "[ OK ] Program cycles bounded by free-running cycle\nPERF_CYCLE_COUNTER=6323\nPERF_BUSY_COUNTER=55\nPERF_PROGRAM_COUNT=1\nTOTAL_PROGRAM_CYCLES=2390\nCOMPUTE_BUSY_CYCLES=55\nCOMPUTE_SPAN_CYCLES=55\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:257: $finish called at 63665000 (1ps)\n"
+      }
+    },
+    {
+      "id": "systolic_pe_occupancy_b32",
+      "category": "Systolic array",
+      "headline": "PE occupancy (16\u00d716, B=32)",
+      "value": 45.07,
+      "unit": "%",
+      "tier": "sim",
+      "source_artifact": "bench/results/systolic_characterization.json",
+      "fence_note": "RTL perf counters via iverilog; simulated tier.",
+      "tags": [],
+      "raw": {
+        "shape": {
+          "out_features": 16,
+          "in_features": 16
+        },
+        "batch_size": 32,
+        "array_size": 16,
+        "items_per_word": 4,
+        "out_blocks": 1,
+        "in_blocks": 1,
+        "useful_macs": 8192,
+        "fetch_bytes": 256,
+        "rtl_sim_passed": true,
+        "hoist_tile_payloads": false,
+        "measured": {
+          "rtl_cycle_counter": 10765,
+          "rtl_busy_counter": 71,
+          "total_program_cycles": 4144,
+          "busy_fraction": 0.006595448211797492,
+          "pe_occupancy": 0.4507042253521127,
+          "compute_busy_cycles": 71,
+          "compute_span_cycles": 71,
+          "compute_span_duty_cycle": 1.0
+        },
+        "serial_baseline": null,
+        "model": {
+          "label": "secondary_zero_fit_weight_stationary_model",
+          "per_tile_busy_cycles": 62,
+          "total_busy_cycles": 62,
+          "pe_occupancy": 0.5161290322580645
+        },
+        "control_flow": {
+          "accumulate_runs_total": 1,
+          "out_blocks": 1,
+          "in_blocks": 1,
+          "note": "Single-tile 16x16 rows keep the legacy serialized payload path. Multi-tile rows may hoist weight/input tile payloads into distinct buffer slots before the first compute window so the compute-span duty metric can isolate inter-tile refill cost honestly without redefining the full rtl_cycle_counter denominator."
+        },
+        "simulator_log_tail": "[ OK ] Program cycles bounded by free-running cycle\nPERF_CYCLE_COUNTER=10765\nPERF_BUSY_COUNTER=71\nPERF_PROGRAM_COUNT=1\nTOTAL_PROGRAM_CYCLES=4144\nCOMPUTE_BUSY_CYCLES=71\nCOMPUTE_SPAN_CYCLES=71\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:257: $finish called at 108085000 (1ps)\n"
+      }
+    },
+    {
+      "id": "systolic_pe_occupancy_b64",
+      "category": "Systolic array",
+      "headline": "PE occupancy (16\u00d716, B=64)",
+      "value": 62.14,
+      "unit": "%",
+      "tier": "sim",
+      "source_artifact": "bench/results/systolic_characterization.json",
+      "fence_note": "RTL perf counters via iverilog; simulated tier.",
+      "tags": [],
+      "raw": {
+        "shape": {
+          "out_features": 16,
+          "in_features": 16
+        },
+        "batch_size": 64,
+        "array_size": 16,
+        "items_per_word": 4,
+        "out_blocks": 1,
+        "in_blocks": 1,
+        "useful_macs": 16384,
+        "fetch_bytes": 512,
+        "rtl_sim_passed": true,
+        "hoist_tile_payloads": false,
+        "measured": {
+          "rtl_cycle_counter": 19649,
+          "rtl_busy_counter": 103,
+          "total_program_cycles": 7652,
+          "busy_fraction": 0.005241997048195837,
+          "pe_occupancy": 0.6213592233009708,
+          "compute_busy_cycles": 103,
+          "compute_span_cycles": 103,
+          "compute_span_duty_cycle": 1.0
+        },
+        "serial_baseline": null,
+        "model": {
+          "label": "secondary_zero_fit_weight_stationary_model",
+          "per_tile_busy_cycles": 94,
+          "total_busy_cycles": 94,
+          "pe_occupancy": 0.6808510638297872
+        },
+        "control_flow": {
+          "accumulate_runs_total": 1,
+          "out_blocks": 1,
+          "in_blocks": 1,
+          "note": "Single-tile 16x16 rows keep the legacy serialized payload path. Multi-tile rows may hoist weight/input tile payloads into distinct buffer slots before the first compute window so the compute-span duty metric can isolate inter-tile refill cost honestly without redefining the full rtl_cycle_counter denominator."
+        },
+        "simulator_log_tail": "[ OK ] Program cycles bounded by free-running cycle\nPERF_CYCLE_COUNTER=19649\nPERF_BUSY_COUNTER=103\nPERF_PROGRAM_COUNT=1\nTOTAL_PROGRAM_CYCLES=7652\nCOMPUTE_BUSY_CYCLES=103\nCOMPUTE_SPAN_CYCLES=103\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:257: $finish called at 196925000 (1ps)\n"
+      }
+    },
+    {
+      "id": "tiling_all_bit_identical",
+      "category": "Tiling",
+      "headline": "All workloads bit-identical to oracle",
+      "value": true,
+      "unit": "bool",
+      "tier": "ci",
+      "source_artifact": "bench/results/tiling_correctness.json",
+      "fence_note": "ISA sim vs NumPy int32 oracle; sim-only.",
+      "tags": [],
+      "raw": {
+        "all_bit_identical_to_oracle": true,
+        "max_max_abs_error_int4": 0,
+        "max_num_tiles": 3,
+        "max_total_sim_cycles_sequential": 874755,
+        "workload_count": 5
+      }
+    },
+    {
+      "id": "top_packed_smoke_status",
+      "category": "Top packed smoke",
+      "headline": "Top packed smoke status",
+      "value": "PASS",
+      "unit": "status",
+      "tier": "sim",
+      "source_artifact": "bench/results/top_packed_smoke.json",
+      "fence_note": "iverilog / ISA-sim artifact; not hardware-executed.",
+      "tags": [],
+      "raw": {
+        "status": "ran",
+        "result": "PASS"
+      }
+    },
+    {
+      "id": "uart_preboard_roundtrip",
+      "category": "UART pre-board",
+      "headline": "UART replay sim passed",
+      "value": true,
+      "unit": "bool",
+      "tier": "sim",
+      "source_artifact": "bench/results/uart_preboard_roundtrip.json",
+      "fence_note": "Simulation-only UART roundtrip; not on-board silicon.",
+      "tags": [],
+      "raw": {
+        "rtl_simulation": {
+          "rtl_sim_executed": true,
+          "rtl_sim_passed": true,
+          "no_x_quantizer_finalize": true,
+          "no_x_uart_tx_path": true,
+          "log_excerpt": "[ OK ] Captured expected UART byte count\n[ OK ] No X on quantizer finalize outputs\n[ OK ] No X on UART TX line during capture\n[ OK ] UART byte 0\n[ OK ] UART byte 1\n[ OK ] UART byte 2\n[ OK ] UART byte 3\n[ OK ] UART byte 4\n[ OK ] UART byte 5\n[ OK ] UART byte 6\n[ OK ] UART byte 7\nUART_BYTES_ACTUAL=12,ca,80,0f,fe,fd,1b,15\nPERF_CYCLE_COUNTER=46067\nPERF_BUSY_COUNTER=24\nPERF_PROGRAM_COUNT=1\nUART_REPLAY_PROGRAM_WORDS=136\nUART_REPLAY_PROG_DEPTH=256\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_uart_replay.sv:188: $finish called at 460775000 (1ps)\n"
+        },
+        "uart_roundtrip": {
+          "upload_bytes_count": 276,
+          "expected_uart_output_count": 8,
+          "captured_uart_output_count": 8,
+          "captured_uart_matches_isa_sim": true,
+          "expected_uart_output_bytes": [
+            18,
+            202,
+            128,
+            15,
+            254,
+            253,
+            27,
+            21
+          ],
+          "captured_uart_output_bytes": [
+            18,
+            202,
+            128,
+            15,
+            254,
+            253,
+            27,
+            21
+          ],
+          "decoded_expected_outputs": [
+            [
+              18,
+              -54,
+              -128,
+              15,
+              -2,
+              -3,
+              27,
+              21
+            ]
+          ],
+          "decoded_captured_outputs": [
+            [
+              18,
+              -54,
+              -128,
+              15,
+              -2,
+              -3,
+              27,
+              21
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "id": "utpu_cycle_model_heldout_log_r2",
+      "category": "uTPU cycle cost model",
+      "headline": "Held-out log R\u00b2 (RTL total_program_cycles)",
+      "value": 0.924,
+      "unit": "",
+      "tier": "sim",
+      "source_artifact": "bench/results/utpu_cycle_model_heldout.json",
+      "fence_note": "80/20 shape split; 5-candidate (batch,hoist) menu \u2014 not CUDA's 16-candidate space.",
+      "tags": [],
+      "raw": {
+        "log_r2": 0.92361731424583,
+        "mape_pct": 10.036099187660577,
+        "p95_abs_rel_error_pct": 33.09103969649581
+      }
+    },
+    {
+      "id": "utpu_cycle_model_heldout_mape",
+      "category": "uTPU cycle cost model",
+      "headline": "Held-out MAPE",
+      "value": 10.04,
+      "unit": "%",
+      "tier": "sim",
+      "source_artifact": "bench/results/utpu_cycle_model_heldout.json",
+      "fence_note": "Predicts RTL cycles; absolute MAPE is residual analytical error.",
+      "tags": [],
+      "raw": {
+        "log_r2": 0.92361731424583,
+        "mape_pct": 10.036099187660577,
+        "p95_abs_rel_error_pct": 33.09103969649581
+      }
+    },
+    {
+      "id": "utpu_cycle_model_heldout_regret",
+      "category": "uTPU cycle cost model",
+      "headline": "Held-out selection regret mean (5-candidate menu)",
+      "value": 0.0,
+      "unit": "%",
+      "tier": "sim",
+      "source_artifact": "bench/results/utpu_cycle_model_heldout.json",
+      "fence_note": "Zero regret on 5-candidate menu; CUDA held-out mean regret 5.21% is 16-candidate.",
+      "tags": [],
+      "raw": {
+        "max_regret_pct": 0.0,
+        "mean_regret_pct": 0.0,
+        "median_regret_pct": 0.0,
+        "n_held_out_shapes_with_multi_schedule": 2,
+        "p95_regret_pct": 0.0,
+        "top1_accuracy": 1.0,
+        "within_10pct_fraction": 1.0,
+        "within_5pct_fraction": 1.0
+      }
+    }
+  ],
+  "tiers": [
+    {
+      "key": "sim",
+      "label": "Simulated / ISA-sim",
+      "color": "amber",
+      "meaning": "iverilog / ISA-sim / cost-model"
+    },
+    {
+      "key": "ci",
+      "label": "CI-validated host",
+      "color": "blue",
+      "meaning": "passes in .github/workflows/ci.yml"
+    },
+    {
+      "key": "synth",
+      "label": "Synthesized (P&R, timing-closed)",
+      "color": "purple",
+      "meaning": "Vivado place-and-route, timing met"
+    },
+    {
+      "key": "silicon",
+      "label": "Hardware-executed",
+      "color": "green",
+      "meaning": "on-board capture \u2014 OPEN"
+    }
+  ]
+}

@@ -1,31 +1,34 @@
 {
   "finding": {
-    "summary": "Held-out prediction is good but not trivial; see latency_prediction.test_metrics and selection_quality.",
+    "absolute_near_perfect": false,
+    "selection_trivially_perfect": true,
+    "summary": "uTPU cycle *selection* is trivially perfect on held-out shapes (top-1=1.0, regret=0) because the ISA/RTL path is data-independent and deterministic \u2014 ranking schedules has no GPU-style noise. Absolute cycle MAPE is residual analytical-model error (held-out MAPE=10.04%, log_R^2=0.9236), not timing jitter. Absolute fit is good but not bit-exact; a richer structural model could close the remaining gap.",
     "trivially_accurate_due_to_determinism": false
   },
   "fit": {
     "coefficients_train_only": {
-      "intercept_log": 5.497576258888935,
-      "log_coef_analytical_busy_cycles": 0.002321081376608137,
-      "log_coef_batch_size": 0.08992620007188895,
-      "log_coef_hoist": -0.5770437390910893,
-      "log_coef_in_blocks": 0.34670130988309755,
-      "log_coef_isa_static_cycles": -0.0019981624858298928,
-      "log_coef_n_accumulate_runs": 7.73703821922382e-05,
-      "log_coef_out_blocks": 0.7951868530049551,
-      "log_coef_program_words": 0.0004232865415709147,
-      "log_coef_useful_macs": -7.69721463346907e-06
+      "coef_analytical_busy_cycles": -7.711291883585115,
+      "coef_batch_size": 8.186322697706732,
+      "coef_hoist": -104.07574986103708,
+      "coef_in_blocks": -4.767364701064643,
+      "coef_isa_static_hoist": -1.5789628513157001,
+      "coef_isa_static_no_hoist": -3.6908876768670686,
+      "coef_isa_x_batch": 0.711676095099794,
+      "coef_n_accumulate_runs": 146.74188945353256,
+      "coef_out_blocks": 270.4077070741596,
+      "coef_program_words": 4.7429830036198375,
+      "intercept_cycles": -181.35914543249206
     },
-    "fit_objective": "log_cycles_least_squares",
+    "fit_objective": "cycles_least_squares",
     "fit_status": "ok",
-    "model_form": "exp(intercept_log + sum_i log_coef_i * feature_i); features=analytical_busy_cycles,isa_static_cycles,program_words,out_blocks,in_blocks,batch_size,hoist,n_accumulate_runs,useful_macs"
+    "model_form": "intercept_cycles + sum_i coef_i * feature_i; features=isa_static_no_hoist,isa_static_hoist,analytical_busy_cycles,program_words,out_blocks,in_blocks,batch_size,hoist,n_accumulate_runs,isa_x_batch"
   },
-  "generated_at_utc": "2026-08-04T14:50:29.662582+00:00",
-  "git_sha": "47865fa144e2ae73457c533fbe1fccad4094a041",
+  "generated_at_utc": "2026-08-04T15:05:33.052599+00:00",
+  "git_sha": "7169b297fa9bf332309ffa87ed9158cff9241b78",
   "grid": {
-    "n_isa_calibrated": 1,
+    "n_isa_calibrated": 0,
     "n_rows": 50,
-    "n_rtl_or_seed_measured": 49,
+    "n_rtl_or_seed_measured": 50,
     "schedules": [
       {
         "batch_size": 1,
@@ -94,33 +97,33 @@
   "latency_prediction": {
     "note": "Field names mirror CUDA cost_model_heldout.json; underlying quantity is RTL total_program_cycles (not microseconds).",
     "test_metrics": {
-      "log_r2": 0.4326228118616867,
-      "mape_pct": 57.9411425042525,
-      "p95_abs_rel_error_pct": 169.03071488178256
+      "log_r2": 0.92361731424583,
+      "mape_pct": 10.036099187660577,
+      "p95_abs_rel_error_pct": 33.09103969649581
     },
     "test_over_train_ratios": {
-      "log_r2": 0.44707740309147526,
-      "mape": 5.605308195837002,
-      "p95_abs_rel_error": 6.146423700554647
+      "log_r2": 0.9343457727957901,
+      "mape": 2.0930813714718632,
+      "p95_abs_rel_error": 1.852835590315088
     },
     "train_metrics": {
-      "log_r2": 0.9676687053967901,
-      "mape_pct": 10.33683438624922,
-      "p95_abs_rel_error_pct": 27.5006610537652
+      "log_r2": 0.9885176785058299,
+      "mape_pct": 4.794892030692123,
+      "p95_abs_rel_error_pct": 17.859674042027898
     }
   },
   "methodology": {
     "cache_dir": "build\\utpu_cycle_cache",
     "claims_scope": "uTPU RTL cycle predictability on unseen (in,out) shapes. Ground truth is TOTAL_PROGRAM_CYCLES from iverilog batched-GEMM sims when available; otherwise ISA-static cycles affine-calibrated on TRAIN RTL anchors. Hardware is deterministic (data-independent ISA/RTL), so near-perfect held-out fit is an expected finding, not a bug.",
-    "fit_function": "log_cycles_least_squares on analytical+ISA features",
+    "fit_function": "cycles_least_squares on analytical+ISA features (hoist-split ISA scales)",
     "ground_truth_hybrid": {
       "calibrator": {
-        "intercept": -88.41712226324545,
-        "n": 39.0,
-        "scale": 7.2514171026970935
+        "intercept": -57.33236560115024,
+        "n": 40.0,
+        "scale": 7.233363828319351
       },
-      "n_isa_calibrated_points": 1,
-      "n_train_rtl_anchor_points": 39,
+      "n_isa_calibrated_points": 0,
+      "n_train_rtl_anchor_points": 40,
       "note": "ISA-calibrated points use an affine map fitted on TRAIN shapes with real RTL total_program_cycles only. Held-out shapes never contribute to the calibrator."
     },
     "harness": "firmware/host/run_utpu_cycle_model_heldout.py",
@@ -140,6 +143,9 @@
         "hoist": 0.0,
         "in_blocks": 1.0,
         "isa_static_cycles": 81.0,
+        "isa_static_hoist": 0.0,
+        "isa_static_no_hoist": 81.0,
+        "isa_x_batch": 5.0625,
         "n_accumulate_runs": 1.0,
         "out_blocks": 1.0,
         "program_words": 217.0,
@@ -147,7 +153,7 @@
       },
       "ground_truth_source": "systolic_characterization_seed",
       "measured_cycles": 731.0,
-      "predicted_cycles": 836.6895102129964,
+      "predicted_cycles": 734.0276308914185,
       "schedule": {
         "batch_size": 1,
         "hoist_tile_payloads": 0
@@ -165,6 +171,9 @@
         "hoist": 0.0,
         "in_blocks": 1.0,
         "isa_static_cycles": 117.0,
+        "isa_static_hoist": 0.0,
+        "isa_static_no_hoist": 117.0,
+        "isa_x_batch": 29.25,
         "n_accumulate_runs": 1.0,
         "out_blocks": 1.0,
         "program_words": 313.0,
@@ -172,7 +181,7 @@
       },
       "ground_truth_source": "systolic_characterization_seed",
       "measured_cycles": 1082.0,
-      "predicted_cycles": 1063.1432061568573,
+      "predicted_cycles": 1075.1208008642996,
       "schedule": {
         "batch_size": 4,
         "hoist_tile_payloads": 0
@@ -190,6 +199,9 @@
         "hoist": 1.0,
         "in_blocks": 1.0,
         "isa_static_cycles": 121.0,
+        "isa_static_hoist": 121.0,
+        "isa_static_no_hoist": 0.0,
+        "isa_x_batch": 30.25,
         "n_accumulate_runs": 1.0,
         "out_blocks": 1.0,
         "program_words": 159.0,
@@ -197,7 +209,7 @@
       },
       "ground_truth_source": "rtl_iverilog_working_tree_top",
       "measured_cycles": 504.0,
-      "predicted_cycles": 554.8859358871208,
+      "predicted_cycles": 482.1166977251545,
       "schedule": {
         "batch_size": 4,
         "hoist_tile_payloads": 1
@@ -215,6 +227,9 @@
         "hoist": 0.0,
         "in_blocks": 1.0,
         "isa_static_cycles": 261.0,
+        "isa_static_hoist": 0.0,
+        "isa_static_no_hoist": 261.0,
+        "isa_x_batch": 261.0,
         "n_accumulate_runs": 1.0,
         "out_blocks": 1.0,
         "program_words": 649.0,
@@ -222,7 +237,7 @@
       },
       "ground_truth_source": "systolic_characterization_seed",
       "measured_cycles": 2390.0,
-      "predicted_cycles": 2715.6741361997874,
+      "predicted_cycles": 2307.9065694205437,
       "schedule": {
         "batch_size": 16,
         "hoist_tile_payloads": 0
@@ -240,6 +255,9 @@
         "hoist": 1.0,
         "in_blocks": 1.0,
         "isa_static_cycles": 265.0,
+        "isa_static_hoist": 265.0,
+        "isa_static_no_hoist": 0.0,
+        "isa_x_batch": 265.0,
         "n_accumulate_runs": 1.0,
         "out_blocks": 1.0,
         "program_words": 399.0,
@@ -247,7 +265,7 @@
       },
       "ground_truth_source": "rtl_iverilog_working_tree_top",
       "measured_cycles": 1458.0,
-      "predicted_cycles": 1360.9489295611547,
+      "predicted_cycles": 1565.8283010985906,
       "schedule": {
         "batch_size": 16,
         "hoist_tile_payloads": 1
@@ -265,6 +283,9 @@
         "hoist": 0.0,
         "in_blocks": 1.0,
         "isa_static_cycles": 161.0,
+        "isa_static_hoist": 0.0,
+        "isa_static_no_hoist": 161.0,
+        "isa_x_batch": 10.0625,
         "n_accumulate_runs": 2.0,
         "out_blocks": 2.0,
         "program_words": 433.0,
@@ -272,7 +293,7 @@
       },
       "ground_truth_source": "rtl_iverilog_working_tree_top",
       "measured_cycles": 1456.0,
-      "predicted_cycles": 1856.1824278013762,
+      "predicted_cycles": 1644.8988741359906,
       "schedule": {
         "batch_size": 1,
         "hoist_tile_payloads": 0
@@ -290,6 +311,9 @@
         "hoist": 0.0,
         "in_blocks": 1.0,
         "isa_static_cycles": 233.0,
+        "isa_static_hoist": 0.0,
+        "isa_static_no_hoist": 233.0,
+        "isa_x_batch": 58.25,
         "n_accumulate_runs": 2.0,
         "out_blocks": 2.0,
         "program_words": 625.0,
@@ -297,7 +321,7 @@
       },
       "ground_truth_source": "rtl_iverilog_working_tree_top",
       "measured_cycles": 2158.0,
-      "predicted_cycles": 2288.295927680572,
+      "predicted_cycles": 2302.392806720801,
       "schedule": {
         "batch_size": 4,
         "hoist_tile_payloads": 0
@@ -315,6 +339,9 @@
         "hoist": 1.0,
         "in_blocks": 1.0,
         "isa_static_cycles": 223.0,
+        "isa_static_hoist": 223.0,
+        "isa_static_no_hoist": 0.0,
+        "isa_x_batch": 55.75,
         "n_accumulate_runs": 2.0,
         "out_blocks": 2.0,
         "program_words": 298.0,
@@ -322,7 +349,7 @@
       },
       "ground_truth_source": "rtl_iverilog_working_tree_top",
       "measured_cycles": 970.0,
-      "predicted_cycles": 1141.4856215979094,
+      "predicted_cycles": 1153.4505373049535,
       "schedule": {
         "batch_size": 4,
         "hoist_tile_payloads": 1
@@ -340,6 +367,9 @@
         "hoist": 0.0,
         "in_blocks": 1.0,
         "isa_static_cycles": 521.0,
+        "isa_static_hoist": 0.0,
+        "isa_static_no_hoist": 521.0,
+        "isa_x_batch": 521.0,
         "n_accumulate_runs": 2.0,
         "out_blocks": 2.0,
         "program_words": 1297.0,
@@ -347,7 +377,7 @@
       },
       "ground_truth_source": "rtl_iverilog_working_tree_top",
       "measured_cycles": 4774.0,
-      "predicted_cycles": 5074.935580679322,
+      "predicted_cycles": 4669.194714389483,
       "schedule": {
         "batch_size": 16,
         "hoist_tile_payloads": 0
@@ -365,6 +395,9 @@
         "hoist": 1.0,
         "in_blocks": 1.0,
         "isa_static_cycles": 463.0,
+        "isa_static_hoist": 463.0,
+        "isa_static_no_hoist": 0.0,
+        "isa_x_batch": 463.0,
         "n_accumulate_runs": 2.0,
         "out_blocks": 2.0,
         "program_words": 730.0,
@@ -372,7 +405,7 @@
       },
       "ground_truth_source": "rtl_iverilog_working_tree_top",
       "measured_cycles": 2800.0,
-      "predicted_cycles": 2517.232408480942,
+      "predicted_cycles": 3026.463067448785,
       "schedule": {
         "batch_size": 16,
         "hoist_tile_payloads": 1
@@ -390,6 +423,9 @@
         "hoist": 0.0,
         "in_blocks": 2.0,
         "isa_static_cycles": 152.0,
+        "isa_static_hoist": 0.0,
+        "isa_static_no_hoist": 152.0,
+        "isa_x_batch": 9.5,
         "n_accumulate_runs": 2.0,
         "out_blocks": 1.0,
         "program_words": 424.0,
@@ -397,7 +433,7 @@
       },
       "ground_truth_source": "rtl_iverilog_working_tree_top",
       "measured_cycles": 1393.0,
-      "predicted_cycles": 1202.26858641877,
+      "predicted_cycles": 1359.8546266164979,
       "schedule": {
         "batch_size": 1,
         "hoist_tile_payloads": 0
@@ -415,6 +451,9 @@
         "hoist": 0.0,
         "in_blocks": 2.0,
         "isa_static_cycles": 200.0,
+        "isa_static_hoist": 0.0,
+        "isa_static_no_hoist": 200.0,
+        "isa_x_batch": 50.0,
         "n_accumulate_runs": 2.0,
         "out_blocks": 1.0,
         "program_words": 559.0,
@@ -422,7 +461,7 @@
       },
       "ground_truth_source": "rtl_iverilog_working_tree_top",
       "measured_cycles": 1861.0,
-      "predicted_cycles": 1517.8947035876904,
+      "predicted_cycles": 1830.1088222587073,
       "schedule": {
         "batch_size": 4,
         "hoist_tile_payloads": 0
@@ -440,6 +479,9 @@
         "hoist": 1.0,
         "in_blocks": 2.0,
         "isa_static_cycles": 208.0,
+        "isa_static_hoist": 208.0,
+        "isa_static_no_hoist": 0.0,
+        "isa_x_batch": 52.0,
         "n_accumulate_runs": 2.0,
         "out_blocks": 1.0,
         "program_words": 251.0,
@@ -447,7 +489,7 @@
       },
       "ground_truth_source": "rtl_iverilog_working_tree_top",
       "measured_cycles": 705.0,
-      "predicted_cycles": 736.3299327996781,
+      "predicted_cycles": 676.3709217727084,
       "schedule": {
         "batch_size": 4,
         "hoist_tile_payloads": 1
@@ -465,6 +507,9 @@
         "hoist": 0.0,
         "in_blocks": 2.0,
         "isa_static_cycles": 392.0,
+        "isa_static_hoist": 0.0,
+        "isa_static_no_hoist": 392.0,
+        "isa_x_batch": 392.0,
         "n_accumulate_runs": 2.0,
         "out_blocks": 1.0,
         "program_words": 1039.0,
@@ -472,7 +517,7 @@
       },
       "ground_truth_source": "rtl_iverilog_working_tree_top",
       "measured_cycles": 3613.0,
-      "predicted_cycles": 3759.866010306228,
+      "predicted_cycles": 3554.6483217283203,
       "schedule": {
         "batch_size": 16,
         "hoist_tile_payloads": 0
@@ -490,6 +535,9 @@
         "hoist": 1.0,
         "in_blocks": 2.0,
         "isa_static_cycles": 400.0,
+        "isa_static_hoist": 400.0,
+        "isa_static_no_hoist": 0.0,
+        "isa_x_batch": 400.0,
         "n_accumulate_runs": 2.0,
         "out_blocks": 1.0,
         "program_words": 539.0,
@@ -497,7 +545,7 @@
       },
       "ground_truth_source": "rtl_iverilog_working_tree_top",
       "measured_cycles": 1749.0,
-      "predicted_cycles": 1681.5416331919462,
+      "predicted_cycles": 1900.0173076237731,
       "schedule": {
         "batch_size": 16,
         "hoist_tile_payloads": 1
@@ -515,6 +563,9 @@
         "hoist": 0.0,
         "in_blocks": 2.0,
         "isa_static_cycles": 303.0,
+        "isa_static_hoist": 0.0,
+        "isa_static_no_hoist": 303.0,
+        "isa_x_batch": 18.9375,
         "n_accumulate_runs": 4.0,
         "out_blocks": 2.0,
         "program_words": 847.0,
@@ -522,7 +573,7 @@
       },
       "ground_truth_source": "systolic_characterization_seed",
       "measured_cycles": 2780.0,
-      "predicted_cycles": 2709.7207836023344,
+      "predicted_cycles": 2901.320230287213,
       "schedule": {
         "batch_size": 1,
         "hoist_tile_payloads": 0
@@ -540,14 +591,17 @@
         "hoist": 0.0,
         "in_blocks": 2.0,
         "isa_static_cycles": 399.0,
+        "isa_static_hoist": 0.0,
+        "isa_static_no_hoist": 399.0,
+        "isa_x_batch": 99.75,
         "n_accumulate_runs": 4.0,
         "out_blocks": 2.0,
         "program_words": 1117.0,
         "useful_macs": 4096.0
       },
-      "ground_truth_source": "isa_calibrated_from_train_rtl",
-      "measured_cycles": 2804.898301712895,
-      "predicted_cycles": 3297.9303289372488,
+      "ground_truth_source": "rtl_iverilog_working_tree_top",
+      "measured_cycles": 3716.0,
+      "predicted_cycles": 3817.136214210681,
       "schedule": {
         "batch_size": 4,
         "hoist_tile_payloads": 0
@@ -565,6 +619,9 @@
         "hoist": 1.0,
         "in_blocks": 2.0,
         "isa_static_cycles": 379.0,
+        "isa_static_hoist": 379.0,
+        "isa_static_no_hoist": 0.0,
+        "isa_x_batch": 94.75,
         "n_accumulate_runs": 4.0,
         "out_blocks": 2.0,
         "program_words": 463.0,
@@ -572,7 +629,7 @@
       },
       "ground_truth_source": "systolic_characterization_seed",
       "measured_cycles": 2024.0,
-      "predicted_cycles": 1461.385869398569,
+      "predicted_cycles": 1481.828461928082,
       "schedule": {
         "batch_size": 4,
         "hoist_tile_payloads": 1
@@ -590,6 +647,9 @@
         "hoist": 0.0,
         "in_blocks": 2.0,
         "isa_static_cycles": 783.0,
+        "isa_static_hoist": 0.0,
+        "isa_static_no_hoist": 783.0,
+        "isa_x_batch": 783.0,
         "n_accumulate_runs": 4.0,
         "out_blocks": 2.0,
         "program_words": 2077.0,
@@ -597,7 +657,7 @@
       },
       "ground_truth_source": "rtl_iverilog_working_tree_top",
       "measured_cycles": 7220.0,
-      "predicted_cycles": 6877.799203372909,
+      "predicted_cycles": 7167.4455837061005,
       "schedule": {
         "batch_size": 16,
         "hoist_tile_payloads": 0
@@ -615,6 +675,9 @@
         "hoist": 1.0,
         "in_blocks": 2.0,
         "isa_static_cycles": 667.0,
+        "isa_static_hoist": 667.0,
+        "isa_static_no_hoist": 0.0,
+        "isa_x_batch": 667.0,
         "n_accumulate_runs": 4.0,
         "out_blocks": 2.0,
         "program_words": 943.0,
@@ -622,7 +685,7 @@
       },
       "ground_truth_source": "systolic_characterization_seed",
       "measured_cycles": 4184.0,
-      "predicted_cycles": 3013.2971823756557,
+      "predicted_cycles": 3439.0695098679353,
       "schedule": {
         "batch_size": 16,
         "hoist_tile_payloads": 1
@@ -640,6 +703,9 @@
         "hoist": 0.0,
         "in_blocks": 2.0,
         "isa_static_cycles": 454.0,
+        "isa_static_hoist": 0.0,
+        "isa_static_no_hoist": 454.0,
+        "isa_x_batch": 28.375,
         "n_accumulate_runs": 6.0,
         "out_blocks": 3.0,
         "program_words": 1270.0,
@@ -647,7 +713,7 @@
       },
       "ground_truth_source": "rtl_iverilog_working_tree_top",
       "measured_cycles": 4167.0,
-      "predicted_cycles": 6107.276533738637,
+      "predicted_cycles": 4442.78583395793,
       "schedule": {
         "batch_size": 1,
         "hoist_tile_payloads": 0
@@ -665,6 +731,9 @@
         "hoist": 0.0,
         "in_blocks": 2.0,
         "isa_static_cycles": 598.0,
+        "isa_static_hoist": 0.0,
+        "isa_static_no_hoist": 598.0,
+        "isa_x_batch": 149.5,
         "n_accumulate_runs": 6.0,
         "out_blocks": 3.0,
         "program_words": 1675.0,
@@ -672,7 +741,7 @@
       },
       "ground_truth_source": "rtl_iverilog_working_tree_top",
       "measured_cycles": 5571.0,
-      "predicted_cycles": 7165.414326051003,
+      "predicted_cycles": 5804.163606162657,
       "schedule": {
         "batch_size": 4,
         "hoist_tile_payloads": 0
@@ -690,6 +759,9 @@
         "hoist": 1.0,
         "in_blocks": 2.0,
         "isa_static_cycles": 550.0,
+        "isa_static_hoist": 550.0,
+        "isa_static_no_hoist": 0.0,
+        "isa_x_batch": 137.5,
         "n_accumulate_runs": 6.0,
         "out_blocks": 3.0,
         "program_words": 675.0,
@@ -697,7 +769,7 @@
       },
       "ground_truth_source": "rtl_iverilog_working_tree_top",
       "measured_cycles": 1975.0,
-      "predicted_cycles": 2900.396363295517,
+      "predicted_cycles": 2287.286002083456,
       "schedule": {
         "batch_size": 4,
         "hoist_tile_payloads": 1
@@ -715,6 +787,9 @@
         "hoist": 0.0,
         "in_blocks": 2.0,
         "isa_static_cycles": 1174.0,
+        "isa_static_hoist": 0.0,
+        "isa_static_no_hoist": 1174.0,
+        "isa_x_batch": 1174.0,
         "n_accumulate_runs": 6.0,
         "out_blocks": 3.0,
         "program_words": 3115.0,
@@ -722,7 +797,7 @@
       },
       "ground_truth_source": "rtl_iverilog_working_tree_top",
       "measured_cycles": 10827.0,
-      "predicted_cycles": 12581.331821998761,
+      "predicted_cycles": 10780.24284568388,
       "schedule": {
         "batch_size": 16,
         "hoist_tile_payloads": 0
@@ -740,6 +815,9 @@
         "hoist": 1.0,
         "in_blocks": 2.0,
         "isa_static_cycles": 934.0,
+        "isa_static_hoist": 934.0,
+        "isa_static_no_hoist": 0.0,
+        "isa_x_batch": 934.0,
         "n_accumulate_runs": 6.0,
         "out_blocks": 3.0,
         "program_words": 1347.0,
@@ -747,7 +825,7 @@
       },
       "ground_truth_source": "rtl_iverilog_working_tree_top",
       "measured_cycles": 4795.0,
-      "predicted_cycles": 5399.782990848236,
+      "predicted_cycles": 4978.121712112097,
       "schedule": {
         "batch_size": 16,
         "hoist_tile_payloads": 1
@@ -765,6 +843,9 @@
         "hoist": 0.0,
         "in_blocks": 3.0,
         "isa_static_cycles": 223.0,
+        "isa_static_hoist": 0.0,
+        "isa_static_no_hoist": 223.0,
+        "isa_x_batch": 13.9375,
         "n_accumulate_runs": 3.0,
         "out_blocks": 1.0,
         "program_words": 631.0,
@@ -772,7 +853,7 @@
       },
       "ground_truth_source": "rtl_iverilog_working_tree_top",
       "measured_cycles": 2055.0,
-      "predicted_cycles": 1727.5820196687027,
+      "predicted_cycles": 1985.681622341577,
       "schedule": {
         "batch_size": 1,
         "hoist_tile_payloads": 0
@@ -790,6 +871,9 @@
         "hoist": 0.0,
         "in_blocks": 3.0,
         "isa_static_cycles": 283.0,
+        "isa_static_hoist": 0.0,
+        "isa_static_no_hoist": 283.0,
+        "isa_x_batch": 70.75,
         "n_accumulate_runs": 3.0,
         "out_blocks": 1.0,
         "program_words": 805.0,
@@ -797,7 +881,7 @@
       },
       "ground_truth_source": "rtl_iverilog_working_tree_top",
       "measured_cycles": 2640.0,
-      "predicted_cycles": 2167.1627282539707,
+      "predicted_cycles": 2585.0968436531157,
       "schedule": {
         "batch_size": 4,
         "hoist_tile_payloads": 0
@@ -815,6 +899,9 @@
         "hoist": 1.0,
         "in_blocks": 3.0,
         "isa_static_cycles": 295.0,
+        "isa_static_hoist": 295.0,
+        "isa_static_no_hoist": 0.0,
+        "isa_x_batch": 73.75,
         "n_accumulate_runs": 3.0,
         "out_blocks": 1.0,
         "program_words": 343.0,
@@ -822,7 +909,7 @@
       },
       "ground_truth_source": "rtl_iverilog_working_tree_top",
       "measured_cycles": 906.0,
-      "predicted_cycles": 977.1049054793006,
+      "predicted_cycles": 870.6251458202619,
       "schedule": {
         "batch_size": 4,
         "hoist_tile_payloads": 1
@@ -840,6 +927,9 @@
         "hoist": 0.0,
         "in_blocks": 3.0,
         "isa_static_cycles": 523.0,
+        "isa_static_hoist": 0.0,
+        "isa_static_no_hoist": 523.0,
+        "isa_x_batch": 523.0,
         "n_accumulate_runs": 3.0,
         "out_blocks": 1.0,
         "program_words": 1429.0,
@@ -847,7 +937,7 @@
       },
       "ground_truth_source": "rtl_iverilog_working_tree_top",
       "measured_cycles": 4836.0,
-      "predicted_cycles": 5205.555492470956,
+      "predicted_cycles": 4801.390074036095,
       "schedule": {
         "batch_size": 16,
         "hoist_tile_payloads": 0
@@ -865,6 +955,9 @@
         "hoist": 1.0,
         "in_blocks": 3.0,
         "isa_static_cycles": 535.0,
+        "isa_static_hoist": 535.0,
+        "isa_static_no_hoist": 0.0,
+        "isa_x_batch": 535.0,
         "n_accumulate_runs": 3.0,
         "out_blocks": 1.0,
         "program_words": 679.0,
@@ -872,7 +965,7 @@
       },
       "ground_truth_source": "rtl_iverilog_working_tree_top",
       "measured_cycles": 2040.0,
-      "predicted_cycles": 2077.654938212567,
+      "predicted_cycles": 2234.2063141489557,
       "schedule": {
         "batch_size": 16,
         "hoist_tile_payloads": 1
@@ -890,6 +983,9 @@
         "hoist": 0.0,
         "in_blocks": 3.0,
         "isa_static_cycles": 445.0,
+        "isa_static_hoist": 0.0,
+        "isa_static_no_hoist": 445.0,
+        "isa_x_batch": 27.8125,
         "n_accumulate_runs": 6.0,
         "out_blocks": 2.0,
         "program_words": 1261.0,
@@ -897,7 +993,7 @@
       },
       "ground_truth_source": "rtl_iverilog_working_tree_top",
       "measured_cycles": 4104.0,
-      "predicted_cycles": 3955.7462753182404,
+      "predicted_cycles": 4157.741586438436,
       "schedule": {
         "batch_size": 1,
         "hoist_tile_payloads": 0
@@ -915,6 +1011,9 @@
         "hoist": 0.0,
         "in_blocks": 3.0,
         "isa_static_cycles": 565.0,
+        "isa_static_hoist": 0.0,
+        "isa_static_no_hoist": 565.0,
+        "isa_x_batch": 141.25,
         "n_accumulate_runs": 6.0,
         "out_blocks": 2.0,
         "program_words": 1609.0,
@@ -922,7 +1021,7 @@
       },
       "ground_truth_source": "rtl_iverilog_working_tree_top",
       "measured_cycles": 5274.0,
-      "predicted_cycles": 4753.0322992570655,
+      "predicted_cycles": 5331.879621700563,
       "schedule": {
         "batch_size": 4,
         "hoist_tile_payloads": 0
@@ -940,6 +1039,9 @@
         "hoist": 1.0,
         "in_blocks": 3.0,
         "isa_static_cycles": 535.0,
+        "isa_static_hoist": 535.0,
+        "isa_static_no_hoist": 0.0,
+        "isa_x_batch": 133.75,
         "n_accumulate_runs": 6.0,
         "out_blocks": 2.0,
         "program_words": 628.0,
@@ -947,7 +1049,7 @@
       },
       "ground_truth_source": "rtl_iverilog_working_tree_top",
       "measured_cycles": 1710.0,
-      "predicted_cycles": 1870.9378540294058,
+      "predicted_cycles": 1810.2063865512105,
       "schedule": {
         "batch_size": 4,
         "hoist_tile_payloads": 1
@@ -965,6 +1067,9 @@
         "hoist": 0.0,
         "in_blocks": 3.0,
         "isa_static_cycles": 1045.0,
+        "isa_static_hoist": 0.0,
+        "isa_static_no_hoist": 1045.0,
+        "isa_x_batch": 1045.0,
         "n_accumulate_runs": 6.0,
         "out_blocks": 2.0,
         "program_words": 2857.0,
@@ -972,7 +1077,7 @@
       },
       "ground_truth_source": "rtl_iverilog_working_tree_top",
       "measured_cycles": 9666.0,
-      "predicted_cycles": 9321.127555196517,
+      "predicted_cycles": 9665.696453022718,
       "schedule": {
         "batch_size": 16,
         "hoist_tile_payloads": 0
@@ -990,6 +1095,9 @@
         "hoist": 1.0,
         "in_blocks": 3.0,
         "isa_static_cycles": 871.0,
+        "isa_static_hoist": 871.0,
+        "isa_static_no_hoist": 0.0,
+        "isa_x_batch": 871.0,
         "n_accumulate_runs": 6.0,
         "out_blocks": 2.0,
         "program_words": 1156.0,
@@ -997,7 +1105,7 @@
       },
       "ground_truth_source": "rtl_iverilog_working_tree_top",
       "measured_cycles": 3744.0,
-      "predicted_cycles": 3607.1202161235715,
+      "predicted_cycles": 3851.6759522870852,
       "schedule": {
         "batch_size": 16,
         "hoist_tile_payloads": 1
@@ -1015,6 +1123,9 @@
         "hoist": 0.0,
         "in_blocks": 4.0,
         "isa_static_cycles": 294.0,
+        "isa_static_hoist": 0.0,
+        "isa_static_no_hoist": 294.0,
+        "isa_x_batch": 18.375,
         "n_accumulate_runs": 4.0,
         "out_blocks": 1.0,
         "program_words": 838.0,
@@ -1022,7 +1133,7 @@
       },
       "ground_truth_source": "rtl_iverilog_working_tree_top",
       "measured_cycles": 2717.0,
-      "predicted_cycles": 2482.423368951794,
+      "predicted_cycles": 2611.5086180666563,
       "schedule": {
         "batch_size": 1,
         "hoist_tile_payloads": 0
@@ -1040,6 +1151,9 @@
         "hoist": 0.0,
         "in_blocks": 4.0,
         "isa_static_cycles": 366.0,
+        "isa_static_hoist": 0.0,
+        "isa_static_no_hoist": 366.0,
+        "isa_x_batch": 91.5,
         "n_accumulate_runs": 4.0,
         "out_blocks": 1.0,
         "program_words": 1051.0,
@@ -1047,7 +1161,7 @@
       },
       "ground_truth_source": "rtl_iverilog_working_tree_top",
       "measured_cycles": 3419.0,
-      "predicted_cycles": 3094.150259324524,
+      "predicted_cycles": 3340.084865047524,
       "schedule": {
         "batch_size": 4,
         "hoist_tile_payloads": 0
@@ -1065,6 +1179,9 @@
         "hoist": 1.0,
         "in_blocks": 4.0,
         "isa_static_cycles": 382.0,
+        "isa_static_hoist": 382.0,
+        "isa_static_no_hoist": 0.0,
+        "isa_x_batch": 95.5,
         "n_accumulate_runs": 4.0,
         "out_blocks": 1.0,
         "program_words": 435.0,
@@ -1072,7 +1189,7 @@
       },
       "ground_truth_source": "rtl_iverilog_working_tree_top",
       "measured_cycles": 1107.0,
-      "predicted_cycles": 1296.6116869398704,
+      "predicted_cycles": 1064.8793698678157,
       "schedule": {
         "batch_size": 4,
         "hoist_tile_payloads": 1
@@ -1090,6 +1207,9 @@
         "hoist": 0.0,
         "in_blocks": 4.0,
         "isa_static_cycles": 654.0,
+        "isa_static_hoist": 0.0,
+        "isa_static_no_hoist": 654.0,
+        "isa_x_batch": 654.0,
         "n_accumulate_runs": 4.0,
         "out_blocks": 1.0,
         "program_words": 1819.0,
@@ -1097,7 +1217,7 @@
       },
       "ground_truth_source": "rtl_iverilog_working_tree_top",
       "measured_cycles": 6059.0,
-      "predicted_cycles": 7207.120655607451,
+      "predicted_cycles": 6048.1318263438725,
       "schedule": {
         "batch_size": 16,
         "hoist_tile_payloads": 0
@@ -1115,6 +1235,9 @@
         "hoist": 1.0,
         "in_blocks": 4.0,
         "isa_static_cycles": 670.0,
+        "isa_static_hoist": 670.0,
+        "isa_static_no_hoist": 0.0,
+        "isa_x_batch": 670.0,
         "n_accumulate_runs": 4.0,
         "out_blocks": 1.0,
         "program_words": 819.0,
@@ -1122,7 +1245,7 @@
       },
       "ground_truth_source": "rtl_iverilog_working_tree_top",
       "measured_cycles": 2331.0,
-      "predicted_cycles": 2567.0788977642405,
+      "predicted_cycles": 2568.395320674138,
       "schedule": {
         "batch_size": 16,
         "hoist_tile_payloads": 1
@@ -1140,6 +1263,9 @@
         "hoist": 0.0,
         "in_blocks": 4.0,
         "isa_static_cycles": 587.0,
+        "isa_static_hoist": 0.0,
+        "isa_static_no_hoist": 587.0,
+        "isa_x_batch": 36.6875,
         "n_accumulate_runs": 8.0,
         "out_blocks": 2.0,
         "program_words": 1675.0,
@@ -1147,7 +1273,7 @@
       },
       "ground_truth_source": "rtl_iverilog_working_tree_top",
       "measured_cycles": 5428.0,
-      "predicted_cycles": 5774.7383750334375,
+      "predicted_cycles": 5414.162942589659,
       "schedule": {
         "batch_size": 1,
         "hoist_tile_payloads": 0
@@ -1165,6 +1291,9 @@
         "hoist": 0.0,
         "in_blocks": 4.0,
         "isa_static_cycles": 731.0,
+        "isa_static_hoist": 0.0,
+        "isa_static_no_hoist": 731.0,
+        "isa_x_batch": 182.75,
         "n_accumulate_runs": 8.0,
         "out_blocks": 2.0,
         "program_words": 2101.0,
@@ -1172,7 +1301,7 @@
       },
       "ground_truth_source": "rtl_iverilog_working_tree_top",
       "measured_cycles": 6832.0,
-      "predicted_cycles": 6850.14957397867,
+      "predicted_cycles": 6846.623029190445,
       "schedule": {
         "batch_size": 4,
         "hoist_tile_payloads": 0
@@ -1190,6 +1319,9 @@
         "hoist": 1.0,
         "in_blocks": 4.0,
         "isa_static_cycles": 691.0,
+        "isa_static_hoist": 691.0,
+        "isa_static_no_hoist": 0.0,
+        "isa_x_batch": 172.75,
         "n_accumulate_runs": 8.0,
         "out_blocks": 2.0,
         "program_words": 793.0,
@@ -1197,7 +1329,7 @@
       },
       "ground_truth_source": "rtl_iverilog_working_tree_top",
       "measured_cycles": 2080.0,
-      "predicted_cycles": 2395.2663885279953,
+      "predicted_cycles": 2138.584311174339,
       "schedule": {
         "batch_size": 4,
         "hoist_tile_payloads": 1
@@ -1215,6 +1347,9 @@
         "hoist": 0.0,
         "in_blocks": 4.0,
         "isa_static_cycles": 1307.0,
+        "isa_static_hoist": 0.0,
+        "isa_static_no_hoist": 1307.0,
+        "isa_x_batch": 1307.0,
         "n_accumulate_runs": 8.0,
         "out_blocks": 2.0,
         "program_words": 3637.0,
@@ -1222,7 +1357,7 @@
       },
       "ground_truth_source": "rtl_iverilog_working_tree_top",
       "measured_cycles": 12112.0,
-      "predicted_cycles": 12632.444817178666,
+      "predicted_cycles": 12163.947322339336,
       "schedule": {
         "batch_size": 16,
         "hoist_tile_payloads": 0
@@ -1240,6 +1375,9 @@
         "hoist": 1.0,
         "in_blocks": 4.0,
         "isa_static_cycles": 1075.0,
+        "isa_static_hoist": 1075.0,
+        "isa_static_no_hoist": 0.0,
+        "isa_x_batch": 1075.0,
         "n_accumulate_runs": 8.0,
         "out_blocks": 2.0,
         "program_words": 1369.0,
@@ -1247,7 +1385,7 @@
       },
       "ground_truth_source": "rtl_iverilog_working_tree_top",
       "measured_cycles": 4216.0,
-      "predicted_cycles": 4317.966488559008,
+      "predicted_cycles": 4264.282394706236,
       "schedule": {
         "batch_size": 16,
         "hoist_tile_payloads": 1
@@ -1265,6 +1403,9 @@
         "hoist": 0.0,
         "in_blocks": 4.0,
         "isa_static_cycles": 1173.0,
+        "isa_static_hoist": 0.0,
+        "isa_static_no_hoist": 1173.0,
+        "isa_x_batch": 73.3125,
         "n_accumulate_runs": 16.0,
         "out_blocks": 4.0,
         "program_words": 3349.0,
@@ -1272,7 +1413,7 @@
       },
       "ground_truth_source": "systolic_characterization_seed",
       "measured_cycles": 10850.0,
-      "predicted_cycles": 31249.65578205319,
+      "predicted_cycles": 11019.471591635665,
       "schedule": {
         "batch_size": 1,
         "hoist_tile_payloads": 0
@@ -1290,6 +1431,9 @@
         "hoist": 0.0,
         "in_blocks": 4.0,
         "isa_static_cycles": 1461.0,
+        "isa_static_hoist": 0.0,
+        "isa_static_no_hoist": 1461.0,
+        "isa_x_batch": 365.25,
         "n_accumulate_runs": 16.0,
         "out_blocks": 4.0,
         "program_words": 4201.0,
@@ -1297,7 +1441,7 @@
       },
       "ground_truth_source": "rtl_iverilog_working_tree_top",
       "measured_cycles": 13658.0,
-      "predicted_cycles": 33575.103717174425,
+      "predicted_cycles": 13859.699357476282,
       "schedule": {
         "batch_size": 4,
         "hoist_tile_payloads": 0
@@ -1315,6 +1459,9 @@
         "hoist": 1.0,
         "in_blocks": 4.0,
         "isa_static_cycles": 1309.0,
+        "isa_static_hoist": 1309.0,
+        "isa_static_no_hoist": 0.0,
+        "isa_x_batch": 327.25,
         "n_accumulate_runs": 16.0,
         "out_blocks": 4.0,
         "program_words": 1509.0,
@@ -1322,7 +1469,7 @@
       },
       "ground_truth_source": "systolic_characterization_seed",
       "measured_cycles": 6610.0,
-      "predicted_cycles": 8174.1310730022415,
+      "predicted_cycles": 4285.994193787386,
       "schedule": {
         "batch_size": 4,
         "hoist_tile_payloads": 1
@@ -1340,6 +1487,9 @@
         "hoist": 0.0,
         "in_blocks": 4.0,
         "isa_static_cycles": 2613.0,
+        "isa_static_hoist": 0.0,
+        "isa_static_no_hoist": 2613.0,
+        "isa_x_batch": 2613.0,
         "n_accumulate_runs": 16.0,
         "out_blocks": 4.0,
         "program_words": 7273.0,
@@ -1347,7 +1497,7 @@
       },
       "ground_truth_source": "rtl_iverilog_working_tree_top",
       "measured_cycles": 24218.0,
-      "predicted_cycles": 38809.553287044226,
+      "predicted_cycles": 24395.578314330265,
       "schedule": {
         "batch_size": 16,
         "hoist_tile_payloads": 0
@@ -1365,6 +1515,9 @@
         "hoist": 1.0,
         "in_blocks": 4.0,
         "isa_static_cycles": 1885.0,
+        "isa_static_hoist": 1885.0,
+        "isa_static_no_hoist": 0.0,
+        "isa_x_batch": 1885.0,
         "n_accumulate_runs": 16.0,
         "out_blocks": 4.0,
         "program_words": 2469.0,
@@ -1372,7 +1525,7 @@
       },
       "ground_truth_source": "systolic_characterization_seed",
       "measured_cycles": 11026.0,
-      "predicted_cycles": 12216.853586547459,
+      "predicted_cycles": 7656.0565427704305,
       "schedule": {
         "batch_size": 16,
         "hoist_tile_payloads": 1
@@ -1389,7 +1542,7 @@
       {
         "measured_best": {
           "measured_median_cycles": 1975.0,
-          "predicted_median_cycles": 2900.396363295517,
+          "predicted_median_cycles": 2287.286002083456,
           "schedule": {
             "batch_size": 4,
             "hoist_tile_payloads": 1
@@ -1398,7 +1551,7 @@
         "n_schedules": 5,
         "predicted_best": {
           "measured_median_cycles": 1975.0,
-          "predicted_median_cycles": 2900.396363295517,
+          "predicted_median_cycles": 2287.286002083456,
           "schedule": {
             "batch_size": 4,
             "hoist_tile_payloads": 1
@@ -1414,7 +1567,7 @@
       {
         "measured_best": {
           "measured_median_cycles": 6610.0,
-          "predicted_median_cycles": 8174.1310730022415,
+          "predicted_median_cycles": 4285.994193787386,
           "schedule": {
             "batch_size": 4,
             "hoist_tile_payloads": 1
@@ -1423,7 +1576,7 @@
         "n_schedules": 5,
         "predicted_best": {
           "measured_median_cycles": 6610.0,
-          "predicted_median_cycles": 8174.1310730022415,
+          "predicted_median_cycles": 4285.994193787386,
           "schedule": {
             "batch_size": 4,
             "hoist_tile_payloads": 1

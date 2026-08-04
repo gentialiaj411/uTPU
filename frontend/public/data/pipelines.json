@@ -1,0 +1,991 @@
+{
+  "pipelines": [
+    {
+      "id": "tiny_visual_mlp",
+      "name": "TinyVisualMLP",
+      "array_size": 16,
+      "example_input_shape": [
+        1,
+        4
+      ],
+      "nodes": [
+        {
+          "id": "tiny_visual_mlp_fx",
+          "type": "pipelineStage",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "data": {
+            "label": "torch.fx",
+            "stage_id": "fx",
+            "op_count": 5,
+            "op_kinds": [],
+            "detail": {
+              "node_count": 5,
+              "fx_nodes": [
+                {
+                  "name": "x",
+                  "op": "placeholder",
+                  "target": "x"
+                },
+                {
+                  "name": "fc1",
+                  "op": "call_module",
+                  "target": "fc1"
+                },
+                {
+                  "name": "relu",
+                  "op": "call_module",
+                  "target": "relu"
+                },
+                {
+                  "name": "fc2",
+                  "op": "call_module",
+                  "target": "fc2"
+                },
+                {
+                  "name": "output",
+                  "op": "output",
+                  "target": "output"
+                }
+              ]
+            },
+            "target": null
+          }
+        },
+        {
+          "id": "tiny_visual_mlp_ir",
+          "type": "pipelineStage",
+          "position": {
+            "x": 280,
+            "y": 0
+          },
+          "data": {
+            "label": "Graph IR",
+            "stage_id": "ir",
+            "op_count": 2,
+            "op_kinds": [
+              "linear_relu",
+              "linear"
+            ],
+            "detail": {
+              "ops": [
+                {
+                  "name": "fc1_relu_fused",
+                  "op": "linear_relu",
+                  "inputs": [
+                    "x"
+                  ],
+                  "outputs": [
+                    "relu"
+                  ]
+                },
+                {
+                  "name": "fc2",
+                  "op": "linear",
+                  "inputs": [
+                    "relu"
+                  ],
+                  "outputs": [
+                    "fc2"
+                  ]
+                }
+              ]
+            },
+            "target": null
+          }
+        },
+        {
+          "id": "tiny_visual_mlp_passes",
+          "type": "pipelineStage",
+          "position": {
+            "x": 560,
+            "y": 0
+          },
+          "data": {
+            "label": "Pass pipeline",
+            "stage_id": "passes",
+            "op_count": 9,
+            "op_kinds": [],
+            "detail": {
+              "passes": [
+                {
+                  "pass_name": "shape_inference",
+                  "changed": false,
+                  "op_delta": {
+                    "removed": [],
+                    "added": [],
+                    "before_kinds": [
+                      "linear",
+                      "relu",
+                      "linear"
+                    ],
+                    "after_kinds": [
+                      "linear",
+                      "relu",
+                      "linear"
+                    ]
+                  }
+                },
+                {
+                  "pass_name": "conv_bn_fusion",
+                  "changed": false,
+                  "op_delta": {
+                    "removed": [],
+                    "added": [],
+                    "before_kinds": [
+                      "linear",
+                      "relu",
+                      "linear"
+                    ],
+                    "after_kinds": [
+                      "linear",
+                      "relu",
+                      "linear"
+                    ]
+                  }
+                },
+                {
+                  "pass_name": "shape_inference_post_fold",
+                  "changed": false,
+                  "op_delta": {
+                    "removed": [],
+                    "added": [],
+                    "before_kinds": [
+                      "linear",
+                      "relu",
+                      "linear"
+                    ],
+                    "after_kinds": [
+                      "linear",
+                      "relu",
+                      "linear"
+                    ]
+                  }
+                },
+                {
+                  "pass_name": "attention_decomposition",
+                  "changed": false,
+                  "op_delta": {
+                    "removed": [],
+                    "added": [],
+                    "before_kinds": [
+                      "linear",
+                      "relu",
+                      "linear"
+                    ],
+                    "after_kinds": [
+                      "linear",
+                      "relu",
+                      "linear"
+                    ]
+                  }
+                },
+                {
+                  "pass_name": "linear_relu_fusion",
+                  "changed": true,
+                  "op_delta": {
+                    "removed": [
+                      "fc1",
+                      "relu"
+                    ],
+                    "added": [
+                      "fc1_relu_fused"
+                    ],
+                    "before_kinds": [
+                      "linear",
+                      "relu",
+                      "linear"
+                    ],
+                    "after_kinds": [
+                      "linear_relu",
+                      "linear"
+                    ]
+                  }
+                },
+                {
+                  "pass_name": "scale_softmax_fusion",
+                  "changed": false,
+                  "op_delta": {
+                    "removed": [],
+                    "added": [],
+                    "before_kinds": [
+                      "linear_relu",
+                      "linear"
+                    ],
+                    "after_kinds": [
+                      "linear_relu",
+                      "linear"
+                    ]
+                  }
+                },
+                {
+                  "pass_name": "dead_code_elimination",
+                  "changed": false,
+                  "op_delta": {
+                    "removed": [],
+                    "added": [],
+                    "before_kinds": [
+                      "linear_relu",
+                      "linear"
+                    ],
+                    "after_kinds": [
+                      "linear_relu",
+                      "linear"
+                    ]
+                  }
+                },
+                {
+                  "pass_name": "memory_planning",
+                  "changed": true,
+                  "op_delta": {
+                    "removed": [],
+                    "added": [],
+                    "before_kinds": [
+                      "linear_relu",
+                      "linear"
+                    ],
+                    "after_kinds": [
+                      "linear_relu",
+                      "linear"
+                    ]
+                  }
+                },
+                {
+                  "pass_name": "backend_legality",
+                  "changed": true,
+                  "op_delta": {
+                    "removed": [],
+                    "added": [],
+                    "before_kinds": [
+                      "linear_relu",
+                      "linear"
+                    ],
+                    "after_kinds": [
+                      "linear_relu",
+                      "linear"
+                    ]
+                  }
+                }
+              ]
+            },
+            "target": null
+          }
+        },
+        {
+          "id": "tiny_visual_mlp_cuda",
+          "type": "pipelineStage",
+          "position": {
+            "x": 840,
+            "y": 0
+          },
+          "data": {
+            "label": "CUDA lowering",
+            "stage_id": "cuda",
+            "op_count": 2,
+            "op_kinds": [
+              "linear_relu",
+              "linear"
+            ],
+            "detail": {
+              "lowered_ops": [
+                {
+                  "graph_op": "fc1_relu_fused",
+                  "op": "linear_relu",
+                  "target": "cuda",
+                  "notes": [],
+                  "lowering": {
+                    "kernel_name": "blocked_fc_int4_kernel",
+                    "mode": "cuda_blocked_fc",
+                    "array_size": 16,
+                    "out_blocks": 1,
+                    "in_blocks": 1,
+                    "executable_on_current_cuda_path": true,
+                    "executable_on_current_fpga_path": false
+                  }
+                },
+                {
+                  "graph_op": "fc2",
+                  "op": "linear",
+                  "target": "cuda",
+                  "notes": [],
+                  "lowering": {
+                    "kernel_name": "blocked_fc_int4_kernel",
+                    "mode": "cuda_blocked_fc",
+                    "array_size": 16,
+                    "out_blocks": 1,
+                    "in_blocks": 1,
+                    "executable_on_current_cuda_path": true,
+                    "executable_on_current_fpga_path": false
+                  }
+                }
+              ],
+              "fallback_ops": [],
+              "unsupported_ops": []
+            },
+            "target": "cuda"
+          }
+        },
+        {
+          "id": "tiny_visual_mlp_utpu",
+          "type": "pipelineStage",
+          "position": {
+            "x": 1120,
+            "y": 0
+          },
+          "data": {
+            "label": "uTPU ISA lowering",
+            "stage_id": "utpu",
+            "op_count": 2,
+            "op_kinds": [
+              "linear_relu",
+              "linear"
+            ],
+            "detail": {
+              "lowered_ops": [
+                {
+                  "graph_op": "fc1_relu_fused",
+                  "op": "linear_relu",
+                  "target": "utpu",
+                  "notes": [],
+                  "lowering": {
+                    "program_instruction_words": 217,
+                    "fits_instruction_bram": true,
+                    "instruction_bram_words": 1024,
+                    "array_size": 16,
+                    "out_blocks": 1,
+                    "in_blocks": 1,
+                    "executable_on_current_fpga_path": true,
+                    "block_op_count": 1
+                  }
+                },
+                {
+                  "graph_op": "fc2",
+                  "op": "linear",
+                  "target": "utpu",
+                  "notes": [],
+                  "lowering": {
+                    "program_instruction_words": 217,
+                    "fits_instruction_bram": true,
+                    "instruction_bram_words": 1024,
+                    "array_size": 16,
+                    "out_blocks": 1,
+                    "in_blocks": 1,
+                    "executable_on_current_fpga_path": true,
+                    "block_op_count": 1
+                  }
+                }
+              ],
+              "fallback_ops": [],
+              "unsupported_ops": []
+            },
+            "target": "utpu"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "tiny_visual_mlp_fx->ir",
+          "source": "tiny_visual_mlp_fx",
+          "target": "tiny_visual_mlp_ir"
+        },
+        {
+          "id": "tiny_visual_mlp_ir->passes",
+          "source": "tiny_visual_mlp_ir",
+          "target": "tiny_visual_mlp_passes"
+        },
+        {
+          "id": "tiny_visual_mlp_passes->cuda",
+          "source": "tiny_visual_mlp_passes",
+          "target": "tiny_visual_mlp_cuda"
+        },
+        {
+          "id": "tiny_visual_mlp_cuda->utpu",
+          "source": "tiny_visual_mlp_cuda",
+          "target": "tiny_visual_mlp_utpu"
+        }
+      ],
+      "walkthrough": {
+        "replay_note": "Recorded compile_model replay \u2014 not a live compile. Press Play to step through captured stages.",
+        "frame_count": 9,
+        "frames": [
+          {
+            "id": "pytorch",
+            "stage": "pytorch",
+            "title": "PyTorch module",
+            "caption": "TinyVisualMLP traced with example input shape [1, 4]. This is the scoped demo model \u2014 not a general compiler claim.",
+            "effect": "enter",
+            "graph": {
+              "nodes": [
+                {
+                  "id": "x",
+                  "label": "input x",
+                  "op": "input",
+                  "x": 40,
+                  "y": 80
+                },
+                {
+                  "id": "fc1",
+                  "label": "fc1",
+                  "op": "Linear(4\u21923)",
+                  "x": 200,
+                  "y": 40
+                },
+                {
+                  "id": "relu",
+                  "label": "relu",
+                  "op": "ReLU",
+                  "x": 360,
+                  "y": 80
+                },
+                {
+                  "id": "fc2",
+                  "label": "fc2",
+                  "op": "Linear(3\u21922)",
+                  "x": 520,
+                  "y": 40
+                },
+                {
+                  "id": "out",
+                  "label": "output",
+                  "op": "output",
+                  "x": 680,
+                  "y": 80
+                }
+              ],
+              "edges": [
+                {
+                  "from": "x",
+                  "to": "fc1"
+                },
+                {
+                  "from": "fc1",
+                  "to": "relu"
+                },
+                {
+                  "from": "relu",
+                  "to": "fc2"
+                },
+                {
+                  "from": "fc2",
+                  "to": "out"
+                }
+              ]
+            }
+          },
+          {
+            "id": "fx",
+            "stage": "fx",
+            "title": "torch.fx trace",
+            "caption": "symbolic_trace captures call_module nodes \u2014 the compiler's entry point.",
+            "effect": "trace",
+            "graph": {
+              "nodes": [
+                {
+                  "id": "x",
+                  "label": "x",
+                  "op": "input",
+                  "x": 40,
+                  "y": 40
+                },
+                {
+                  "id": "fc1",
+                  "label": "fc1",
+                  "op": "fc1",
+                  "x": 170,
+                  "y": 90
+                },
+                {
+                  "id": "relu",
+                  "label": "relu",
+                  "op": "relu",
+                  "x": 300,
+                  "y": 40
+                },
+                {
+                  "id": "fc2",
+                  "label": "fc2",
+                  "op": "fc2",
+                  "x": 430,
+                  "y": 90
+                },
+                {
+                  "id": "output",
+                  "label": "output",
+                  "op": "output",
+                  "x": 560,
+                  "y": 40
+                }
+              ],
+              "edges": [
+                {
+                  "from": "x",
+                  "to": "fc1"
+                },
+                {
+                  "from": "fc1",
+                  "to": "relu"
+                },
+                {
+                  "from": "relu",
+                  "to": "fc2"
+                },
+                {
+                  "from": "fc2",
+                  "to": "output"
+                }
+              ]
+            }
+          },
+          {
+            "id": "ir_import",
+            "stage": "ir",
+            "title": "Graph IR import",
+            "caption": "FX graph lowered to Graph IR op nodes with shape metadata.",
+            "effect": "import",
+            "graph": {
+              "nodes": [
+                {
+                  "id": "x",
+                  "label": "x",
+                  "op": "input",
+                  "x": 40,
+                  "y": 40
+                },
+                {
+                  "id": "fc1",
+                  "label": "fc1",
+                  "op": "linear",
+                  "x": 200,
+                  "y": 40
+                },
+                {
+                  "id": "relu",
+                  "label": "relu",
+                  "op": "relu",
+                  "x": 360,
+                  "y": 40
+                },
+                {
+                  "id": "fc2",
+                  "label": "fc2",
+                  "op": "linear",
+                  "x": 520,
+                  "y": 40
+                }
+              ],
+              "edges": [
+                {
+                  "from": "x",
+                  "to": "fc1"
+                },
+                {
+                  "from": "fc1",
+                  "to": "relu"
+                },
+                {
+                  "from": "relu",
+                  "to": "fc2"
+                },
+                {
+                  "from": "fc2",
+                  "to": "fc2"
+                }
+              ]
+            }
+          },
+          {
+            "id": "pass_linear_relu_fusion",
+            "stage": "pass",
+            "title": "linear relu fusion",
+            "caption": "Pass `linear_relu_fusion`: ['linear', 'relu', 'linear'] \u2192 ['linear_relu', 'linear']",
+            "effect": "fuse",
+            "pass_delta": {
+              "removed": [
+                "fc1",
+                "relu"
+              ],
+              "added": [
+                "fc1_relu_fused"
+              ],
+              "before_kinds": [
+                "linear",
+                "relu",
+                "linear"
+              ],
+              "after_kinds": [
+                "linear_relu",
+                "linear"
+              ]
+            },
+            "graph": {
+              "nodes": [
+                {
+                  "id": "x",
+                  "label": "x",
+                  "op": "input",
+                  "x": 40,
+                  "y": 40
+                },
+                {
+                  "id": "fc1_relu_fused",
+                  "label": "fc1_relu_fused",
+                  "op": "linear_relu",
+                  "x": 200,
+                  "y": 40
+                },
+                {
+                  "id": "fc2",
+                  "label": "fc2",
+                  "op": "linear",
+                  "x": 200,
+                  "y": 130
+                }
+              ],
+              "edges": [
+                {
+                  "from": "x",
+                  "to": "fc1_relu_fused"
+                },
+                {
+                  "from": "relu",
+                  "to": "fc2"
+                },
+                {
+                  "from": "fc2",
+                  "to": "fc2"
+                }
+              ]
+            }
+          },
+          {
+            "id": "pass_memory_planning",
+            "stage": "pass",
+            "title": "memory planning",
+            "caption": "Pass `memory_planning` updates planner metadata (buffers / legality).",
+            "effect": "transform",
+            "pass_delta": {
+              "removed": [],
+              "added": [],
+              "before_kinds": [
+                "linear_relu",
+                "linear"
+              ],
+              "after_kinds": [
+                "linear_relu",
+                "linear"
+              ]
+            },
+            "graph": {
+              "nodes": [
+                {
+                  "id": "x",
+                  "label": "x",
+                  "op": "input",
+                  "x": 40,
+                  "y": 40
+                },
+                {
+                  "id": "fc1_relu_fused",
+                  "label": "fc1_relu_fused",
+                  "op": "linear_relu",
+                  "x": 200,
+                  "y": 40
+                },
+                {
+                  "id": "fc2",
+                  "label": "fc2",
+                  "op": "linear",
+                  "x": 200,
+                  "y": 130
+                }
+              ],
+              "edges": [
+                {
+                  "from": "x",
+                  "to": "fc1_relu_fused"
+                },
+                {
+                  "from": "relu",
+                  "to": "fc2"
+                },
+                {
+                  "from": "fc2",
+                  "to": "fc2"
+                }
+              ]
+            }
+          },
+          {
+            "id": "pass_backend_legality",
+            "stage": "pass",
+            "title": "backend legality",
+            "caption": "Pass `backend_legality` updates planner metadata (buffers / legality).",
+            "effect": "transform",
+            "pass_delta": {
+              "removed": [],
+              "added": [],
+              "before_kinds": [
+                "linear_relu",
+                "linear"
+              ],
+              "after_kinds": [
+                "linear_relu",
+                "linear"
+              ]
+            },
+            "graph": {
+              "nodes": [
+                {
+                  "id": "x",
+                  "label": "x",
+                  "op": "input",
+                  "x": 40,
+                  "y": 40
+                },
+                {
+                  "id": "fc1_relu_fused",
+                  "label": "fc1_relu_fused",
+                  "op": "linear_relu",
+                  "x": 200,
+                  "y": 40
+                },
+                {
+                  "id": "fc2",
+                  "label": "fc2",
+                  "op": "linear",
+                  "x": 200,
+                  "y": 130
+                }
+              ],
+              "edges": [
+                {
+                  "from": "x",
+                  "to": "fc1_relu_fused"
+                },
+                {
+                  "from": "relu",
+                  "to": "fc2"
+                },
+                {
+                  "from": "fc2",
+                  "to": "fc2"
+                }
+              ]
+            }
+          },
+          {
+            "id": "ir_final",
+            "stage": "ir",
+            "title": "Final Graph IR",
+            "caption": "Ready for dual-backend lowering \u2014 2 ops after pass pipeline.",
+            "effect": "settle",
+            "graph": {
+              "nodes": [
+                {
+                  "id": "x",
+                  "label": "x",
+                  "op": "input",
+                  "x": 40,
+                  "y": 40
+                },
+                {
+                  "id": "fc1_relu_fused",
+                  "label": "fc1_relu_fused",
+                  "op": "linear_relu",
+                  "x": 200,
+                  "y": 40
+                },
+                {
+                  "id": "fc2",
+                  "label": "fc2",
+                  "op": "linear",
+                  "x": 200,
+                  "y": 130
+                }
+              ],
+              "edges": [
+                {
+                  "from": "x",
+                  "to": "fc1_relu_fused"
+                },
+                {
+                  "from": "relu",
+                  "to": "fc2"
+                },
+                {
+                  "from": "fc2",
+                  "to": "fc2"
+                }
+              ]
+            }
+          },
+          {
+            "id": "cuda_lower",
+            "stage": "cuda",
+            "title": "CUDA NVRTC lowering",
+            "caption": "Blocked-FC kernels emitted per graph op. Wider CUDA path supports ~15 op kinds on other models.",
+            "effect": "lower_cuda",
+            "graph": {
+              "nodes": [
+                {
+                  "id": "x",
+                  "label": "x",
+                  "op": "input",
+                  "x": 40,
+                  "y": 40
+                },
+                {
+                  "id": "fc1_relu_fused",
+                  "label": "fc1_relu_fused",
+                  "op": "linear_relu",
+                  "x": 200,
+                  "y": 40
+                },
+                {
+                  "id": "fc2",
+                  "label": "fc2",
+                  "op": "linear",
+                  "x": 200,
+                  "y": 130
+                }
+              ],
+              "edges": [
+                {
+                  "from": "x",
+                  "to": "fc1_relu_fused"
+                },
+                {
+                  "from": "relu",
+                  "to": "fc2"
+                },
+                {
+                  "from": "fc2",
+                  "to": "fc2"
+                }
+              ]
+            },
+            "backends": {
+              "cuda": [
+                {
+                  "graph_op": "fc1_relu_fused",
+                  "op": "linear_relu",
+                  "target": "cuda",
+                  "kernel_name": "blocked_fc_int4_kernel",
+                  "mode": "cuda_blocked_fc",
+                  "array_size": 16,
+                  "out_blocks": 1,
+                  "in_blocks": 1,
+                  "executable_on_current_cuda_path": true,
+                  "executable_on_current_fpga_path": false
+                },
+                {
+                  "graph_op": "fc2",
+                  "op": "linear",
+                  "target": "cuda",
+                  "kernel_name": "blocked_fc_int4_kernel",
+                  "mode": "cuda_blocked_fc",
+                  "array_size": 16,
+                  "out_blocks": 1,
+                  "in_blocks": 1,
+                  "executable_on_current_cuda_path": true,
+                  "executable_on_current_fpga_path": false
+                }
+              ]
+            }
+          },
+          {
+            "id": "utpu_lower",
+            "stage": "utpu",
+            "title": "uTPU ISA lowering",
+            "caption": "Same IR \u2192 INT8 blocked-FC ISA programs (434 instruction words total). Simulation only \u2014 board P0 open.",
+            "effect": "lower_utpu",
+            "graph": {
+              "nodes": [
+                {
+                  "id": "x",
+                  "label": "x",
+                  "op": "input",
+                  "x": 40,
+                  "y": 40
+                },
+                {
+                  "id": "fc1_relu_fused",
+                  "label": "fc1_relu_fused",
+                  "op": "linear_relu",
+                  "x": 200,
+                  "y": 40
+                },
+                {
+                  "id": "fc2",
+                  "label": "fc2",
+                  "op": "linear",
+                  "x": 200,
+                  "y": 130
+                }
+              ],
+              "edges": [
+                {
+                  "from": "x",
+                  "to": "fc1_relu_fused"
+                },
+                {
+                  "from": "relu",
+                  "to": "fc2"
+                },
+                {
+                  "from": "fc2",
+                  "to": "fc2"
+                }
+              ]
+            },
+            "backends": {
+              "utpu": [
+                {
+                  "graph_op": "fc1_relu_fused",
+                  "op": "linear_relu",
+                  "target": "utpu",
+                  "program_instruction_words": 217,
+                  "fits_instruction_bram": true,
+                  "instruction_bram_words": 1024,
+                  "array_size": 16,
+                  "out_blocks": 1,
+                  "in_blocks": 1,
+                  "executable_on_current_fpga_path": true,
+                  "block_op_count": 1
+                },
+                {
+                  "graph_op": "fc2",
+                  "op": "linear",
+                  "target": "utpu",
+                  "program_instruction_words": 217,
+                  "fits_instruction_bram": true,
+                  "instruction_bram_words": 1024,
+                  "array_size": 16,
+                  "out_blocks": 1,
+                  "in_blocks": 1,
+                  "executable_on_current_fpga_path": true,
+                  "block_op_count": 1
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "coverage": {
+        "cuda_backend_ops": 2,
+        "utpu_native_ops": [
+          "linear_relu",
+          "linear"
+        ],
+        "asymmetry_note": "CUDA backend covers ~15 graph-op kinds with NVRTC; uTPU natively lowers LINEAR/LINEAR_RELU with conv2d-via-im2col + batched_matmul extensions on wider branches."
+      },
+      "summary": {
+        "cuda_ok": true,
+        "utpu_ok": true,
+        "utpu_instruction_words": 434
+      }
+    }
+  ]
+}

@@ -18,6 +18,9 @@ Public in-repo evidence is strongest for:
 - blocked-FC MLP flows
 - bounded transformer-block validation
 - ResNet-18 on the CUDA graph path
+- Artix-7 post-route timing/util, RTL cycle attribution, and ISA↔RTL bitmatch (simulation + synth — not on-board)
+
+Live claim browser: [https://gentialiaj411.github.io/uTPU/](https://gentialiaj411.github.io/uTPU/).
 
 On-board FPGA execution evidence is not published in this repo yet.
 
@@ -71,7 +74,9 @@ Important boundary:
 - Evidence map: [docs/EVIDENCE.md](docs/EVIDENCE.md)
 - Reproduction commands: [docs/REPRO.md](docs/REPRO.md)
 - Public writeup: [docs/WRITEUP.md](docs/WRITEUP.md)
+- Resume claim inventory: [RESUME_CLAIMS.md](RESUME_CLAIMS.md)
 - ResNet-18 CUDA artifact: [bench/results/real_model_end_to_end.json](bench/results/real_model_end_to_end.json)
+- Hardware arc (examples): [bench/results/design_space_sweep.json](bench/results/design_space_sweep.json), [bench/results/cycle_attribution.json](bench/results/cycle_attribution.json), [bench/results/steady_state_attribution.json](bench/results/steady_state_attribution.json), [bench/results/utpu_cycle_model_heldout.json](bench/results/utpu_cycle_model_heldout.json), [bench/results/latency_determinism_vs_gpu.json](bench/results/latency_determinism_vs_gpu.json)
 
 ## Current Caveats
 

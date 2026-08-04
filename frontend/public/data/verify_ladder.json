@@ -1,0 +1,2063 @@
+{
+  "steps": [
+    {
+      "id": "isa_batched_gemm",
+      "label": "ISA batched GEMM vs oracle",
+      "tier": "ci",
+      "source_artifact": "bench/results/batched_gemm_correctness.json",
+      "status": "ok",
+      "detail": "Host ISA sim bit-exact vs NumPy oracle across shape\u00d7batch sweep.",
+      "raw": {
+        "schema_version": 1,
+        "generated_at_utc": "2026-06-13T04:29:09.786054+00:00",
+        "git_sha": "44f422812c37bf05acd01901984cb512c80ab124",
+        "status": "ok",
+        "methodology": {
+          "scope": "Host-side ISA lowering + python ISA simulator correctness for blocked-FC batched GEMM. B=1 vector lowering stays byte-identical to the pre-batching dc7a517 vector path (pinned by firmware/host/fixtures/b1_legacy_program_bytes.json and test_batched_gemm_b1_program_matches_pre_batching_legacy_bytes); B=1 vector and 1-row matrix activations emit identical programs; B>1 uses extended-address encoding and widened buffer addresses.",
+          "array_size": 16,
+          "legacy_cfg": {
+            "address_width": 9,
+            "compute_data_width": 4
+          },
+          "batched_cfg": {
+            "address_width": 12,
+            "compute_data_width": 4,
+            "buffer_size": 4096
+          },
+          "shape_batch_sweep": [
+            {
+              "out_features": 16,
+              "in_features": 16,
+              "batch_size": 1
+            },
+            {
+              "out_features": 16,
+              "in_features": 16,
+              "batch_size": 4
+            },
+            {
+              "out_features": 16,
+              "in_features": 16,
+              "batch_size": 8
+            },
+            {
+              "out_features": 32,
+              "in_features": 16,
+              "batch_size": 1
+            },
+            {
+              "out_features": 32,
+              "in_features": 16,
+              "batch_size": 4
+            },
+            {
+              "out_features": 16,
+              "in_features": 32,
+              "batch_size": 1
+            },
+            {
+              "out_features": 16,
+              "in_features": 32,
+              "batch_size": 4
+            }
+          ]
+        },
+        "cases": [
+          {
+            "shape": {
+              "out_features": 16,
+              "in_features": 16
+            },
+            "batch_size": 1,
+            "program_instruction_words": 217,
+            "program_byte_length": 434,
+            "bit_exact_vs_oracle": true,
+            "deterministic_fetch_bytes": true,
+            "deterministic_cycle_count": true,
+            "cycle_count_sequential": 81,
+            "compute_runs": 1,
+            "total_macs": 256,
+            "array_utilization": 0.012345679012345678,
+            "weight_load_cycles": 1,
+            "weight_load_fraction_of_total_cycles": 0.012345679012345678,
+            "load_inputs_cycles": 1,
+            "legacy_b1_program_byte_identity": true,
+            "expected_fetch_bytes": [
+              135,
+              119,
+              103,
+              135,
+              115,
+              120,
+              120,
+              24
+            ],
+            "actual_fetch_bytes": [
+              135,
+              119,
+              103,
+              135,
+              115,
+              120,
+              120,
+              24
+            ]
+          },
+          {
+            "shape": {
+              "out_features": 16,
+              "in_features": 16
+            },
+            "batch_size": 4,
+            "program_instruction_words": 313,
+            "program_byte_length": 626,
+            "bit_exact_vs_oracle": true,
+            "deterministic_fetch_bytes": true,
+            "deterministic_cycle_count": true,
+            "cycle_count_sequential": 117,
+            "compute_runs": 1,
+            "total_macs": 1024,
+            "array_utilization": 0.03418803418803419,
+            "weight_load_cycles": 1,
+            "weight_load_fraction_of_total_cycles": 0.008547008547008548,
+            "load_inputs_cycles": 1,
+            "legacy_b1_program_byte_identity": null,
+            "expected_fetch_bytes": [
+              136,
+              136,
+              120,
+              136,
+              119,
+              136,
+              120,
+              136,
+              135,
+              135,
+              120,
+              120,
+              152,
+              119,
+              135,
+              135,
+              183,
+              135,
+              120,
+              135,
+              119,
+              119,
+              120,
+              126,
+              136,
+              135,
+              136,
+              135,
+              23,
+              119,
+              136,
+              120
+            ],
+            "actual_fetch_bytes": [
+              136,
+              136,
+              120,
+              136,
+              119,
+              136,
+              120,
+              136,
+              135,
+              135,
+              120,
+              120,
+              152,
+              119,
+              135,
+              135,
+              183,
+              135,
+              120,
+              135,
+              119,
+              119,
+              120,
+              126,
+              136,
+              135,
+              136,
+              135,
+              23,
+              119,
+              136,
+              120
+            ]
+          },
+          {
+            "shape": {
+              "out_features": 16,
+              "in_features": 16
+            },
+            "batch_size": 8,
+            "program_instruction_words": 425,
+            "program_byte_length": 850,
+            "bit_exact_vs_oracle": true,
+            "deterministic_fetch_bytes": true,
+            "deterministic_cycle_count": true,
+            "cycle_count_sequential": 165,
+            "compute_runs": 1,
+            "total_macs": 2048,
+            "array_utilization": 0.048484848484848485,
+            "weight_load_cycles": 1,
+            "weight_load_fraction_of_total_cycles": 0.006060606060606061,
+            "load_inputs_cycles": 1,
+            "legacy_b1_program_byte_identity": null,
+            "expected_fetch_bytes": [
+              136,
+              119,
+              120,
+              135,
+              119,
+              135,
+              120,
+              56,
+              136,
+              135,
+              120,
+              119,
+              135,
+              136,
+              119,
+              136,
+              136,
+              135,
+              119,
+              119,
+              135,
+              135,
+              124,
+              119,
+              119,
+              124,
+              135,
+              119,
+              119,
+              119,
+              118,
+              119,
+              135,
+              136,
+              135,
+              119,
+              120,
+              119,
+              120,
+              119,
+              135,
+              137,
+              135,
+              135,
+              120,
+              119,
+              136,
+              116,
+              136,
+              135,
+              135,
+              135,
+              135,
+              136,
+              135,
+              120,
+              135,
+              135,
+              135,
+              247,
+              120,
+              136,
+              134,
+              119
+            ],
+            "actual_fetch_bytes": [
+              136,
+              119,
+              120,
+              135,
+              119,
+              135,
+              120,
+              56,
+              136,
+              135,
+              120,
+              119,
+              135,
+              136,
+              119,
+              136,
+              136,
+              135,
+              119,
+              119,
+              135,
+              135,
+              124,
+              119,
+              119,
+              124,
+              135,
+              119,
+              119,
+              119,
+              118,
+              119,
+              135,
+              136,
+              135,
+              119,
+              120,
+              119,
+              120,
+              119,
+              135,
+              137,
+              135,
+              135,
+              120,
+              119,
+              136,
+              116,
+              136,
+              135,
+              135,
+              135,
+              135,
+              136,
+              135,
+              120,
+              135,
+              135,
+              135,
+              247,
+              120,
+              136,
+              134,
+              119
+            ]
+          },
+          {
+            "shape": {
+              "out_features": 32,
+              "in_features": 16
+            },
+            "batch_size": 1,
+            "program_instruction_words": 433,
+            "program_byte_length": 866,
+            "bit_exact_vs_oracle": true,
+            "deterministic_fetch_bytes": true,
+            "deterministic_cycle_count": true,
+            "cycle_count_sequential": 161,
+            "compute_runs": 2,
+            "total_macs": 512,
+            "array_utilization": 0.012422360248447204,
+            "weight_load_cycles": 2,
+            "weight_load_fraction_of_total_cycles": 0.012422360248447204,
+            "load_inputs_cycles": 2,
+            "legacy_b1_program_byte_identity": true,
+            "expected_fetch_bytes": [
+              135,
+              167,
+              119,
+              120,
+              141,
+              135,
+              120,
+              125,
+              136,
+              120,
+              120,
+              135,
+              136,
+              103,
+              120,
+              136
+            ],
+            "actual_fetch_bytes": [
+              135,
+              167,
+              119,
+              120,
+              141,
+              135,
+              120,
+              125,
+              136,
+              120,
+              120,
+              135,
+              136,
+              103,
+              120,
+              136
+            ]
+          },
+          {
+            "shape": {
+              "out_features": 32,
+              "in_features": 16
+            },
+            "batch_size": 4,
+            "program_instruction_words": 625,
+            "program_byte_length": 1250,
+            "bit_exact_vs_oracle": true,
+            "deterministic_fetch_bytes": true,
+            "deterministic_cycle_count": true,
+            "cycle_count_sequential": 233,
+            "compute_runs": 2,
+            "total_macs": 2048,
+            "array_utilization": 0.034334763948497854,
+            "weight_load_cycles": 2,
+            "weight_load_fraction_of_total_cycles": 0.008583690987124463,
+            "load_inputs_cycles": 2,
+            "legacy_b1_program_byte_identity": null,
+            "expected_fetch_bytes": [
+              120,
+              120,
+              133,
+              136,
+              136,
+              119,
+              120,
+              136,
+              168,
+              136,
+              136,
+              135,
+              120,
+              120,
+              140,
+              119,
+              119,
+              216,
+              135,
+              135,
+              136,
+              119,
+              120,
+              119,
+              119,
+              119,
+              120,
+              120,
+              120,
+              120,
+              135,
+              56,
+              135,
+              135,
+              137,
+              120,
+              135,
+              119,
+              135,
+              119,
+              141,
+              135,
+              135,
+              136,
+              136,
+              135,
+              136,
+              120,
+              87,
+              113,
+              200,
+              120,
+              119,
+              135,
+              119,
+              119,
+              119,
+              135,
+              88,
+              119,
+              135,
+              119,
+              200,
+              119
+            ],
+            "actual_fetch_bytes": [
+              120,
+              120,
+              133,
+              136,
+              136,
+              119,
+              120,
+              136,
+              168,
+              136,
+              136,
+              135,
+              120,
+              120,
+              140,
+              119,
+              119,
+              216,
+              135,
+              135,
+              136,
+              119,
+              120,
+              119,
+              119,
+              119,
+              120,
+              120,
+              120,
+              120,
+              135,
+              56,
+              135,
+              135,
+              137,
+              120,
+              135,
+              119,
+              135,
+              119,
+              141,
+              135,
+              135,
+              136,
+              136,
+              135,
+              136,
+              120,
+              87,
+              113,
+              200,
+              120,
+              119,
+              135,
+              119,
+              119,
+              119,
+              135,
+              88,
+              119,
+              135,
+              119,
+              200,
+              119
+            ]
+          },
+          {
+            "shape": {
+              "out_features": 16,
+              "in_features": 32
+            },
+            "batch_size": 1,
+            "program_instruction_words": 424,
+            "program_byte_length": 848,
+            "bit_exact_vs_oracle": true,
+            "deterministic_fetch_bytes": true,
+            "deterministic_cycle_count": true,
+            "cycle_count_sequential": 152,
+            "compute_runs": 2,
+            "total_macs": 512,
+            "array_utilization": 0.013157894736842105,
+            "weight_load_cycles": 2,
+            "weight_load_fraction_of_total_cycles": 0.013157894736842105,
+            "load_inputs_cycles": 2,
+            "legacy_b1_program_byte_identity": true,
+            "expected_fetch_bytes": [
+              120,
+              119,
+              120,
+              120,
+              136,
+              119,
+              120,
+              119
+            ],
+            "actual_fetch_bytes": [
+              120,
+              119,
+              120,
+              120,
+              136,
+              119,
+              120,
+              119
+            ]
+          },
+          {
+            "shape": {
+              "out_features": 16,
+              "in_features": 32
+            },
+            "batch_size": 4,
+            "program_instruction_words": 559,
+            "program_byte_length": 1118,
+            "bit_exact_vs_oracle": true,
+            "deterministic_fetch_bytes": true,
+            "deterministic_cycle_count": true,
+            "cycle_count_sequential": 200,
+            "compute_runs": 2,
+            "total_macs": 2048,
+            "array_utilization": 0.04,
+            "weight_load_cycles": 2,
+            "weight_load_fraction_of_total_cycles": 0.01,
+            "load_inputs_cycles": 2,
+            "legacy_b1_program_byte_identity": null,
+            "expected_fetch_bytes": [
+              135,
+              120,
+              120,
+              119,
+              136,
+              136,
+              135,
+              119,
+              119,
+              120,
+              119,
+              135,
+              135,
+              55,
+              136,
+              136,
+              120,
+              136,
+              136,
+              119,
+              119,
+              120,
+              119,
+              120,
+              248,
+              136,
+              136,
+              120,
+              119,
+              119,
+              120,
+              136
+            ],
+            "actual_fetch_bytes": [
+              135,
+              120,
+              120,
+              119,
+              136,
+              136,
+              135,
+              119,
+              119,
+              120,
+              119,
+              135,
+              135,
+              55,
+              136,
+              136,
+              120,
+              136,
+              136,
+              119,
+              119,
+              120,
+              119,
+              120,
+              248,
+              136,
+              136,
+              120,
+              119,
+              119,
+              120,
+              136
+            ]
+          }
+        ],
+        "aggregate": {
+          "all_cases_bit_exact_vs_oracle": true,
+          "all_cases_deterministic": true,
+          "all_b1_programs_byte_identical": true,
+          "weight_load_amortization_checks": [
+            {
+              "shape": {
+                "out_features": 16,
+                "in_features": 16
+              },
+              "batch_sizes": [
+                1,
+                4,
+                8
+              ],
+              "weight_load_fraction_nonincreasing": true
+            },
+            {
+              "shape": {
+                "out_features": 32,
+                "in_features": 16
+              },
+              "batch_sizes": [
+                1,
+                4
+              ],
+              "weight_load_fraction_nonincreasing": true
+            },
+            {
+              "shape": {
+                "out_features": 16,
+                "in_features": 32
+              },
+              "batch_sizes": [
+                1,
+                4
+              ],
+              "weight_load_fraction_nonincreasing": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "scheduler_isa_rtl",
+      "label": "Scheduler ISA vs RTL cross-check",
+      "tier": "sim",
+      "source_artifact": "bench/results/scheduler_rtl_crosscheck.json",
+      "status": "ok",
+      "detail": "iverilog tb_scheduler_cycles.sv; \u00b120 permille reduction tolerance.",
+      "raw": {
+        "expected": {
+          "array_size": 16,
+          "cycles_saved": 8,
+          "expected_fetch_bytes": [
+            119,
+            119,
+            135,
+            136,
+            119,
+            120,
+            119,
+            135,
+            119,
+            119,
+            136,
+            119,
+            120,
+            120,
+            120,
+            135
+          ],
+          "fetch_bytes_invariant_simulator": true,
+          "fetch_bytes_n": 16,
+          "input_addr": 0,
+          "naive_cycles": 303,
+          "naive_words": 847,
+          "reduction_permille": 26,
+          "result_addr": 320,
+          "sched_cycles": 295,
+          "sched_words": 823,
+          "shape": {
+            "in_features": 32,
+            "out_features": 32
+          },
+          "weight_addr": 256
+        },
+        "generated_at_utc": "2026-08-02T20:18:20.527910+00:00",
+        "git_sha": "5396f114e87c420014a6545e42a60ac0011bff41",
+        "headline": {
+          "diff_permille": 1,
+          "rtl_cycles_saved": 72,
+          "rtl_naive_cycles": 2784,
+          "rtl_reduction_permille": 25,
+          "rtl_sched_cycles": 2712,
+          "scheduler_invariant_holds": true,
+          "sim_reduction_permille": 26,
+          "tol_permille": 20
+        },
+        "host": {
+          "machine": "AMD64",
+          "platform": "Windows-10-10.0.26200-SP0",
+          "python_version": "3.11.9"
+        },
+        "iverilog": {
+          "iverilog_bin": "C:\\iverilog\\bin\\iverilog.exe",
+          "vvp_bin": "C:\\iverilog\\bin\\vvp.exe"
+        },
+        "iverilog_result": {
+          "diff_permille": 1,
+          "errors": 0,
+          "iverilog_compile_ok": true,
+          "iverilog_run_returncode": 0,
+          "log_path": "build\\sim_iverilog\\tb_scheduler_cycles.log",
+          "raw_log": "=================================================\nPhase 7 remediation P4.1 \u00e2\u20ac\u201d scheduler RTL cycle cross-check\nshape M=32 K=32  array_size=16\nsimulator: naive=303 sched=295 saved=8\n=================================================\nWARNING: rtl/tb/tb_scheduler_cycles.sv:168: $readmemh(C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_naive.mem): Not enough words in the file for the requested range [0:1023].\n[ OK ] reached WAIT_START [C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_naive.mem]\n[ OK ] reached HALT [C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_naive.mem]\nRTL_NAIVE_CYCLES=2784 (sim=303) NAIVE_FETCH_N=16 (sim=16)\nWARNING: rtl/tb/tb_scheduler_cycles.sv:170: $readmemh(C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_sched.mem): Not enough words in the file for the requested range [0:1023].\n[ OK ] reached WAIT_START [C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_sched.mem]\n[ OK ] reached HALT [C:/Users/bhask/Documents/PROJECTS/uTPU/build/test_vectors/scheduler_sched.mem]\nRTL_SCHED_CYCLES=2712 (sim=295) SCHED_FETCH_N=16 (sim=16)\nRTL_CYCLES_SAVED=72 (sim_saved=8)\nRTL_REDUCTION_PERMILLE=25  SIM_REDUCTION_PERMILLE=26  TOL=20  DIFF=1\n[ OK ] RTL scheduled cycles strictly less than naive\n[ OK ] RTL cycle reduction within \u00c2\u00b1SCHED_TOL_PERMILLE of sim\n[ OK ] RTL fetch byte count equals expected (scheduled run)\n[ OK ] RTL fetch byte count equals expected (naive run)\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 0\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 1\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 2\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 3\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 4\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 5\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 6\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 7\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 8\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 9\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 10\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 11\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 12\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 13\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 14\n[ OK ] RTL naive_byte === RTL scheduled_byte at idx 15\nADVISORY: RTL_naive matches sim on 16 / 16 bytes\nADVISORY: RTL_sched matches sim on 16 / 16 bytes\n=================================================\nDONE tests=24 errors=0\n=================================================\nTB_RESULT: PASS\nrtl/tb/tb_scheduler_cycles.sv:350: $finish called at 156035000 (1ps)\n",
+          "rtl_naive_bytes_matching_sim": 16,
+          "rtl_naive_bytes_total": 16,
+          "rtl_naive_cycles": 2784,
+          "rtl_naive_fetch_n": 16,
+          "rtl_reduction_permille": 25,
+          "rtl_sched_bytes_matching_sim": 16,
+          "rtl_sched_bytes_total": 16,
+          "rtl_sched_cycles": 2712,
+          "rtl_sched_fetch_n": 16,
+          "sim_fetch_n_in_header": 16,
+          "sim_naive_cycles_in_header": 303,
+          "sim_reduction_permille_in_header": 26,
+          "sim_sched_cycles_in_header": 295,
+          "tb_result_pass": true,
+          "tests": 24,
+          "tol_permille": 20
+        },
+        "methodology": {
+          "advisory_metrics": [
+            "RTL_naive byte agreement with simulator (out of sim fetch_n)",
+            "RTL_sched byte agreement with simulator (out of sim fetch_n)"
+          ],
+          "headline_assertions": [
+            "RTL scheduled cycles strictly less than naive",
+            "|RTL_reduction_permille - sim_reduction_permille| <= 20",
+            "RTL_naive fetch_bytes === RTL_scheduled fetch_bytes",
+            "RTL_naive fetch_n == sim fetch_n; RTL_sched fetch_n == sim fetch_n"
+          ],
+          "summary": "RTL cycle cross-check of the Phase 5 scheduler at (M=32, K=32). The simulator's 1-cycle-per-op model and the RTL FSM's multi-cycle STORE/FETCH paths produce different absolute cycle counts; we cross-check the *percentage* cycle reduction (within \u00b120 permille = \u00b12.0%) and verify the scheduler's RTL-side bit-exactness invariant (RTL_naive === RTL_scheduled fetch_bytes). The simulator-vs-RTL byte agreement is recorded as an advisory metric only.",
+          "tools": {
+            "naive_baseline": "firmware/host/lowering_blocked_fc_utpu.py (lower_blocked_fc_program_utpu)",
+            "rtl_generator": "firmware/host/generate_scheduler_rtl_test_vectors.py",
+            "scheduler": "firmware/host/scheduler_allocator.py (lower_blocked_fc_program_scheduled)",
+            "simulator": "firmware/host/isa_simulator.py (1 cycle/op; STORE/BSTORE 2+N)",
+            "testbench": "rtl/tb/tb_scheduler_cycles.sv"
+          }
+        },
+        "status": "ok",
+        "tolerance_permille": 20,
+        "version": 1
+      }
+    },
+    {
+      "id": "packed_pe_bitmatch",
+      "label": "Packed PE pair RTL sim",
+      "tier": "sim",
+      "source_artifact": "bench/results/pe_packed_pair_sim.json",
+      "status": "PASS",
+      "detail": "8133 random vectors; column_depth=8.",
+      "raw": {
+        "version": 1,
+        "generated_at_utc": "2026-06-18T19:14:47.649002+00:00",
+        "status": "ran",
+        "result": "PASS",
+        "vector_count": 8133,
+        "random_vectors": 1000,
+        "column_depth": 8,
+        "random_seed": "16'hACE1"
+      }
+    },
+    {
+      "id": "systolic_rtl_counters",
+      "label": "Systolic RTL perf counters",
+      "tier": "sim",
+      "source_artifact": "bench/results/systolic_characterization.json",
+      "status": "ok",
+      "detail": "PE occupancy from rtl/top perf counters; simulated tier.",
+      "raw": {
+        "schema_version": 1,
+        "generated_at_utc": "2026-08-03T00:26:01.565491+00:00",
+        "status": "ok",
+        "array_size": 16,
+        "methodology": {
+          "headline_metrics": {
+            "total_program_cycles": "MAGIC_START to HALT wall-clock cycles from top.sv::perf_program_cycle_counter, exported as the 4th 64-bit word of MAGIC_READ_PERF (0xA4). Includes accumulate, inter-tile LOAD gaps, and finalize wait_clear. Excludes UART upload and post-HALT idle.",
+            "pe_occupancy": "useful_macs / (ARRAY_SIZE^2 * rtl_busy_counter). Array-utilization metric only: rtl_busy_counter / compute span exclude finalize wait_clear, so pe_occupancy is NOT a throughput or wall-clock metric.",
+            "busy_fraction": "rtl_busy_counter / rtl_cycle_counter (free-running cycle includes upload)",
+            "compute_span_duty_cycle": "compute_busy_cycles / compute_span_cycles, where compute_span runs from the first accumulate RUN start to the last accumulate RUN done and therefore includes inter-tile LOAD/refill gaps but excludes finalize wait_clear and UART upload/fetch traffic. Array-utilization / duty metric, not end-to-end throughput."
+          },
+          "primary_source": "RTL perf counters from rtl/top/top.sv via MAGIC_READ_PERF (0xA4): free-running perf_cycle_counter, busy-window perf_busy_counter, halt-count perf_program_count, and START->HALT perf_program_cycle_counter (total_program_cycles).",
+          "secondary_model": "Zero-fit explanatory model only: per_tile_busy_cycles = 2*ARRAY_SIZE + B - 2. Reported to explain the trend, not to replace the RTL-measured numbers.",
+          "counter_provenance": "For B>1, top.sv captures the real PE-array streaming accumulation under Icarus by sampling the bottom-row PE accumulators during the live valid window, with a terminal sample on compute_done. Additional busy cycles therefore come from genuine per-cycle PE-array/controller advancement inside the active accumulate/finalize window, not from a behavioral dot-product shortcut or a counter-only annotation of inter-tile refill control.",
+          "measurement_integrity_note": "Step 2b pipelined requant added measurable wall-clock cost (+60 cycles at B=32 on the QUANTIZER_LANES axis) that pe_occupancy / compute_span_duty_cycle / rtl_busy_counter all reported as zero delta because those gauges exclude finalize wait_clear. Prefer total_program_cycles for throughput / wall-clock steering; keep span metrics for array utilization only."
+        },
+        "flagship_scope_note": "The single-tile 16x16 family remains the flagship streaming anchor. Multi-tile rows are scoped more narrowly: they show that per-tile streaming generalizes across shapes, while compute-span duty-cycle captures whether the array still idles across tile boundaries.",
+        "asymmetry_note": "The 16x16 family is single-tile (out_blocks=1, in_blocks=1), so its B=1 busy baseline is one accumulate RUN before finalize and the B sweep stays near-linear. The 32x32 and 64x64 families execute multiple accumulate RUNs per full GEMM, so their honest end-to-end question is not just the busy window but the duty-cycle across the entire compute span between the first and last accumulate tiles.",
+        "cases": [
+          {
+            "shape": {
+              "out_features": 16,
+              "in_features": 16
+            },
+            "batch_size": 1,
+            "array_size": 16,
+            "items_per_word": 4,
+            "out_blocks": 1,
+            "in_blocks": 1,
+            "useful_macs": 256,
+            "fetch_bytes": 8,
+            "rtl_sim_passed": true,
+            "hoist_tile_payloads": false,
+            "measured": {
+              "rtl_cycle_counter": 2072,
+              "rtl_busy_counter": 38,
+              "total_program_cycles": 731,
+              "busy_fraction": 0.01833976833976834,
+              "pe_occupancy": 0.02631578947368421,
+              "compute_busy_cycles": 38,
+              "compute_span_cycles": 38,
+              "compute_span_duty_cycle": 1.0
+            },
+            "serial_baseline": null,
+            "model": {
+              "label": "secondary_zero_fit_weight_stationary_model",
+              "per_tile_busy_cycles": 31,
+              "total_busy_cycles": 31,
+              "pe_occupancy": 0.03225806451612903
+            },
+            "control_flow": {
+              "accumulate_runs_total": 1,
+              "out_blocks": 1,
+              "in_blocks": 1,
+              "note": "Single-tile 16x16 rows keep the legacy serialized payload path. Multi-tile rows may hoist weight/input tile payloads into distinct buffer slots before the first compute window so the compute-span duty metric can isolate inter-tile refill cost honestly without redefining the full rtl_cycle_counter denominator."
+            },
+            "simulator_log_tail": "[ OK ] Program cycles bounded by free-running cycle\nPERF_CYCLE_COUNTER=2072\nPERF_BUSY_COUNTER=38\nPERF_PROGRAM_COUNT=1\nTOTAL_PROGRAM_CYCLES=731\nCOMPUTE_BUSY_CYCLES=38\nCOMPUTE_SPAN_CYCLES=38\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:257: $finish called at 21155000 (1ps)\n"
+          },
+          {
+            "shape": {
+              "out_features": 16,
+              "in_features": 16
+            },
+            "batch_size": 4,
+            "array_size": 16,
+            "items_per_word": 4,
+            "out_blocks": 1,
+            "in_blocks": 1,
+            "useful_macs": 1024,
+            "fetch_bytes": 32,
+            "rtl_sim_passed": true,
+            "hoist_tile_payloads": false,
+            "measured": {
+              "rtl_cycle_counter": 2999,
+              "rtl_busy_counter": 43,
+              "total_program_cycles": 1082,
+              "busy_fraction": 0.014338112704234745,
+              "pe_occupancy": 0.09302325581395349,
+              "compute_busy_cycles": 43,
+              "compute_span_cycles": 43,
+              "compute_span_duty_cycle": 1.0
+            },
+            "serial_baseline": null,
+            "model": {
+              "label": "secondary_zero_fit_weight_stationary_model",
+              "per_tile_busy_cycles": 34,
+              "total_busy_cycles": 34,
+              "pe_occupancy": 0.11764705882352941
+            },
+            "control_flow": {
+              "accumulate_runs_total": 1,
+              "out_blocks": 1,
+              "in_blocks": 1,
+              "note": "Single-tile 16x16 rows keep the legacy serialized payload path. Multi-tile rows may hoist weight/input tile payloads into distinct buffer slots before the first compute window so the compute-span duty metric can isolate inter-tile refill cost honestly without redefining the full rtl_cycle_counter denominator."
+            },
+            "simulator_log_tail": "[ OK ] Program cycles bounded by free-running cycle\nPERF_CYCLE_COUNTER=2999\nPERF_BUSY_COUNTER=43\nPERF_PROGRAM_COUNT=1\nTOTAL_PROGRAM_CYCLES=1082\nCOMPUTE_BUSY_CYCLES=43\nCOMPUTE_SPAN_CYCLES=43\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:257: $finish called at 30425000 (1ps)\n"
+          },
+          {
+            "shape": {
+              "out_features": 16,
+              "in_features": 16
+            },
+            "batch_size": 16,
+            "array_size": 16,
+            "items_per_word": 4,
+            "out_blocks": 1,
+            "in_blocks": 1,
+            "useful_macs": 4096,
+            "fetch_bytes": 128,
+            "rtl_sim_passed": true,
+            "hoist_tile_payloads": false,
+            "measured": {
+              "rtl_cycle_counter": 6323,
+              "rtl_busy_counter": 55,
+              "total_program_cycles": 2390,
+              "busy_fraction": 0.00869840265696663,
+              "pe_occupancy": 0.2909090909090909,
+              "compute_busy_cycles": 55,
+              "compute_span_cycles": 55,
+              "compute_span_duty_cycle": 1.0
+            },
+            "serial_baseline": null,
+            "model": {
+              "label": "secondary_zero_fit_weight_stationary_model",
+              "per_tile_busy_cycles": 46,
+              "total_busy_cycles": 46,
+              "pe_occupancy": 0.34782608695652173
+            },
+            "control_flow": {
+              "accumulate_runs_total": 1,
+              "out_blocks": 1,
+              "in_blocks": 1,
+              "note": "Single-tile 16x16 rows keep the legacy serialized payload path. Multi-tile rows may hoist weight/input tile payloads into distinct buffer slots before the first compute window so the compute-span duty metric can isolate inter-tile refill cost honestly without redefining the full rtl_cycle_counter denominator."
+            },
+            "simulator_log_tail": "[ OK ] Program cycles bounded by free-running cycle\nPERF_CYCLE_COUNTER=6323\nPERF_BUSY_COUNTER=55\nPERF_PROGRAM_COUNT=1\nTOTAL_PROGRAM_CYCLES=2390\nCOMPUTE_BUSY_CYCLES=55\nCOMPUTE_SPAN_CYCLES=55\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:257: $finish called at 63665000 (1ps)\n"
+          },
+          {
+            "shape": {
+              "out_features": 16,
+              "in_features": 16
+            },
+            "batch_size": 32,
+            "array_size": 16,
+            "items_per_word": 4,
+            "out_blocks": 1,
+            "in_blocks": 1,
+            "useful_macs": 8192,
+            "fetch_bytes": 256,
+            "rtl_sim_passed": true,
+            "hoist_tile_payloads": false,
+            "measured": {
+              "rtl_cycle_counter": 10765,
+              "rtl_busy_counter": 71,
+              "total_program_cycles": 4144,
+              "busy_fraction": 0.006595448211797492,
+              "pe_occupancy": 0.4507042253521127,
+              "compute_busy_cycles": 71,
+              "compute_span_cycles": 71,
+              "compute_span_duty_cycle": 1.0
+            },
+            "serial_baseline": null,
+            "model": {
+              "label": "secondary_zero_fit_weight_stationary_model",
+              "per_tile_busy_cycles": 62,
+              "total_busy_cycles": 62,
+              "pe_occupancy": 0.5161290322580645
+            },
+            "control_flow": {
+              "accumulate_runs_total": 1,
+              "out_blocks": 1,
+              "in_blocks": 1,
+              "note": "Single-tile 16x16 rows keep the legacy serialized payload path. Multi-tile rows may hoist weight/input tile payloads into distinct buffer slots before the first compute window so the compute-span duty metric can isolate inter-tile refill cost honestly without redefining the full rtl_cycle_counter denominator."
+            },
+            "simulator_log_tail": "[ OK ] Program cycles bounded by free-running cycle\nPERF_CYCLE_COUNTER=10765\nPERF_BUSY_COUNTER=71\nPERF_PROGRAM_COUNT=1\nTOTAL_PROGRAM_CYCLES=4144\nCOMPUTE_BUSY_CYCLES=71\nCOMPUTE_SPAN_CYCLES=71\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:257: $finish called at 108085000 (1ps)\n"
+          },
+          {
+            "shape": {
+              "out_features": 16,
+              "in_features": 16
+            },
+            "batch_size": 64,
+            "array_size": 16,
+            "items_per_word": 4,
+            "out_blocks": 1,
+            "in_blocks": 1,
+            "useful_macs": 16384,
+            "fetch_bytes": 512,
+            "rtl_sim_passed": true,
+            "hoist_tile_payloads": false,
+            "measured": {
+              "rtl_cycle_counter": 19649,
+              "rtl_busy_counter": 103,
+              "total_program_cycles": 7652,
+              "busy_fraction": 0.005241997048195837,
+              "pe_occupancy": 0.6213592233009708,
+              "compute_busy_cycles": 103,
+              "compute_span_cycles": 103,
+              "compute_span_duty_cycle": 1.0
+            },
+            "serial_baseline": null,
+            "model": {
+              "label": "secondary_zero_fit_weight_stationary_model",
+              "per_tile_busy_cycles": 94,
+              "total_busy_cycles": 94,
+              "pe_occupancy": 0.6808510638297872
+            },
+            "control_flow": {
+              "accumulate_runs_total": 1,
+              "out_blocks": 1,
+              "in_blocks": 1,
+              "note": "Single-tile 16x16 rows keep the legacy serialized payload path. Multi-tile rows may hoist weight/input tile payloads into distinct buffer slots before the first compute window so the compute-span duty metric can isolate inter-tile refill cost honestly without redefining the full rtl_cycle_counter denominator."
+            },
+            "simulator_log_tail": "[ OK ] Program cycles bounded by free-running cycle\nPERF_CYCLE_COUNTER=19649\nPERF_BUSY_COUNTER=103\nPERF_PROGRAM_COUNT=1\nTOTAL_PROGRAM_CYCLES=7652\nCOMPUTE_BUSY_CYCLES=103\nCOMPUTE_SPAN_CYCLES=103\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:257: $finish called at 196925000 (1ps)\n"
+          },
+          {
+            "shape": {
+              "out_features": 32,
+              "in_features": 32
+            },
+            "batch_size": 1,
+            "array_size": 16,
+            "items_per_word": 4,
+            "out_blocks": 2,
+            "in_blocks": 2,
+            "useful_macs": 1024,
+            "fetch_bytes": 16,
+            "rtl_sim_passed": true,
+            "hoist_tile_payloads": false,
+            "measured": {
+              "rtl_cycle_counter": 7901,
+              "rtl_busy_counter": 150,
+              "total_program_cycles": 2780,
+              "busy_fraction": 0.018984938615365144,
+              "pe_occupancy": 0.02666666666666667,
+              "compute_busy_cycles": 150,
+              "compute_span_cycles": 1400,
+              "compute_span_duty_cycle": 0.10714285714285714
+            },
+            "serial_baseline": {
+              "hoist_tile_payloads": false,
+              "rtl_sim_passed": true,
+              "program_words": 847,
+              "rtl_cycle_counter": 7901,
+              "rtl_busy_counter": 150,
+              "total_program_cycles": 2780,
+              "compute_busy_cycles": 150,
+              "compute_span_cycles": 1400,
+              "compute_span_duty_cycle": 0.10714285714285714
+            },
+            "model": {
+              "label": "secondary_zero_fit_weight_stationary_model",
+              "per_tile_busy_cycles": 31,
+              "total_busy_cycles": 124,
+              "pe_occupancy": 0.03225806451612903
+            },
+            "control_flow": {
+              "accumulate_runs_total": 4,
+              "out_blocks": 2,
+              "in_blocks": 2,
+              "note": "Single-tile 16x16 rows keep the legacy serialized payload path. Multi-tile rows may hoist weight/input tile payloads into distinct buffer slots before the first compute window so the compute-span duty metric can isolate inter-tile refill cost honestly without redefining the full rtl_cycle_counter denominator."
+            },
+            "simulator_log_tail": "[ OK ] Program cycles bounded by free-running cycle\nPERF_CYCLE_COUNTER=7901\nPERF_BUSY_COUNTER=150\nPERF_PROGRAM_COUNT=1\nTOTAL_PROGRAM_CYCLES=2780\nCOMPUTE_BUSY_CYCLES=150\nCOMPUTE_SPAN_CYCLES=1400\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:257: $finish called at 79445000 (1ps)\n"
+          },
+          {
+            "shape": {
+              "out_features": 32,
+              "in_features": 32
+            },
+            "batch_size": 4,
+            "array_size": 16,
+            "items_per_word": 4,
+            "out_blocks": 2,
+            "in_blocks": 2,
+            "useful_macs": 4096,
+            "fetch_bytes": 64,
+            "rtl_sim_passed": true,
+            "hoist_tile_payloads": true,
+            "measured": {
+              "rtl_cycle_counter": 2036040,
+              "rtl_busy_counter": 170,
+              "total_program_cycles": 2024,
+              "busy_fraction": 8.349541266379835e-05,
+              "pe_occupancy": 0.09411764705882353,
+              "compute_busy_cycles": 170,
+              "compute_span_cycles": 204,
+              "compute_span_duty_cycle": 0.8333333333333334
+            },
+            "serial_baseline": {
+              "hoist_tile_payloads": false,
+              "rtl_sim_passed": true,
+              "program_words": 1117,
+              "rtl_cycle_counter": 2062584,
+              "rtl_busy_counter": 170,
+              "total_program_cycles": 3716,
+              "compute_busy_cycles": 170,
+              "compute_span_cycles": 1644,
+              "compute_span_duty_cycle": 0.10340632603406326
+            },
+            "model": {
+              "label": "secondary_zero_fit_weight_stationary_model",
+              "per_tile_busy_cycles": 34,
+              "total_busy_cycles": 136,
+              "pe_occupancy": 0.11764705882352941
+            },
+            "control_flow": {
+              "accumulate_runs_total": 4,
+              "out_blocks": 2,
+              "in_blocks": 2,
+              "note": "Single-tile 16x16 rows keep the legacy serialized payload path. Multi-tile rows may hoist weight/input tile payloads into distinct buffer slots before the first compute window so the compute-span duty metric can isolate inter-tile refill cost honestly without redefining the full rtl_cycle_counter denominator."
+            },
+            "simulator_log_tail": "[ OK ] Program cycles bounded by free-running cycle\nPERF_CYCLE_COUNTER=2036040\nPERF_BUSY_COUNTER=170\nPERF_PROGRAM_COUNT=1\nTOTAL_PROGRAM_CYCLES=2024\nCOMPUTE_BUSY_CYCLES=170\nCOMPUTE_SPAN_CYCLES=204\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:257: $finish called at 20360505000 (1ps)\n"
+          },
+          {
+            "shape": {
+              "out_features": 32,
+              "in_features": 32
+            },
+            "batch_size": 16,
+            "array_size": 16,
+            "items_per_word": 4,
+            "out_blocks": 2,
+            "in_blocks": 2,
+            "useful_macs": 16384,
+            "fetch_bytes": 256,
+            "rtl_sim_passed": true,
+            "hoist_tile_payloads": true,
+            "measured": {
+              "rtl_cycle_counter": 9881,
+              "rtl_busy_counter": 218,
+              "total_program_cycles": 4184,
+              "busy_fraction": 0.022062544276895052,
+              "pe_occupancy": 0.29357798165137616,
+              "compute_busy_cycles": 218,
+              "compute_span_cycles": 252,
+              "compute_span_duty_cycle": 0.8650793650793651
+            },
+            "serial_baseline": {
+              "hoist_tile_payloads": false,
+              "rtl_sim_passed": true,
+              "program_words": 2077,
+              "rtl_cycle_counter": 19721,
+              "rtl_busy_counter": 218,
+              "total_program_cycles": 7220,
+              "compute_busy_cycles": 218,
+              "compute_span_cycles": 2556,
+              "compute_span_duty_cycle": 0.08528951486697965
+            },
+            "model": {
+              "label": "secondary_zero_fit_weight_stationary_model",
+              "per_tile_busy_cycles": 46,
+              "total_busy_cycles": 184,
+              "pe_occupancy": 0.34782608695652173
+            },
+            "control_flow": {
+              "accumulate_runs_total": 4,
+              "out_blocks": 2,
+              "in_blocks": 2,
+              "note": "Single-tile 16x16 rows keep the legacy serialized payload path. Multi-tile rows may hoist weight/input tile payloads into distinct buffer slots before the first compute window so the compute-span duty metric can isolate inter-tile refill cost honestly without redefining the full rtl_cycle_counter denominator."
+            },
+            "simulator_log_tail": "[ OK ] Program cycles bounded by free-running cycle\nPERF_CYCLE_COUNTER=9881\nPERF_BUSY_COUNTER=218\nPERF_PROGRAM_COUNT=1\nTOTAL_PROGRAM_CYCLES=4184\nCOMPUTE_BUSY_CYCLES=218\nCOMPUTE_SPAN_CYCLES=252\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:257: $finish called at 99245000 (1ps)\n"
+          },
+          {
+            "shape": {
+              "out_features": 32,
+              "in_features": 32
+            },
+            "batch_size": 32,
+            "array_size": 16,
+            "items_per_word": 4,
+            "out_blocks": 2,
+            "in_blocks": 2,
+            "useful_macs": 32768,
+            "fetch_bytes": 512,
+            "rtl_sim_passed": true,
+            "hoist_tile_payloads": true,
+            "measured": {
+              "rtl_cycle_counter": 16631,
+              "rtl_busy_counter": 282,
+              "total_program_cycles": 7094,
+              "busy_fraction": 0.01695628645300944,
+              "pe_occupancy": 0.45390070921985815,
+              "compute_busy_cycles": 282,
+              "compute_span_cycles": 326,
+              "compute_span_duty_cycle": 0.8650306748466258
+            },
+            "serial_baseline": {
+              "hoist_tile_payloads": false,
+              "rtl_sim_passed": true,
+              "program_words": 3357,
+              "rtl_cycle_counter": 32103,
+              "rtl_busy_counter": 282,
+              "total_program_cycles": 11922,
+              "compute_busy_cycles": 282,
+              "compute_span_cycles": 3782,
+              "compute_span_duty_cycle": 0.0745637228979376
+            },
+            "model": {
+              "label": "secondary_zero_fit_weight_stationary_model",
+              "per_tile_busy_cycles": 62,
+              "total_busy_cycles": 248,
+              "pe_occupancy": 0.5161290322580645
+            },
+            "control_flow": {
+              "accumulate_runs_total": 4,
+              "out_blocks": 2,
+              "in_blocks": 2,
+              "note": "Single-tile 16x16 rows keep the legacy serialized payload path. Multi-tile rows may hoist weight/input tile payloads into distinct buffer slots before the first compute window so the compute-span duty metric can isolate inter-tile refill cost honestly without redefining the full rtl_cycle_counter denominator."
+            },
+            "simulator_log_tail": "[ OK ] Program cycles bounded by free-running cycle\nPERF_CYCLE_COUNTER=16631\nPERF_BUSY_COUNTER=282\nPERF_PROGRAM_COUNT=1\nTOTAL_PROGRAM_CYCLES=7094\nCOMPUTE_BUSY_CYCLES=282\nCOMPUTE_SPAN_CYCLES=326\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:257: $finish called at 166745000 (1ps)\n"
+          },
+          {
+            "shape": {
+              "out_features": 64,
+              "in_features": 64
+            },
+            "batch_size": 1,
+            "array_size": 16,
+            "items_per_word": 4,
+            "out_blocks": 4,
+            "in_blocks": 4,
+            "useful_macs": 4096,
+            "fetch_bytes": 32,
+            "rtl_sim_passed": true,
+            "hoist_tile_payloads": false,
+            "measured": {
+              "rtl_cycle_counter": 30983,
+              "rtl_busy_counter": 596,
+              "total_program_cycles": 10850,
+              "busy_fraction": 0.019236355420714585,
+              "pe_occupancy": 0.026845637583892617,
+              "compute_busy_cycles": 596,
+              "compute_span_cycles": 8096,
+              "compute_span_duty_cycle": 0.07361660079051384
+            },
+            "serial_baseline": {
+              "hoist_tile_payloads": false,
+              "rtl_sim_passed": true,
+              "program_words": 3349,
+              "rtl_cycle_counter": 30983,
+              "rtl_busy_counter": 596,
+              "total_program_cycles": 10850,
+              "compute_busy_cycles": 596,
+              "compute_span_cycles": 8096,
+              "compute_span_duty_cycle": 0.07361660079051384
+            },
+            "model": {
+              "label": "secondary_zero_fit_weight_stationary_model",
+              "per_tile_busy_cycles": 31,
+              "total_busy_cycles": 496,
+              "pe_occupancy": 0.03225806451612903
+            },
+            "control_flow": {
+              "accumulate_runs_total": 16,
+              "out_blocks": 4,
+              "in_blocks": 4,
+              "note": "Single-tile 16x16 rows keep the legacy serialized payload path. Multi-tile rows may hoist weight/input tile payloads into distinct buffer slots before the first compute window so the compute-span duty metric can isolate inter-tile refill cost honestly without redefining the full rtl_cycle_counter denominator."
+            },
+            "simulator_log_tail": "[ OK ] Program cycles bounded by free-running cycle\nPERF_CYCLE_COUNTER=30983\nPERF_BUSY_COUNTER=596\nPERF_PROGRAM_COUNT=1\nTOTAL_PROGRAM_CYCLES=10850\nCOMPUTE_BUSY_CYCLES=596\nCOMPUTE_SPAN_CYCLES=8096\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:257: $finish called at 310265000 (1ps)\n"
+          },
+          {
+            "shape": {
+              "out_features": 64,
+              "in_features": 64
+            },
+            "batch_size": 4,
+            "array_size": 16,
+            "items_per_word": 4,
+            "out_blocks": 4,
+            "in_blocks": 4,
+            "useful_macs": 16384,
+            "fetch_bytes": 128,
+            "rtl_sim_passed": true,
+            "hoist_tile_payloads": true,
+            "measured": {
+              "rtl_cycle_counter": 15703,
+              "rtl_busy_counter": 676,
+              "total_program_cycles": 6610,
+              "busy_fraction": 0.043049098898299686,
+              "pe_occupancy": 0.09467455621301775,
+              "compute_busy_cycles": 676,
+              "compute_span_cycles": 880,
+              "compute_span_duty_cycle": 0.7681818181818182
+            },
+            "serial_baseline": {
+              "hoist_tile_payloads": false,
+              "rtl_sim_passed": true,
+              "program_words": 4201,
+              "rtl_cycle_counter": 38903,
+              "rtl_busy_counter": 676,
+              "total_program_cycles": 13658,
+              "compute_busy_cycles": 676,
+              "compute_span_cycles": 9520,
+              "compute_span_duty_cycle": 0.07100840336134454
+            },
+            "model": {
+              "label": "secondary_zero_fit_weight_stationary_model",
+              "per_tile_busy_cycles": 34,
+              "total_busy_cycles": 544,
+              "pe_occupancy": 0.11764705882352941
+            },
+            "control_flow": {
+              "accumulate_runs_total": 16,
+              "out_blocks": 4,
+              "in_blocks": 4,
+              "note": "Single-tile 16x16 rows keep the legacy serialized payload path. Multi-tile rows may hoist weight/input tile payloads into distinct buffer slots before the first compute window so the compute-span duty metric can isolate inter-tile refill cost honestly without redefining the full rtl_cycle_counter denominator."
+            },
+            "simulator_log_tail": "[ OK ] Program cycles bounded by free-running cycle\nPERF_CYCLE_COUNTER=15703\nPERF_BUSY_COUNTER=676\nPERF_PROGRAM_COUNT=1\nTOTAL_PROGRAM_CYCLES=6610\nCOMPUTE_BUSY_CYCLES=676\nCOMPUTE_SPAN_CYCLES=880\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:257: $finish called at 157465000 (1ps)\n"
+          },
+          {
+            "shape": {
+              "out_features": 64,
+              "in_features": 64
+            },
+            "batch_size": 16,
+            "array_size": 16,
+            "items_per_word": 4,
+            "out_blocks": 4,
+            "in_blocks": 4,
+            "useful_macs": 65536,
+            "fetch_bytes": 512,
+            "rtl_sim_passed": true,
+            "hoist_tile_payloads": true,
+            "measured": {
+              "rtl_cycle_counter": 25879,
+              "rtl_busy_counter": 868,
+              "total_program_cycles": 11026,
+              "busy_fraction": 0.03354070868271571,
+              "pe_occupancy": 0.29493087557603687,
+              "compute_busy_cycles": 868,
+              "compute_span_cycles": 1072,
+              "compute_span_duty_cycle": 0.8097014925373134
+            },
+            "serial_baseline": {
+              "hoist_tile_payloads": false,
+              "rtl_sim_passed": true,
+              "program_words": 7273,
+              "rtl_cycle_counter": 67895,
+              "rtl_busy_counter": 868,
+              "total_program_cycles": 24218,
+              "compute_busy_cycles": 868,
+              "compute_span_cycles": 14896,
+              "compute_span_duty_cycle": 0.05827067669172932
+            },
+            "model": {
+              "label": "secondary_zero_fit_weight_stationary_model",
+              "per_tile_busy_cycles": 46,
+              "total_busy_cycles": 736,
+              "pe_occupancy": 0.34782608695652173
+            },
+            "control_flow": {
+              "accumulate_runs_total": 16,
+              "out_blocks": 4,
+              "in_blocks": 4,
+              "note": "Single-tile 16x16 rows keep the legacy serialized payload path. Multi-tile rows may hoist weight/input tile payloads into distinct buffer slots before the first compute window so the compute-span duty metric can isolate inter-tile refill cost honestly without redefining the full rtl_cycle_counter denominator."
+            },
+            "simulator_log_tail": "[ OK ] Program cycles bounded by free-running cycle\nPERF_CYCLE_COUNTER=25879\nPERF_BUSY_COUNTER=868\nPERF_PROGRAM_COUNT=1\nTOTAL_PROGRAM_CYCLES=11026\nCOMPUTE_BUSY_CYCLES=868\nCOMPUTE_SPAN_CYCLES=1072\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:257: $finish called at 259225000 (1ps)\n"
+          },
+          {
+            "shape": {
+              "out_features": 64,
+              "in_features": 64
+            },
+            "batch_size": 32,
+            "array_size": 16,
+            "items_per_word": 4,
+            "out_blocks": 4,
+            "in_blocks": 4,
+            "useful_macs": 131072,
+            "fetch_bytes": 1024,
+            "rtl_sim_passed": true,
+            "hoist_tile_payloads": true,
+            "measured": {
+              "rtl_cycle_counter": 39547,
+              "rtl_busy_counter": 1124,
+              "total_program_cycles": 17014,
+              "busy_fraction": 0.02842187776569651,
+              "pe_occupancy": 0.4555160142348754,
+              "compute_busy_cycles": 1124,
+              "compute_span_cycles": 1388,
+              "compute_span_duty_cycle": 0.8097982708933718
+            },
+            "serial_baseline": {
+              "hoist_tile_payloads": false,
+              "rtl_sim_passed": true,
+              "program_words": 11369,
+              "rtl_cycle_counter": 106651,
+              "rtl_busy_counter": 1124,
+              "total_program_cycles": 38398,
+              "compute_busy_cycles": 1124,
+              "compute_span_cycles": 22124,
+              "compute_span_duty_cycle": 0.050804556138130536
+            },
+            "model": {
+              "label": "secondary_zero_fit_weight_stationary_model",
+              "per_tile_busy_cycles": 62,
+              "total_busy_cycles": 992,
+              "pe_occupancy": 0.5161290322580645
+            },
+            "control_flow": {
+              "accumulate_runs_total": 16,
+              "out_blocks": 4,
+              "in_blocks": 4,
+              "note": "Single-tile 16x16 rows keep the legacy serialized payload path. Multi-tile rows may hoist weight/input tile payloads into distinct buffer slots before the first compute window so the compute-span duty metric can isolate inter-tile refill cost honestly without redefining the full rtl_cycle_counter denominator."
+            },
+            "simulator_log_tail": "[ OK ] Program cycles bounded by free-running cycle\nPERF_CYCLE_COUNTER=39547\nPERF_BUSY_COUNTER=1124\nPERF_PROGRAM_COUNT=1\nTOTAL_PROGRAM_CYCLES=17014\nCOMPUTE_BUSY_CYCLES=1124\nCOMPUTE_SPAN_CYCLES=1388\nFINALIZE_REQUANT_CYCLES=0\nQUANTIZER_LANES=16\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl/tb/tb_batched_gemm.sv:257: $finish called at 395905000 (1ps)\n"
+          }
+        ],
+        "shape_summaries": [
+          {
+            "shape": {
+              "out_features": 16,
+              "in_features": 16
+            },
+            "out_blocks": 1,
+            "in_blocks": 1,
+            "batch_curve": [
+              {
+                "batch_size": 1,
+                "rtl_busy_counter": 38,
+                "total_program_cycles": 731,
+                "pe_occupancy": 0.02631578947368421,
+                "busy_fraction": 0.01833976833976834,
+                "compute_span_duty_cycle": 1.0,
+                "serial_baseline_compute_span_duty_cycle": null,
+                "streaming_ceiling": 0.030303030303030304
+              },
+              {
+                "batch_size": 4,
+                "rtl_busy_counter": 43,
+                "total_program_cycles": 1082,
+                "pe_occupancy": 0.09302325581395349,
+                "busy_fraction": 0.014338112704234745,
+                "compute_span_duty_cycle": 1.0,
+                "serial_baseline_compute_span_duty_cycle": null,
+                "streaming_ceiling": 0.1111111111111111
+              },
+              {
+                "batch_size": 16,
+                "rtl_busy_counter": 55,
+                "total_program_cycles": 2390,
+                "pe_occupancy": 0.2909090909090909,
+                "busy_fraction": 0.00869840265696663,
+                "compute_span_duty_cycle": 1.0,
+                "serial_baseline_compute_span_duty_cycle": null,
+                "streaming_ceiling": 0.3333333333333333
+              },
+              {
+                "batch_size": 32,
+                "rtl_busy_counter": 71,
+                "total_program_cycles": 4144,
+                "pe_occupancy": 0.4507042253521127,
+                "busy_fraction": 0.006595448211797492,
+                "compute_span_duty_cycle": 1.0,
+                "serial_baseline_compute_span_duty_cycle": null,
+                "streaming_ceiling": 0.5
+              },
+              {
+                "batch_size": 64,
+                "rtl_busy_counter": 103,
+                "total_program_cycles": 7652,
+                "pe_occupancy": 0.6213592233009708,
+                "busy_fraction": 0.005241997048195837,
+                "compute_span_duty_cycle": 1.0,
+                "serial_baseline_compute_span_duty_cycle": null,
+                "streaming_ceiling": 0.6666666666666666
+              }
+            ],
+            "marginal_busy_curve": [
+              {
+                "from_batch_size": 1,
+                "to_batch_size": 4,
+                "delta_busy_cycles": 5,
+                "delta_batch": 3,
+                "marginal_busy_cycles_per_added_batch": 1.6666666666666667
+              },
+              {
+                "from_batch_size": 4,
+                "to_batch_size": 16,
+                "delta_busy_cycles": 12,
+                "delta_batch": 12,
+                "marginal_busy_cycles_per_added_batch": 1.0
+              },
+              {
+                "from_batch_size": 16,
+                "to_batch_size": 32,
+                "delta_busy_cycles": 16,
+                "delta_batch": 16,
+                "marginal_busy_cycles_per_added_batch": 1.0
+              },
+              {
+                "from_batch_size": 32,
+                "to_batch_size": 64,
+                "delta_busy_cycles": 32,
+                "delta_batch": 32,
+                "marginal_busy_cycles_per_added_batch": 1.0
+              }
+            ],
+            "b1_busy_cycles": 38,
+            "max_b_busy_cycles": 103,
+            "busy_cycles_growth_vs_b1": 2.710526315789474,
+            "b1_pe_occupancy": 0.02631578947368421,
+            "max_b_pe_occupancy": 0.6213592233009708,
+            "pe_occupancy_growth_vs_b1": 23.611650485436893,
+            "b1_busy_fraction": 0.01833976833976834,
+            "max_b_busy_fraction": 0.005241997048195837,
+            "b1_compute_span_duty_cycle": 1.0,
+            "max_b_compute_span_duty_cycle": 1.0,
+            "b1_serial_baseline_compute_span_duty_cycle": null,
+            "max_b_serial_baseline_compute_span_duty_cycle": null,
+            "asymmetry_explanation": "This shape is a single blocked-FC tile (out_blocks=1, in_blocks=1), so B=1 contains one accumulate RUN before finalize. The B sweep is therefore closer to the number of batch subruns itself, and the busy-cycle multiplier stays near-linear."
+          },
+          {
+            "shape": {
+              "out_features": 32,
+              "in_features": 32
+            },
+            "out_blocks": 2,
+            "in_blocks": 2,
+            "batch_curve": [
+              {
+                "batch_size": 1,
+                "rtl_busy_counter": 150,
+                "total_program_cycles": 2780,
+                "pe_occupancy": 0.02666666666666667,
+                "busy_fraction": 0.018984938615365144,
+                "compute_span_duty_cycle": 0.10714285714285714,
+                "serial_baseline_compute_span_duty_cycle": 0.10714285714285714,
+                "streaming_ceiling": null
+              },
+              {
+                "batch_size": 4,
+                "rtl_busy_counter": 170,
+                "total_program_cycles": 2024,
+                "pe_occupancy": 0.09411764705882353,
+                "busy_fraction": 8.349541266379835e-05,
+                "compute_span_duty_cycle": 0.8333333333333334,
+                "serial_baseline_compute_span_duty_cycle": 0.10340632603406326,
+                "streaming_ceiling": null
+              },
+              {
+                "batch_size": 16,
+                "rtl_busy_counter": 218,
+                "total_program_cycles": 4184,
+                "pe_occupancy": 0.29357798165137616,
+                "busy_fraction": 0.022062544276895052,
+                "compute_span_duty_cycle": 0.8650793650793651,
+                "serial_baseline_compute_span_duty_cycle": 0.08528951486697965,
+                "streaming_ceiling": null
+              },
+              {
+                "batch_size": 32,
+                "rtl_busy_counter": 282,
+                "total_program_cycles": 7094,
+                "pe_occupancy": 0.45390070921985815,
+                "busy_fraction": 0.01695628645300944,
+                "compute_span_duty_cycle": 0.8650306748466258,
+                "serial_baseline_compute_span_duty_cycle": 0.0745637228979376,
+                "streaming_ceiling": null
+              }
+            ],
+            "marginal_busy_curve": [
+              {
+                "from_batch_size": 1,
+                "to_batch_size": 4,
+                "delta_busy_cycles": 20,
+                "delta_batch": 3,
+                "marginal_busy_cycles_per_added_batch": 6.666666666666667
+              },
+              {
+                "from_batch_size": 4,
+                "to_batch_size": 16,
+                "delta_busy_cycles": 48,
+                "delta_batch": 12,
+                "marginal_busy_cycles_per_added_batch": 4.0
+              },
+              {
+                "from_batch_size": 16,
+                "to_batch_size": 32,
+                "delta_busy_cycles": 64,
+                "delta_batch": 16,
+                "marginal_busy_cycles_per_added_batch": 4.0
+              }
+            ],
+            "b1_busy_cycles": 150,
+            "max_b_busy_cycles": 282,
+            "busy_cycles_growth_vs_b1": 1.88,
+            "b1_pe_occupancy": 0.02666666666666667,
+            "max_b_pe_occupancy": 0.45390070921985815,
+            "pe_occupancy_growth_vs_b1": 17.02127659574468,
+            "b1_busy_fraction": 0.018984938615365144,
+            "max_b_busy_fraction": 0.01695628645300944,
+            "b1_compute_span_duty_cycle": 0.10714285714285714,
+            "max_b_compute_span_duty_cycle": 0.8650306748466258,
+            "b1_serial_baseline_compute_span_duty_cycle": 0.10714285714285714,
+            "max_b_serial_baseline_compute_span_duty_cycle": 0.0745637228979376,
+            "asymmetry_explanation": "This shape has multiple accumulate RUNs per full GEMM. The optimized rows therefore focus on compute-span duty-cycle before/after hoisting tile payloads out of the inner loop, while the rtl_cycle_counter still reports the full end-to-end serialized control cost honestly."
+          },
+          {
+            "shape": {
+              "out_features": 64,
+              "in_features": 64
+            },
+            "out_blocks": 4,
+            "in_blocks": 4,
+            "batch_curve": [
+              {
+                "batch_size": 1,
+                "rtl_busy_counter": 596,
+                "total_program_cycles": 10850,
+                "pe_occupancy": 0.026845637583892617,
+                "busy_fraction": 0.019236355420714585,
+                "compute_span_duty_cycle": 0.07361660079051384,
+                "serial_baseline_compute_span_duty_cycle": 0.07361660079051384,
+                "streaming_ceiling": null
+              },
+              {
+                "batch_size": 4,
+                "rtl_busy_counter": 676,
+                "total_program_cycles": 6610,
+                "pe_occupancy": 0.09467455621301775,
+                "busy_fraction": 0.043049098898299686,
+                "compute_span_duty_cycle": 0.7681818181818182,
+                "serial_baseline_compute_span_duty_cycle": 0.07100840336134454,
+                "streaming_ceiling": null
+              },
+              {
+                "batch_size": 16,
+                "rtl_busy_counter": 868,
+                "total_program_cycles": 11026,
+                "pe_occupancy": 0.29493087557603687,
+                "busy_fraction": 0.03354070868271571,
+                "compute_span_duty_cycle": 0.8097014925373134,
+                "serial_baseline_compute_span_duty_cycle": 0.05827067669172932,
+                "streaming_ceiling": null
+              },
+              {
+                "batch_size": 32,
+                "rtl_busy_counter": 1124,
+                "total_program_cycles": 17014,
+                "pe_occupancy": 0.4555160142348754,
+                "busy_fraction": 0.02842187776569651,
+                "compute_span_duty_cycle": 0.8097982708933718,
+                "serial_baseline_compute_span_duty_cycle": 0.050804556138130536,
+                "streaming_ceiling": null
+              }
+            ],
+            "marginal_busy_curve": [
+              {
+                "from_batch_size": 1,
+                "to_batch_size": 4,
+                "delta_busy_cycles": 80,
+                "delta_batch": 3,
+                "marginal_busy_cycles_per_added_batch": 26.666666666666668
+              },
+              {
+                "from_batch_size": 4,
+                "to_batch_size": 16,
+                "delta_busy_cycles": 192,
+                "delta_batch": 12,
+                "marginal_busy_cycles_per_added_batch": 16.0
+              },
+              {
+                "from_batch_size": 16,
+                "to_batch_size": 32,
+                "delta_busy_cycles": 256,
+                "delta_batch": 16,
+                "marginal_busy_cycles_per_added_batch": 16.0
+              }
+            ],
+            "b1_busy_cycles": 596,
+            "max_b_busy_cycles": 1124,
+            "busy_cycles_growth_vs_b1": 1.8859060402684564,
+            "b1_pe_occupancy": 0.026845637583892617,
+            "max_b_pe_occupancy": 0.4555160142348754,
+            "pe_occupancy_growth_vs_b1": 16.96797153024911,
+            "b1_busy_fraction": 0.019236355420714585,
+            "max_b_busy_fraction": 0.02842187776569651,
+            "b1_compute_span_duty_cycle": 0.07361660079051384,
+            "max_b_compute_span_duty_cycle": 0.8097982708933718,
+            "b1_serial_baseline_compute_span_duty_cycle": 0.07361660079051384,
+            "max_b_serial_baseline_compute_span_duty_cycle": 0.050804556138130536,
+            "asymmetry_explanation": "This shape has multiple accumulate RUNs per full GEMM. The optimized rows therefore focus on compute-span duty-cycle before/after hoisting tile payloads out of the inner loop, while the rtl_cycle_counter still reports the full end-to-end serialized control cost honestly."
+          }
+        ],
+        "aggregate": {
+          "rtl_available": true,
+          "all_cases_passed": true,
+          "all_large_b_pe_occupancy_exceeds_b1": true,
+          "all_multitile_duty_cycles_improve_vs_serial": true,
+          "single_tile_streaming_curve": {
+            "shape": {
+              "out_features": 16,
+              "in_features": 16
+            },
+            "out_blocks": 1,
+            "in_blocks": 1,
+            "batch_curve": [
+              {
+                "batch_size": 1,
+                "rtl_busy_counter": 38,
+                "total_program_cycles": 731,
+                "pe_occupancy": 0.02631578947368421,
+                "busy_fraction": 0.01833976833976834,
+                "compute_span_duty_cycle": 1.0,
+                "serial_baseline_compute_span_duty_cycle": null,
+                "streaming_ceiling": 0.030303030303030304
+              },
+              {
+                "batch_size": 4,
+                "rtl_busy_counter": 43,
+                "total_program_cycles": 1082,
+                "pe_occupancy": 0.09302325581395349,
+                "busy_fraction": 0.014338112704234745,
+                "compute_span_duty_cycle": 1.0,
+                "serial_baseline_compute_span_duty_cycle": null,
+                "streaming_ceiling": 0.1111111111111111
+              },
+              {
+                "batch_size": 16,
+                "rtl_busy_counter": 55,
+                "total_program_cycles": 2390,
+                "pe_occupancy": 0.2909090909090909,
+                "busy_fraction": 0.00869840265696663,
+                "compute_span_duty_cycle": 1.0,
+                "serial_baseline_compute_span_duty_cycle": null,
+                "streaming_ceiling": 0.3333333333333333
+              },
+              {
+                "batch_size": 32,
+                "rtl_busy_counter": 71,
+                "total_program_cycles": 4144,
+                "pe_occupancy": 0.4507042253521127,
+                "busy_fraction": 0.006595448211797492,
+                "compute_span_duty_cycle": 1.0,
+                "serial_baseline_compute_span_duty_cycle": null,
+                "streaming_ceiling": 0.5
+              },
+              {
+                "batch_size": 64,
+                "rtl_busy_counter": 103,
+                "total_program_cycles": 7652,
+                "pe_occupancy": 0.6213592233009708,
+                "busy_fraction": 0.005241997048195837,
+                "compute_span_duty_cycle": 1.0,
+                "serial_baseline_compute_span_duty_cycle": null,
+                "streaming_ceiling": 0.6666666666666666
+              }
+            ],
+            "marginal_busy_curve": [
+              {
+                "from_batch_size": 1,
+                "to_batch_size": 4,
+                "delta_busy_cycles": 5,
+                "delta_batch": 3,
+                "marginal_busy_cycles_per_added_batch": 1.6666666666666667
+              },
+              {
+                "from_batch_size": 4,
+                "to_batch_size": 16,
+                "delta_busy_cycles": 12,
+                "delta_batch": 12,
+                "marginal_busy_cycles_per_added_batch": 1.0
+              },
+              {
+                "from_batch_size": 16,
+                "to_batch_size": 32,
+                "delta_busy_cycles": 16,
+                "delta_batch": 16,
+                "marginal_busy_cycles_per_added_batch": 1.0
+              },
+              {
+                "from_batch_size": 32,
+                "to_batch_size": 64,
+                "delta_busy_cycles": 32,
+                "delta_batch": 32,
+                "marginal_busy_cycles_per_added_batch": 1.0
+              }
+            ],
+            "b1_busy_cycles": 38,
+            "max_b_busy_cycles": 103,
+            "busy_cycles_growth_vs_b1": 2.710526315789474,
+            "b1_pe_occupancy": 0.02631578947368421,
+            "max_b_pe_occupancy": 0.6213592233009708,
+            "pe_occupancy_growth_vs_b1": 23.611650485436893,
+            "b1_busy_fraction": 0.01833976833976834,
+            "max_b_busy_fraction": 0.005241997048195837,
+            "b1_compute_span_duty_cycle": 1.0,
+            "max_b_compute_span_duty_cycle": 1.0,
+            "b1_serial_baseline_compute_span_duty_cycle": null,
+            "max_b_serial_baseline_compute_span_duty_cycle": null,
+            "asymmetry_explanation": "This shape is a single blocked-FC tile (out_blocks=1, in_blocks=1), so B=1 contains one accumulate RUN before finalize. The B sweep is therefore closer to the number of batch subruns itself, and the busy-cycle multiplier stays near-linear."
+          }
+        }
+      }
+    },
+    {
+      "id": "vivado_timing_closed",
+      "label": "Vivado timing closed (current RTL)",
+      "tier": "synth",
+      "source_artifact": "bench/results/baseline_8x8_current_rtl_synth.json",
+      "status": true,
+      "detail": "WNS 0.416 ns @ 50.0 MHz; bit generated, not executed on board.",
+      "raw": {
+        "version": 1,
+        "generated_at_utc": "2026-06-18T18:45:15.5293241Z",
+        "git_sha": "48fe65a2a98775c33d3e84e268fad06502e6efbc",
+        "provenance_note": "current RTL (post-batching, post-X-bug-fix), MAX_BATCH_COUNT set via synth generic; supersedes the stale p4_2 8x8 numbers. The original 100 MHz sweep below did not close for any tested MAX_BATCH_COUNT in {16,8,4}. SUPERSEDED as shipping Fmax by timing_closure_sweep.json requant_fmax_mb4_clk10_pd3 (100 MHz, PIPE_DEPTH=3). Keep this file for DSP/history.",
+        "closed_config": {
+          "name": "current_rtl_mb4_clk20_dcp",
+          "params": {
+            "PROG_DEPTH": 8192,
+            "COMPUTE_DATA_WIDTH": 8,
+            "ACCUMULATOR_DATA_WIDTH": 32,
+            "ARRAY_SIZE": 8,
+            "BUFFER_SIZE": 4096,
+            "EXT_ADDR_EN": 1,
+            "MAX_BATCH_COUNT": 4
+          },
+          "part": "xc7a100tcsg324-1",
+          "vivado_version": "2025.2",
+          "clock_period_ns": 20.0,
+          "frequency_mhz": 50.0,
+          "timing": {
+            "wns_ns": 0.416,
+            "whs_ns": 0.041,
+            "tns_ns": 0.0,
+            "ths_ns": 0.0,
+            "all_paths_met": true
+          },
+          "utilization": {
+            "lut_used": 25221,
+            "lut_available": 63400,
+            "ff_used": 6819,
+            "ff_available": 126800,
+            "bram_36k_used": 21,
+            "bram_36k_available": 135,
+            "dsp_used": 192,
+            "dsp_available": 240
+          },
+          "dsp_breakdown_note": "~64 DSP in pe_array MAC array + ~128 DSP in quantizer_array requant path",
+          "route_status": "clean",
+          "bit_generated": true,
+          "report_files": [
+            "build/reports/current_rtl_mb4_clk20_dcp_timing_summary.rpt",
+            "build/reports/current_rtl_mb4_clk20_dcp_utilization.rpt",
+            "build/reports/current_rtl_mb4_clk20_dcp_route_status.rpt",
+            "build/reports/current_rtl_mb4_clk20_dcp_post_route.dcp",
+            "build/reports/current_rtl_mb4_clk20_dcp.bit"
+          ]
+        },
+        "flow_opt_10ns_attempt": {
+          "status": "tool_blocked",
+          "params": {
+            "MAX_BATCH_COUNT": 4,
+            "clock_period_ns": 10.0,
+            "retiming": true,
+            "post_place_phys_opt": true,
+            "post_route_phys_opt": true,
+            "synth_strategy": "Flow_PerfOptimized_high",
+            "impl_strategy": "Performance_Explore"
+          },
+          "error": "Vivado batch startup failed before synthesis with 'Failed to install all user apps' / 'load_features' after the 20 ns closeout run, so no recovery number was produced.",
+          "log_file": "vivado.log"
+        },
+        "runs": [
+          {
+            "name": "current_rtl_mb16",
+            "params": {
+              "PROG_DEPTH": 8192,
+              "COMPUTE_DATA_WIDTH": 8,
+              "ACCUMULATOR_DATA_WIDTH": 32,
+              "ARRAY_SIZE": 8,
+              "BUFFER_SIZE": 4096,
+              "EXT_ADDR_EN": 1,
+              "MAX_BATCH_COUNT": 16
+            },
+            "part": "xc7a100tcsg324-1",
+            "vivado_version": "2025.2",
+            "timing": {
+              "wns_ns": -6.379,
+              "whs_ns": 0.017,
+              "tns_ns": -21748.559,
+              "ths_ns": 0.0,
+              "all_paths_met": false
+            },
+            "utilization": {
+              "lut_used": 43652,
+              "lut_available": 63400,
+              "ff_used": 15153,
+              "ff_available": 126800,
+              "bram_36k_used": 21,
+              "bram_36k_available": 135,
+              "dsp_used": 192,
+              "dsp_available": 240
+            },
+            "route_status": "clean",
+            "report_files": [
+              "build/reports/current_rtl_mb16_timing_summary.rpt",
+              "build/reports/current_rtl_mb16_utilization.rpt",
+              "build/reports/current_rtl_mb16_route_status.rpt",
+              "build/reports/current_rtl_mb16.bit"
+            ]
+          },
+          {
+            "name": "current_rtl_mb8",
+            "params": {
+              "PROG_DEPTH": 8192,
+              "COMPUTE_DATA_WIDTH": 8,
+              "ACCUMULATOR_DATA_WIDTH": 32,
+              "ARRAY_SIZE": 8,
+              "BUFFER_SIZE": 4096,
+              "EXT_ADDR_EN": 1,
+              "MAX_BATCH_COUNT": 8
+            },
+            "part": "xc7a100tcsg324-1",
+            "vivado_version": "2025.2",
+            "timing": {
+              "wns_ns": -6.292,
+              "whs_ns": 0.017,
+              "tns_ns": -16957.008,
+              "ths_ns": 0.0,
+              "all_paths_met": false
+            },
+            "utilization": {
+              "lut_used": 33370,
+              "lut_available": 63400,
+              "ff_used": 9861,
+              "ff_available": 126800,
+              "bram_36k_used": 21,
+              "bram_36k_available": 135,
+              "dsp_used": 192,
+              "dsp_available": 240
+            },
+            "route_status": "clean",
+            "report_files": [
+              "build/reports/current_rtl_mb8_timing_summary.rpt",
+              "build/reports/current_rtl_mb8_utilization.rpt",
+              "build/reports/current_rtl_mb8_route_status.rpt",
+              "build/reports/current_rtl_mb8.bit"
+            ]
+          },
+          {
+            "name": "current_rtl_mb4",
+            "params": {
+              "PROG_DEPTH": 8192,
+              "COMPUTE_DATA_WIDTH": 8,
+              "ACCUMULATOR_DATA_WIDTH": 32,
+              "ARRAY_SIZE": 8,
+              "BUFFER_SIZE": 4096,
+              "EXT_ADDR_EN": 1,
+              "MAX_BATCH_COUNT": 4
+            },
+            "part": "xc7a100tcsg324-1",
+            "vivado_version": "2025.2",
+            "timing": {
+              "wns_ns": -5.714,
+              "whs_ns": 0.034,
+              "tns_ns": -9080.661,
+              "ths_ns": 0.0,
+              "all_paths_met": false
+            },
+            "utilization": {
+              "lut_used": 26835,
+              "lut_available": 63400,
+              "ff_used": 6973,
+              "ff_available": 126800,
+              "bram_36k_used": 21,
+              "bram_36k_available": 135,
+              "dsp_used": 192,
+              "dsp_available": 240
+            },
+            "route_status": "clean",
+            "report_files": [
+              "build/reports/current_rtl_mb4_timing_summary.rpt",
+              "build/reports/current_rtl_mb4_utilization.rpt",
+              "build/reports/current_rtl_mb4_route_status.rpt",
+              "build/reports/current_rtl_mb4.bit"
+            ]
+          }
+        ],
+        "superseded_by": {
+          "artifact": "bench/results/timing_closure_sweep.json",
+          "report_prefix": "requant_fmax_mb4_clk10_pd3",
+          "frequency_mhz": 100.0
+        }
+      }
+    },
+    {
+      "id": "silicon_p0_open",
+      "label": "On-board FPGA execution",
+      "tier": "silicon",
+      "source_artifact": null,
+      "status": "open",
+      "detail": "P0 \u2014 board arrives ~mid-July; no hardware-executed tier numbers in repo.",
+      "raw": null
+    }
+  ]
+}
