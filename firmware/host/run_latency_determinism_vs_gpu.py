@@ -968,11 +968,21 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         )
         ml = comparison["median_latency_loss"]
         if ml.get("populated"):
-            print(
-                f"[vs_gpu] median_latency_loss_factor="
-                f"{ml['median_latency_loss_factor']:.3f}x "
-                f"(FPGA slower by {ml['median_latency_loss_ns']:.3f} ns)"
-            )
+            factor = float(ml["median_latency_loss_factor"])
+            delta = float(ml["median_latency_loss_ns"])
+            if factor >= 1.0:
+                print(
+                    f"[vs_gpu] median_latency_loss_factor={factor:.3f}x "
+                    f"(FPGA median exceeds GPU p50 by {delta:.3f} ns); "
+                    "claim remains bounded jitter — not FPGA speedup"
+                )
+            else:
+                print(
+                    f"[vs_gpu] median_latency_loss_factor={factor:.3f}x "
+                    f"(FPGA p50 numerically {abs(delta):.3f} ns below GPU p50); "
+                    "DO NOT claim FPGA is faster — scopes differ "
+                    "(iverilog RTL@100MHz conversion vs live GPU kernel events)"
+                )
     else:
         print(f"[vs_gpu] GPU arm skipped: {gpu_arm.get('reason')}")
     if plot_path:

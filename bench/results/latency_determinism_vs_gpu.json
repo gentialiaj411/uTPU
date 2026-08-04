@@ -7,18 +7,37 @@
       "on-board silicon latency (this is iverilog RTL sim + clock conversion)",
       "dtype-matched numerics unless both arms share dtype and say so"
     ],
-    "dtype_mismatch_note": "FPGA INT4/INT8 RTL datapath vs GPU measured dtype; see per-arm dtype fields.",
+    "dtype_mismatch_note": "GPU NVRTC blocked-FC INT4 path is dtype-matched to the FPGA/uTPU INT4 RTL datapath. Comparison is still sim-RTL cycles@100MHz vs GPU kernel events \u2014 not on-board silicon.",
     "fpga_jitter_cycles": 0,
     "fpga_jitter_ns": 0.0,
     "fpga_rtl_cycle_variance": 0,
-    "gpu_tail": null,
+    "fpga_tail_from_cycle_conversion": {
+      "clock_mhz": 100.0,
+      "conversion": "wall_ns = cycles * 10  # at 100 MHz",
+      "max_ns": 27840.0,
+      "p50_ns": 27840.0,
+      "p90_ns": 27840.0,
+      "p99_9_ns": 27840.0,
+      "p99_ns": 27840.0,
+      "stddev_ns": 0.0
+    },
+    "gpu_tail": {
+      "max_ns": 594300.014199689,
+      "p50_ns": 17699.989257380366,
+      "p90_ns": 26699.999580159783,
+      "p99_9_ns": 196007.5081442498,
+      "p99_ns": 60106.020828243476,
+      "stddev_ns": 13910.000005235175
+    },
     "median_latency_loss": {
       "definition": "median_latency_loss_factor = fpga_p50_ns / gpu_p50_ns; median_latency_loss_ns = fpga_p50_ns - gpu_p50_ns. Values >1 mean FPGA median is slower. This artifact does NOT claim FPGA is faster.",
       "fpga_p50_ns": 27840.0,
-      "gpu_p50_ns": null,
-      "median_latency_loss_factor": null,
-      "median_latency_loss_ns": null,
-      "populated": false
+      "gpu_p50_ns": 17699.989257380366,
+      "median_latency_loss_factor": 1.572882310557988,
+      "median_latency_loss_ns": 10140.010742619634,
+      "populated": true,
+      "reason": "Both arms populated. Factor>1 means FPGA median wall-clock (RTL cycles @ 100 MHz) exceeds GPU p50 kernel time \u2014 reported as median-latency loss, not as an FPGA speedup claim.",
+      "speedup_claim_forbidden": true
     }
   },
   "fpga_arm": {
@@ -35,6 +54,7 @@
     "iverilog_version": "Icarus Verilog version 12.0 (devel) (s20150603-1539-g2693dd32b)",
     "jitter_cycles": 0,
     "jitter_ns": 0.0,
+    "max_ns": 27840.0,
     "n_inputs_measured": 37,
     "on_silicon": {
       "matches_static": null,
@@ -42,6 +62,10 @@
       "onchip_counter_cycles": null,
       "status": "rtl_sim"
     },
+    "p50_ns": 27840.0,
+    "p90_ns": 27840.0,
+    "p99_9_ns": 27840.0,
+    "p99_ns": 27840.0,
     "rtl_cycle_variance": 0,
     "rtl_cycles_invariant": true,
     "rtl_cycles_observed": [
@@ -136,6 +160,7 @@
       "stddev_ns": 0.0
     },
     "status": "ok",
+    "stddev_ns": 0.0,
     "wall_clock_block": {
       "clock_mhz": 100.0,
       "clock_source": "bench/results/timing_closure_sweep.json::requant_fmax_mb4_clk10_pd3 (clock_period_ns=10.0, frequency_mhz_constraint=100.0, status=closed)",
@@ -226,25 +251,91 @@
       "stddev_ns": 0.0
     }
   },
-  "generated_at_utc": "2026-08-04T14:43:03.183114+00:00",
+  "generated_at_utc": "2026-08-04T14:57:06.332570+00:00",
   "git_sha": "47865fa144e2ae73457c533fbe1fccad4094a041",
   "gpu_arm": {
-    "backend": null,
-    "dtype": null,
+    "attempts": [
+      {
+        "backend_attempt": "nvrtc",
+        "dtype_fallback_reason": null,
+        "reason": null,
+        "status": "ok"
+      }
+    ],
+    "backend": "cuda_blocked_fc_nvrtc",
+    "bit_exact_match_vs_numpy_reference": true,
+    "dtype": {
+      "W": "int8_int4_packed",
+      "accum": "int32",
+      "out": "int4_quantised",
+      "x": "int8_int4_packed"
+    },
     "dtype_fallback_reason": null,
+    "dtype_match_note": "GPU NVRTC blocked-FC INT4 path is dtype-matched to the FPGA/uTPU INT4 RTL datapath. Comparison is still sim-RTL cycles@100MHz vs GPU kernel events \u2014 not on-board silicon.",
+    "host_pid": 30296,
     "iters_requested": 10000,
-    "reason": "cuda-python import failed: No module named 'cuda'; torch.cuda.is_available()=False on native Windows host; WSL probe: WSL VM service unavailable (HCS_E_SERVICE_NOT_AVAILABLE / feature not installed)",
-    "samples_ns_count": 0,
-    "samples_ns_head": [],
-    "stats": null,
-    "status": "skipped_no_cuda",
-    "timing_protocol": "cuda_events_per_iter + single torch.cuda.synchronize after loop (same brackets as run_cublas_baseline.py / _cublas_baseline_torch_subprocess._time_kernel_with_events)",
-    "wsl_probe": {
-      "attempted": true,
-      "available": false,
-      "raw_output": "The operation could not be started because a required feature is not installed. Error code: Wsl/Service/CreateInstance/CreateVm/HCS/HCS_E_SERVICE_NOT_AVAILABLE",
-      "reason": "WSL VM service unavailable (HCS_E_SERVICE_NOT_AVAILABLE / feature not installed)"
-    }
+    "reason": null,
+    "samples_ns_count": 10000,
+    "samples_ns_head": [
+      14999.997802078724,
+      15400.000847876072,
+      16699.981642886996,
+      14399.993233382702,
+      14599.994756281376,
+      14599.994756281376,
+      14599.994756281376,
+      14599.994756281376,
+      18699.996871873736,
+      15099.998563528061,
+      14999.997802078724,
+      14899.997040629387,
+      14099.99094903469,
+      14300.021575763822,
+      13900.018529966474,
+      14199.991710484028,
+      14799.99627918005,
+      14400.022337213159,
+      14599.994756281376,
+      13999.990187585354,
+      15599.97326694429,
+      15500.001609325409,
+      14399.993233382702,
+      14099.99094903469,
+      14799.99627918005,
+      15900.004655122757,
+      14099.99094903469,
+      14299.992471933365,
+      13999.990187585354,
+      14699.995517730713,
+      14599.994756281376,
+      14300.021575763822
+    ],
+    "samples_path": "C:/Users/bhask/Documents/PROJECTS/uTPU/bench/results/_latency_vs_gpu_cuda_subprocess.samples.json",
+    "shape": {
+      "K": 32,
+      "M": 32,
+      "N": 1
+    },
+    "stats": {
+      "max_ns": 594300.014199689,
+      "mean_ns": 20458.689890801907,
+      "min_ns": 13299.984857439995,
+      "n": 10000,
+      "p50_ns": 17699.989257380366,
+      "p90_ns": 26699.999580159783,
+      "p99_9_ns": 196007.5081442498,
+      "p99_ns": 60106.020828243476,
+      "stddev_ns": 13910.000005235175
+    },
+    "status": "ok",
+    "subprocess": {
+      "cuda_path": "C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v13.2",
+      "exit_code": 0,
+      "script": "C:/Users/bhask/Documents/PROJECTS/uTPU/firmware/host/_latency_vs_gpu_cuda_subprocess.py",
+      "stdout_tail": "[latency_vs_gpu_cuda_subprocess] status=ok backend=cuda_blocked_fc_nvrtc -> C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\bench\\results\\_latency_vs_gpu_cuda_subprocess.json"
+    },
+    "timing_protocol": "CUDABlockedFCExecutor kernel_time_ms via cuda-python cuEventElapsedTime around cuLaunchKernel; warmup=50, iters=10000",
+    "warmup": 50
   },
   "host": {
     "machine": "AMD64",
@@ -269,5 +360,5 @@
     "M": 32,
     "N": 1
   },
-  "status": "fpga_ok_gpu_skipped_no_cuda"
+  "status": "ok"
 }

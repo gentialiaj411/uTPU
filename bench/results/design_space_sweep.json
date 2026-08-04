@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-04T14:56:38.026899+00:00",
+  "generated_at_utc": "2026-08-04T14:56:58.795078+00:00",
   "git_sha": "47865fa",
   "part": "xc7a100tcsg324-1",
   "fixed_generics": {
@@ -25,6 +25,26 @@
     "note": "Pareto uses measured per-layer accuracies 97.33% (INT8) vs 58.32% (INT4) from real_model_accelerator.json; not per-channel INT4."
   },
   "points": [
+    {
+      "report_prefix": "dss_n8_cdw8_mb16_clk20_pd3_prog65536",
+      "ARRAY_SIZE": 8,
+      "COMPUTE_DATA_WIDTH": 8,
+      "ACCUMULATOR_DATA_WIDTH": 32,
+      "MAX_BATCH_COUNT": 16,
+      "clock_period_ns": 20.0,
+      "frequency_mhz_constraint": 50.0,
+      "PROG_DEPTH": 65536,
+      "BUFFER_SIZE": 4096,
+      "QUANTIZER_PIPE_DEPTH": 3,
+      "QUANTIZER_LANES": 8,
+      "RELU_LANES": 8,
+      "EXT_ADDR_EN": 1,
+      "status": "missing_reports",
+      "failure_reason": "missing_reports",
+      "peak_gops": null,
+      "achieved_gops": null,
+      "occupancy_applied": 0.20580551523947752
+    },
     {
       "report_prefix": "dss_n8_cdw8_mb48_clk10_pd3_prog65536",
       "ARRAY_SIZE": 8,
@@ -198,16 +218,18 @@
   },
   "int4_pareto_point": null,
   "summary": {
-    "n_points": 4,
+    "n_points": 5,
     "n_closed": 1,
     "n_failed": 0,
-    "n_missing_or_skipped": 3,
+    "n_missing_or_skipped": 4,
     "reused_report_prefixes": [
       "prog_depth_pd65536_buf4096_mb48_clk20_pd3"
     ],
     "vivado_attempted_this_run": [
       "dss_n8_cdw8_mb48_clk15_pd3_prog65536",
-      "dss_n8_cdw8_mb48_clk12_pd3_prog65536"
+      "dss_n8_cdw8_mb48_clk12_pd3_prog65536",
+      "dss_n8_cdw8_mb48_clk10_pd3_prog65536",
+      "dss_n8_cdw8_mb16_clk20_pd3_prog65536"
     ],
     "skipped": []
   },

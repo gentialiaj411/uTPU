@@ -81,10 +81,16 @@ def accum_width(cdw: int) -> int:
     return 32 if int(cdw) >= 8 else 16
 
 
+def period_tag(period: float) -> str:
+    f = float(period)
+    if f.is_integer():
+        return str(int(f))
+    return str(f).replace(".", "p")
+
+
 def report_prefix(n: int, cdw: int, mb: int, period: float) -> str:
     # Prefer canonical dss_ prefix; callers resolve aliases separately.
-    p = int(period) if float(period).is_integer() else period
-    return f"dss_n{n}_cdw{cdw}_mb{mb}_clk{p}_pd{PIPE_DEPTH}_prog{PROG_DEPTH}"
+    return f"dss_n{n}_cdw{cdw}_mb{mb}_clk{period_tag(period)}_pd{PIPE_DEPTH}_prog{PROG_DEPTH}"
 
 
 def point_key(
@@ -441,13 +447,11 @@ def run_vivado(
         "QUANTIZER_PIPE_DEPTH",
         str(PIPE_DEPTH),
         "clock_period",
-        str(period),
+        period_tag(period),
         "report_prefix",
         prefix,
         "jobs",
         str(jobs),
-        "to_step",
-        "route_design",
     ]
     print("RUN", prefix, flush=True)
     log_path = log_dir / f"{prefix}.vlog"

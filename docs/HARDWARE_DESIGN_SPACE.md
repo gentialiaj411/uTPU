@@ -1,6 +1,6 @@
 # Hardware design space (Artix A7-100T)
 
-_Generated 2026-08-04T14:56:38.429323+00:00 · git `47865fa`_
+_Generated 2026-08-04T14:56:59.162408+00:00 · git `47865fa`_
 
 ## Scope
 
@@ -38,6 +38,8 @@ Highest util resource at shipping close: **lut** (not oversubscribed).
 
 | N | CDW | MB | period_ns | status | WNS | Fmax_MHz | LUT | DSP | BRAM | peak_GOP/s | achieved_GOP/s | binder |
 |---:|---:|---:|---:|---|---:|---:|---|---|---|---:|---:|---|
+| 8 | 8 | 16 | 12.0 | missing_reports | None | None | None/None | None/None | None/None | None | None | missing_reports |
+| 8 | 8 | 16 | 10.0 | missing_reports | None | None | None/None | None/None | None/None | None | None | missing_reports |
 | 8 | 8 | 48 | 20.0 | closed | 2.789 | 58.10237638719424 | 41631/63400 | 72/240 | 49/135 | 7.437104177560863 | 1.530597057152584 | lut |
 | 8 | 8 | 48 | 15.0 | missing_reports | None | None | None/None | None/None | None/None | None | None | missing_reports |
 | 8 | 8 | 48 | 12.0 | missing_reports | None | None | None/None | None/None | None/None | None | None | missing_reports |
@@ -47,7 +49,7 @@ Highest util resource at shipping close: **lut** (not oversubscribed).
 
 - closed: **1**
 - failed: **0**
-- missing/skipped: **3**
+- missing/skipped: **5**
 
 ## Artifacts
 
