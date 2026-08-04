@@ -17,8 +17,9 @@ Emits:
   docs/design_space_roofline.png
   docs/HARDWARE_DESIGN_SPACE.md
 
-Peak GOP/s  = ARRAY_SIZE^2 * 2 * Fmax_GHz
-Achieved    = peak * occupancy  (NEVER equal to peak; occupancy column separate)
+Peak/achieved GOP/s are computed ONCE per (ARRAY_SIZE, CDW, MAX_BATCH_COUNT)
+from that config's tightest closing period — not once per period row.
+Per-period rows remain timing evidence (period, WNS, util, margin_class).
 """
 from __future__ import annotations
 
@@ -147,10 +148,16 @@ def load_occupancy() -> Dict[str, Any]:
                 occ = float(share)
         if occ is None:
             raise ValueError("steady_state_attribution.json present but no occupancy field")
+        ss = data.get("steady_state") or {}
+        note = (
+            ss.get("occupancy_source")
+            or data.get("standing_rule_5")
+            or "Occupancy from steady_state_attribution.json (may be cold proxy)."
+        )
         return {
             "occupancy": float(occ),
             "occupancy_source": "steady_state_attribution.json",
-            "occupancy_note": "Measured steady-state compute share / occupancy.",
+            "occupancy_note": str(note),
             "artifact": str(steady.relative_to(REPO)).replace("\\", "/"),
         }
 
@@ -304,31 +311,140 @@ def infer_failure(prefix: str, point: Dict[str, Any]) -> Dict[str, Any]:
     return point
 
 
+FMAX_DERIVATION = {
+    "formula": "achieved_fmax_mhz_from_period_minus_wns = 1000 / (clock_period_ns - WNS_ns)",
+    "note": (
+        "This understates capability at loose constraints: Vivado stops optimizing "
+        "once the applied period is met, so loose-period (period−WNS) Fmax values "
+        "are floors, not measurements of the design's true speed. Throughput "
+        "(peak/achieved GOP/s) is therefore taken from each configuration's "
+        "tightest closing period only."
+    ),
+}
+
+
+def margin_class_for_wns(wns: Optional[float]) -> Optional[str]:
+    if wns is None:
+        return None
+    w = float(wns)
+    if w > 1.0:
+        return "comfortable"  # >1 ns
+    if w >= 0.2:
+        return "thin"  # 0.2–1 ns
+    return "marginal"  # <0.2 ns (includes 12 ps closes)
+
+
 def attach_throughput(point: Dict[str, Any], occupancy: float) -> Dict[str, Any]:
-    n = int(point.get("ARRAY_SIZE") or 0)
+    """Annotate timing evidence on a period row. Do NOT attach roofline GOP/s here."""
     status = point.get("status")
-    fmax = None
+    period = float(point.get("clock_period_ns") or 0.0)
+    wns = (point.get("timing") or {}).get("wns_ns")
     if status == "closed":
-        fmax = point.get("achieved_fmax_mhz_from_period_minus_wns")
-        if fmax is None:
-            period = float(point.get("clock_period_ns") or 0.0)
-            wns = (point.get("timing") or {}).get("wns_ns")
+        if point.get("achieved_fmax_mhz_from_period_minus_wns") is None:
             if period and wns is not None and (period - float(wns)) > 0:
-                fmax = 1000.0 / (period - float(wns))
-                point["achieved_fmax_mhz_from_period_minus_wns"] = fmax
+                point["achieved_fmax_mhz_from_period_minus_wns"] = 1000.0 / (
+                    period - float(wns)
+                )
+        point["margin_class"] = margin_class_for_wns(
+            None if wns is None else float(wns)
+        )
+        point["fmax_derivation"] = dict(FMAX_DERIVATION)
+    # Period rows are timing evidence only — throughput lives in throughput_by_config.
     point["peak_gops"] = None
     point["achieved_gops"] = None
     point["occupancy_applied"] = float(occupancy)
-    if fmax is not None and n > 0:
-        peak = (n * n) * 2.0 * (float(fmax) / 1000.0)
-        point["peak_gops"] = peak
-        point["achieved_gops"] = peak * float(occupancy)
-        point["throughput_formulas"] = {
-            "peak_gops": "ARRAY_SIZE^2 * 2 * Fmax_GHz",
-            "achieved_gops": "peak_gops * occupancy",
-            "note": "peak and achieved are separate columns; never report peak as achieved",
-        }
+    point["throughput_note"] = (
+        "Per-period rows are timing evidence only; plotted GOP/s come from "
+        "throughput_by_config (one entry per ARRAY_SIZE×CDW×MAX_BATCH_COUNT, "
+        "tightest closing period)."
+    )
     return point
+
+
+def config_key(p: Dict[str, Any]) -> Tuple[int, int, int]:
+    return (
+        int(p.get("ARRAY_SIZE") or 0),
+        int(p.get("COMPUTE_DATA_WIDTH") or 0),
+        int(p.get("MAX_BATCH_COUNT") or 0),
+    )
+
+
+def build_throughput_by_config(
+    points: List[Dict[str, Any]], occupancy: float
+) -> List[Dict[str, Any]]:
+    """One throughput record per hardware config from its tightest closing period."""
+    best: Dict[Tuple[int, int, int], Dict[str, Any]] = {}
+    for p in points:
+        if p.get("status") != "closed":
+            continue
+        key = config_key(p)
+        period = float(p.get("clock_period_ns") or 0.0)
+        prev = best.get(key)
+        if prev is None or period < float(prev.get("clock_period_ns") or 1e9):
+            best[key] = p
+    rows: List[Dict[str, Any]] = []
+    for key in sorted(best.keys()):
+        p = best[key]
+        n, cdw, mb = key
+        fmax = p.get("achieved_fmax_mhz_from_period_minus_wns")
+        wns = (p.get("timing") or {}).get("wns_ns")
+        period = float(p.get("clock_period_ns") or 0.0)
+        if fmax is None and period and wns is not None and (period - float(wns)) > 0:
+            fmax = 1000.0 / (period - float(wns))
+        peak = None
+        achieved = None
+        if fmax is not None and n > 0:
+            peak = (n * n) * 2.0 * (float(fmax) / 1000.0)
+            achieved = peak * float(occupancy)
+        rows.append(
+            {
+                "ARRAY_SIZE": n,
+                "COMPUTE_DATA_WIDTH": cdw,
+                "MAX_BATCH_COUNT": mb,
+                "source_clock_period_ns": period,
+                "source_frequency_mhz_constraint": 1000.0 / period if period else None,
+                "source_report_prefix": p.get("report_prefix"),
+                "source_wns_ns": wns,
+                "margin_class": margin_class_for_wns(
+                    None if wns is None else float(wns)
+                ),
+                "achieved_fmax_mhz_from_period_minus_wns": fmax,
+                "fmax_derivation": dict(FMAX_DERIVATION),
+                "peak_gops": peak,
+                "achieved_gops": achieved,
+                "occupancy_applied": float(occupancy),
+                "throughput_formulas": {
+                    "peak_gops": "ARRAY_SIZE^2 * 2 * Fmax_GHz",
+                    "achieved_gops": "peak_gops * occupancy",
+                    "selection": "tightest closing clock_period_ns for this config",
+                    "note": "peak and achieved are separate; never report peak as achieved",
+                },
+            }
+        )
+    return rows
+
+
+def point_was_attempted(p: Dict[str, Any]) -> bool:
+    """True if this cell has real evidence (not a never-tried placeholder)."""
+    st = str(p.get("status") or "")
+    if st == "closed":
+        return True
+    if st.startswith("failed_"):
+        return True
+    if st == "skipped":
+        return True
+    # missing_reports / unknown = not attempted (or incomplete harvest)
+    return False
+
+
+def grid_cell_dict(n: int, cdw: int, mb: int, period: float) -> Dict[str, Any]:
+    return {
+        "ARRAY_SIZE": int(n),
+        "COMPUTE_DATA_WIDTH": int(cdw),
+        "MAX_BATCH_COUNT": int(mb),
+        "clock_period_ns": float(period),
+        "canonical_prefix": report_prefix(n, cdw, mb, period),
+    }
 
 
 def collect_point(
@@ -454,8 +570,9 @@ def run_vivado(
         str(jobs),
     ]
     print("RUN", prefix, flush=True)
-    log_path = log_dir / f"{prefix}.vlog"
-    with open(log_path, "w", encoding="utf-8", errors="replace") as logf:
+    # Do not redirect stdout onto the same path as vivado -log (Windows file lock).
+    tee_path = log_dir / f"{prefix}.stdout.log"
+    with open(tee_path, "w", encoding="utf-8", errors="replace") as logf:
         return subprocess.call(args, cwd=str(REPO), stdout=logf, stderr=subprocess.STDOUT)
 
 
@@ -562,7 +679,7 @@ def should_skip_tighter(
 
 
 def choose_shipping_point(points: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-    """Prefer N=8 INT8 mb48 @20ns closed; else best closed N=8 INT8 by Fmax*occ."""
+    """Prefer N=8 INT8 mb48 @12 ns (thin but non-marginal); else closed N=8 INT8 @12; else best."""
     preferred = [
         p
         for p in points
@@ -570,39 +687,111 @@ def choose_shipping_point(points: List[Dict[str, Any]]) -> Optional[Dict[str, An
         and int(p.get("ARRAY_SIZE") or 0) == 8
         and int(p.get("COMPUTE_DATA_WIDTH") or 0) == 8
         and int(p.get("MAX_BATCH_COUNT") or 0) == 48
-        and abs(float(p.get("clock_period_ns") or 0) - 20.0) < 1e-9
+        and abs(float(p.get("clock_period_ns") or 0) - 12.0) < 1e-9
     ]
     if preferred:
         return preferred[0]
+    # Fall back: any closed mb48 N=8 INT8 at 12 ns already checked; try any @12.
+    at12 = [
+        p
+        for p in points
+        if p.get("status") == "closed"
+        and int(p.get("ARRAY_SIZE") or 0) == 8
+        and int(p.get("COMPUTE_DATA_WIDTH") or 0) == 8
+        and abs(float(p.get("clock_period_ns") or 0) - 12.0) < 1e-9
+    ]
+    if at12:
+        return max(at12, key=lambda p: int(p.get("MAX_BATCH_COUNT") or 0))
     closed_ship = [
         p
         for p in points
         if p.get("status") == "closed"
         and int(p.get("ARRAY_SIZE") or 0) == 8
         and int(p.get("COMPUTE_DATA_WIDTH") or 0) == 8
+        and int(p.get("MAX_BATCH_COUNT") or 0) == 48
     ]
-    if not closed_ship:
-        closed_ship = [p for p in points if p.get("status") == "closed"]
-    if not closed_ship:
+    if closed_ship:
+        # Prefer larger period among remaining (more margin) if 12 ns absent.
+        return max(closed_ship, key=lambda p: float(p.get("clock_period_ns") or 0.0))
+    closed_any = [p for p in points if p.get("status") == "closed"]
+    return closed_any[0] if closed_any else None
+
+
+def choose_demonstrated_ceiling(points: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """100 MHz / 10 ns close for shipping config, with WNS required inline for any claim."""
+    hits = [
+        p
+        for p in points
+        if p.get("status") == "closed"
+        and int(p.get("ARRAY_SIZE") or 0) == 8
+        and int(p.get("COMPUTE_DATA_WIDTH") or 0) == 8
+        and int(p.get("MAX_BATCH_COUNT") or 0) == 48
+        and abs(float(p.get("clock_period_ns") or 0) - 10.0) < 1e-9
+    ]
+    if not hits:
         return None
-    return max(closed_ship, key=lambda p: float(p.get("achieved_gops") or 0.0))
+    p = hits[0]
+    wns = (p.get("timing") or {}).get("wns_ns")
+    return {
+        "label": "demonstrated_100mhz_ceiling",
+        "ARRAY_SIZE": 8,
+        "COMPUTE_DATA_WIDTH": 8,
+        "MAX_BATCH_COUNT": 48,
+        "clock_period_ns": 10.0,
+        "frequency_mhz_constraint": 100.0,
+        "report_prefix": p.get("report_prefix"),
+        "wns_ns": wns,
+        "margin_class": margin_class_for_wns(None if wns is None else float(wns)),
+        "achieved_fmax_mhz_from_period_minus_wns": p.get(
+            "achieved_fmax_mhz_from_period_minus_wns"
+        ),
+        "claim_rule": (
+            "Any claim citing 100 MHz must carry the WNS value inline "
+            f"(WNS={wns} ns, margin_class="
+            f"{margin_class_for_wns(None if wns is None else float(wns))}). "
+            "Shipping default remains 12 ns / ~83 MHz."
+        ),
+    }
 
 
-def choose_int4_pareto(points: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+def choose_int4_pareto(
+    points: List[Dict[str, Any]], throughput_by_config: List[Dict[str, Any]]
+) -> Optional[Dict[str, Any]]:
+    # Prefer throughput row for 16x16 INT4; else any closed INT4 config.
+    for row in throughput_by_config:
+        if int(row.get("ARRAY_SIZE") or 0) == 16 and int(row.get("COMPUTE_DATA_WIDTH") or 0) == 4:
+            return row
+    for row in throughput_by_config:
+        if int(row.get("COMPUTE_DATA_WIDTH") or 0) == 4:
+            return row
     candidates = [
         p
         for p in points
         if p.get("status") == "closed" and int(p.get("COMPUTE_DATA_WIDTH") or 0) == 4
     ]
-    # Prefer 16x16 INT4 if present.
     n16 = [p for p in candidates if int(p.get("ARRAY_SIZE") or 0) == 16]
     pool = n16 or candidates
-    if not pool:
+    return pool[0] if pool else None
+
+
+def throughput_for_point(
+    p: Optional[Dict[str, Any]], throughput_by_config: List[Dict[str, Any]]
+) -> Optional[Dict[str, Any]]:
+    if not p:
         return None
-    return max(pool, key=lambda p: float(p.get("achieved_gops") or 0.0))
+    key = config_key(p)
+    for row in throughput_by_config:
+        if config_key(row) == key:
+            return row
+    return None
 
 
-def write_plot(points: List[Dict[str, Any]], shipping: Optional[Dict[str, Any]], int4: Optional[Dict[str, Any]]) -> None:
+def write_plot(
+    points: List[Dict[str, Any]],
+    shipping: Optional[Dict[str, Any]],
+    int4: Optional[Dict[str, Any]],
+    throughput_by_config: List[Dict[str, Any]],
+) -> None:
     try:
         import matplotlib
 
@@ -612,21 +801,27 @@ def write_plot(points: List[Dict[str, Any]], shipping: Optional[Dict[str, Any]],
         print("WARN: matplotlib unavailable; skipping plot", flush=True)
         return
 
-    closed = [p for p in points if p.get("status") == "closed" and p.get("peak_gops") is not None]
+    closed = [p for p in points if p.get("status") == "closed"]
     failed = [p for p in points if str(p.get("status") or "").startswith("failed_")]
+    plot_rows = [r for r in throughput_by_config if r.get("peak_gops") is not None]
 
     fig, axes = plt.subplots(1, 2, figsize=(11.5, 4.8))
 
     ax = axes[0]
-    for p in closed:
-        n = int(p["ARRAY_SIZE"])
-        cdw = int(p["COMPUTE_DATA_WIDTH"])
-        color = { (8, 8): "#1f77b4", (8, 4): "#ff7f0e", (4, 8): "#2ca02c", (4, 4): "#9467bd", (16, 4): "#d62728" }.get(
-            (n, cdw), "#7f7f7f"
-        )
+    for r in plot_rows:
+        n = int(r["ARRAY_SIZE"])
+        cdw = int(r["COMPUTE_DATA_WIDTH"])
+        color = {
+            (8, 8): "#1f77b4",
+            (8, 4): "#ff7f0e",
+            (4, 8): "#2ca02c",
+            (4, 4): "#9467bd",
+            (16, 4): "#d62728",
+        }.get((n, cdw), "#7f7f7f")
+        fmax = float(r["achieved_fmax_mhz_from_period_minus_wns"])
         ax.scatter(
-            float(p["achieved_fmax_mhz_from_period_minus_wns"]),
-            float(p["peak_gops"]),
+            fmax,
+            float(r["peak_gops"]),
             c=color,
             marker="o",
             s=42,
@@ -636,40 +831,46 @@ def write_plot(points: List[Dict[str, Any]], shipping: Optional[Dict[str, Any]],
             label=f"N={n} INT{cdw} peak",
         )
         ax.scatter(
-            float(p["achieved_fmax_mhz_from_period_minus_wns"]),
-            float(p["achieved_gops"]),
+            fmax,
+            float(r["achieved_gops"]),
             c=color,
             marker="x",
             s=36,
             alpha=0.9,
             label=f"N={n} INT{cdw} achieved",
         )
-    # Deduplicate legend entries
+        ax.annotate(
+            f"mb{r['MAX_BATCH_COUNT']}@{r['source_clock_period_ns']}ns",
+            (fmax, float(r["peak_gops"])),
+            textcoords="offset points",
+            xytext=(4, 4),
+            fontsize=6,
+        )
     handles, labels = ax.get_legend_handles_labels()
     uniq = dict(zip(labels, handles))
     ax.legend(uniq.values(), uniq.keys(), fontsize=7, loc="best")
-    ax.set_xlabel("Achieved Fmax (MHz)")
+    ax.set_xlabel("Achieved Fmax from tightest close (MHz)")
     ax.set_ylabel("GOP/s")
-    ax.set_title("Roofline: peak (o) vs achieved (x)")
+    ax.set_title("Roofline: one point per config (tightest close)")
     ax.grid(True, alpha=0.3)
 
     ax2 = axes[1]
-    # Accuracy vs achieved throughput Pareto
     acc = load_accuracy_pair()
     xs, ys, labels = [], [], []
-    if shipping and shipping.get("achieved_gops") is not None:
-        xs.append(float(shipping["achieved_gops"]))
+    ship_tp = throughput_for_point(shipping, throughput_by_config)
+    if ship_tp and ship_tp.get("achieved_gops") is not None:
+        xs.append(float(ship_tp["achieved_gops"]))
         ys.append(acc["int8_per_layer_accuracy"] * 100.0)
         labels.append(
-            f"ship N={shipping['ARRAY_SIZE']} INT{shipping['COMPUTE_DATA_WIDTH']} "
-            f"mb{shipping['MAX_BATCH_COUNT']} @{shipping['clock_period_ns']}ns"
+            f"ship N={ship_tp['ARRAY_SIZE']} INT{ship_tp['COMPUTE_DATA_WIDTH']} "
+            f"mb{ship_tp['MAX_BATCH_COUNT']} @{ship_tp['source_clock_period_ns']}ns"
         )
     if int4 and int4.get("achieved_gops") is not None:
         xs.append(float(int4["achieved_gops"]))
         ys.append(acc["int4_per_layer_accuracy"] * 100.0)
         labels.append(
             f"INT4 N={int4['ARRAY_SIZE']} mb{int4['MAX_BATCH_COUNT']} "
-            f"@{int4['clock_period_ns']}ns"
+            f"@{int4.get('source_clock_period_ns', int4.get('clock_period_ns'))}ns"
         )
     if xs:
         ax2.plot(xs, ys, "k--", alpha=0.4, linewidth=1)
@@ -677,16 +878,22 @@ def write_plot(points: List[Dict[str, Any]], shipping: Optional[Dict[str, Any]],
             ax2.scatter([x], [y], s=80, zorder=3)
             ax2.annotate(lab, (x, y), textcoords="offset points", xytext=(6, 6), fontsize=7)
     else:
-        ax2.text(0.5, 0.5, "No closed Pareto points yet", ha="center", va="center", transform=ax2.transAxes)
+        ax2.text(
+            0.5,
+            0.5,
+            "No closed Pareto points yet",
+            ha="center",
+            va="center",
+            transform=ax2.transAxes,
+        )
     ax2.set_xlabel("Achieved GOP/s (peak × occupancy)")
     ax2.set_ylabel("Per-layer accuracy (%)")
     ax2.set_title("Accuracy–throughput Pareto")
     ax2.grid(True, alpha=0.3)
 
-    n_closed = len(closed)
-    n_failed = len(failed)
     fig.suptitle(
-        f"uTPU design-space @ PROG_DEPTH={PROG_DEPTH}  closed={n_closed} failed={n_failed}",
+        f"uTPU design-space @ PROG_DEPTH={PROG_DEPTH}  "
+        f"closed={len(closed)} failed={len(failed)} configs={len(plot_rows)}",
         fontsize=11,
     )
     fig.tight_layout()
@@ -704,29 +911,44 @@ def write_markdown(
     occupancy_meta: Dict[str, Any],
     accuracy: Dict[str, Any],
     skipped: List[Dict[str, Any]],
+    throughput_by_config: List[Dict[str, Any]],
+    ceiling: Optional[Dict[str, Any]],
+    not_yet_attempted: List[Dict[str, Any]],
+    sweep_status: str,
 ) -> None:
     closed = [p for p in points if p.get("status") == "closed"]
     failed = [p for p in points if str(p.get("status") or "").startswith("failed_")]
-    missing = [p for p in points if p.get("status") in ("missing_reports", "skipped")]
+    ship_tp = throughput_for_point(shipping, throughput_by_config)
 
-    def row(p: Dict[str, Any]) -> str:
+    def timing_row(p: Dict[str, Any]) -> str:
         util = p.get("utilization") or {}
         tim = p.get("timing") or {}
         return (
             f"| {p.get('ARRAY_SIZE')} | {p.get('COMPUTE_DATA_WIDTH')} | {p.get('MAX_BATCH_COUNT')} | "
             f"{p.get('clock_period_ns')} | {p.get('status')} | {tim.get('wns_ns')} | "
+            f"{p.get('margin_class')} | "
             f"{p.get('achieved_fmax_mhz_from_period_minus_wns')} | "
             f"{util.get('lut_used')}/{util.get('lut_available')} | "
             f"{util.get('dsp_used')}/{util.get('dsp_available')} | "
             f"{util.get('bram_36k_used')}/{util.get('bram_36k_available')} | "
-            f"{p.get('peak_gops')} | {p.get('achieved_gops')} | "
             f"{p.get('binding_resource') or (p.get('failure_reason') or '')} |"
+        )
+
+    def tp_row(r: Dict[str, Any]) -> str:
+        return (
+            f"| {r.get('ARRAY_SIZE')} | {r.get('COMPUTE_DATA_WIDTH')} | {r.get('MAX_BATCH_COUNT')} | "
+            f"{r.get('source_clock_period_ns')} | {r.get('source_wns_ns')} | {r.get('margin_class')} | "
+            f"{r.get('achieved_fmax_mhz_from_period_minus_wns')} | "
+            f"{r.get('peak_gops')} | {r.get('achieved_gops')} |"
         )
 
     lines: List[str] = []
     lines.append("# Hardware design space (Artix A7-100T)")
     lines.append("")
-    lines.append(f"_Generated {datetime.now(timezone.utc).isoformat()} · git `{git_sha()}`_")
+    lines.append(
+        f"_Generated {datetime.now(timezone.utc).isoformat()} · git `{git_sha()}` · "
+        f"sweep_status=`{sweep_status}`_"
+    )
     lines.append("")
     lines.append("## Scope")
     lines.append("")
@@ -747,16 +969,29 @@ def write_markdown(
     lines.append(f"- **occupancy** = `{occupancy_meta['occupancy']:.6f}`")
     lines.append(f"- **occupancy_source** = {occupancy_meta['occupancy_source']}")
     lines.append(f"- {occupancy_meta.get('occupancy_note', '')}")
-    lines.append("- **peak_gops** = `ARRAY_SIZE² × 2 × Fmax_GHz`")
-    lines.append("- **achieved_gops** = `peak_gops × occupancy` (never report peak as achieved)")
+    lines.append(
+        "- **Throughput** is computed once per `(ARRAY_SIZE, CDW, MAX_BATCH_COUNT)` "
+        "from that config's **tightest closing period** (see `throughput_by_config`). "
+        "Per-period rows below are timing evidence only."
+    )
+    lines.append(
+        f"- **Fmax derivation**: `{FMAX_DERIVATION['formula']}`. {FMAX_DERIVATION['note']}"
+    )
+    lines.append("- **peak_gops** = `ARRAY_SIZE^2 * 2 * Fmax_GHz`")
+    lines.append("- **achieved_gops** = `peak_gops * occupancy` (never report peak as achieved)")
+    lines.append(
+        "- **margin_class**: `comfortable` (>1 ns), `thin` (0.2-1 ns), `marginal` (<0.2 ns)."
+    )
     lines.append("")
     lines.append("## Shipping point rationale")
     lines.append("")
     if shipping and shipping.get("status") == "closed":
         lines.append(
             f"Chosen shipping point: **N={shipping['ARRAY_SIZE']} INT{shipping['COMPUTE_DATA_WIDTH']} "
-            f"MAX_BATCH_COUNT={shipping['MAX_BATCH_COUNT']} @ {shipping['clock_period_ns']} ns** "
-            f"(prefix `{shipping.get('report_prefix')}`)."
+            f"MAX_BATCH_COUNT={shipping['MAX_BATCH_COUNT']} @ {shipping['clock_period_ns']} ns "
+            f"(~{1000.0/float(shipping['clock_period_ns']):.1f} MHz)** "
+            f"(prefix `{shipping.get('report_prefix')}`), "
+            f"margin_class=`{shipping.get('margin_class')}`."
         )
         lines.append("")
         lines.append("Why:")
@@ -775,21 +1010,29 @@ def write_markdown(
             "timing-closure / LUT bisect path (mb64 LUT-oversubscribes)."
         )
         lines.append(
-            "4. **Clock** — 20 ns (50 MHz) is the shipping constraint with positive WNS; "
-            "tighter periods are exploration-only."
+            "4. **Clock** — **12 ns (~83 MHz)** is the shipping default (WNS thin but "
+            "non-marginal). Loose-period closes are floors under met constraints; "
+            "**100 MHz is the demonstrated ceiling**, not the shipping default."
         )
         util = shipping.get("utilization") or {}
         tim = shipping.get("timing") or {}
         lines.append("")
         lines.append(
-            f"Evidence: WNS={tim.get('wns_ns')} ns, "
-            f"Fmax≈{shipping.get('achieved_fmax_mhz_from_period_minus_wns')} MHz, "
+            f"Evidence: WNS={tim.get('wns_ns')} ns ({shipping.get('margin_class')}), "
+            f"constraint Fmax={1000.0/float(shipping['clock_period_ns']):.2f} MHz, "
+            f"period-WNS Fmax≈{shipping.get('achieved_fmax_mhz_from_period_minus_wns')} MHz, "
             f"LUT={util.get('lut_used')}/{util.get('lut_available')}, "
             f"DSP={util.get('dsp_used')}/{util.get('dsp_available')}, "
-            f"BRAM={util.get('bram_36k_used')}/{util.get('bram_36k_available')}, "
-            f"peak={shipping.get('peak_gops')} GOP/s, "
-            f"achieved={shipping.get('achieved_gops')} GOP/s."
+            f"BRAM={util.get('bram_36k_used')}/{util.get('bram_36k_available')}."
         )
+        if ship_tp:
+            lines.append(
+                f"Config throughput (from tightest close "
+                f"@{ship_tp.get('source_clock_period_ns')} ns, "
+                f"WNS={ship_tp.get('source_wns_ns')}): "
+                f"peak={ship_tp.get('peak_gops')} GOP/s, "
+                f"achieved={ship_tp.get('achieved_gops')} GOP/s."
+            )
         if shipping.get("binding_resource"):
             lines.append(
                 f"Highest util resource at shipping close: **{shipping['binding_resource']}** "
@@ -798,32 +1041,52 @@ def write_markdown(
     else:
         lines.append("Shipping point not yet closed in this artifact — see skipped/failed table.")
     lines.append("")
+    if ceiling:
+        lines.append("## Demonstrated 100 MHz ceiling")
+        lines.append("")
+        lines.append(
+            f"- Constraint **100 MHz** (10 ns) closed with **WNS={ceiling.get('wns_ns')} ns** "
+            f"(`{ceiling.get('margin_class')}`)."
+        )
+        lines.append(f"- {ceiling.get('claim_rule')}")
+        lines.append("")
     lines.append("## Accuracy–throughput Pareto")
     lines.append("")
-    if shipping and shipping.get("status") == "closed":
+    if ship_tp and ship_tp.get("achieved_gops") is not None:
         lines.append(
             f"- Point A (INT8): accuracy={accuracy['int8_per_layer_accuracy']*100:.2f}%, "
-            f"achieved_gops={shipping.get('achieved_gops')}"
+            f"achieved_gops={ship_tp.get('achieved_gops')} "
+            f"(tightest close @{ship_tp.get('source_clock_period_ns')} ns, "
+            f"WNS={ship_tp.get('source_wns_ns')})"
         )
-    if int4 and int4.get("status") == "closed":
+    if int4 and int4.get("achieved_gops") is not None:
         lines.append(
             f"- Point B (INT4 N={int4.get('ARRAY_SIZE')}): "
             f"accuracy={accuracy['int4_per_layer_accuracy']*100:.2f}%, "
             f"achieved_gops={int4.get('achieved_gops')} "
-            f"(prefix `{int4.get('report_prefix')}`)"
+            f"(prefix `{int4.get('source_report_prefix') or int4.get('report_prefix')}`)"
         )
     else:
         lines.append(
-            "- Point B (16×16 INT4): **did not close** or not yet attempted — "
-            "see binding table below."
+            "- Point B (16x16 INT4): **did not close** or not yet attempted — "
+            "see not_yet_attempted / timing table."
         )
     lines.append("")
-    lines.append("## Binding resource by corner")
+    lines.append("## Throughput by config (one row per NxCDWxMB)")
     lines.append("")
     lines.append(
-        "| N | CDW | MB | period_ns | status | WNS | Fmax_MHz | LUT | DSP | BRAM | peak_GOP/s | achieved_GOP/s | binder |"
+        "| N | CDW | MB | source_period_ns | WNS | margin | Fmax_MHz | peak_GOP/s | achieved_GOP/s |"
     )
-    lines.append("|---:|---:|---:|---:|---|---:|---:|---|---|---|---:|---:|---|")
+    lines.append("|---:|---:|---:|---:|---:|---|---:|---:|---:|")
+    for r in throughput_by_config:
+        lines.append(tp_row(r))
+    lines.append("")
+    lines.append("## Timing evidence by corner (per period)")
+    lines.append("")
+    lines.append(
+        "| N | CDW | MB | period_ns | status | WNS | margin | Fmax_MHz | LUT | DSP | BRAM | binder |"
+    )
+    lines.append("|---:|---:|---:|---:|---|---:|---|---:|---|---|---|---|")
     for p in sorted(
         points,
         key=lambda x: (
@@ -833,13 +1096,14 @@ def write_markdown(
             -float(x.get("clock_period_ns") or 0),
         ),
     ):
-        lines.append(row(p))
+        lines.append(timing_row(p))
     lines.append("")
     lines.append("## Summary counts")
     lines.append("")
-    lines.append(f"- closed: **{len(closed)}**")
-    lines.append(f"- failed: **{len(failed)}**")
-    lines.append(f"- missing/skipped: **{len(missing)}**")
+    lines.append(f"- sweep_status: **{sweep_status}**")
+    lines.append(f"- closed (attempted): **{len(closed)}**")
+    lines.append(f"- failed (attempted): **{len(failed)}**")
+    lines.append(f"- not_yet_attempted: **{len(not_yet_attempted)}**")
     if skipped:
         lines.append("")
         lines.append("### Explicitly skipped (honest)")
@@ -849,12 +1113,23 @@ def write_markdown(
                 f"- `{s.get('report_prefix') or s.get('key')}`: {s.get('skip_reason')}"
             )
     lines.append("")
+    if not_yet_attempted:
+        lines.append("## Not yet attempted")
+        lines.append("")
+        lines.append("| N | CDW | MB | period_ns | canonical_prefix |")
+        lines.append("|---:|---:|---:|---:|---|")
+        for c in not_yet_attempted:
+            lines.append(
+                f"| {c['ARRAY_SIZE']} | {c['COMPUTE_DATA_WIDTH']} | {c['MAX_BATCH_COUNT']} | "
+                f"{c['clock_period_ns']} | `{c['canonical_prefix']}` |"
+            )
+        lines.append("")
     lines.append("## Artifacts")
     lines.append("")
-    lines.append(f"- JSON: `bench/results/design_space_sweep.json`")
-    lines.append(f"- Plot: `docs/design_space_roofline.png`")
-    lines.append(f"- Runner: `firmware/host/run_design_space_sweep.py`")
-    lines.append(f"- TCL: `scripts/synth_design_space_point.tcl`")
+    lines.append("- JSON: `bench/results/design_space_sweep.json`")
+    lines.append("- Plot: `docs/design_space_roofline.png`")
+    lines.append("- Runner: `firmware/host/run_design_space_sweep.py`")
+    lines.append("- TCL: `scripts/synth_design_space_point.tcl`")
     lines.append("")
     DOCS.mkdir(parents=True, exist_ok=True)
     MD.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -880,13 +1155,57 @@ def emit_artifact(
     skipped: List[Dict[str, Any]],
     attempted_this_run: List[str],
     reused: List[str],
+    full_grid: List[Tuple[int, int, int, float]],
 ) -> Dict[str, Any]:
-    shipping = choose_shipping_point(points)
-    int4 = choose_int4_pareto(points)
-    closed = [p for p in points if p.get("status") == "closed"]
-    failed = [p for p in points if str(p.get("status") or "").startswith("failed_")]
+    occupancy = float(occupancy_meta["occupancy"])
+    attempted_points = [p for p in points if point_was_attempted(p)]
+    attempted_keys = {
+        (
+            int(p.get("ARRAY_SIZE") or 0),
+            int(p.get("COMPUTE_DATA_WIDTH") or 0),
+            int(p.get("MAX_BATCH_COUNT") or 0),
+            float(p.get("clock_period_ns") or 0.0),
+        )
+        for p in attempted_points
+    }
+    not_yet_attempted = [
+        grid_cell_dict(n, cdw, mb, period)
+        for (n, cdw, mb, period) in full_grid
+        if (int(n), int(cdw), int(mb), float(period)) not in attempted_keys
+    ]
+    not_yet_attempted = sorted(
+        not_yet_attempted,
+        key=lambda c: (
+            c["ARRAY_SIZE"],
+            c["COMPUTE_DATA_WIDTH"],
+            -c["MAX_BATCH_COUNT"],
+            -c["clock_period_ns"],
+        ),
+    )
+
+    throughput_by_config = build_throughput_by_config(attempted_points, occupancy)
+    shipping = choose_shipping_point(attempted_points)
+    ceiling = choose_demonstrated_ceiling(attempted_points)
+    int4 = choose_int4_pareto(attempted_points, throughput_by_config)
+    closed = [p for p in attempted_points if p.get("status") == "closed"]
+    failed = [p for p in attempted_points if str(p.get("status") or "").startswith("failed_")]
+    sweep_status = "complete" if not not_yet_attempted else "partial"
+
+    ship_out = dict(shipping) if shipping else None
+    if ship_out is not None:
+        tp = throughput_for_point(shipping, throughput_by_config)
+        if tp:
+            ship_out["throughput_from_tightest_close"] = {
+                "source_clock_period_ns": tp.get("source_clock_period_ns"),
+                "source_wns_ns": tp.get("source_wns_ns"),
+                "peak_gops": tp.get("peak_gops"),
+                "achieved_gops": tp.get("achieved_gops"),
+                "margin_class": tp.get("margin_class"),
+            }
+
     artifact = {
-        "schema_version": 1,
+        "schema_version": 2,
+        "status": sweep_status,
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "git_sha": git_sha(),
         "part": PART,
@@ -896,24 +1215,52 @@ def emit_artifact(
             "BUFFER_SIZE": BUFFER_SIZE,
             "EXT_ADDR_EN": EXT_ADDR_EN,
         },
-        "methodology": (
-            "Full-top synth/impl via scripts/synth_design_space_point.tcl "
-            "(route_design, no bitstream). Reuses matching build/reports prefixes "
-            "including prog_depth_pd65536 alias for N=8 INT8 mb48 @20ns. "
-            "Priority: N=8 INT8 mb{4,16,48} periods first. "
-            "Skip tighter clocks after 15 ns timing fail; propagate LUT/DSP/BRAM "
-            "overutilization across periods. Peak and achieved GOP/s are separate."
-        ),
+        "methodology": {
+            "flow": (
+                "Full-top synth/impl via scripts/synth_design_space_point.tcl "
+                "(route_design, no bitstream). Reuses matching build/reports prefixes "
+                "including prog_depth_pd65536 alias for N=8 INT8 mb48 @20ns. "
+                "Priority: N=8 INT8 mb{4,16,48} periods first. "
+                "Skip tighter clocks after 15 ns timing fail; propagate LUT/DSP/BRAM "
+                "overutilization across periods."
+            ),
+            "timing_vs_throughput": (
+                "Per-period points[] rows are timing evidence (period, WNS, util, "
+                "margin_class). Plotted peak/achieved GOP/s are computed once per "
+                "(ARRAY_SIZE, COMPUTE_DATA_WIDTH, MAX_BATCH_COUNT) in "
+                "throughput_by_config, using that config's tightest closing period."
+            ),
+            "fmax_derivation": dict(FMAX_DERIVATION),
+            "margin_class": {
+                "comfortable": ">1.0 ns WNS",
+                "thin": "0.2-1.0 ns WNS",
+                "marginal": "<0.2 ns WNS",
+            },
+            "shipping_default": "N=8 INT8 MAX_BATCH_COUNT=48 @ 12 ns (~83 MHz)",
+            "demonstrated_ceiling_rule": (
+                "100 MHz (10 ns) closes are recorded as demonstrated ceiling; "
+                "any 100 MHz claim must quote WNS inline. Not the shipping default."
+            ),
+            "seed_repro_pending": (
+                "If the grid finishes with time to spare, re-run mb48 @10 ns under "
+                "2-3 alternate implementation seeds and record WNS spread."
+            ),
+        },
         "occupancy": occupancy_meta,
         "accuracy_pareto_reference": accuracy,
-        "points": points,
-        "shipping_point": shipping,
+        "points": attempted_points,
+        "throughput_by_config": throughput_by_config,
+        "shipping_point": ship_out,
+        "demonstrated_fmax_ceiling": ceiling,
         "int4_pareto_point": int4,
+        "not_yet_attempted": not_yet_attempted,
         "summary": {
-            "n_points": len(points),
+            "status": sweep_status,
+            "n_attempted": len(attempted_points),
             "n_closed": len(closed),
             "n_failed": len(failed),
-            "n_missing_or_skipped": len(points) - len(closed) - len(failed),
+            "n_not_yet_attempted": len(not_yet_attempted),
+            "n_throughput_configs": len(throughput_by_config),
             "reused_report_prefixes": reused,
             "vivado_attempted_this_run": attempted_this_run,
             "skipped": skipped,
@@ -923,17 +1270,22 @@ def emit_artifact(
     }
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(artifact, indent=2) + "\n", encoding="utf-8")
-    write_plot(points, shipping, int4)
+    write_plot(attempted_points, shipping, int4, throughput_by_config)
     write_markdown(
-        points=points,
+        points=attempted_points,
         shipping=shipping,
         int4=int4,
         occupancy_meta=occupancy_meta,
         accuracy=accuracy,
         skipped=skipped,
+        throughput_by_config=throughput_by_config,
+        ceiling=ceiling,
+        not_yet_attempted=not_yet_attempted,
+        sweep_status=sweep_status,
     )
     print(
-        f"Wrote {OUT} points={len(points)} closed={len(closed)} failed={len(failed)}",
+        f"Wrote {OUT} status={sweep_status} attempted={len(attempted_points)} "
+        f"closed={len(closed)} failed={len(failed)} not_yet={len(not_yet_attempted)}",
         flush=True,
     )
     return artifact
@@ -1134,6 +1486,7 @@ def main() -> int:
                 skipped=skipped,
                 attempted_this_run=attempted,
                 reused=reused,
+                full_grid=grid,
             )
             existing = merged
             continue
@@ -1169,13 +1522,15 @@ def main() -> int:
         skipped=skipped,
         attempted_this_run=attempted,
         reused=reused,
+        full_grid=grid,
     )
     summary = artifact["summary"]
     print(
         "SUMMARY",
+        f"status={summary.get('status')}",
         f"closed={summary['n_closed']}",
         f"failed={summary['n_failed']}",
-        f"missing_or_skipped={summary['n_missing_or_skipped']}",
+        f"not_yet={summary.get('n_not_yet_attempted')}",
         f"reused={len(reused)}",
         f"vivado={len(attempted)}",
         flush=True,

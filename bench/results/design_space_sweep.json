@@ -1,7 +1,8 @@
 {
-  "schema_version": 1,
-  "generated_at_utc": "2026-08-04T14:56:58.795078+00:00",
-  "git_sha": "47865fa",
+  "schema_version": 2,
+  "status": "partial",
+  "generated_at_utc": "2026-08-04T17:37:06.089425+00:00",
+  "git_sha": "7169b29",
   "part": "xc7a100tcsg324-1",
   "fixed_generics": {
     "PROG_DEPTH": 65536,
@@ -9,14 +10,27 @@
     "BUFFER_SIZE": 4096,
     "EXT_ADDR_EN": 1
   },
-  "methodology": "Full-top synth/impl via scripts/synth_design_space_point.tcl (route_design, no bitstream). Reuses matching build/reports prefixes including prog_depth_pd65536 alias for N=8 INT8 mb48 @20ns. Priority: N=8 INT8 mb{4,16,48} periods first. Skip tighter clocks after 15 ns timing fail; propagate LUT/DSP/BRAM overutilization across periods. Peak and achieved GOP/s are separate.",
+  "methodology": {
+    "flow": "Full-top synth/impl via scripts/synth_design_space_point.tcl (route_design, no bitstream). Reuses matching build/reports prefixes including prog_depth_pd65536 alias for N=8 INT8 mb48 @20ns. Priority: N=8 INT8 mb{4,16,48} periods first. Skip tighter clocks after 15 ns timing fail; propagate LUT/DSP/BRAM overutilization across periods.",
+    "timing_vs_throughput": "Per-period points[] rows are timing evidence (period, WNS, util, margin_class). Plotted peak/achieved GOP/s are computed once per (ARRAY_SIZE, COMPUTE_DATA_WIDTH, MAX_BATCH_COUNT) in throughput_by_config, using that config's tightest closing period.",
+    "fmax_derivation": {
+      "formula": "achieved_fmax_mhz_from_period_minus_wns = 1000 / (clock_period_ns - WNS_ns)",
+      "note": "This understates capability at loose constraints: Vivado stops optimizing once the applied period is met, so loose-period (period\u2212WNS) Fmax values are floors, not measurements of the design's true speed. Throughput (peak/achieved GOP/s) is therefore taken from each configuration's tightest closing period only."
+    },
+    "margin_class": {
+      "comfortable": ">1.0 ns WNS",
+      "thin": "0.2-1.0 ns WNS",
+      "marginal": "<0.2 ns WNS"
+    },
+    "shipping_default": "N=8 INT8 MAX_BATCH_COUNT=48 @ 12 ns (~83 MHz)",
+    "demonstrated_ceiling_rule": "100 MHz (10 ns) closes are recorded as demonstrated ceiling; any 100 MHz claim must quote WNS inline. Not the shipping default.",
+    "seed_repro_pending": "If the grid finishes with time to spare, re-run mb48 @10 ns under 2-3 alternate implementation seeds and record WNS spread."
+  },
   "occupancy": {
     "occupancy": 0.20580551523947752,
-    "occupancy_source": "cycle_attribution_mnist.json post-widen placeholder (compute 709/3445); steady_state_attribution.json absent",
-    "occupancy_note": "Placeholder cold-path compute share until buffer-resident / steady-state attribution lands. NOT peak; applied as achieved = peak * occupancy.",
-    "compute_cycles": 709,
-    "total_program_cycles": 3445,
-    "artifact": "bench/results/cycle_attribution_mnist.json"
+    "occupancy_source": "steady_state_attribution.json",
+    "occupancy_note": "cold_compute_share_until_steady_bitexact",
+    "artifact": "bench/results/steady_state_attribution.json"
   },
   "accuracy_pareto_reference": {
     "int8_per_layer_accuracy": 0.9733,
@@ -25,6 +39,230 @@
     "note": "Pareto uses measured per-layer accuracies 97.33% (INT8) vs 58.32% (INT4) from real_model_accelerator.json; not per-channel INT4."
   },
   "points": [
+    {
+      "report_prefix": "dss_n8_cdw8_mb4_clk20_pd3_prog65536",
+      "ARRAY_SIZE": 8,
+      "COMPUTE_DATA_WIDTH": 8,
+      "ACCUMULATOR_DATA_WIDTH": 32,
+      "MAX_BATCH_COUNT": 4,
+      "clock_period_ns": 20.0,
+      "frequency_mhz_constraint": 50.0,
+      "PROG_DEPTH": 65536,
+      "BUFFER_SIZE": 4096,
+      "QUANTIZER_PIPE_DEPTH": 3,
+      "QUANTIZER_LANES": 8,
+      "RELU_LANES": 8,
+      "EXT_ADDR_EN": 1,
+      "status": "closed",
+      "utilization": {
+        "lut_used": 16594,
+        "lut_available": 63400,
+        "ff_used": 8691,
+        "ff_available": 126800,
+        "bram_36k_used": 49,
+        "bram_36k_available": 135,
+        "dsp_used": 72,
+        "dsp_available": 240
+      },
+      "timing": {
+        "raw_path": "build/reports/dss_n8_cdw8_mb4_clk20_pd3_prog65536_timing_summary.rpt",
+        "wns_ns": 4.636,
+        "tns_ns": 0.0,
+        "whs_ns": 0.023,
+        "data_path_delay_ns": 15.124,
+        "critical_source": "fifo_in/mem_reg/CLKBWRCLK",
+        "critical_destination": "u_unified_buffer/gen_bram[11].u_bank_bram/xpm_memory_base_inst/gen_wr_a.gen_byte_narrow.for_mem_cols[1].mem_reg/DIADI[15]",
+        "all_paths_met": true
+      },
+      "achieved_fmax_mhz_from_period_minus_wns": 65.08721687060661,
+      "achieved_fmax_mhz_from_data_path_delay": 66.12007405448294,
+      "binding_detail": {
+        "binding_resource": "bram",
+        "used": 49,
+        "available": 135,
+        "oversubscribed": false,
+        "utilization_fraction": 0.362962962962963,
+        "note": "Highest util resource (not necessarily oversubscribed)."
+      },
+      "binding_resource": "bram",
+      "margin_class": "comfortable",
+      "fmax_derivation": {
+        "formula": "achieved_fmax_mhz_from_period_minus_wns = 1000 / (clock_period_ns - WNS_ns)",
+        "note": "This understates capability at loose constraints: Vivado stops optimizing once the applied period is met, so loose-period (period\u2212WNS) Fmax values are floors, not measurements of the design's true speed. Throughput (peak/achieved GOP/s) is therefore taken from each configuration's tightest closing period only."
+      },
+      "peak_gops": null,
+      "achieved_gops": null,
+      "occupancy_applied": 0.20580551523947752,
+      "throughput_note": "Per-period rows are timing evidence only; plotted GOP/s come from throughput_by_config (one entry per ARRAY_SIZE\u00d7CDW\u00d7MAX_BATCH_COUNT, tightest closing period)."
+    },
+    {
+      "report_prefix": "dss_n8_cdw8_mb16_clk10_pd3_prog65536",
+      "ARRAY_SIZE": 8,
+      "COMPUTE_DATA_WIDTH": 8,
+      "ACCUMULATOR_DATA_WIDTH": 32,
+      "MAX_BATCH_COUNT": 16,
+      "clock_period_ns": 10.0,
+      "frequency_mhz_constraint": 100.0,
+      "PROG_DEPTH": 65536,
+      "BUFFER_SIZE": 4096,
+      "QUANTIZER_PIPE_DEPTH": 3,
+      "QUANTIZER_LANES": 8,
+      "RELU_LANES": 8,
+      "EXT_ADDR_EN": 1,
+      "status": "closed",
+      "utilization": {
+        "lut_used": 26239,
+        "lut_available": 63400,
+        "ff_used": 16323,
+        "ff_available": 126800,
+        "bram_36k_used": 49,
+        "bram_36k_available": 135,
+        "dsp_used": 72,
+        "dsp_available": 240
+      },
+      "timing": {
+        "raw_path": "build/reports/dss_n8_cdw8_mb16_clk10_pd3_prog65536_timing_summary.rpt",
+        "wns_ns": 0.16,
+        "tns_ns": 0.0,
+        "whs_ns": 0.017,
+        "data_path_delay_ns": 9.592,
+        "critical_source": "address_reg[2]_rep__3/C",
+        "critical_destination": "u_unified_buffer/gen_bram[30].u_bank_bram/xpm_memory_base_inst/gen_wr_a.gen_byte_narrow.for_mem_cols[1].mem_reg/DIADI[6]",
+        "all_paths_met": true
+      },
+      "achieved_fmax_mhz_from_period_minus_wns": 101.6260162601626,
+      "achieved_fmax_mhz_from_data_path_delay": 104.25354462051709,
+      "binding_detail": {
+        "binding_resource": "lut",
+        "used": 26239,
+        "available": 63400,
+        "oversubscribed": false,
+        "utilization_fraction": 0.4138643533123028,
+        "note": "Highest util resource (not necessarily oversubscribed)."
+      },
+      "binding_resource": "lut",
+      "margin_class": "marginal",
+      "fmax_derivation": {
+        "formula": "achieved_fmax_mhz_from_period_minus_wns = 1000 / (clock_period_ns - WNS_ns)",
+        "note": "This understates capability at loose constraints: Vivado stops optimizing once the applied period is met, so loose-period (period\u2212WNS) Fmax values are floors, not measurements of the design's true speed. Throughput (peak/achieved GOP/s) is therefore taken from each configuration's tightest closing period only."
+      },
+      "peak_gops": null,
+      "achieved_gops": null,
+      "occupancy_applied": 0.20580551523947752,
+      "throughput_note": "Per-period rows are timing evidence only; plotted GOP/s come from throughput_by_config (one entry per ARRAY_SIZE\u00d7CDW\u00d7MAX_BATCH_COUNT, tightest closing period)."
+    },
+    {
+      "report_prefix": "dss_n8_cdw8_mb16_clk12_pd3_prog65536",
+      "ARRAY_SIZE": 8,
+      "COMPUTE_DATA_WIDTH": 8,
+      "ACCUMULATOR_DATA_WIDTH": 32,
+      "MAX_BATCH_COUNT": 16,
+      "clock_period_ns": 12.0,
+      "frequency_mhz_constraint": 83.33333333333333,
+      "PROG_DEPTH": 65536,
+      "BUFFER_SIZE": 4096,
+      "QUANTIZER_PIPE_DEPTH": 3,
+      "QUANTIZER_LANES": 8,
+      "RELU_LANES": 8,
+      "EXT_ADDR_EN": 1,
+      "status": "closed",
+      "utilization": {
+        "lut_used": 26239,
+        "lut_available": 63400,
+        "ff_used": 16324,
+        "ff_available": 126800,
+        "bram_36k_used": 49,
+        "bram_36k_available": 135,
+        "dsp_used": 72,
+        "dsp_available": 240
+      },
+      "timing": {
+        "raw_path": "build/reports/dss_n8_cdw8_mb16_clk12_pd3_prog65536_timing_summary.rpt",
+        "wns_ns": 0.992,
+        "tns_ns": 0.0,
+        "whs_ns": 0.016,
+        "data_path_delay_ns": 10.161,
+        "critical_source": "FSM_onehot_current_state_reg[0]/C",
+        "critical_destination": "acc_partial_matrix_reg[7][6][10]/R",
+        "all_paths_met": true
+      },
+      "achieved_fmax_mhz_from_period_minus_wns": 90.84302325581396,
+      "achieved_fmax_mhz_from_data_path_delay": 98.41551028442083,
+      "binding_detail": {
+        "binding_resource": "lut",
+        "used": 26239,
+        "available": 63400,
+        "oversubscribed": false,
+        "utilization_fraction": 0.4138643533123028,
+        "note": "Highest util resource (not necessarily oversubscribed)."
+      },
+      "binding_resource": "lut",
+      "margin_class": "thin",
+      "fmax_derivation": {
+        "formula": "achieved_fmax_mhz_from_period_minus_wns = 1000 / (clock_period_ns - WNS_ns)",
+        "note": "This understates capability at loose constraints: Vivado stops optimizing once the applied period is met, so loose-period (period\u2212WNS) Fmax values are floors, not measurements of the design's true speed. Throughput (peak/achieved GOP/s) is therefore taken from each configuration's tightest closing period only."
+      },
+      "peak_gops": null,
+      "achieved_gops": null,
+      "occupancy_applied": 0.20580551523947752,
+      "throughput_note": "Per-period rows are timing evidence only; plotted GOP/s come from throughput_by_config (one entry per ARRAY_SIZE\u00d7CDW\u00d7MAX_BATCH_COUNT, tightest closing period)."
+    },
+    {
+      "report_prefix": "dss_n8_cdw8_mb16_clk15_pd3_prog65536",
+      "ARRAY_SIZE": 8,
+      "COMPUTE_DATA_WIDTH": 8,
+      "ACCUMULATOR_DATA_WIDTH": 32,
+      "MAX_BATCH_COUNT": 16,
+      "clock_period_ns": 15.0,
+      "frequency_mhz_constraint": 66.66666666666667,
+      "PROG_DEPTH": 65536,
+      "BUFFER_SIZE": 4096,
+      "QUANTIZER_PIPE_DEPTH": 3,
+      "QUANTIZER_LANES": 8,
+      "RELU_LANES": 8,
+      "EXT_ADDR_EN": 1,
+      "status": "closed",
+      "utilization": {
+        "lut_used": 26228,
+        "lut_available": 63400,
+        "ff_used": 16317,
+        "ff_available": 126800,
+        "bram_36k_used": 49,
+        "bram_36k_available": 135,
+        "dsp_used": 72,
+        "dsp_available": 240
+      },
+      "timing": {
+        "raw_path": "build/reports/dss_n8_cdw8_mb16_clk15_pd3_prog65536_timing_summary.rpt",
+        "wns_ns": 1.099,
+        "tns_ns": 0.0,
+        "whs_ns": 0.008,
+        "data_path_delay_ns": 13.437,
+        "critical_source": "u_instr_bram/mem_reg_0_2/CLKBWRCLK",
+        "critical_destination": "requant_multiplier_latched_reg[1][2]/D",
+        "all_paths_met": true
+      },
+      "achieved_fmax_mhz_from_period_minus_wns": 71.93727069994965,
+      "achieved_fmax_mhz_from_data_path_delay": 74.4213738185607,
+      "binding_detail": {
+        "binding_resource": "lut",
+        "used": 26228,
+        "available": 63400,
+        "oversubscribed": false,
+        "utilization_fraction": 0.4136908517350158,
+        "note": "Highest util resource (not necessarily oversubscribed)."
+      },
+      "binding_resource": "lut",
+      "margin_class": "comfortable",
+      "fmax_derivation": {
+        "formula": "achieved_fmax_mhz_from_period_minus_wns = 1000 / (clock_period_ns - WNS_ns)",
+        "note": "This understates capability at loose constraints: Vivado stops optimizing once the applied period is met, so loose-period (period\u2212WNS) Fmax values are floors, not measurements of the design's true speed. Throughput (peak/achieved GOP/s) is therefore taken from each configuration's tightest closing period only."
+      },
+      "peak_gops": null,
+      "achieved_gops": null,
+      "occupancy_applied": 0.20580551523947752,
+      "throughput_note": "Per-period rows are timing evidence only; plotted GOP/s come from throughput_by_config (one entry per ARRAY_SIZE\u00d7CDW\u00d7MAX_BATCH_COUNT, tightest closing period)."
+    },
     {
       "report_prefix": "dss_n8_cdw8_mb16_clk20_pd3_prog65536",
       "ARRAY_SIZE": 8,
@@ -39,11 +277,47 @@
       "QUANTIZER_LANES": 8,
       "RELU_LANES": 8,
       "EXT_ADDR_EN": 1,
-      "status": "missing_reports",
-      "failure_reason": "missing_reports",
+      "status": "closed",
+      "utilization": {
+        "lut_used": 26237,
+        "lut_available": 63400,
+        "ff_used": 16317,
+        "ff_available": 126800,
+        "bram_36k_used": 49,
+        "bram_36k_available": 135,
+        "dsp_used": 72,
+        "dsp_available": 240
+      },
+      "timing": {
+        "raw_path": "build/reports/dss_n8_cdw8_mb16_clk20_pd3_prog65536_timing_summary.rpt",
+        "wns_ns": 3.285,
+        "tns_ns": 0.0,
+        "whs_ns": 0.015,
+        "data_path_delay_ns": 16.242,
+        "critical_source": "relu_en_reg_rep/C",
+        "critical_destination": "acc_partial_matrix_reg[3][15][4]/CE",
+        "all_paths_met": true
+      },
+      "achieved_fmax_mhz_from_period_minus_wns": 59.82650314089142,
+      "achieved_fmax_mhz_from_data_path_delay": 61.56877231867996,
+      "binding_detail": {
+        "binding_resource": "lut",
+        "used": 26237,
+        "available": 63400,
+        "oversubscribed": false,
+        "utilization_fraction": 0.4138328075709779,
+        "note": "Highest util resource (not necessarily oversubscribed)."
+      },
+      "binding_resource": "lut",
+      "margin_class": "comfortable",
+      "fmax_derivation": {
+        "formula": "achieved_fmax_mhz_from_period_minus_wns = 1000 / (clock_period_ns - WNS_ns)",
+        "note": "This understates capability at loose constraints: Vivado stops optimizing once the applied period is met, so loose-period (period\u2212WNS) Fmax values are floors, not measurements of the design's true speed. Throughput (peak/achieved GOP/s) is therefore taken from each configuration's tightest closing period only."
+      },
       "peak_gops": null,
       "achieved_gops": null,
-      "occupancy_applied": 0.20580551523947752
+      "occupancy_applied": 0.20580551523947752,
+      "throughput_note": "Per-period rows are timing evidence only; plotted GOP/s come from throughput_by_config (one entry per ARRAY_SIZE\u00d7CDW\u00d7MAX_BATCH_COUNT, tightest closing period)."
     },
     {
       "report_prefix": "dss_n8_cdw8_mb48_clk10_pd3_prog65536",
@@ -59,11 +333,47 @@
       "QUANTIZER_LANES": 8,
       "RELU_LANES": 8,
       "EXT_ADDR_EN": 1,
-      "status": "missing_reports",
-      "failure_reason": "missing_reports",
+      "status": "closed",
+      "utilization": {
+        "lut_used": 46021,
+        "lut_available": 63400,
+        "ff_used": 37039,
+        "ff_available": 126800,
+        "bram_36k_used": 49,
+        "bram_36k_available": 135,
+        "dsp_used": 72,
+        "dsp_available": 240
+      },
+      "timing": {
+        "raw_path": "build/reports/dss_n8_cdw8_mb48_clk10_pd3_prog65536_timing_summary.rpt",
+        "wns_ns": 0.012,
+        "tns_ns": 0.0,
+        "whs_ns": 0.011,
+        "data_path_delay_ns": 9.815,
+        "critical_source": "u_pe_array/cycle_count_reg[2]_rep__0/C",
+        "critical_destination": "u_pe_array/results_arr_reg[77][6]/CE",
+        "all_paths_met": true
+      },
+      "achieved_fmax_mhz_from_period_minus_wns": 100.12014417300762,
+      "achieved_fmax_mhz_from_data_path_delay": 101.88487009679064,
+      "binding_detail": {
+        "binding_resource": "lut",
+        "used": 46021,
+        "available": 63400,
+        "oversubscribed": false,
+        "utilization_fraction": 0.7258832807570977,
+        "note": "Highest util resource (not necessarily oversubscribed)."
+      },
+      "binding_resource": "lut",
+      "margin_class": "marginal",
+      "fmax_derivation": {
+        "formula": "achieved_fmax_mhz_from_period_minus_wns = 1000 / (clock_period_ns - WNS_ns)",
+        "note": "This understates capability at loose constraints: Vivado stops optimizing once the applied period is met, so loose-period (period\u2212WNS) Fmax values are floors, not measurements of the design's true speed. Throughput (peak/achieved GOP/s) is therefore taken from each configuration's tightest closing period only."
+      },
       "peak_gops": null,
       "achieved_gops": null,
-      "occupancy_applied": 0.20580551523947752
+      "occupancy_applied": 0.20580551523947752,
+      "throughput_note": "Per-period rows are timing evidence only; plotted GOP/s come from throughput_by_config (one entry per ARRAY_SIZE\u00d7CDW\u00d7MAX_BATCH_COUNT, tightest closing period)."
     },
     {
       "report_prefix": "dss_n8_cdw8_mb48_clk12_pd3_prog65536",
@@ -79,11 +389,48 @@
       "QUANTIZER_LANES": 8,
       "RELU_LANES": 8,
       "EXT_ADDR_EN": 1,
-      "status": "missing_reports",
-      "failure_reason": "missing_reports",
+      "status": "closed",
+      "utilization": {
+        "lut_used": 45885,
+        "lut_available": 63400,
+        "ff_used": 36972,
+        "ff_available": 126800,
+        "bram_36k_used": 49,
+        "bram_36k_available": 135,
+        "dsp_used": 72,
+        "dsp_available": 240
+      },
+      "timing": {
+        "raw_path": "build/reports/dss_n8_cdw8_mb48_clk12_pd3_prog65536_timing_summary.rpt",
+        "wns_ns": 0.271,
+        "tns_ns": 0.0,
+        "whs_ns": 0.014,
+        "data_path_delay_ns": 11.451,
+        "critical_source": "u_pe_array/u_pe_array/gen_rows[7].gen_cols[2].gen_non_top_row.u_pe/partial_sum_out_reg/CLK",
+        "critical_destination": "u_pe_array/results_arr_reg[194][6]/D",
+        "dsp_path_style_hint": "may_include_registered_dsp",
+        "all_paths_met": true
+      },
+      "achieved_fmax_mhz_from_period_minus_wns": 85.2587603376247,
+      "achieved_fmax_mhz_from_data_path_delay": 87.32861758798357,
+      "binding_detail": {
+        "binding_resource": "lut",
+        "used": 45885,
+        "available": 63400,
+        "oversubscribed": false,
+        "utilization_fraction": 0.7237381703470032,
+        "note": "Highest util resource (not necessarily oversubscribed)."
+      },
+      "binding_resource": "lut",
+      "margin_class": "thin",
+      "fmax_derivation": {
+        "formula": "achieved_fmax_mhz_from_period_minus_wns = 1000 / (clock_period_ns - WNS_ns)",
+        "note": "This understates capability at loose constraints: Vivado stops optimizing once the applied period is met, so loose-period (period\u2212WNS) Fmax values are floors, not measurements of the design's true speed. Throughput (peak/achieved GOP/s) is therefore taken from each configuration's tightest closing period only."
+      },
       "peak_gops": null,
       "achieved_gops": null,
-      "occupancy_applied": 0.20580551523947752
+      "occupancy_applied": 0.20580551523947752,
+      "throughput_note": "Per-period rows are timing evidence only; plotted GOP/s come from throughput_by_config (one entry per ARRAY_SIZE\u00d7CDW\u00d7MAX_BATCH_COUNT, tightest closing period)."
     },
     {
       "report_prefix": "dss_n8_cdw8_mb48_clk15_pd3_prog65536",
@@ -99,11 +446,48 @@
       "QUANTIZER_LANES": 8,
       "RELU_LANES": 8,
       "EXT_ADDR_EN": 1,
-      "status": "missing_reports",
-      "failure_reason": "missing_reports",
+      "status": "closed",
+      "utilization": {
+        "lut_used": 45885,
+        "lut_available": 63400,
+        "ff_used": 36973,
+        "ff_available": 126800,
+        "bram_36k_used": 49,
+        "bram_36k_available": 135,
+        "dsp_used": 72,
+        "dsp_available": 240
+      },
+      "timing": {
+        "raw_path": "build/reports/dss_n8_cdw8_mb48_clk15_pd3_prog65536_timing_summary.rpt",
+        "wns_ns": 1.017,
+        "tns_ns": 0.0,
+        "whs_ns": 0.02,
+        "data_path_delay_ns": 13.704,
+        "critical_source": "u_pe_array/u_pe_array/gen_rows[7].gen_cols[4].gen_non_top_row.u_pe/partial_sum_out_reg/CLK",
+        "critical_destination": "u_pe_array/results_arr_reg[220][18]/D",
+        "dsp_path_style_hint": "may_include_registered_dsp",
+        "all_paths_met": true
+      },
+      "achieved_fmax_mhz_from_period_minus_wns": 71.5154115711936,
+      "achieved_fmax_mhz_from_data_path_delay": 72.97139521307648,
+      "binding_detail": {
+        "binding_resource": "lut",
+        "used": 45885,
+        "available": 63400,
+        "oversubscribed": false,
+        "utilization_fraction": 0.7237381703470032,
+        "note": "Highest util resource (not necessarily oversubscribed)."
+      },
+      "binding_resource": "lut",
+      "margin_class": "comfortable",
+      "fmax_derivation": {
+        "formula": "achieved_fmax_mhz_from_period_minus_wns = 1000 / (clock_period_ns - WNS_ns)",
+        "note": "This understates capability at loose constraints: Vivado stops optimizing once the applied period is met, so loose-period (period\u2212WNS) Fmax values are floors, not measurements of the design's true speed. Throughput (peak/achieved GOP/s) is therefore taken from each configuration's tightest closing period only."
+      },
       "peak_gops": null,
       "achieved_gops": null,
-      "occupancy_applied": 0.20580551523947752
+      "occupancy_applied": 0.20580551523947752,
+      "throughput_note": "Per-period rows are timing evidence only; plotted GOP/s come from throughput_by_config (one entry per ARRAY_SIZE\u00d7CDW\u00d7MAX_BATCH_COUNT, tightest closing period)."
     },
     {
       "report_prefix": "prog_depth_pd65536_buf4096_mb48_clk20_pd3",
@@ -151,24 +535,99 @@
         "note": "Highest util resource (not necessarily oversubscribed)."
       },
       "binding_resource": "lut",
-      "peak_gops": 7.437104177560863,
-      "achieved_gops": 1.530597057152584,
+      "margin_class": "comfortable",
+      "fmax_derivation": {
+        "formula": "achieved_fmax_mhz_from_period_minus_wns = 1000 / (clock_period_ns - WNS_ns)",
+        "note": "This understates capability at loose constraints: Vivado stops optimizing once the applied period is met, so loose-period (period\u2212WNS) Fmax values are floors, not measurements of the design's true speed. Throughput (peak/achieved GOP/s) is therefore taken from each configuration's tightest closing period only."
+      },
+      "peak_gops": null,
+      "achieved_gops": null,
+      "occupancy_applied": 0.20580551523947752,
+      "throughput_note": "Per-period rows are timing evidence only; plotted GOP/s come from throughput_by_config (one entry per ARRAY_SIZE\u00d7CDW\u00d7MAX_BATCH_COUNT, tightest closing period)."
+    }
+  ],
+  "throughput_by_config": [
+    {
+      "ARRAY_SIZE": 8,
+      "COMPUTE_DATA_WIDTH": 8,
+      "MAX_BATCH_COUNT": 4,
+      "source_clock_period_ns": 20.0,
+      "source_frequency_mhz_constraint": 50.0,
+      "source_report_prefix": "dss_n8_cdw8_mb4_clk20_pd3_prog65536",
+      "source_wns_ns": 4.636,
+      "margin_class": "comfortable",
+      "achieved_fmax_mhz_from_period_minus_wns": 65.08721687060661,
+      "fmax_derivation": {
+        "formula": "achieved_fmax_mhz_from_period_minus_wns = 1000 / (clock_period_ns - WNS_ns)",
+        "note": "This understates capability at loose constraints: Vivado stops optimizing once the applied period is met, so loose-period (period\u2212WNS) Fmax values are floors, not measurements of the design's true speed. Throughput (peak/achieved GOP/s) is therefore taken from each configuration's tightest closing period only."
+      },
+      "peak_gops": 8.331163759437645,
+      "achieved_gops": 1.714599450055527,
       "occupancy_applied": 0.20580551523947752,
       "throughput_formulas": {
         "peak_gops": "ARRAY_SIZE^2 * 2 * Fmax_GHz",
         "achieved_gops": "peak_gops * occupancy",
-        "note": "peak and achieved are separate columns; never report peak as achieved"
+        "selection": "tightest closing clock_period_ns for this config",
+        "note": "peak and achieved are separate; never report peak as achieved"
+      }
+    },
+    {
+      "ARRAY_SIZE": 8,
+      "COMPUTE_DATA_WIDTH": 8,
+      "MAX_BATCH_COUNT": 16,
+      "source_clock_period_ns": 10.0,
+      "source_frequency_mhz_constraint": 100.0,
+      "source_report_prefix": "dss_n8_cdw8_mb16_clk10_pd3_prog65536",
+      "source_wns_ns": 0.16,
+      "margin_class": "marginal",
+      "achieved_fmax_mhz_from_period_minus_wns": 101.6260162601626,
+      "fmax_derivation": {
+        "formula": "achieved_fmax_mhz_from_period_minus_wns = 1000 / (clock_period_ns - WNS_ns)",
+        "note": "This understates capability at loose constraints: Vivado stops optimizing once the applied period is met, so loose-period (period\u2212WNS) Fmax values are floors, not measurements of the design's true speed. Throughput (peak/achieved GOP/s) is therefore taken from each configuration's tightest closing period only."
+      },
+      "peak_gops": 13.008130081300813,
+      "achieved_gops": 2.6771449136842604,
+      "occupancy_applied": 0.20580551523947752,
+      "throughput_formulas": {
+        "peak_gops": "ARRAY_SIZE^2 * 2 * Fmax_GHz",
+        "achieved_gops": "peak_gops * occupancy",
+        "selection": "tightest closing clock_period_ns for this config",
+        "note": "peak and achieved are separate; never report peak as achieved"
+      }
+    },
+    {
+      "ARRAY_SIZE": 8,
+      "COMPUTE_DATA_WIDTH": 8,
+      "MAX_BATCH_COUNT": 48,
+      "source_clock_period_ns": 10.0,
+      "source_frequency_mhz_constraint": 100.0,
+      "source_report_prefix": "dss_n8_cdw8_mb48_clk10_pd3_prog65536",
+      "source_wns_ns": 0.012,
+      "margin_class": "marginal",
+      "achieved_fmax_mhz_from_period_minus_wns": 100.12014417300762,
+      "fmax_derivation": {
+        "formula": "achieved_fmax_mhz_from_period_minus_wns = 1000 / (clock_period_ns - WNS_ns)",
+        "note": "This understates capability at loose constraints: Vivado stops optimizing once the applied period is met, so loose-period (period\u2212WNS) Fmax values are floors, not measurements of the design's true speed. Throughput (peak/achieved GOP/s) is therefore taken from each configuration's tightest closing period only."
+      },
+      "peak_gops": 12.815378454144975,
+      "achieved_gops": 2.6374755657442055,
+      "occupancy_applied": 0.20580551523947752,
+      "throughput_formulas": {
+        "peak_gops": "ARRAY_SIZE^2 * 2 * Fmax_GHz",
+        "achieved_gops": "peak_gops * occupancy",
+        "selection": "tightest closing clock_period_ns for this config",
+        "note": "peak and achieved are separate; never report peak as achieved"
       }
     }
   ],
   "shipping_point": {
-    "report_prefix": "prog_depth_pd65536_buf4096_mb48_clk20_pd3",
+    "report_prefix": "dss_n8_cdw8_mb48_clk12_pd3_prog65536",
     "ARRAY_SIZE": 8,
     "COMPUTE_DATA_WIDTH": 8,
     "ACCUMULATOR_DATA_WIDTH": 32,
     "MAX_BATCH_COUNT": 48,
-    "clock_period_ns": 20.0,
-    "frequency_mhz_constraint": 50.0,
+    "clock_period_ns": 12.0,
+    "frequency_mhz_constraint": 83.33333333333333,
     "PROG_DEPTH": 65536,
     "BUFFER_SIZE": 4096,
     "QUANTIZER_PIPE_DEPTH": 3,
@@ -177,9 +636,9 @@
     "EXT_ADDR_EN": 1,
     "status": "closed",
     "utilization": {
-      "lut_used": 41631,
+      "lut_used": 45885,
       "lut_available": 63400,
-      "ff_used": 36664,
+      "ff_used": 36972,
       "ff_available": 126800,
       "bram_36k_used": 49,
       "bram_36k_available": 135,
@@ -187,50 +646,380 @@
       "dsp_available": 240
     },
     "timing": {
-      "raw_path": "build/reports/prog_depth_pd65536_buf4096_mb48_clk20_pd3_timing_summary.rpt",
-      "wns_ns": 2.789,
+      "raw_path": "build/reports/dss_n8_cdw8_mb48_clk12_pd3_prog65536_timing_summary.rpt",
+      "wns_ns": 0.271,
       "tns_ns": 0.0,
       "whs_ns": 0.014,
-      "data_path_delay_ns": 17.088,
-      "critical_source": "run_batch_count_reg[2]_rep/C",
-      "critical_destination": "acc_partial_matrix_reg[1][38][29]/D",
+      "data_path_delay_ns": 11.451,
+      "critical_source": "u_pe_array/u_pe_array/gen_rows[7].gen_cols[2].gen_non_top_row.u_pe/partial_sum_out_reg/CLK",
+      "critical_destination": "u_pe_array/results_arr_reg[194][6]/D",
+      "dsp_path_style_hint": "may_include_registered_dsp",
       "all_paths_met": true
     },
-    "achieved_fmax_mhz_from_period_minus_wns": 58.10237638719424,
-    "achieved_fmax_mhz_from_data_path_delay": 58.52059925093633,
+    "achieved_fmax_mhz_from_period_minus_wns": 85.2587603376247,
+    "achieved_fmax_mhz_from_data_path_delay": 87.32861758798357,
     "binding_detail": {
       "binding_resource": "lut",
-      "used": 41631,
+      "used": 45885,
       "available": 63400,
       "oversubscribed": false,
-      "utilization_fraction": 0.6566403785488959,
+      "utilization_fraction": 0.7237381703470032,
       "note": "Highest util resource (not necessarily oversubscribed)."
     },
     "binding_resource": "lut",
-    "peak_gops": 7.437104177560863,
-    "achieved_gops": 1.530597057152584,
+    "margin_class": "thin",
+    "fmax_derivation": {
+      "formula": "achieved_fmax_mhz_from_period_minus_wns = 1000 / (clock_period_ns - WNS_ns)",
+      "note": "This understates capability at loose constraints: Vivado stops optimizing once the applied period is met, so loose-period (period\u2212WNS) Fmax values are floors, not measurements of the design's true speed. Throughput (peak/achieved GOP/s) is therefore taken from each configuration's tightest closing period only."
+    },
+    "peak_gops": null,
+    "achieved_gops": null,
     "occupancy_applied": 0.20580551523947752,
-    "throughput_formulas": {
-      "peak_gops": "ARRAY_SIZE^2 * 2 * Fmax_GHz",
-      "achieved_gops": "peak_gops * occupancy",
-      "note": "peak and achieved are separate columns; never report peak as achieved"
+    "throughput_note": "Per-period rows are timing evidence only; plotted GOP/s come from throughput_by_config (one entry per ARRAY_SIZE\u00d7CDW\u00d7MAX_BATCH_COUNT, tightest closing period).",
+    "throughput_from_tightest_close": {
+      "source_clock_period_ns": 10.0,
+      "source_wns_ns": 0.012,
+      "peak_gops": 12.815378454144975,
+      "achieved_gops": 2.6374755657442055,
+      "margin_class": "marginal"
     }
   },
+  "demonstrated_fmax_ceiling": {
+    "label": "demonstrated_100mhz_ceiling",
+    "ARRAY_SIZE": 8,
+    "COMPUTE_DATA_WIDTH": 8,
+    "MAX_BATCH_COUNT": 48,
+    "clock_period_ns": 10.0,
+    "frequency_mhz_constraint": 100.0,
+    "report_prefix": "dss_n8_cdw8_mb48_clk10_pd3_prog65536",
+    "wns_ns": 0.012,
+    "margin_class": "marginal",
+    "achieved_fmax_mhz_from_period_minus_wns": 100.12014417300762,
+    "claim_rule": "Any claim citing 100 MHz must carry the WNS value inline (WNS=0.012 ns, margin_class=marginal). Shipping default remains 12 ns / ~83 MHz."
+  },
   "int4_pareto_point": null,
+  "not_yet_attempted": [
+    {
+      "ARRAY_SIZE": 4,
+      "COMPUTE_DATA_WIDTH": 4,
+      "MAX_BATCH_COUNT": 48,
+      "clock_period_ns": 20.0,
+      "canonical_prefix": "dss_n4_cdw4_mb48_clk20_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 4,
+      "COMPUTE_DATA_WIDTH": 4,
+      "MAX_BATCH_COUNT": 48,
+      "clock_period_ns": 15.0,
+      "canonical_prefix": "dss_n4_cdw4_mb48_clk15_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 4,
+      "COMPUTE_DATA_WIDTH": 4,
+      "MAX_BATCH_COUNT": 48,
+      "clock_period_ns": 12.0,
+      "canonical_prefix": "dss_n4_cdw4_mb48_clk12_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 4,
+      "COMPUTE_DATA_WIDTH": 4,
+      "MAX_BATCH_COUNT": 48,
+      "clock_period_ns": 10.0,
+      "canonical_prefix": "dss_n4_cdw4_mb48_clk10_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 4,
+      "COMPUTE_DATA_WIDTH": 4,
+      "MAX_BATCH_COUNT": 16,
+      "clock_period_ns": 20.0,
+      "canonical_prefix": "dss_n4_cdw4_mb16_clk20_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 4,
+      "COMPUTE_DATA_WIDTH": 4,
+      "MAX_BATCH_COUNT": 16,
+      "clock_period_ns": 15.0,
+      "canonical_prefix": "dss_n4_cdw4_mb16_clk15_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 4,
+      "COMPUTE_DATA_WIDTH": 4,
+      "MAX_BATCH_COUNT": 16,
+      "clock_period_ns": 12.0,
+      "canonical_prefix": "dss_n4_cdw4_mb16_clk12_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 4,
+      "COMPUTE_DATA_WIDTH": 4,
+      "MAX_BATCH_COUNT": 16,
+      "clock_period_ns": 10.0,
+      "canonical_prefix": "dss_n4_cdw4_mb16_clk10_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 4,
+      "COMPUTE_DATA_WIDTH": 4,
+      "MAX_BATCH_COUNT": 4,
+      "clock_period_ns": 20.0,
+      "canonical_prefix": "dss_n4_cdw4_mb4_clk20_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 4,
+      "COMPUTE_DATA_WIDTH": 4,
+      "MAX_BATCH_COUNT": 4,
+      "clock_period_ns": 15.0,
+      "canonical_prefix": "dss_n4_cdw4_mb4_clk15_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 4,
+      "COMPUTE_DATA_WIDTH": 4,
+      "MAX_BATCH_COUNT": 4,
+      "clock_period_ns": 12.0,
+      "canonical_prefix": "dss_n4_cdw4_mb4_clk12_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 4,
+      "COMPUTE_DATA_WIDTH": 4,
+      "MAX_BATCH_COUNT": 4,
+      "clock_period_ns": 10.0,
+      "canonical_prefix": "dss_n4_cdw4_mb4_clk10_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 4,
+      "COMPUTE_DATA_WIDTH": 8,
+      "MAX_BATCH_COUNT": 48,
+      "clock_period_ns": 20.0,
+      "canonical_prefix": "dss_n4_cdw8_mb48_clk20_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 4,
+      "COMPUTE_DATA_WIDTH": 8,
+      "MAX_BATCH_COUNT": 48,
+      "clock_period_ns": 15.0,
+      "canonical_prefix": "dss_n4_cdw8_mb48_clk15_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 4,
+      "COMPUTE_DATA_WIDTH": 8,
+      "MAX_BATCH_COUNT": 48,
+      "clock_period_ns": 12.0,
+      "canonical_prefix": "dss_n4_cdw8_mb48_clk12_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 4,
+      "COMPUTE_DATA_WIDTH": 8,
+      "MAX_BATCH_COUNT": 48,
+      "clock_period_ns": 10.0,
+      "canonical_prefix": "dss_n4_cdw8_mb48_clk10_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 4,
+      "COMPUTE_DATA_WIDTH": 8,
+      "MAX_BATCH_COUNT": 16,
+      "clock_period_ns": 20.0,
+      "canonical_prefix": "dss_n4_cdw8_mb16_clk20_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 4,
+      "COMPUTE_DATA_WIDTH": 8,
+      "MAX_BATCH_COUNT": 16,
+      "clock_period_ns": 15.0,
+      "canonical_prefix": "dss_n4_cdw8_mb16_clk15_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 4,
+      "COMPUTE_DATA_WIDTH": 8,
+      "MAX_BATCH_COUNT": 16,
+      "clock_period_ns": 12.0,
+      "canonical_prefix": "dss_n4_cdw8_mb16_clk12_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 4,
+      "COMPUTE_DATA_WIDTH": 8,
+      "MAX_BATCH_COUNT": 16,
+      "clock_period_ns": 10.0,
+      "canonical_prefix": "dss_n4_cdw8_mb16_clk10_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 4,
+      "COMPUTE_DATA_WIDTH": 8,
+      "MAX_BATCH_COUNT": 4,
+      "clock_period_ns": 20.0,
+      "canonical_prefix": "dss_n4_cdw8_mb4_clk20_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 4,
+      "COMPUTE_DATA_WIDTH": 8,
+      "MAX_BATCH_COUNT": 4,
+      "clock_period_ns": 15.0,
+      "canonical_prefix": "dss_n4_cdw8_mb4_clk15_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 4,
+      "COMPUTE_DATA_WIDTH": 8,
+      "MAX_BATCH_COUNT": 4,
+      "clock_period_ns": 12.0,
+      "canonical_prefix": "dss_n4_cdw8_mb4_clk12_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 4,
+      "COMPUTE_DATA_WIDTH": 8,
+      "MAX_BATCH_COUNT": 4,
+      "clock_period_ns": 10.0,
+      "canonical_prefix": "dss_n4_cdw8_mb4_clk10_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 8,
+      "COMPUTE_DATA_WIDTH": 4,
+      "MAX_BATCH_COUNT": 48,
+      "clock_period_ns": 20.0,
+      "canonical_prefix": "dss_n8_cdw4_mb48_clk20_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 8,
+      "COMPUTE_DATA_WIDTH": 4,
+      "MAX_BATCH_COUNT": 48,
+      "clock_period_ns": 15.0,
+      "canonical_prefix": "dss_n8_cdw4_mb48_clk15_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 8,
+      "COMPUTE_DATA_WIDTH": 4,
+      "MAX_BATCH_COUNT": 48,
+      "clock_period_ns": 12.0,
+      "canonical_prefix": "dss_n8_cdw4_mb48_clk12_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 8,
+      "COMPUTE_DATA_WIDTH": 4,
+      "MAX_BATCH_COUNT": 48,
+      "clock_period_ns": 10.0,
+      "canonical_prefix": "dss_n8_cdw4_mb48_clk10_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 8,
+      "COMPUTE_DATA_WIDTH": 4,
+      "MAX_BATCH_COUNT": 16,
+      "clock_period_ns": 20.0,
+      "canonical_prefix": "dss_n8_cdw4_mb16_clk20_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 8,
+      "COMPUTE_DATA_WIDTH": 4,
+      "MAX_BATCH_COUNT": 16,
+      "clock_period_ns": 15.0,
+      "canonical_prefix": "dss_n8_cdw4_mb16_clk15_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 8,
+      "COMPUTE_DATA_WIDTH": 4,
+      "MAX_BATCH_COUNT": 16,
+      "clock_period_ns": 12.0,
+      "canonical_prefix": "dss_n8_cdw4_mb16_clk12_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 8,
+      "COMPUTE_DATA_WIDTH": 4,
+      "MAX_BATCH_COUNT": 16,
+      "clock_period_ns": 10.0,
+      "canonical_prefix": "dss_n8_cdw4_mb16_clk10_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 8,
+      "COMPUTE_DATA_WIDTH": 4,
+      "MAX_BATCH_COUNT": 4,
+      "clock_period_ns": 20.0,
+      "canonical_prefix": "dss_n8_cdw4_mb4_clk20_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 8,
+      "COMPUTE_DATA_WIDTH": 4,
+      "MAX_BATCH_COUNT": 4,
+      "clock_period_ns": 15.0,
+      "canonical_prefix": "dss_n8_cdw4_mb4_clk15_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 8,
+      "COMPUTE_DATA_WIDTH": 4,
+      "MAX_BATCH_COUNT": 4,
+      "clock_period_ns": 12.0,
+      "canonical_prefix": "dss_n8_cdw4_mb4_clk12_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 8,
+      "COMPUTE_DATA_WIDTH": 4,
+      "MAX_BATCH_COUNT": 4,
+      "clock_period_ns": 10.0,
+      "canonical_prefix": "dss_n8_cdw4_mb4_clk10_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 8,
+      "COMPUTE_DATA_WIDTH": 8,
+      "MAX_BATCH_COUNT": 4,
+      "clock_period_ns": 15.0,
+      "canonical_prefix": "dss_n8_cdw8_mb4_clk15_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 8,
+      "COMPUTE_DATA_WIDTH": 8,
+      "MAX_BATCH_COUNT": 4,
+      "clock_period_ns": 12.0,
+      "canonical_prefix": "dss_n8_cdw8_mb4_clk12_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 8,
+      "COMPUTE_DATA_WIDTH": 8,
+      "MAX_BATCH_COUNT": 4,
+      "clock_period_ns": 10.0,
+      "canonical_prefix": "dss_n8_cdw8_mb4_clk10_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 16,
+      "COMPUTE_DATA_WIDTH": 4,
+      "MAX_BATCH_COUNT": 48,
+      "clock_period_ns": 20.0,
+      "canonical_prefix": "dss_n16_cdw4_mb48_clk20_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 16,
+      "COMPUTE_DATA_WIDTH": 4,
+      "MAX_BATCH_COUNT": 48,
+      "clock_period_ns": 15.0,
+      "canonical_prefix": "dss_n16_cdw4_mb48_clk15_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 16,
+      "COMPUTE_DATA_WIDTH": 4,
+      "MAX_BATCH_COUNT": 48,
+      "clock_period_ns": 12.0,
+      "canonical_prefix": "dss_n16_cdw4_mb48_clk12_pd3_prog65536"
+    },
+    {
+      "ARRAY_SIZE": 16,
+      "COMPUTE_DATA_WIDTH": 4,
+      "MAX_BATCH_COUNT": 48,
+      "clock_period_ns": 10.0,
+      "canonical_prefix": "dss_n16_cdw4_mb48_clk10_pd3_prog65536"
+    }
+  ],
   "summary": {
-    "n_points": 5,
-    "n_closed": 1,
+    "status": "partial",
+    "n_attempted": 9,
+    "n_closed": 9,
     "n_failed": 0,
-    "n_missing_or_skipped": 4,
+    "n_not_yet_attempted": 43,
+    "n_throughput_configs": 3,
     "reused_report_prefixes": [
-      "prog_depth_pd65536_buf4096_mb48_clk20_pd3"
-    ],
-    "vivado_attempted_this_run": [
+      "prog_depth_pd65536_buf4096_mb48_clk20_pd3",
       "dss_n8_cdw8_mb48_clk15_pd3_prog65536",
       "dss_n8_cdw8_mb48_clk12_pd3_prog65536",
       "dss_n8_cdw8_mb48_clk10_pd3_prog65536",
-      "dss_n8_cdw8_mb16_clk20_pd3_prog65536"
+      "dss_n8_cdw8_mb16_clk20_pd3_prog65536",
+      "dss_n8_cdw8_mb16_clk15_pd3_prog65536",
+      "dss_n8_cdw8_mb16_clk12_pd3_prog65536",
+      "dss_n8_cdw8_mb16_clk10_pd3_prog65536",
+      "dss_n8_cdw8_mb4_clk20_pd3_prog65536"
     ],
+    "vivado_attempted_this_run": [],
     "skipped": []
   },
   "plot_path": "docs/design_space_roofline.png",
