@@ -118,14 +118,20 @@ WEIGHT_SEED_BASE = 0xC0DE
 
 SCHEMA_VERSION = 1
 
-# Measured closed constraint from bench/results/timing_closure_sweep.json
-# (requant_fmax_mb4_clk10_pd3 @ clock_period_ns=10.0). Wall-clock conversion
-# for cycle counts uses this frequency; stated explicitly in the artifact.
-FPGA_CLOCK_MHZ = 100.0
+# Shipping wall-clock conversion uses the design-space shipping close
+# (12 ns / ~83.333 MHz, WNS=+0.271). 100 MHz is ceiling-only (WNS=+0.012).
+FPGA_CLOCK_MHZ = 1000.0 / 12.0  # shipping default ~83.333 MHz (12 ns)
+FPGA_CLOCK_PERIOD_NS = 12.0
+FPGA_CLOCK_WNS_NS = 0.271
+FPGA_CLOCK_MARGIN_CLASS = "thin"
 FPGA_CLOCK_SOURCE = (
-    "bench/results/timing_closure_sweep.json::requant_fmax_mb4_clk10_pd3 "
-    "(clock_period_ns=10.0, frequency_mhz_constraint=100.0, status=closed)"
+    "bench/results/design_space_sweep.json::shipping_point "
+    "N=8 INT8 MAX_BATCH_COUNT=48 @ 12 ns (WNS=+0.271, margin_class=thin). "
+    "100 MHz is the demonstrated ceiling (WNS=+0.012, marginal) — quote WNS if cited."
 )
+FPGA_CEILING_MHZ = 100.0
+FPGA_CEILING_WNS_NS = 0.012
+FPGA_CEILING_MARGIN_CLASS = "marginal"
 
 # Extra random-input RTL trials beyond the 5 adversarial distributions.
 # Each trial is one iverilog vvp invocation (compile-once + plusargs).

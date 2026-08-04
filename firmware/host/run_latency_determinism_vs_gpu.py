@@ -8,9 +8,11 @@ Arms
 ----
 * **FPGA / iverilog RTL** (from ``run_latency_determinism.py``): end-to-end
   MAGIC_START→HALT cycle counts across adversarial + many random inputs
-  on the blocked-FC ``(M=32,K=32)`` shape. Cycles convert to wall-clock
-  at the measured closed **100 MHz** constraint
-  (``timing_closure_sweep.json::requant_fmax_mb4_clk10_pd3``).
+  on the blocked-FC ``(M=32,K=32)`` shape. Cycles convert to wall-clock at the
+  **shipping** close (**12 ns / ~83.333 MHz**, WNS=+0.271, thin). The
+  **100 MHz** close (WNS=+0.012, marginal) is recorded as the demonstrated
+  ceiling and must quote WNS if cited — consistent with
+  ``design_space_sweep.json``.
 * **GPU** (same logical GEMV): N >= 10000 timed iterations with CUDA
   events + a single synchronize bracket, matching the methodology in
   ``run_cublas_baseline.py`` / ``_cublas_baseline_torch_subprocess.py``.
@@ -423,8 +425,23 @@ def _fpga_arm_from_artifact(fpga: Dict[str, Any]) -> Dict[str, Any]:
             (fpga.get("data_independence") or [{}])[0].get("rtl_cycle_invariant")
         ),
         "clock_mhz": float(FPGA_CLOCK_MHZ),
+        "clock_period_ns": 12.0,
+        "wns_ns": 0.271,
+        "margin_class": "thin",
         "clock_source": FPGA_CLOCK_SOURCE,
-        "conversion": "wall_ns = cycles * (1000 / clock_mhz)  # 10 ns/cycle at 100 MHz",
+        "conversion": (
+            "wall_ns = cycles * (1000 / clock_mhz)  # 12 ns/cycle at shipping ~83.333 MHz"
+        ),
+        "demonstrated_ceiling_clock": {
+            "clock_mhz": 100.0,
+            "clock_period_ns": 10.0,
+            "wns_ns": 0.012,
+            "margin_class": "marginal",
+            "claim_rule": (
+                "Any claim citing 100 MHz must carry WNS=+0.012 ns inline. "
+                "Shipping default remains 12 ns / ~83 MHz."
+            ),
+        },
         "samples_ns": samples_ns,
         "stats": stats,
         # Explicit percentile aliases for readers scanning the JSON.
