@@ -128,6 +128,30 @@ class BoardConfig:
         )
 
     @classmethod
+    def boolean_xc7s50(cls) -> "BoardConfig":
+        """Real Digital Boolean (xc7s50csga324-1) fit configuration.
+
+        The MAX_BATCH_COUNT setting belongs to the RTL build, rather than the
+        ISA program.  The board runner records it alongside this host model so
+        the uploaded program and bitstream cannot be confused with the former
+        Artix shipping configuration.
+        """
+        return cls(
+            name="boolean_xc7s50",
+            prog_depth=65536,
+            buffer_size=4096,
+            array_size=8,
+            data_width_bits=8,
+            notes=(
+                "Real Digital Boolean, xc7s50csga324-1: N=8 INT8, "
+                "BUFFER_SIZE=4096, PROG_DEPTH=65536, MAX_BATCH_COUNT=4. "
+                "The fused 64->64->10 one-sample workload is independent of "
+                "the batch-capacity parameter and must be ISA/RTL checked "
+                "against this exact RTL configuration before board use."
+            ),
+        )
+
+    @classmethod
     def reference_set(cls, artix_prog_depth: int | None = None) -> List["BoardConfig"]:
         boards = [
             cls.pynqz2_baseline(),
@@ -138,6 +162,7 @@ class BoardConfig:
             boards.append(cls.artix_a7100t_bram_max(artix_prog_depth))
         else:
             boards.append(cls.artix_a7100t_bram_max())
+        boards.append(cls.boolean_xc7s50())
         return boards
 
     def fits(self, program_instruction_words: int) -> bool:

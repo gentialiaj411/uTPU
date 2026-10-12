@@ -57,3 +57,15 @@ def test_reference_interpreter_is_deterministic_for_same_input():
     y1 = interpreter.run(x)
     y2 = interpreter.run(x)
     assert np.array_equal(y1, y2)
+
+
+def test_reference_interpreter_honors_softmax_axis():
+    graph = GraphIR(name="softmax_axis")
+    graph.inputs = ["x"]
+    graph.outputs = ["y"]
+    graph.add_value("x", shape=(2, 3), dtype="torch.float32")
+    graph.add_op(OpNode(name="softmax", op=OpKind.SOFTMAX, inputs=["x"], outputs=["y"], attrs={"dim": 0}))
+    x = np.array([[1.0, 2.0, 3.0], [4.0, 2.0, 0.0]], dtype=np.float32)
+    expected = np.exp(x - np.max(x, axis=0, keepdims=True))
+    expected /= np.sum(expected, axis=0, keepdims=True)
+    assert np.allclose(execute_graph_reference(graph, x), expected)

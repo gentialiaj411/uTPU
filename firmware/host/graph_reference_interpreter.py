@@ -140,7 +140,9 @@ class GraphReferenceInterpreter:
                 if bool(op.attrs.get("causal_mask", False)):
                     tri = np.triu(np.ones((x.shape[-2], x.shape[-1]), dtype=bool), k=1)
                     x = np.where(tri, -1e9, x)
-                values[op.outputs[0]] = _stable_softmax(x, axis=-1).astype(np.float32, copy=False)
+                values[op.outputs[0]] = _stable_softmax(
+                    x, axis=int(op.attrs.get("dim", -1))
+                ).astype(np.float32, copy=False)
                 continue
 
             if op.op == OpKind.LAYER_NORM:
@@ -209,7 +211,9 @@ class GraphReferenceInterpreter:
                 if bool(op.attrs.get("causal_mask", False)):
                     tri = np.triu(np.ones((x.shape[-2], x.shape[-1]), dtype=bool), k=1)
                     x = np.where(tri, -1e9, x)
-                values[op.outputs[0]] = _stable_softmax(x * s, axis=-1).astype(np.float32, copy=False)
+                values[op.outputs[0]] = _stable_softmax(
+                    x * s, axis=int(op.attrs.get("dim", -1))
+                ).astype(np.float32, copy=False)
                 continue
 
             if op.op == OpKind.CONV2D:

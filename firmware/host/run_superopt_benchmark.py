@@ -379,9 +379,9 @@ class MeasuredGraphResult:
 @dataclass
 class MeasuredAggregateResult:
     win_rate_pct: float
-    flop_reduction_pct_median_on_wins: float
+    flop_reduction_pct_median_all_cases: float
     flop_reduction_pct_max_on_wins: float
-    isa_cycle_reduction_pct_median_on_wins: float
+    isa_cycle_reduction_pct_median_all_cases: float
     isa_cycle_reduction_pct_max_on_wins: float
     num_phase_ordering_wins: int
     num_extractions_rejected_by_equiv_check: int
@@ -410,8 +410,8 @@ def _git_sha() -> str:
 def _summarize_measured_results(results: List[MeasuredGraphResult]) -> MeasuredAggregateResult:
     evaluated = [r for r in results if r.equiv_check_reason != "harness_exception"]
     wins = [r for r in evaluated if r.phase_ordering_win]
-    flop_reductions = [r.flop_reduction_pct for r in wins]
-    isa_reductions = [r.isa_cycle_reduction_pct for r in wins]
+    flop_reductions = [r.flop_reduction_pct for r in evaluated]
+    isa_reductions = [r.isa_cycle_reduction_pct for r in evaluated]
     pipeline_flops = [r.pipeline_flops for r in evaluated if r.pipeline_flops > 0]
     egraph_flops = [r.egraph_flops_for_comparison for r in evaluated if r.pipeline_flops > 0]
     pipeline_isa = [r.pipeline_isa_cycles for r in evaluated if r.pipeline_isa_cycles > 0]
@@ -422,9 +422,9 @@ def _summarize_measured_results(results: List[MeasuredGraphResult]) -> MeasuredA
     win_rate = (100.0 * num_wins / num_eval) if num_eval else 0.0
     return MeasuredAggregateResult(
         win_rate_pct=float(win_rate),
-        flop_reduction_pct_median_on_wins=float(np.median(flop_reductions)) if flop_reductions else 0.0,
+        flop_reduction_pct_median_all_cases=float(np.median(flop_reductions)) if flop_reductions else 0.0,
         flop_reduction_pct_max_on_wins=float(max(flop_reductions)) if flop_reductions else 0.0,
-        isa_cycle_reduction_pct_median_on_wins=float(np.median(isa_reductions)) if isa_reductions else 0.0,
+        isa_cycle_reduction_pct_median_all_cases=float(np.median(isa_reductions)) if isa_reductions else 0.0,
         isa_cycle_reduction_pct_max_on_wins=float(max(isa_reductions)) if isa_reductions else 0.0,
         num_phase_ordering_wins=int(num_wins),
         num_extractions_rejected_by_equiv_check=int(num_rejected),

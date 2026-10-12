@@ -19,6 +19,11 @@ module tb_uart_replay;
     localparam int TB_COMPUTE_DATA_WIDTH = `UART_REPLAY_COMPUTE_DATA_WIDTH;
     localparam int TB_ACCUMULATOR_DATA_WIDTH = `UART_REPLAY_ACCUMULATOR_DATA_WIDTH;
     localparam int TB_UART_BAUD = `UART_REPLAY_UART_BAUD;
+`ifdef UART_REPLAY_MAX_BATCH_COUNT
+    localparam int TB_MAX_BATCH_COUNT = `UART_REPLAY_MAX_BATCH_COUNT;
+`else
+    localparam int TB_MAX_BATCH_COUNT = 64;
+`endif
     localparam int OVERSAMPLE = 16;
     localparam int BIT_CYCLES = 16;
     localparam int RESULT_WAIT_CYCLES = 500000;
@@ -33,6 +38,7 @@ module tb_uart_replay;
         .EXT_ADDR_EN(TB_EXT_ADDR_EN),
         .COMPUTE_DATA_WIDTH(TB_COMPUTE_DATA_WIDTH),
         .ACCUMULATOR_DATA_WIDTH(TB_ACCUMULATOR_DATA_WIDTH),
+        .MAX_BATCH_COUNT(TB_MAX_BATCH_COUNT),
         .UART_INPUT_CLK(100000000),
         .UART_BAUD(TB_UART_BAUD)
     ) dut (

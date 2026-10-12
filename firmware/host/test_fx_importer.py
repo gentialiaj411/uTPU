@@ -66,6 +66,22 @@ def test_import_add_function():
     assert graph.values[graph.ops[0].outputs[0]].shape == (1, 4)
 
 
+def test_import_softmax_captures_and_normalizes_axis():
+    torch_info = _require_torch_or_skip()
+    if torch_info is None:
+        return
+    torch, nn, _ = torch_info
+    import torch.nn.functional as F
+    from fx_importer import import_fx_graph_module
+
+    class SoftmaxDimZero(nn.Module):
+        def forward(self, x):
+            return F.softmax(x, 0)
+
+    graph = import_fx_graph_module(_trace_with_shapes(SoftmaxDimZero(), torch.randn(2, 3)), name="softmax_dim")
+    assert graph.ops[0].attrs["dim"] == 0
+
+
 def test_unsupported_op_fails_clearly():
     torch_info = _require_torch_or_skip()
     if torch_info is None:

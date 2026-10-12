@@ -6,7 +6,7 @@ Dropped: claims whose artifacts are absent (`fuzzer_report.json`) or superseded
 
 ## Flagship bullets (submittable)
 
-- Built a PyTorch-to-accelerator compiler that lowers FX graphs into a pass-based Graph IR with NVRTC CUDA and a custom 16-bit SystemVerilog ISA; INT8/INT4 MLPs are bit-identical to a NumPy oracle across tiling shapes, and the Python ISA simulator is byte-exact with iverilog RTL on the bitmatch corpus.
+- Built a PyTorch-to-accelerator compiler that lowers FX graphs into a pass-based Graph IR with NVRTC CUDA and a custom ISA: **16-bit instruction words; INT4/INT8 datapath**. MLPs are bit-identical to a NumPy oracle across tiling shapes, and the Python ISA simulator is byte-exact with iverilog RTL on the bitmatch corpus.
   - Artifacts: `bench/results/tiling_correctness.json` (blocked-FC INT4 tiling sweep), `build/reports/isa_rtl_bitmatch_report.json` (ISA↔RTL), `bench/results/real_model_end_to_end.json` (ResNet-18 CUDA graph path).
   - Workloads: blocked-FC tiling shapes; fused MLP bitmatch programs; ResNet-18 on CUDA graph executor (not uTPU full-model).
 
@@ -51,7 +51,7 @@ Dropped: claims whose artifacts are absent (`fuzzer_report.json`) or superseded
 
 ## Compiler / CUDA (still current)
 
-- Pass-based Graph IR: shape inference, Linear+ReLU fusion, DCE, liveness memory planning, backend legality.
+- Pass-based Graph IR: shape inference, Linear+ReLU fusion, DCE, liveness-based memory-plan analysis, backend legality.
   - Evidence: `firmware/host/test_graph_passes.py` (blocked-FC MLP).
 
 - NumPy Graph IR interpreter as independent oracle.
@@ -81,14 +81,11 @@ Dropped: claims whose artifacts are absent (`fuzzer_report.json`) or superseded
 - 2-PE K-split FC1 path (simulator only): **24.1%** parallel cycle reduction on `case2_multi_k`.
   - Artifact: `bench/results/multi_pe_sim.json`.
 
-- Superoptimizer on 8 matmul-chain graphs: **100%** win rate, **87.5%** median modeled FLOP reduction on wins (sim-only).
-  - Artifact: `bench/results/superopt_payoff.json`.
-
 - Transformer-block host validation + INT4 weight-memory reduction **71.875%**.
   - Evidence: `firmware/host/test_transformer_integration.py`, `build/reports/transformer_parity_report.json`, `build/reports/int4_quantization_report.json`.
 
-- Calibrated CUDA cost model + pruned autotuner (replay): log_R² ~0.936, profiles ~4.9/16 schedules (~3.3× search cut).
-  - Evidence: `build/reports/cost_model_calibration.json`, `build/reports/pruned_autotuner_report.json`.
+- Calibrated CUDA cost model + pruned autotuner: **3.12x candidate-count reduction over a 16-schedule (threads x unroll) menu on calibration replay, max regression <0.5%**.
+  - Artifact/command: `bench/results/pruned_autotuner_replay.json`; `python firmware/host/evaluate_pruned_autotuner.py --calibration-json bench/fixtures/cost_model_calibration_seed.json --top-k 4 --output-json bench/results/pruned_autotuner_replay.json`.
 
 ## Explicitly not claimed / dropped
 

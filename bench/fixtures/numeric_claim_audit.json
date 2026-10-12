@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "policy": "Every numeric-bearing line in each audited document is frozen by exact count and must be regenerated or re-audited when edited. Artifact roots and commands are explicit per document.",
+  "documents": {
+    "README.md": {
+      "numeric_line_count": 33,
+      "artifact_roots": ["bench/results", "build/reports"],
+      "command": "make repro"
+    },
+    "RESUME_CLAIMS.md": {
+      "numeric_line_count": 36,
+      "artifact_roots": ["bench/results", "build/reports"],
+      "command": "make repro"
+    },
+    "CLAIMS_MATRIX.md": {
+      "numeric_line_count": 69,
+      "artifact_roots": ["bench/results", "build/reports"],
+      "command": "make repro"
+    },
+    "INTERVIEW_GUIDE.md": {
+      "numeric_line_count": 27,
+      "artifact_roots": ["bench/results", "build/reports"],
+      "command": "make repro"
+    }
+  }
+}

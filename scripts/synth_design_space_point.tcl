@@ -63,7 +63,7 @@ proc period_tag {period} {
 set script_dir [file normalize [file dirname [info script]]]
 set repo_root  [file normalize [file join $script_dir ..]]
 set arg_opts   [parse_kv_args $argv]
-set part_name  xc7a100tcsg324-1
+set part_name  [maybe_get $arg_opts part xc7a100tcsg324-1]
 set top_name   top
 
 set array_size [maybe_get $arg_opts ARRAY_SIZE 8]
@@ -86,13 +86,14 @@ set pipe_depth [maybe_get $arg_opts QUANTIZER_PIPE_DEPTH 3]
 set clock_period [maybe_get $arg_opts clock_period 20]
 set report_prefix [string trim [maybe_get $arg_opts report_prefix ""]]
 set jobs       [maybe_get $arg_opts jobs 4]
+set xdc_file   [maybe_get $arg_opts xdc_file [file join $repo_root arty_a7_revE_usb_uart.xdc]]
 set clk_tag    [period_tag $clock_period]
 
 if {$report_prefix eq ""} {
     set report_prefix "dss_n${array_size}_cdw${cdw}_mb${max_batch}_clk${clk_tag}_pd${pipe_depth}_prog${prog_depth}"
 }
 
-set proj_name "uTPU_dss_n${array_size}_cdw${cdw}_mb${max_batch}_clk${clk_tag}"
+set proj_name [maybe_get $arg_opts proj_name "uTPU_dss_n${array_size}_cdw${cdw}_mb${max_batch}_clk${clk_tag}"]
 set proj_dir  [file join $repo_root build "vivado_${proj_name}"]
 file mkdir $proj_dir
 
@@ -110,7 +111,9 @@ set rtl_files [concat $rtl_files [add_whitelist_dir $repo_root "rtl/unified_buff
 lappend rtl_files [file join $repo_root generated generated_params.sv]
 read_verilog -sv $rtl_files
 
-set xdc_file [file join $repo_root arty_a7_revE_usb_uart.xdc]
+if {![file exists $xdc_file]} {
+    error "Constraint file does not exist: $xdc_file"
+}
 set xdc_override [file join $proj_dir "${proj_name}_clock_override.xdc"]
 set in_fh  [open $xdc_file r]
 set out_fh [open $xdc_override w]
@@ -140,7 +143,7 @@ set generic_opt [join [list \
 ] " "]
 set_property generic $generic_opt [current_fileset]
 puts "DSS generics: $generic_opt"
-puts "DSS clock_period=$clock_period report_prefix=$report_prefix proj=$proj_name"
+puts "DSS part=$part_name xdc=$xdc_file clock_period=$clock_period report_prefix=$report_prefix proj=$proj_name"
 
 # Match program_arty_a7_revE.tcl: sequential synth then impl-to-route (no bitstream).
 launch_runs synth_1 -jobs $jobs

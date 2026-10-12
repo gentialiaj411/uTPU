@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "board": "Real Digital Boolean",
+  "part": "xc7s50csga324-1",
+  "configuration": {
+    "ARRAY_SIZE": 8,
+    "COMPUTE_DATA_WIDTH": 8,
+    "ACCUMULATOR_DATA_WIDTH": 32,
+    "MAX_BATCH_COUNT": 4,
+    "BUFFER_SIZE": 4096,
+    "PROG_DEPTH": 65536,
+    "EXT_ADDR_EN": 1,
+    "QUANTIZER_LANES": 8,
+    "RELU_LANES": 8,
+    "QUANTIZER_PIPE_DEPTH": 3,
+    "clock_period_ns": 12.0
+  },
+  "command": "C:\\AMDDesignTools\\2025.2\\Vivado\\bin\\vivado.bat -mode batch -source scripts\\synth_design_space_point.tcl -tclargs part xc7s50csga324-1 xdc_file boolean_xc7s50.xdc proj_name uTPU_boolean_xc7s50 ARRAY_SIZE 8 COMPUTE_DATA_WIDTH 8 ACCUMULATOR_DATA_WIDTH 32 MAX_BATCH_COUNT 4 BUFFER_SIZE 4096 PROG_DEPTH 65536 EXT_ADDR_EN 1 QUANTIZER_LANES 8 RELU_LANES 8 QUANTIZER_PIPE_DEPTH 3 clock_period 12 report_prefix boolean_n8_cdw8_mb4_clk12_pd3_prog65536 jobs 4",
+  "status": "tool_startup_failed",
+  "vivado_version": "2025.2",
+  "diagnostic": "Vivado exited before sourcing the synthesis Tcl: [Common 17-356] Failed to install all user apps; [Common 17-39] load_features failed due to earlier errors.",
+  "utilization": null,
+  "timing": null,
+  "route_status": null,
+  "claim_scope": "No Boolean utilization, timing, bitstream, or hardware-execution claim is supported by this failed local tool startup."
+}

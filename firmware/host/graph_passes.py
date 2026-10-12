@@ -228,7 +228,15 @@ def shape_inference_pass(graph: GraphIR) -> GraphIR:
         if op.op == OpKind.ADD:
             lhs = inferred.get_value(op.inputs[0])
             rhs = inferred.get_value(op.inputs[1])
-            out_value.shape = lhs.shape or rhs.shape or out_value.shape
+            if lhs.shape is not None and rhs.shape is not None:
+                try:
+                    out_value.shape = tuple(np.broadcast_shapes(lhs.shape, rhs.shape))
+                except ValueError as e:
+                    raise ValueError(
+                        f"ADD op '{op.name}' has incompatible broadcast shapes {lhs.shape} and {rhs.shape}"
+                    ) from e
+            else:
+                out_value.shape = lhs.shape or rhs.shape or out_value.shape
             out_value.dtype = lhs.dtype or rhs.dtype or out_value.dtype
             continue
 
@@ -476,7 +484,14 @@ class FusionEngine:
 
             producer_out = op.outputs[0]
             producer_value = graph.values.get(producer_out)
-            if producer_value is None or len(producer_value.consumers) != 1:
+            # A graph output is an additional observable use.  Replacing the
+            # producer's output with only the consumer output would leave the
+            # original output name unproduced after rebuild.
+            if (
+                producer_value is None
+                or len(producer_value.consumers) != 1
+                or producer_out in graph.outputs
+            ):
                 new_op_list.append(copy.deepcopy(op))
                 continue
 
@@ -572,6 +587,7 @@ def _rewrite_scale_softmax(
         attrs={
             "scale": float(producer.attrs.get("scale", 1.0)),
             "causal_mask": bool(consumer.attrs.get("causal_mask", False)),
+            "dim": int(consumer.attrs.get("dim", -1)),
         },
     )
     return FusionRewrite(new_ops=(fused,), value_aliases={})
@@ -798,6 +814,13 @@ def backend_legality_pass(graph: GraphIR, backend: str) -> GraphIR:
     offending = []
     for op in lowered.ops:
         lowering_available = bool(op.op in allowed)
+        if lowering_available and op.op in {OpKind.SOFTMAX, OpKind.SCALED_SOFTMAX}:
+            input_shape = lowered.values.get(op.inputs[0]).shape if op.inputs else None
+            dim = int(op.attrs.get("dim", -1))
+            # The CUDA kernels are row softmax only. FX stores normalized
+            # axes, while hand-built IR may still use -1.
+            if input_shape is not None and dim != -1 and dim != len(input_shape) - 1:
+                lowering_available = False
         lowered.metadata["backend_legality"]["ops"].append(
             {
                 "name": op.name,
@@ -807,11 +830,14 @@ def backend_legality_pass(graph: GraphIR, backend: str) -> GraphIR:
         )
         op.attrs[f"{target}_lowering_available"] = lowering_available
         if not lowering_available:
+            reason = f"unsupported_for_backend:{target}"
+            if op.op in {OpKind.SOFTMAX, OpKind.SCALED_SOFTMAX}:
+                reason = f"softmax_dim_not_supported_for_backend:{target}:dim={op.attrs.get('dim')}"
             offending.append(
                 {
                     "name": op.name,
                     "op": op.op,
-                    "reason": f"unsupported_for_backend:{target}",
+                    "reason": reason,
                 }
             )
 

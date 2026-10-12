@@ -37,7 +37,7 @@ set script_dir [file normalize [file dirname [info script]]]
 set arg_opts   [parse_kv_args $argv]
 set proj_dir   [file normalize [maybe_get $arg_opts proj_dir [file join $script_dir build vivado_arty_a7]]]
 set proj_name  [maybe_get $arg_opts proj_name uTPU_arty_a7]
-set part_name  xc7a100tcsg324-1
+set part_name  [maybe_get $arg_opts part xc7a100tcsg324-1]
 set top_name   top
 set clock_period [string trim [maybe_get $arg_opts clock_period ""]]
 set generic_opt [maybe_get $arg_opts generic ""]
@@ -54,6 +54,7 @@ regsub -all {,} $generic_opt { } generic_opt
 regsub -all {:} $generic_opt {=} generic_opt
 set generic_opt [string trim $generic_opt]
 set report_prefix [string trim [maybe_get $arg_opts report_prefix ""]]
+set xdc_file [file normalize [maybe_get $arg_opts xdc_file [file join $script_dir arty_a7_revE_usb_uart.xdc]]]
 
 # Create project
 create_project -force $proj_name $proj_dir -part $part_name
@@ -89,7 +90,9 @@ if {[llength $rtl_files] == 0} {
 read_verilog -sv $rtl_files
 
 # Add constraints
-set xdc_file [file join $script_dir arty_a7_revE_usb_uart.xdc]
+if {![file exists $xdc_file]} {
+    error "Constraint file does not exist: $xdc_file"
+}
 if {$clock_period ne ""} {
     set xdc_override [file join $proj_dir "${proj_name}_clock_override.xdc"]
     set in_fh  [open $xdc_file r]

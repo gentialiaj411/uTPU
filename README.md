@@ -17,7 +17,7 @@ Supported:
 
 - Batch-1 MLP-style `Linear -> ReLU -> Linear` flows.
 - Single-block transformer path: `Q/K/V linear -> attention -> output projection -> residual -> RMSNorm -> (optional MLP reuse)`.
-- Pass-based Graph IR: shape inference, Linear+ReLU fusion, dead-code elimination, liveness memory planning, backend legality.
+- Pass-based Graph IR: shape inference, Linear+ReLU fusion, dead-code elimination, liveness-based memory-plan analysis, backend legality.
 - Transformer pass pipeline: attention decomposition (`scaled_dot_product_attention` -> `permute + batched_matmul + scale + softmax + batched_matmul`) plus `scale+softmax` fusion.
 - INT4 blocked fully connected lowering for CUDA and uTPU program emission.
 - CUDA runtime execution through generated NVRTC kernels.
@@ -31,7 +31,7 @@ Not claimed:
 - Full GPT/BERT graph coverage.
 - Production `torch.compile` backend.
 - End-to-end speedup over PyTorch/cuBLAS on tiny benchmarks (or FPGA speedup vs GPU).
-- On-board FPGA / silicon execution (P0 open) — all RTL cycle and UART claims below are iverilog or post-route synth, not board capture.
+- On-board FPGA / silicon execution (P0 open) — hardware evidence remains simulation / post-route timing only until an artifact records `status==hardware_bit_exact`.
 - Shipping at the demonstrated 100 MHz ceiling (marginal WNS); the ship point is ~83.3 MHz.
 - uTPU cycle-model selection regret comparable to CUDA’s 16-candidate menu (uTPU menu is 5 candidates).
 - Concurrent LOAD+COMPUTE as the next win (isolated-GEMM attribution parks that path).
@@ -61,7 +61,7 @@ Not claimed:
 
 - Real-model CUDA path: ResNet-18 lowers end-to-end through FX → Graph IR → graph-op execution. Parity vs eager PyTorch at `rtol=1e-3`, `atol=1e-3`. Evidence: [bench/results/real_model_end_to_end.json](bench/results/real_model_end_to_end.json).
 
-- CUDA performance engineering: calibrated CUDA-event data backs a schedule-aware analytical cost model and pruning policy for blocked-FC autotuning. Measured-data replay profiles `4.92` of 16 schedules on average (`3.25x` search reduction), keeps every selected schedule within `1%` of exhaustive best, and lowers max replay regression from strict top-k's `5.90%` to `0.49%`. Evidence: [docs/EVIDENCE.md#cost-model-and-pruned-autotuner](docs/EVIDENCE.md#cost-model-and-pruned-autotuner), [firmware/host/cost_model.py](firmware/host/cost_model.py), [firmware/host/cuda_autotuner.py](firmware/host/cuda_autotuner.py).
+- CUDA performance engineering: **3.12x candidate-count reduction over a 16-schedule (threads x unroll) menu on calibration replay, max regression <0.5%**. Artifact: [bench/results/pruned_autotuner_replay.json](bench/results/pruned_autotuner_replay.json). Reproduce: `python firmware/host/evaluate_pruned_autotuner.py --calibration-json bench/fixtures/cost_model_calibration_seed.json --top-k 4 --output-json bench/results/pruned_autotuner_replay.json`.
 
 - Hardware verification (simulation): Python ISA simulator and Verilog RTL produce bit-identical fetch bytes on compiled fused MLP programs. Evidence: [docs/EVIDENCE.md#python-isa-simulator--rtl-bitmatch](docs/EVIDENCE.md#python-isa-simulator--rtl-bitmatch), [firmware/host/isa_simulator.py](firmware/host/isa_simulator.py), [rtl/tb/tb_fused_compressed_program.sv](rtl/tb/tb_fused_compressed_program.sv).
 
@@ -151,9 +151,9 @@ Current GitHub Actions status is reflected by the badge above. For the latest pu
 
 ## Resume-Safe Wording
 
-- Built a pass-based Graph IR compiler for a scoped MLP subset with shape inference, Linear+ReLU fusion, liveness memory planning, backend legality checks, and differential testing against reference/backend oracles.
+- Built a pass-based Graph IR compiler for a scoped MLP subset with shape inference, Linear+ReLU fusion, liveness-based memory-plan analysis, backend legality checks, and differential testing against reference/backend oracles.
 
-- Built a cost-model-guided CUDA blocked-FC autotuner that prunes a 16-candidate schedule space to `4.92` measured candidates on calibrated replay (`3.25x` reduction), with all selected schedules within `1%` of exhaustive best and max replay regression under `0.5%`.
+- Built a cost-model-guided CUDA blocked-FC autotuner with **3.12x candidate-count reduction over a 16-schedule (threads x unroll) menu on calibration replay, max regression <0.5%**. Artifact: `bench/results/pruned_autotuner_replay.json`; command: `python firmware/host/evaluate_pruned_autotuner.py --calibration-json bench/fixtures/cost_model_calibration_seed.json --top-k 4 --output-json bench/results/pruned_autotuner_replay.json`.
 
 - Closed Artix-7 timing at ~83 MHz (WNS=+0.271) after rightsizing DSP 192→72; attributed on-chip cycles (instruction-stream 66%, LOAD 1.1%); and showed zero FPGA cycle variance with ~1.89× median-latency loss vs GPU at the shipping clock.
 

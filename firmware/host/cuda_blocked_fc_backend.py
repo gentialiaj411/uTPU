@@ -1676,10 +1676,14 @@ class CUDAGraphOpExecutor:
                     continue
                 if op.op == OpKind.SOFTMAX:
                     x = values[op.inputs[0]]
+                    if int(op.attrs.get("dim", -1)) not in {-1, x.ndim - 1}:
+                        raise ValueError(f"CUDA softmax supports only last dimension; got dim={op.attrs.get('dim')}")
                     values[op.outputs[0]] = self._launch_softmax(x, 1.0, causal=False)
                     continue
                 if op.op == OpKind.SCALED_SOFTMAX:
                     x = values[op.inputs[0]]
+                    if int(op.attrs.get("dim", -1)) not in {-1, x.ndim - 1}:
+                        raise ValueError(f"CUDA softmax supports only last dimension; got dim={op.attrs.get('dim')}")
                     s = float(op.attrs.get("scale", 1.0))
                     causal = bool(op.attrs.get("causal_mask", False))
                     values[op.outputs[0]] = self._launch_softmax(x, s, causal=causal)

@@ -162,7 +162,11 @@ def build_graph_runtime_plan(
             apply_relu = op.op == OpKind.LINEAR_RELU
             if not apply_relu:
                 output_value = graph.values.get(output_name)
-                if output_value is not None and len(output_value.consumers) == 1:
+                if (
+                    output_value is not None
+                    and len(output_value.consumers) == 1
+                    and output_name not in graph.outputs
+                ):
                     consumer = op_by_name.get(output_value.consumers[0])
                     if consumer is not None and consumer.op == OpKind.RELU:
                         apply_relu = True
