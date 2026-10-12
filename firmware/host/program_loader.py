@@ -114,8 +114,15 @@ class ProgramLoader:
         if len(program) % 2 != 0:
             raise ValueError("Program length must be even (16-bit instructions)")
         n_words = len(program) // 2
-        if n_words > 1024:
-            raise ValueError(f"Program too large: {n_words} words (max 1024)")
+        # Must match rtl/top/top.sv::UPLOAD_LEN_MAX = min(PROG_DEPTH, 65535).
+        # The historical hard cap of 1024 blocked every shipping MNIST program.
+        upload_len_max = 65535
+        if n_words > upload_len_max:
+            raise ValueError(
+                f"Program too large: {n_words} words (UART length max {upload_len_max})"
+            )
+        if n_words == 0:
+            raise ValueError("Program is empty")
 
         self._log(f"Uploading {n_words} instructions ({len(program)} bytes)")
 
