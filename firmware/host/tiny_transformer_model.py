@@ -19,7 +19,12 @@ class Block(nn.Module):
         b,t,d=x.shape; h=self.heads; dh=d//h; q,k,v=self.qkv(self.n1(x)).chunk(3,-1)
         q=q.view(b,t,h,dh).transpose(1,2); k=k.view(b,t,h,dh).transpose(1,2); v=v.view(b,t,h,dh).transpose(1,2)
         mask=torch.ones(t,t,device=x.device,dtype=torch.bool).tril()
-        a=F.scaled_dot_product_attention(q,k,v,attn_mask=mask,dropout_p=0.0).transpose(1,2).reshape(b,t,d)
+        # The deployed score tensor is signed Q4.4.  Training the same bounded
+        # score range prevents a float-only attention tail from being clipped
+        # before the frozen integer softmax.
+        scores=(q @ k.transpose(-2,-1))/4.0
+        scores=scores.clamp(-8.0,127.0/16.0).masked_fill(~mask,float('-inf'))
+        a=(torch.softmax(scores,dim=-1) @ v).transpose(1,2).reshape(b,t,d)
         x=x+self.out(a); return x+self.ff2(F.leaky_relu(self.ff1(self.n2(x)),negative_slope=0.25))
 
 class TinyDecoder(nn.Module):
@@ -43,7 +48,7 @@ class TinyDecoder(nn.Module):
             q, k, v = block.qkv(n1).chunk(3, -1); dh = x.shape[-1] // block.heads
             q = q.view(b,t,block.heads,dh).transpose(1,2); k = k.view(b,t,block.heads,dh).transpose(1,2); v = v.view(b,t,block.heads,dh).transpose(1,2)
             trace['q'], trace['k'], trace['v'] = q, k, v
-            scores = (q @ k.transpose(-2,-1)) / (dh ** 0.5)
+            scores = ((q @ k.transpose(-2,-1)) / (dh ** 0.5)).clamp(-8.0, 127.0 / 16.0)
             scores = scores.masked_fill(~torch.ones(t,t,device=tokens.device,dtype=torch.bool).tril(), float('-inf')); trace['scores'] = scores
             probs = torch.softmax(scores, dim=-1); trace['softmax_probs'] = probs
             av = (probs @ v).transpose(1,2).reshape(b,t,x.shape[-1]); trace['av'] = av
