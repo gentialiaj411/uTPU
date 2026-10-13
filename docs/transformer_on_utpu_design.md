@@ -35,7 +35,7 @@ trained-model artifact.
 
 The smaller configuration is chosen now because the 64-wide/two-layer model's
 108,800-byte weight image plus its full-sequence working set would be too close
-to the 65,536-word unified-buffer configuration to leave a robust scratch
+to the existing Boolean 32,768-word unified-buffer configuration to leave a robust scratch
 margin.  The reduction is a capacity decision, not a claim that it changes the
 static hardware utilization.  The start-point model would contain 108,800 INT8 weights with tied output and learned positions
 (`96*64 + 64*64 + 2*(3*64*64 + 64*64 + 2*64*256 + 2*64)`).
@@ -44,7 +44,7 @@ static hardware utilization.  The start-point model would contain 108,800 INT8 w
 
 | Operation | Status | Phase-0 implementation decision |
 |---|---|---|
-| INT8 tiled linear / accumulator / requant | exists | Reuse `RUN`, `LOAD`, `FETCH`, extended addresses, and the INT8 parameterization; add loop descriptors so a whole GEMM is not unrolled into the instruction BRAM. |
+| INT8 tiled linear / accumulator / requant | exists | Reuse `RUN`, `LOAD`, `FETCH`, extended addresses, and the INT8 parameterization; emit the existing unrolled tile control in v1. |
 | LeakyReLU with slope 1/4 | exists | Reuse the existing LeakyReLU path; require arithmetic right shift by two with the rounding rule in Section 4. |
 | buffer-resident weights | exists | Reuse the A5 buffer-fill protocol; model weights are not instruction payload. |
 | per-channel requant | exists | Reuse/extend the existing multiplier/shift record for every linear output tensor. |
@@ -52,7 +52,7 @@ static hardware utilization.  The start-point model would contain 108,800 INT8 w
 | batched/strided GEMM | extend | Extend descriptor `TILE_GEMM` to loop M/N/K tiles and carry batch/head strides.  This covers QKV, output/FFN linears, QK^T, AV, and tied logits. |
 | positional embedding add | new | `VPOS_ADD`: sequential positional-table read plus `VADD_RQ`; no host positional addition. |
 | RMSNorm | new | `VRMSNORM`: vector sum-of-squares, exact mean divide, LUT-seeded Newton rsqrt, gain, and requant. |
-| causal softmax | new | `VSOFTMAX`: causal mask, row max, exp LUT, exact unsigned division, deterministic sum repair. |
+| causal softmax | new | `VSOFTMAX`: causal mask, row max, exp LUT, and exact unsigned division. |
 | reshape/head split/merge | no runtime op | Lower as descriptor strides/views; reject layouts that cannot be expressed by the descriptor. |
 
 Existing facts above are sourced by `firmware/host/isa_encoder.py` (opcodes
@@ -117,12 +117,14 @@ not regenerate values using their language math library.
 
 ### 4.2 `VADD_RQ` and `VPOS_ADD`
 
-For `a*2^ea + b*2^eb`, set `eo=max(ea,eb)`, compute
+For `a*2^ea + b*2^eb`, use the exporter-provided `eo`, which must satisfy
+`eo >= max(ea,eb)` (normally `max(ea,eb)+1` to provide carry headroom), then compute
 `z=sat8(RNE(a/2^(eo-ea)) + RNE(b/2^(eo-eb)))`, and tag output exponent `eo`.
 `VPOS_ADD` is exactly this operation where `b` is a sequentially addressed
 learned position row.  This deliberately chooses the coarser input scale as
 the common domain; metadata selection is part of quantization/export, not an
-implicit RTL decision.
+implicit RTL decision.  Phase 1 must report a saturation count for each
+residual-add site.
 
 ### 4.3 Causal integer softmax
 
@@ -140,11 +142,9 @@ LUT/divider contract rather than inheriting an unspecified approximation.
 4. `p_j=floor((255*E_j + floor(S/2))/S)` for `S=sum(E_j)`, using an exact
    unsigned restoring divider (24-bit numerator, 22-bit denominator, 24
    iterations).  `S>0` is asserted for every causal row.
-5. Let `delta=255-sum(p)`.  Add `delta` to the lowest-index valid argmax-score
-   position.  Thus every row sums **exactly 255**, probabilities are monotone
-   with score, and every masked probability is exactly zero.  The adjustment
-   is bounded by the valid-row length minus one and is checked before UINT8
-   writeback.
+5. Write `p_j` directly.  There is no delta-repair pass and no argmax tracker.
+   For a row with `n` valid positions, tests assert `255-n < sum(p) <=
+   255+ceil(n/2)`, score monotonicity, and exactly zero masked entries.
 
 ### 4.4 `VRMSNORM`
 
@@ -162,8 +162,8 @@ integer epsilon.  Normalize `v = 2^q*m` with even `q=floor(log2(v)) & ~1` and
 t_q14 = RNE(m_q14 * r0_q14 * r0_q14 / 2^28)
 c_q14 = 3*2^14 - t_q14
 r1_q14 = RNE(r0_q14 * c_q14 / 2^15)
-rsqrt_q14 = RNE(r1_q14 / 2^(q/2))
-y_i = sat8(RNE(x_i * gamma_i * rsqrt_q14 / 2^(14 + gamma_shift)))
+(mantissa_q14, exponent_shift) = (r1_q14, q/2)
+y_i = sat8(RNE(x_i * gamma_i * mantissa_q14 / 2^(14 + gamma_shift + exponent_shift)))
 ```
 
 `gamma_i` and `gamma_shift` are exported INT8/scale metadata.  The LUT index,
@@ -181,7 +181,6 @@ programs, the vector decoder is enabled only when `VECTOR_UNIT_EN=1`, default
 
 | Opcode / words | Fields | Semantics |
 |---|---|---|
-| `0x8` `TGEMM_LOOP`, 10 words | word0 `[3:0]=8`, `[7:4]=1`; words1-3 `dst/srcA/srcB`; word4 `M|N`; word5 `K|batch`; words6-8 row/col/batch strides; word9 requant/flags | **Extend** tile GEMM descriptor with hardware M/N/K loop counts, transpose-B, batch/head stride, accumulate/finalize, and per-channel scale-record base.  This keeps the estimated 11,520-word unrolled v1 schedule below a small control-image budget. |
 | `0x9` `VEC`, 5 words | word0 `[3:0]=9`, `[7:4]=subop`, `[15:8]=flags`; word1 dst; word2 src0; word3 src1/parameter record; word4 length (1..65535 elements) | **New** vector descriptor.  Addresses are 16-bit buffer-word addresses; INT8 pairs pack two per word. |
 | `VEC subop=0` | `dst,src0,src1,length` | `VADD_RQ`; flags identify the exponent records. |
 | `VEC subop=1` | `dst,src0,gamma,length` | `VRMSNORM`; length must be 48 in v1. |
@@ -189,7 +188,10 @@ programs, the vector decoder is enabled only when `VECTOR_UNIT_EN=1`, default
 | `VEC subop=3` | `dst,src0,scratch,length` | `VSOFTMAX`; flags=`causal|head_id`; length must encode a 32x32 head matrix. |
 | `VEC subop=4` | reserved | `VREQUANT` only if lowering cannot fold scale conversion into a producer/consumer. |
 
-All descriptor operands are buffer addresses, never host pointers.  A descriptor
+All descriptor operands are buffer addresses, never host pointers.  V1 GEMMs
+use existing unrolled tile control: the **11,520-word ESTIMATE** fits
+`BoardConfig.boolean_xc7s50().prog_depth == 32,768`.  `TGEMM_LOOP` remains a
+future control-size optimization, not a v1 ISA extension.  A descriptor
 with zero length, an unknown subop, an invalid v1 shape, or source/destination
 overlap not explicitly allowed is a hard decode error.  The exact binary
 packing is a Phase-2 implementation contract; the field allocation above is
@@ -214,13 +216,14 @@ Addresses are word addresses and are statically assigned by lowering.
 | unused reserve | `26256..65535` | 78,560 | Reserved for alignment, implementation scratch, and debug traces. |
 
 The maximum planned live allocation is **26,256 words / 52,512 bytes**.  It
-fits the existing 65,536-word buffer configuration; `docs/buffer_resident_weights_design.md`
-records that configuration as 37 BRAM36 on the current 7-series implementation.
+fits `BoardConfig.boolean_xc7s50().buffer_size == 32,768` with 6,512 words of
+headroom.  The Boolean profile is the authoritative v1 target; it records a
+46/75 BRAM36 memory-bit extrapolation in `firmware/host/board_config.py`.
 No full tensor leaves the buffer between embedding input and logits.
 
 ## 7. Boolean XC7S50 fit budget
 
-The RealDigital Boolean board is an XC7S50-1CSGA342 with a 100 MHz oscillator
+The RealDigital Boolean board is an XC7S50-1CSGA324 with a 100 MHz oscillator
 and USB-UART ([AMD board specification](https://www.amd.com/en/corporate/university-program/aup-boards/realdigital-boolean-board.html)).
 AMD lists XC7S50 at 8,150 CLB slices (32,600 LUTs because a 7-series slice has
 four LUTs), 120 DSP slices, and 2,700 Kb BRAM
@@ -229,8 +232,9 @@ four LUTs), 120 DSP slices, and 2,700 Kb BRAM
 | Resource | Boolean limit | Proposed v1 | Basis / status |
 |---|---:|---:|---|
 | model weights | 337,500 B BRAM capacity | 33,936 B | Calculated parameter count; fits in 9.5% of raw BRAM capacity. |
-| unified buffer | 75 BRAM36 total device | 37 BRAM36 | **Measured on the current 7-series design**, `BUFFER_SIZE=65536`, source `docs/buffer_resident_weights_design.md`; package/placement must be rechecked on XC7S50. |
-| control program | 75 BRAM36 total device | <=8,192 16-bit words (<=5 BRAM36) | **ESTIMATE**: descriptor-loop schedule, not unrolled tile actions; Phase 4 must emit and measure it. |
+| Boolean profile | 32,768 buffer words / 32,768 program words | 26,256 live buffer words / 11,520 control words | Calculated v1 map/control estimate; source profile `BoardConfig.boolean_xc7s50`. |
+| BRAM36 total | 75 | 46 | **ESTIMATE** from the existing Boolean profile’s memory-bit extrapolation in `buffer_resident_deployment._boolean_bram_estimate`; XC7S50 synthesis is still required. |
+| control program | 32,768 words | 11,520 words | **ESTIMATE**: existing unrolled tile control, no loop descriptor.  Phase 4 must emit and measure it. |
 | exp + rsqrt LUTs | 75 BRAM36 total device | <=1 BRAM36 | **ESTIMATE**: 129x16 + 192x16 = 642 B; allocated as one conservative RAMB36-equivalent. |
 | total BRAM36 | 75 | <=43 | 37 measured buffer + 5 estimated program + 1 estimated LUT; leaves >=32 blocks but requires XC7S50 synthesis. |
 | DSP48E1 | 120 | <=96 | **ESTIMATE**: existing 8x8 INT8 close uses 72 DSP on Artix; reserve <=24 for a serialized vector path.  Must be measured in Phase 3 XC7S50 synthesis. |
@@ -246,11 +250,10 @@ BRAM placement remain the primary Phase-0 feasibility risks.
 | Rank | Risk | Consequence | Mitigation / gate |
 |---:|---|---|---|
 | 1 | Vector unit or BRAM placement exceeds Boolean resources | Cannot claim a Boolean fit | Phase 3 XC7S50 synthesis; retain no-fit status until report. |
-| 2 | `TGEMM_LOOP` is more invasive than a vector opcode | Unrolled control is estimated at 11,520 words and erodes the 8,192-word budget | Phase 2 specifies golden descriptor expansion; test count against <=8,192-word budget before RTL. |
-| 3 | Integer softmax/norm harms language quality | Integer model is correct but unusable | Phase 1 reports float/int validation loss, BPC, and top-1 without a pass/fail tolerance rewrite. |
-| 4 | Per-tensor scales make residual precision poor | Quality loss / saturation | Train/export scale metadata; Phase 1 records saturation and exact residual-scale tests. |
-| 5 | Single-buffer ports serialize vector/GEMM traffic | Latency is high | v1 is correctness/fit first; profile after bit-exactness, not by adding a cache. |
-| 6 | UART load time is impractical | Demo ergonomics only | A5 weights are persistent; no impact on no-fallback inference semantics. |
+| 2 | Integer softmax/norm harms language quality | Integer model is correct but unusable | Phase 1 reports float/int validation loss, BPC, and top-1 without a pass/fail tolerance rewrite. |
+| 3 | Per-tensor scales make residual precision poor | Quality loss / saturation | Train/export per-add output exponents; Phase 1 records saturation counts and exact residual-scale tests. |
+| 4 | Single-buffer ports serialize vector/GEMM traffic | Latency is high | v1 is correctness/fit first; profile after bit-exactness, not by adding a cache. |
+| 5 | UART load time is impractical | Demo ergonomics only | A5 weights are persistent; no impact on no-fallback inference semantics. |
 
 ## 9. Verification plan mapped to the contract
 
@@ -258,7 +261,7 @@ BRAM placement remain the primary Phase-0 feasibility risks.
 |---|---|---:|
 | Independent ground truth | New NumPy-only integer module with its own LUT readers and scalar loops; it must not import ISA encode/decode/simulator code. | 1 |
 | Exhaustive LUT tests | All 129 exp entries, all 192 rsqrt seed entries, all 256 signed INT8 input values through requant/LeakyReLU; compare exact codes. | 1–2 |
-| Vector properties | Random/property rows: softmax sum exactly 255, score monotonicity, masked=0; residual scale algebra; RMS finite/non-overflow. | 1–2 |
+| Vector properties | Random/property rows: `255-n < sum <= 255+ceil(n/2)`, score monotonicity, masked=0; residual scale algebra and saturation counts; RMS finite/non-overflow. | 1–2 |
 | ISA bit-exactness | Reference versus decoder/simulator for every op, every block intermediate, and a full model sequence. | 2, 4 |
 | RTL bit-exactness | Per-op iverilog benches versus ISA vectors, then >=8 full sequences with non-saturated outputs included. | 3, 5 |
 | No fallback | One lowering test asserts `fallback_ops == []` from device embedding input through logits; negative tests name first unsupported op. | 4 |
@@ -274,18 +277,18 @@ simulator, or RTL implementation.  No tolerance applies to integer equality.
 
 1. **Boolean fit is unproven.** The existing 8x8 Artix result is below the
    raw XC7S50 DSP/LUT limits, but vector-unit area and BRAM placement have not
-   been synthesized for Boolean.  Should Phase 1 proceed before that optional
-   early synthesis baseline, or should synthesis be supplied first?
-2. Should the training corpus be TinyShakespeare specifically, and may its
-   preprocessing/vocabulary be committed as a fixture?  This design assumes a
-   fixed <=96-character vocabulary and seed but does not choose a corpus split.
-3. Is learned positional embedding plus on-device `VPOS_ADD` preferred, as
-   specified, or should a different positional scheme be co-designed before
-   training?  Changing it after Phase 1 changes the parameter and ISA contract.
-4. The 8,192-word descriptor-program and <=24,000-LUT design-budget numbers
-   are explicitly **ESTIMATES**.  They require Phase-2 lowering measurement
-   and Phase-3 XC7S50 synthesis respectively; no fit claim may precede those
-   artifacts.
+   been synthesized for Boolean.  Phase 1 proceeds without synthesis by
+   approval; no fit claim may precede a measurement.
+2. **Resolved:** Phase 1 uses TinyShakespeare, a fixed seed, a committed
+   vocabulary/split-index fixture, and a downloader with SHA-256 validation;
+   the raw corpus is not committed.
+3. **Resolved:** learned positional embeddings plus on-device `VPOS_ADD` are
+   the v1 positional scheme.
+4. The 11,520-word control estimate, 46-BRAM36 estimate, and <=24,000-LUT
+   design-budget number are explicitly **ESTIMATES**.  They require Phase-2
+   lowering measurement and Phase-3 XC7S50 synthesis respectively.
+5. The model/reference/export must be parameterized by `(T, D, H, Dff, L,
+   vocab)`; only future backend legality pins v1 values.
 
 ## Sources
 
