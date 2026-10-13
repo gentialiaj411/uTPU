@@ -13,6 +13,7 @@ def main():
     for marker in ("## 5. Frozen vector descriptor ISA (Phase 2)","### 5.1 Parameter records","### 5.2 Subop shapes, aliasing, and decode errors"):
         if marker not in text: bad.append("design marker "+marker)
     if subprocess.run([sys.executable,"-m","pytest",*TESTS,"-q","-p","no:cacheprovider"],cwd=ROOT).returncode: bad.append("vector/legacy pytest")
+    if subprocess.run([sys.executable,"firmware/host/run_isa_rtl_bitmatch.py"],cwd=ROOT).returncode: bad.append("ISA/RTL bitmatch")
     if not RESULT.is_file(): bad.append("vector result missing")
     else:
         r=json.loads(RESULT.read_text(encoding="utf-8")); source={p:subprocess.check_output(["git","rev-parse",f"HEAD:{p}"],cwd=ROOT,text=True).strip() for p in ("firmware/host","tools")}
