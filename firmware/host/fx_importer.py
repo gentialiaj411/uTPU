@@ -151,6 +151,10 @@ def _is_relu_function(target: Any, torch: Any, F: Any) -> bool:
     return target in {torch.relu, F.relu}
 
 
+def _is_leaky_relu_function(target: Any, F: Any) -> bool:
+    return target is F.leaky_relu
+
+
 def _is_add_function(target: Any, torch: Any) -> bool:
     return target in {operator.add, torch.add}
 
@@ -173,6 +177,23 @@ def _is_shape_plumbing_view_method(target: Any) -> bool:
 
 def _is_softmax_function(target: Any, torch: Any, F: Any) -> bool:
     return target in {torch.softmax, F.softmax}
+
+
+def _softmax_dim(node: Any, shape: Optional[Tuple[int, ...]]) -> int:
+    """Return the FX softmax dimension normalized against its input rank."""
+    dim = node.kwargs.get("dim") if hasattr(node, "kwargs") else None
+    if dim is None and len(node.args) > 1:
+        dim = node.args[1]
+    if dim is None:
+        raise FXImportError(f"Softmax node '{node.name}' is missing dim")
+    dim = _as_int(dim, f"softmax dim for '{node.name}'")
+    rank = len(shape) if shape is not None else None
+    if rank is not None:
+        if dim < 0:
+            dim += rank
+        if dim < 0 or dim >= rank:
+            raise FXImportError(f"Softmax node '{node.name}' dim {dim} is out of range for rank {rank}")
+    return dim
 
 
 def import_fx_graph_module(fx_module: Any, name: Optional[str] = None) -> GraphIR:
@@ -200,6 +221,22 @@ def import_fx_graph_module(fx_module: Any, name: Optional[str] = None) -> GraphI
 
         if node.op == "call_module":
             module = modules.get(node.target)
+            if isinstance(module, nn.Flatten):
+                input_name = _single_node_arg(node)
+                if shape is None:
+                    raise FXImportError(f"Flatten node '{node.name}' requires known output shape metadata")
+                graph.add_value(node.name, shape=shape, dtype=dtype, producer=node.name)
+                graph.add_op(
+                    OpNode(
+                        name=node.name,
+                        op=OpKind.VIEW,
+                        inputs=[input_name],
+                        outputs=[node.name],
+                        attrs={"target": "flatten", "args": tuple(int(d) for d in shape)},
+                    )
+                )
+                node_to_value[node] = node.name
+                continue
             if isinstance(module, nn.Linear):
                 input_name = _single_node_arg(node)
                 graph.add_value(node.name, shape=shape, dtype=dtype, producer=node.name)
@@ -224,6 +261,24 @@ def import_fx_graph_module(fx_module: Any, name: Optional[str] = None) -> GraphI
                         inputs=[input_name],
                         outputs=[node.name],
                         attrs={"target": str(node.target), "inplace": bool(module.inplace)},
+                    )
+                )
+                node_to_value[node] = node.name
+                continue
+            if isinstance(module, nn.LeakyReLU):
+                input_name = _single_node_arg(node)
+                graph.add_value(node.name, shape=shape, dtype=dtype, producer=node.name)
+                graph.add_op(
+                    OpNode(
+                        name=node.name,
+                        op=OpKind.RELU,
+                        inputs=[input_name],
+                        outputs=[node.name],
+                        attrs={
+                            "target": str(node.target),
+                            "inplace": bool(module.inplace),
+                            "negative_slope": float(module.negative_slope),
+                        },
                     )
                 )
                 node_to_value[node] = node.name
@@ -361,6 +416,24 @@ def import_fx_graph_module(fx_module: Any, name: Optional[str] = None) -> GraphI
                 )
                 node_to_value[node] = node.name
                 continue
+            if _is_leaky_relu_function(node.target, F):
+                input_name = _single_node_arg(node)
+                slope = node.kwargs.get("negative_slope")
+                if slope is None and len(node.args) > 1:
+                    slope = node.args[1]
+                slope = 0.01 if slope is None else float(slope)
+                graph.add_value(node.name, shape=shape, dtype=dtype, producer=node.name)
+                graph.add_op(
+                    OpNode(
+                        name=node.name,
+                        op=OpKind.RELU,
+                        inputs=[input_name],
+                        outputs=[node.name],
+                        attrs={"target": str(node.target), "negative_slope": slope},
+                    )
+                )
+                node_to_value[node] = node.name
+                continue
             if _is_flatten_function(node.target, torch):
                 input_name = _single_node_arg(node)
                 graph.add_value(node.name, shape=shape, dtype=dtype, producer=node.name)
@@ -397,6 +470,7 @@ def import_fx_graph_module(fx_module: Any, name: Optional[str] = None) -> GraphI
                 continue
             if _is_softmax_function(node.target, torch, F):
                 input_name = _single_node_arg(node)
+                input_shape = _tensor_meta(node.args[0])[0] if hasattr(node.args[0], "meta") else None
                 graph.add_value(node.name, shape=shape, dtype=dtype, producer=node.name)
                 graph.add_op(
                     OpNode(
@@ -404,7 +478,7 @@ def import_fx_graph_module(fx_module: Any, name: Optional[str] = None) -> GraphI
                         op=OpKind.SOFTMAX,
                         inputs=[input_name],
                         outputs=[node.name],
-                        attrs={"target": str(node.target)},
+                        attrs={"target": str(node.target), "dim": _softmax_dim(node, input_shape)},
                     )
                 )
                 node_to_value[node] = node.name

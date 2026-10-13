@@ -1,0 +1,718 @@
+{
+  "schema_version": 1,
+  "model": "mnist_mlp",
+  "dataset": "MNIST",
+  "evaluated_images": 10000,
+  "full_test_set": true,
+  "deployment": {
+    "board": {
+      "name": "boolean_xc7s50",
+      "prog_depth": 32768,
+      "buffer_size": 32768,
+      "array_size": 8,
+      "data_width_bits": 8,
+      "notes": "Real Digital Boolean, xc7s50csga324-1: N=8 INT8, BUFFER_SIZE=32768, WEIGHT_REGION_WORDS=27648, PROG_DEPTH=32768, MAX_BATCH_COUNT=4. Existing Artix sweeps show 33 BRAM36 at PROG_DEPTH=32768/BUFFER_SIZE=4096; memory-bit extrapolation estimates about 46/75 BRAM36 (29-tile margin) for this point. Estimate only; Boolean synthesis is required for measured fit.",
+      "weight_region_words": 27648,
+      "max_batch_count": 4
+    },
+    "layers": [
+      {
+        "name": "fc1",
+        "input_features": 196,
+        "output_features": 256,
+        "weight_words": 25600,
+        "control_words": 5408
+      },
+      {
+        "name": "fc2",
+        "input_features": 256,
+        "output_features": 10,
+        "weight_words": 2048,
+        "control_words": 454
+      }
+    ],
+    "weight_words": 27648,
+    "control_words": 5863,
+    "activation_scratch_words": 236,
+    "fits": true,
+    "bram_budget": {
+      "estimated_bram36_used": 46,
+      "bram36_available": 75,
+      "estimated_margin_tiles": 29,
+      "source_artifacts": [
+        "bench/results/prog_depth_sweep.json",
+        "bench/results/design_space_sweep.json"
+      ],
+      "status": "estimate_only_unverified_on_boolean",
+      "method": "measured 32k-depth/4k-buffer fixed logic plus BRAM bit-capacity extrapolation; no XC7S50 synthesis",
+      "estimated_lut_used": 16600,
+      "lut_available": 32600,
+      "estimated_lut_utilization_fraction": 0.50920245398773,
+      "lut_source_artifact": "bench/results/design_space_sweep.json (N=8, INT8, batch4, pd65536/buf4096, Artix-7)"
+    }
+  },
+  "float_accuracy": 0.973,
+  "int8_accuracy": 0.9728,
+  "isa_vs_independent_integer_reference": {
+    "all_output_bytes_bit_exact": true,
+    "mismatched_images": 0,
+    "checked_output_bytes": 100000
+  },
+  "cycles_per_inference": {
+    "cold_including_weight_fill": null,
+    "steady_state_mean": 2677.0,
+    "steady_state_min": 2677,
+    "steady_state_max": 2677,
+    "note": "Device cycles are ISA perf/cycle counters; A5 fill is outside START-to-HALT counters, so UART load time is reported separately.",
+    "cold_device_cycles": 2677.0,
+    "cold_upload_and_first_input_bytes": 67236,
+    "cold_host_uart_seconds_at_115200_8n1": 5.836458333333334,
+    "steady_state_input_start_bytes": 207,
+    "steady_state_host_uart_seconds_per_image_at_115200_8n1": 0.01796875,
+    "full_10k_host_to_fpga_bytes": 2137029,
+    "full_10k_host_to_fpga_uart_seconds_at_115200_8n1": 185.50598958333333
+  },
+  "simulator_elapsed_seconds": 405.672314299969,
+  "samples_first_20": [
+    {
+      "index": 0,
+      "label": 7,
+      "predicted_class": 7,
+      "expected_int8": [
+        -7,
+        -13,
+        -2,
+        11,
+        -33,
+        -1,
+        -42,
+        37,
+        -2,
+        7
+      ],
+      "actual_int8": [
+        -7,
+        -13,
+        -2,
+        11,
+        -33,
+        -1,
+        -42,
+        37,
+        -2,
+        7
+      ],
+      "non_saturated_outputs": 10,
+      "bit_exact": true,
+      "cycles": 2677
+    },
+    {
+      "index": 1,
+      "label": 2,
+      "predicted_class": 2,
+      "expected_int8": [
+        -8,
+        22,
+        71,
+        2,
+        -38,
+        3,
+        -10,
+        -34,
+        9,
+        -48
+      ],
+      "actual_int8": [
+        -8,
+        22,
+        71,
+        2,
+        -38,
+        3,
+        -10,
+        -34,
+        9,
+        -48
+      ],
+      "non_saturated_outputs": 10,
+      "bit_exact": true,
+      "cycles": 2677
+    },
+    {
+      "index": 2,
+      "label": 1,
+      "predicted_class": 1,
+      "expected_int8": [
+        -3,
+        16,
+        3,
+        -4,
+        -1,
+        -18,
+        -2,
+        9,
+        3,
+        -12
+      ],
+      "actual_int8": [
+        -3,
+        16,
+        3,
+        -4,
+        -1,
+        -18,
+        -2,
+        9,
+        3,
+        -12
+      ],
+      "non_saturated_outputs": 10,
+      "bit_exact": true,
+      "cycles": 2677
+    },
+    {
+      "index": 3,
+      "label": 0,
+      "predicted_class": 0,
+      "expected_int8": [
+        38,
+        -2,
+        15,
+        -4,
+        -4,
+        -2,
+        6,
+        12,
+        -2,
+        7
+      ],
+      "actual_int8": [
+        38,
+        -2,
+        15,
+        -4,
+        -4,
+        -2,
+        6,
+        12,
+        -2,
+        7
+      ],
+      "non_saturated_outputs": 10,
+      "bit_exact": true,
+      "cycles": 2677
+    },
+    {
+      "index": 4,
+      "label": 4,
+      "predicted_class": 4,
+      "expected_int8": [
+        -6,
+        -9,
+        4,
+        -11,
+        34,
+        -12,
+        -6,
+        4,
+        -4,
+        18
+      ],
+      "actual_int8": [
+        -6,
+        -9,
+        4,
+        -11,
+        34,
+        -12,
+        -6,
+        4,
+        -4,
+        18
+      ],
+      "non_saturated_outputs": 10,
+      "bit_exact": true,
+      "cycles": 2677
+    },
+    {
+      "index": 5,
+      "label": 1,
+      "predicted_class": 1,
+      "expected_int8": [
+        -3,
+        25,
+        -3,
+        -5,
+        4,
+        -25,
+        -9,
+        15,
+        0,
+        -10
+      ],
+      "actual_int8": [
+        -3,
+        25,
+        -3,
+        -5,
+        4,
+        -25,
+        -9,
+        15,
+        0,
+        -10
+      ],
+      "non_saturated_outputs": 10,
+      "bit_exact": true,
+      "cycles": 2677
+    },
+    {
+      "index": 6,
+      "label": 4,
+      "predicted_class": 4,
+      "expected_int8": [
+        -22,
+        -15,
+        -13,
+        -19,
+        35,
+        2,
+        0,
+        7,
+        11,
+        2
+      ],
+      "actual_int8": [
+        -22,
+        -15,
+        -13,
+        -19,
+        35,
+        2,
+        0,
+        7,
+        11,
+        2
+      ],
+      "non_saturated_outputs": 10,
+      "bit_exact": true,
+      "cycles": 2677
+    },
+    {
+      "index": 7,
+      "label": 9,
+      "predicted_class": 9,
+      "expected_int8": [
+        -29,
+        -15,
+        0,
+        11,
+        6,
+        4,
+        -28,
+        0,
+        -2,
+        30
+      ],
+      "actual_int8": [
+        -29,
+        -15,
+        0,
+        11,
+        6,
+        4,
+        -28,
+        0,
+        -2,
+        30
+      ],
+      "non_saturated_outputs": 10,
+      "bit_exact": true,
+      "cycles": 2677
+    },
+    {
+      "index": 8,
+      "label": 5,
+      "predicted_class": 5,
+      "expected_int8": [
+        -23,
+        -14,
+        5,
+        -9,
+        -3,
+        28,
+        5,
+        -20,
+        11,
+        5
+      ],
+      "actual_int8": [
+        -23,
+        -14,
+        5,
+        -9,
+        -3,
+        28,
+        5,
+        -20,
+        11,
+        5
+      ],
+      "non_saturated_outputs": 10,
+      "bit_exact": true,
+      "cycles": 2677
+    },
+    {
+      "index": 9,
+      "label": 9,
+      "predicted_class": 9,
+      "expected_int8": [
+        -22,
+        -36,
+        -26,
+        2,
+        15,
+        -2,
+        -28,
+        23,
+        16,
+        43
+      ],
+      "actual_int8": [
+        -22,
+        -36,
+        -26,
+        2,
+        15,
+        -2,
+        -28,
+        23,
+        16,
+        43
+      ],
+      "non_saturated_outputs": 10,
+      "bit_exact": true,
+      "cycles": 2677
+    },
+    {
+      "index": 10,
+      "label": 0,
+      "predicted_class": 0,
+      "expected_int8": [
+        60,
+        -10,
+        19,
+        -6,
+        -24,
+        -6,
+        10,
+        -7,
+        -16,
+        0
+      ],
+      "actual_int8": [
+        60,
+        -10,
+        19,
+        -6,
+        -24,
+        -6,
+        10,
+        -7,
+        -16,
+        0
+      ],
+      "non_saturated_outputs": 10,
+      "bit_exact": true,
+      "cycles": 2677
+    },
+    {
+      "index": 11,
+      "label": 6,
+      "predicted_class": 6,
+      "expected_int8": [
+        11,
+        -7,
+        2,
+        -6,
+        -4,
+        17,
+        54,
+        -15,
+        24,
+        -16
+      ],
+      "actual_int8": [
+        11,
+        -7,
+        2,
+        -6,
+        -4,
+        17,
+        54,
+        -15,
+        24,
+        -16
+      ],
+      "non_saturated_outputs": 10,
+      "bit_exact": true,
+      "cycles": 2677
+    },
+    {
+      "index": 12,
+      "label": 9,
+      "predicted_class": 9,
+      "expected_int8": [
+        -24,
+        -23,
+        -15,
+        1,
+        16,
+        2,
+        -23,
+        12,
+        6,
+        33
+      ],
+      "actual_int8": [
+        -24,
+        -23,
+        -15,
+        1,
+        16,
+        2,
+        -23,
+        12,
+        6,
+        33
+      ],
+      "non_saturated_outputs": 10,
+      "bit_exact": true,
+      "cycles": 2677
+    },
+    {
+      "index": 13,
+      "label": 0,
+      "predicted_class": 0,
+      "expected_int8": [
+        42,
+        -11,
+        6,
+        -10,
+        -18,
+        3,
+        9,
+        9,
+        0,
+        3
+      ],
+      "actual_int8": [
+        42,
+        -11,
+        6,
+        -10,
+        -18,
+        3,
+        9,
+        9,
+        0,
+        3
+      ],
+      "non_saturated_outputs": 10,
+      "bit_exact": true,
+      "cycles": 2677
+    },
+    {
+      "index": 14,
+      "label": 1,
+      "predicted_class": 1,
+      "expected_int8": [
+        -12,
+        19,
+        -4,
+        1,
+        1,
+        -17,
+        -4,
+        6,
+        6,
+        -5
+      ],
+      "actual_int8": [
+        -12,
+        19,
+        -4,
+        1,
+        1,
+        -17,
+        -4,
+        6,
+        6,
+        -5
+      ],
+      "non_saturated_outputs": 10,
+      "bit_exact": true,
+      "cycles": 2677
+    },
+    {
+      "index": 15,
+      "label": 5,
+      "predicted_class": 5,
+      "expected_int8": [
+        -13,
+        -5,
+        2,
+        13,
+        -9,
+        27,
+        -14,
+        -11,
+        7,
+        -10
+      ],
+      "actual_int8": [
+        -13,
+        -5,
+        2,
+        13,
+        -9,
+        27,
+        -14,
+        -11,
+        7,
+        -10
+      ],
+      "non_saturated_outputs": 10,
+      "bit_exact": true,
+      "cycles": 2677
+    },
+    {
+      "index": 16,
+      "label": 9,
+      "predicted_class": 9,
+      "expected_int8": [
+        -4,
+        -30,
+        2,
+        -6,
+        4,
+        -5,
+        -17,
+        10,
+        9,
+        30
+      ],
+      "actual_int8": [
+        -4,
+        -30,
+        2,
+        -6,
+        4,
+        -5,
+        -17,
+        10,
+        9,
+        30
+      ],
+      "non_saturated_outputs": 10,
+      "bit_exact": true,
+      "cycles": 2677
+    },
+    {
+      "index": 17,
+      "label": 7,
+      "predicted_class": 7,
+      "expected_int8": [
+        0,
+        -11,
+        15,
+        11,
+        -36,
+        -14,
+        -48,
+        42,
+        -10,
+        2
+      ],
+      "actual_int8": [
+        0,
+        -11,
+        15,
+        11,
+        -36,
+        -14,
+        -48,
+        42,
+        -10,
+        2
+      ],
+      "non_saturated_outputs": 10,
+      "bit_exact": true,
+      "cycles": 2677
+    },
+    {
+      "index": 18,
+      "label": 3,
+      "predicted_class": 3,
+      "expected_int8": [
+        -11,
+        -6,
+        20,
+        25,
+        3,
+        3,
+        -7,
+        3,
+        21,
+        -3
+      ],
+      "actual_int8": [
+        -11,
+        -6,
+        20,
+        25,
+        3,
+        3,
+        -7,
+        3,
+        21,
+        -3
+      ],
+      "non_saturated_outputs": 10,
+      "bit_exact": true,
+      "cycles": 2677
+    },
+    {
+      "index": 19,
+      "label": 4,
+      "predicted_class": 4,
+      "expected_int8": [
+        -19,
+        -7,
+        -2,
+        -11,
+        34,
+        -8,
+        -2,
+        0,
+        -4,
+        3
+      ],
+      "actual_int8": [
+        -19,
+        -7,
+        -2,
+        -11,
+        34,
+        -8,
+        -2,
+        0,
+        -4,
+        3
+      ],
+      "non_saturated_outputs": 10,
+      "bit_exact": true,
+      "cycles": 2677
+    }
+  ]
+}

@@ -114,8 +114,15 @@ class ProgramLoader:
         if len(program) % 2 != 0:
             raise ValueError("Program length must be even (16-bit instructions)")
         n_words = len(program) // 2
-        if n_words > 1024:
-            raise ValueError(f"Program too large: {n_words} words (max 1024)")
+        # Must match rtl/top/top.sv::UPLOAD_LEN_MAX = min(PROG_DEPTH, 65535).
+        # The historical hard cap of 1024 blocked every shipping MNIST program.
+        upload_len_max = 65535
+        if n_words > upload_len_max:
+            raise ValueError(
+                f"Program too large: {n_words} words (UART length max {upload_len_max})"
+            )
+        if n_words == 0:
+            raise ValueError("Program is empty")
 
         self._log(f"Uploading {n_words} instructions ({len(program)} bytes)")
 
@@ -282,9 +289,9 @@ class ProgramLoader:
         # Current ISA schedule per ARRAY_SIZE block op:
         # weight stores + LOADWEI + input stores + LOADIN + RUN + fetch all output words
         # We must fetch 4 packed words for 16 outputs -> 8 FETCH ops (lo/hi per word).
-        weight_store_ops = (a * a) // 4
-        input_store_ops = a // 4
-        output_words = a // 4
+        weight_store_ops = (a * a) // self.cfg.items_per_word
+        input_store_ops = a // self.cfg.items_per_word
+        output_words = a // self.cfg.items_per_word
         fetch_ops = output_words * 2
 
         words_per_acc_block_op = (
@@ -362,11 +369,12 @@ class ProgramLoader:
     def _pack_int4_words(self, data) -> List[int]:
         arr = np.asarray(data).flatten().astype(np.int8)
         words = []
-        for i in range(0, len(arr), 4):
-            chunk = arr[i:i+4].tolist()
-            while len(chunk) < 4:
+        items_per_word = self.cfg.items_per_word
+        for i in range(0, len(arr), items_per_word):
+            chunk = arr[i:i + items_per_word].tolist()
+            while len(chunk) < items_per_word:
                 chunk.append(0)
-            words.append(int4To16(chunk))
+            words.append(pack_values_to_word(chunk, cfg=self.cfg))
         return words
 
     def _encode_accumulate_op_compressed(self, weight_block, input_block, out_base_addr: int, acc_clear: bool) -> bytes:
@@ -398,7 +406,7 @@ class ProgramLoader:
             residual_en=residual_addr is not None,
             residual_addr=residual_addr,
         )
-        for widx in range(array_size // 4):
+        for widx in range(array_size // self.cfg.items_per_word):
             addr = out_base_addr + widx
             e.fetch(addr, top_half=False)
             e.fetch(addr, top_half=True)
@@ -483,7 +491,7 @@ class ProgramLoader:
 
         ops = []
         for ob in range(out_blocks):
-            out_base_addr = result_addr + ob * (a // 4)
+            out_base_addr = result_addr + ob * (a // self.cfg.items_per_word)
             o0 = ob * a
             o1 = o0 + a
             for ib in range(in_blocks):
@@ -560,7 +568,7 @@ class ProgramLoader:
             for op in seg["ops"]
         )
 
-        output_words = a // 4
+        output_words = a // self.cfg.items_per_word
         output_fetch_bytes = output_words * 2
         return {
             "segments": [s["program"] for s in segments],
@@ -801,7 +809,7 @@ class ProgramLoader:
 
         e = ISAEncoder(cfg=self.cfg)
         for ob in range(out_blocks):
-            out_base_addr = result_addr + ob * (a // 4)
+            out_base_addr = result_addr + ob * (a // self.cfg.items_per_word)
             o0 = ob * a
             o1 = o0 + a
             for ib in range(in_blocks):
@@ -958,7 +966,7 @@ class ProgramLoader:
 
         # FC1: group two K-block weight tiles per burst to reduce BSTORE headers.
         for ob in range(fc1_out_blocks):
-            out_base_addr = result_addr + ob * (a // 4)
+            out_base_addr = result_addr + ob * (a // self.cfg.items_per_word)
             residual_block_addr = residual_addr + ob * residual_block_words
             o0 = ob * a
             o1 = o0 + a
@@ -1006,7 +1014,7 @@ class ProgramLoader:
 
         # FC2 consume FC1 output directly from buffer C (no FC2 activation BSTORE)
         for ob in range(fc2_out_blocks):
-            out_base_addr = result_addr + ob * (a // 4)
+            out_base_addr = result_addr + ob * (a // self.cfg.items_per_word)
             o0 = ob * a
             o1 = o0 + a
             for ib in range(fc2_in_blocks):
@@ -1028,7 +1036,7 @@ class ProgramLoader:
             # finalize and fetch only final logits
             # Finalize FC2 and fetch only words required for true output dim.
             e.run(out_base_addr, compute=False, quantize=apply_quant, relu=fc2_apply_relu, acc_clear=False)
-            needed_words = math.ceil(fc2_out / 4)
+            needed_words = math.ceil(fc2_out / self.cfg.items_per_word)
             for widx in range(needed_words):
                 addr = out_base_addr + widx
                 e.fetch(addr, top_half=False)
@@ -1145,7 +1153,7 @@ class ProgramLoader:
         def _emit_fc1_k_blocks(pe_id: int, k_blocks: List[int]) -> None:
             e.pe_select(pe_id)
             for ob in range(fc1_out_blocks):
-                out_base_addr = result_addr + ob * (a // 4)
+                out_base_addr = result_addr + ob * (a // self.cfg.items_per_word)
                 o0 = ob * a
                 o1 = o0 + a
                 for ib in k_blocks:
@@ -1170,7 +1178,7 @@ class ProgramLoader:
         e.acc_add(src_pe=1, dst_pe=0)
 
         for ob in range(fc1_out_blocks):
-            out_base_addr = result_addr + ob * (a // 4)
+            out_base_addr = result_addr + ob * (a // self.cfg.items_per_word)
             e.instructions.append(
                 self._encode_finalize_no_fetch_op(
                     out_base_addr,
@@ -1181,7 +1189,7 @@ class ProgramLoader:
             )
 
         for ob in range(fc2_out_blocks):
-            out_base_addr = result_addr + ob * (a // 4)
+            out_base_addr = result_addr + ob * (a // self.cfg.items_per_word)
             o0 = ob * a
             o1 = o0 + a
             for ib in range(fc2_in_blocks):
@@ -1197,7 +1205,7 @@ class ProgramLoader:
                     )
                 )
             e.run(out_base_addr, compute=False, quantize=apply_quant, relu=fc2_apply_relu, acc_clear=False)
-            needed_words = math.ceil(fc2_out / 4)
+            needed_words = math.ceil(fc2_out / self.cfg.items_per_word)
             for widx in range(needed_words):
                 addr = out_base_addr + widx
                 e.fetch(addr, top_half=False)
@@ -1237,7 +1245,7 @@ class ProgramLoader:
     def readResults(self, base_addr: int, count: int) -> List[int]:
         self._log(f"Reading {count} values from 0x{base_addr:03X}")
         self.encoder.clear()
-        n_words = (count + 3) // 4
+        n_words = (count + self.cfg.items_per_word - 1) // self.cfg.items_per_word
         for i in range(n_words):
             addr = base_addr + i
             self.encoder.fetch(addr, top_half=False)

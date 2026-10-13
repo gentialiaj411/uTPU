@@ -1,0 +1,118 @@
+{
+  "board": {
+    "name": "boolean_xc7s50",
+    "prog_depth": 32768,
+    "buffer_size": 32768,
+    "array_size": 8,
+    "data_width_bits": 8,
+    "notes": "Real Digital Boolean, xc7s50csga324-1: N=8 INT8, BUFFER_SIZE=32768, WEIGHT_REGION_WORDS=27648, PROG_DEPTH=32768, MAX_BATCH_COUNT=4. Existing Artix sweeps show 33 BRAM36 at PROG_DEPTH=32768/BUFFER_SIZE=4096; memory-bit extrapolation estimates about 46/75 BRAM36 (29-tile margin) for this point. Estimate only; Boolean synthesis is required for measured fit.",
+    "weight_region_words": 27648,
+    "max_batch_count": 4
+  },
+  "workload": "fused_mnist_64x64x10_int8",
+  "rtl_parameters": {
+    "ARRAY_SIZE": 8,
+    "COMPUTE_DATA_WIDTH": 8,
+    "BUFFER_SIZE": 32768,
+    "WEIGHT_REGION_WORDS": 27648,
+    "PROG_DEPTH": 32768,
+    "MAX_BATCH_COUNT": 4,
+    "RST_ACTIVE_LOW": 0,
+    "CORE_CLK_HZ": 50000000,
+    "MMCM": "bypassed in RTL simulation"
+  },
+  "sample_count": 10,
+  "selection_rule": "first 10 test-set examples with at least 6 of 10 logits not equal to INT8 clip endpoints",
+  "samples": [
+    {
+      "sample_index": 0,
+      "label": 7,
+      "predicted_class": 7,
+      "expected_uart_hex": "b880e2ae8071807f00007fb90000000000000000",
+      "non_saturated_output_count": 6
+    },
+    {
+      "sample_index": 1,
+      "label": 2,
+      "predicted_class": 1,
+      "expected_uart_hex": "1f7f7f0c805242bd0000287f0000000000000000",
+      "non_saturated_output_count": 7
+    },
+    {
+      "sample_index": 9,
+      "label": 9,
+      "predicted_class": 5,
+      "expected_uart_hex": "8080a5b6c16b804000007f800000000000000000",
+      "non_saturated_output_count": 7
+    },
+    {
+      "sample_index": 11,
+      "label": 6,
+      "predicted_class": 0,
+      "expected_uart_hex": "7f9f39560a787f800000807f0000000000000000",
+      "non_saturated_output_count": 7
+    },
+    {
+      "sample_index": 18,
+      "label": 3,
+      "predicted_class": 5,
+      "expected_uart_hex": "a3e951f2807f00d400007f4f0000000000000000",
+      "non_saturated_output_count": 8
+    },
+    {
+      "sample_index": 22,
+      "label": 6,
+      "predicted_class": 4,
+      "expected_uart_hex": "8ebf561a7fd27feb000080800000000000000000",
+      "non_saturated_output_count": 8
+    },
+    {
+      "sample_index": 26,
+      "label": 7,
+      "predicted_class": 7,
+      "expected_uart_hex": "a9f45ddc80b9807f000057aa0000000000000000",
+      "non_saturated_output_count": 7
+    },
+    {
+      "sample_index": 32,
+      "label": 3,
+      "predicted_class": 5,
+      "expected_uart_hex": "80e1ea04803e808000007f7f0000000000000000",
+      "non_saturated_output_count": 6
+    },
+    {
+      "sample_index": 34,
+      "label": 7,
+      "predicted_class": 7,
+      "expected_uart_hex": "048070508068807f000024050000000000000000",
+      "non_saturated_output_count": 6
+    },
+    {
+      "sample_index": 51,
+      "label": 3,
+      "predicted_class": 0,
+      "expected_uart_hex": "7f80057e805b847f0000d97f0000000000000000",
+      "non_saturated_output_count": 6
+    }
+  ],
+  "all_programs_fit": true,
+  "iverilog_cases": [
+    {
+      "sample_index": 0,
+      "label": 7,
+      "expected_uart_hex": "b880e2ae8071807f00007fb90000000000000000",
+      "executed": true,
+      "passed": true,
+      "log_tail": "pression to be synthesized in an always_ff process.\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv:617: warning: A for statement must use the index (row) in the condition expression to be synthesized in an always_ff process.\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv:586: warning: A for statement must use the index (row) in the condition expression to be synthesized in an always_ff process.\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv:604: warning: A for statement must use the index (row) in the condition expression to be synthesized in an always_ff process.\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv:629: warning: A for statement must use the index (ai) in the condition expression to be synthesized in an always_ff process.\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv:586: warning: A for statement must use the index (row) in the condition expression to be synthesized in an always_ff process.\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv:604: warning: A for statement must use the index (row) in the condition expression to be synthesized in an always_ff process.\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv:550: warning: A for statement must use the index (ai) in the condition expression to be synthesized in an always_ff process.\n[ OK ] Reached WAIT_START after serial upload\n[ OK ] Reached HALT after UART start\n[ OK ] Captured expected UART byte count\n[ OK ] No X on quantizer finalize outputs\n[ OK ] No X on UART TX line during capture\n[ OK ] UART byte 0\n[ OK ] UART byte 1\n[ OK ] UART byte 2\n[ OK ] UART byte 3\n[ OK ] UART byte 4\n[ OK ] UART byte 5\n[ OK ] UART byte 6\n[ OK ] UART byte 7\n[ OK ] UART byte 8\n[ OK ] UART byte 9\n[ OK ] UART byte 10\n[ OK ] UART byte 11\n[ OK ] UART byte 12\n[ OK ] UART byte 13\n[ OK ] UART byte 14\n[ OK ] UART byte 15\n[ OK ] UART byte 16\n[ OK ] UART byte 17\n[ OK ] UART byte 18\n[ OK ] UART byte 19\n[ OK ] A6 repeat retains uploaded program\n[ OK ] A6 repeated execution reaches HALT\n[ OK ] A6 repeated execution emits full output\n[ OK ] A6 repeated UART byte 0\n[ OK ] A6 repeated UART byte 1\n[ OK ] A6 repeated UART byte 2\n[ OK ] A6 repeated UART byte 3\n[ OK ] A6 repeated UART byte 4\n[ OK ] A6 repeated UART byte 5\n[ OK ] A6 repeated UART byte 6\n[ OK ] A6 repeated UART byte 7\n[ OK ] A6 repeated UART byte 8\n[ OK ] A6 repeated UART byte 9\n[ OK ] A6 repeated UART byte 10\n[ OK ] A6 repeated UART byte 11\n[ OK ] A6 repeated UART byte 12\n[ OK ] A6 repeated UART byte 13\n[ OK ] A6 repeated UART byte 14\n[ OK ] A6 repeated UART byte 15\n[ OK ] A6 repeated UART byte 16\n[ OK ] A6 repeated UART byte 17\n[ OK ] A6 repeated UART byte 18\n[ OK ] A6 repeated UART byte 19\nUART_BYTES_ACTUAL=b8,80,e2,ae,80,71,80,7f,00,00,7f,b9,00,00,00,00,00,00,00,00\nPERF_CYCLE_COUNTER=1087151\nPERF_BUSY_COUNTER=3748\nPERF_PROGRAM_COUNT=2\nUART_REPLAY_PROGRAM_WORDS=3328\nUART_REPLAY_PROG_DEPTH=32768\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_uart_replay.sv:235: $finish called at 21743230000 (1ps)\n"
+    },
+    {
+      "sample_index": 1,
+      "label": 2,
+      "expected_uart_hex": "1f7f7f0c805242bd0000287f0000000000000000",
+      "executed": true,
+      "passed": true,
+      "log_tail": "pression to be synthesized in an always_ff process.\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv:617: warning: A for statement must use the index (row) in the condition expression to be synthesized in an always_ff process.\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv:586: warning: A for statement must use the index (row) in the condition expression to be synthesized in an always_ff process.\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv:604: warning: A for statement must use the index (row) in the condition expression to be synthesized in an always_ff process.\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv:629: warning: A for statement must use the index (ai) in the condition expression to be synthesized in an always_ff process.\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv:586: warning: A for statement must use the index (row) in the condition expression to be synthesized in an always_ff process.\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv:604: warning: A for statement must use the index (row) in the condition expression to be synthesized in an always_ff process.\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv:550: warning: A for statement must use the index (ai) in the condition expression to be synthesized in an always_ff process.\n[ OK ] Reached WAIT_START after serial upload\n[ OK ] Reached HALT after UART start\n[ OK ] Captured expected UART byte count\n[ OK ] No X on quantizer finalize outputs\n[ OK ] No X on UART TX line during capture\n[ OK ] UART byte 0\n[ OK ] UART byte 1\n[ OK ] UART byte 2\n[ OK ] UART byte 3\n[ OK ] UART byte 4\n[ OK ] UART byte 5\n[ OK ] UART byte 6\n[ OK ] UART byte 7\n[ OK ] UART byte 8\n[ OK ] UART byte 9\n[ OK ] UART byte 10\n[ OK ] UART byte 11\n[ OK ] UART byte 12\n[ OK ] UART byte 13\n[ OK ] UART byte 14\n[ OK ] UART byte 15\n[ OK ] UART byte 16\n[ OK ] UART byte 17\n[ OK ] UART byte 18\n[ OK ] UART byte 19\n[ OK ] A6 repeat retains uploaded program\n[ OK ] A6 repeated execution reaches HALT\n[ OK ] A6 repeated execution emits full output\n[ OK ] A6 repeated UART byte 0\n[ OK ] A6 repeated UART byte 1\n[ OK ] A6 repeated UART byte 2\n[ OK ] A6 repeated UART byte 3\n[ OK ] A6 repeated UART byte 4\n[ OK ] A6 repeated UART byte 5\n[ OK ] A6 repeated UART byte 6\n[ OK ] A6 repeated UART byte 7\n[ OK ] A6 repeated UART byte 8\n[ OK ] A6 repeated UART byte 9\n[ OK ] A6 repeated UART byte 10\n[ OK ] A6 repeated UART byte 11\n[ OK ] A6 repeated UART byte 12\n[ OK ] A6 repeated UART byte 13\n[ OK ] A6 repeated UART byte 14\n[ OK ] A6 repeated UART byte 15\n[ OK ] A6 repeated UART byte 16\n[ OK ] A6 repeated UART byte 17\n[ OK ] A6 repeated UART byte 18\n[ OK ] A6 repeated UART byte 19\nUART_BYTES_ACTUAL=1f,7f,7f,0c,80,52,42,bd,00,00,28,7f,00,00,00,00,00,00,00,00\nPERF_CYCLE_COUNTER=1087151\nPERF_BUSY_COUNTER=3748\nPERF_PROGRAM_COUNT=2\nUART_REPLAY_PROGRAM_WORDS=3328\nUART_REPLAY_PROG_DEPTH=32768\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_uart_replay.sv:235: $finish called at 21743230000 (1ps)\n"
+    }
+  ],
+  "iverilog_passed": true
+}

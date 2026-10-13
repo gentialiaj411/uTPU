@@ -1,0 +1,372 @@
+{
+  "aggregate": {
+    "fraction_best_in_menu_retained": 0.6,
+    "fraction_within_1pct": 0.6,
+    "heldout_shape_count": 5,
+    "max_regret_pct": 2.9950305162172173,
+    "mean_live_measurement_count_including_baseline": 5.0
+  },
+  "fit": {
+    "coefficients_train_only": {
+      "cta_memory_us_per_kib": 0.43045886901435654,
+      "idle_thread_ratio_us": 0.5231397100129698,
+      "intercept_us": 6.261155907582989,
+      "large_k_unroll_gain_us": 1.9636088362363989e-07,
+      "large_out_small_k_wave_tpb_efficiency_us": 1.5835077490619833,
+      "memory_us_per_kib": 0.014084566682965385,
+      "small_out_idle_penalty_us": 1.3299432582113976e-11,
+      "small_out_tpb_interaction_us": 3.941675066773604e-05,
+      "small_out_unroll_interaction_us": 0.00014326797278806384,
+      "small_out_unroll_penalty_us": 0.0792915751816976,
+      "tile_tail_penalty_us": 0.5,
+      "underoccupancy_penalty_us": 0.5981741552905561,
+      "unroll_gain_us": 1.308969890324338e-06,
+      "unroll_k_tail_penalty_us": 0.4,
+      "unroll_shape_interaction_us": 1.2956258669750124e-06,
+      "wave_tpb_interaction_us": 5.432839247211604e-09
+    }
+  },
+  "generated_at_utc": "2026-10-12T20:27:02.168923+00:00",
+  "methodology": {
+    "candidate_count_note": "live_tuner baseline measurement is counted separately, even when its schedule is retained",
+    "capture_command_for_expansion": "python firmware/host/calibrate_cost_model.py --output-json build/reports/cost_model_calibration.json --output-md build/reports/cost_model_calibration.md",
+    "fit": "production fitter trained on train shapes only",
+    "frozen_policy": {
+      "selection": "lowest train-fit predicted latency",
+      "top_k": 4
+    },
+    "source": "bench\\fixtures\\cost_model_calibration_seed.json",
+    "split": "existing deterministic shape-heldout split from run_cost_model_heldout.py"
+  },
+  "per_heldout_shape": [
+    {
+      "baseline_is_also_retained": true,
+      "best_in_menu_latency_us": 6.740500102750957,
+      "best_in_menu_retained": false,
+      "best_in_menu_schedule": {
+        "threads_per_block": 256,
+        "unroll_factor": 8
+      },
+      "full_menu_candidate_count": 16,
+      "live_measurement_count_including_baseline": 5,
+      "live_tuner_baseline_schedule": {
+        "threads_per_block": 128,
+        "unroll_factor": 1,
+        "use_smem": false
+      },
+      "regret_pct": 1.2981227867725738,
+      "retained_best_latency_us": 6.828000070527196,
+      "retained_best_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 1
+      },
+      "retained_candidate_count": 4,
+      "retained_schedules": [
+        {
+          "threads_per_block": 256,
+          "unroll_factor": 1
+        },
+        {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        },
+        {
+          "threads_per_block": 128,
+          "unroll_factor": 1
+        },
+        {
+          "threads_per_block": 64,
+          "unroll_factor": 1
+        }
+      ],
+      "shape": {
+        "in_features": 32,
+        "out_features": 16
+      }
+    },
+    {
+      "baseline_is_also_retained": false,
+      "best_in_menu_latency_us": 7.017250056378543,
+      "best_in_menu_retained": true,
+      "best_in_menu_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 4
+      },
+      "full_menu_candidate_count": 16,
+      "live_measurement_count_including_baseline": 5,
+      "live_tuner_baseline_schedule": {
+        "threads_per_block": 128,
+        "unroll_factor": 1,
+        "use_smem": false
+      },
+      "regret_pct": 0.0,
+      "retained_best_latency_us": 7.017250056378543,
+      "retained_best_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 4
+      },
+      "retained_candidate_count": 4,
+      "retained_schedules": [
+        {
+          "threads_per_block": 32,
+          "unroll_factor": 8
+        },
+        {
+          "threads_per_block": 32,
+          "unroll_factor": 4
+        },
+        {
+          "threads_per_block": 32,
+          "unroll_factor": 2
+        },
+        {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        }
+      ],
+      "shape": {
+        "in_features": 64,
+        "out_features": 256
+      }
+    },
+    {
+      "baseline_is_also_retained": false,
+      "best_in_menu_latency_us": 11.032000184059143,
+      "best_in_menu_retained": true,
+      "best_in_menu_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 2
+      },
+      "full_menu_candidate_count": 16,
+      "live_measurement_count_including_baseline": 5,
+      "live_tuner_baseline_schedule": {
+        "threads_per_block": 128,
+        "unroll_factor": 1,
+        "use_smem": false
+      },
+      "regret_pct": 0.0,
+      "retained_best_latency_us": 11.032000184059143,
+      "retained_best_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 2
+      },
+      "retained_candidate_count": 4,
+      "retained_schedules": [
+        {
+          "threads_per_block": 32,
+          "unroll_factor": 8
+        },
+        {
+          "threads_per_block": 32,
+          "unroll_factor": 4
+        },
+        {
+          "threads_per_block": 32,
+          "unroll_factor": 2
+        },
+        {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        }
+      ],
+      "shape": {
+        "in_features": 256,
+        "out_features": 256
+      }
+    },
+    {
+      "baseline_is_also_retained": false,
+      "best_in_menu_latency_us": 10.826250305399299,
+      "best_in_menu_retained": false,
+      "best_in_menu_schedule": {
+        "threads_per_block": 128,
+        "unroll_factor": 1
+      },
+      "full_menu_candidate_count": 16,
+      "live_measurement_count_including_baseline": 5,
+      "live_tuner_baseline_schedule": {
+        "threads_per_block": 128,
+        "unroll_factor": 1,
+        "use_smem": false
+      },
+      "regret_pct": 2.9950305162172173,
+      "retained_best_latency_us": 11.150499805808067,
+      "retained_best_schedule": {
+        "threads_per_block": 64,
+        "unroll_factor": 1
+      },
+      "retained_candidate_count": 4,
+      "retained_schedules": [
+        {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        },
+        {
+          "threads_per_block": 32,
+          "unroll_factor": 2
+        },
+        {
+          "threads_per_block": 32,
+          "unroll_factor": 4
+        },
+        {
+          "threads_per_block": 64,
+          "unroll_factor": 1
+        }
+      ],
+      "shape": {
+        "in_features": 512,
+        "out_features": 16
+      }
+    },
+    {
+      "baseline_is_also_retained": false,
+      "best_in_menu_latency_us": 17.89875002577901,
+      "best_in_menu_retained": true,
+      "best_in_menu_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 1
+      },
+      "full_menu_candidate_count": 16,
+      "live_measurement_count_including_baseline": 5,
+      "live_tuner_baseline_schedule": {
+        "threads_per_block": 128,
+        "unroll_factor": 1,
+        "use_smem": false
+      },
+      "regret_pct": 0.0,
+      "retained_best_latency_us": 17.89875002577901,
+      "retained_best_schedule": {
+        "threads_per_block": 32,
+        "unroll_factor": 1
+      },
+      "retained_candidate_count": 4,
+      "retained_schedules": [
+        {
+          "threads_per_block": 32,
+          "unroll_factor": 8
+        },
+        {
+          "threads_per_block": 32,
+          "unroll_factor": 4
+        },
+        {
+          "threads_per_block": 32,
+          "unroll_factor": 2
+        },
+        {
+          "threads_per_block": 32,
+          "unroll_factor": 1
+        }
+      ],
+      "shape": {
+        "in_features": 512,
+        "out_features": 256
+      }
+    }
+  ],
+  "split": {
+    "shape_sets_disjoint": true,
+    "test_shapes": [
+      [
+        32,
+        16
+      ],
+      [
+        64,
+        256
+      ],
+      [
+        256,
+        256
+      ],
+      [
+        512,
+        16
+      ],
+      [
+        512,
+        256
+      ]
+    ],
+    "train_shapes": [
+      [
+        16,
+        16
+      ],
+      [
+        16,
+        64
+      ],
+      [
+        16,
+        256
+      ],
+      [
+        16,
+        512
+      ],
+      [
+        32,
+        64
+      ],
+      [
+        32,
+        256
+      ],
+      [
+        32,
+        512
+      ],
+      [
+        64,
+        16
+      ],
+      [
+        64,
+        64
+      ],
+      [
+        64,
+        512
+      ],
+      [
+        128,
+        16
+      ],
+      [
+        128,
+        64
+      ],
+      [
+        128,
+        256
+      ],
+      [
+        128,
+        512
+      ],
+      [
+        256,
+        16
+      ],
+      [
+        256,
+        64
+      ],
+      [
+        256,
+        512
+      ],
+      [
+        512,
+        64
+      ],
+      [
+        512,
+        512
+      ]
+    ]
+  },
+  "version": 1
+}

@@ -69,6 +69,45 @@ def test_linear_relu_fusion_pass_creates_fused_op():
     assert fused.values["y"].producer == fused.ops[0].name
 
 
+def test_linear_relu_fusion_preserves_producer_graph_output():
+    """A value returned alongside its relu consumer cannot be eliminated."""
+    graph = GraphIR(name="fuse_graph_output")
+    graph.inputs = ["x"]
+    graph.outputs = ["h", "y"]
+    graph.add_value("x", shape=(1, 4), dtype="torch.float32")
+    graph.add_op(_linear("fc1", "x", "h", 4, 3))
+    graph.add_op(OpNode(name="relu1", op=OpKind.RELU, inputs=["h"], outputs=["y"]))
+
+    fused = linear_relu_fusion_pass(graph)
+
+    assert [op.op for op in fused.ops] == [OpKind.LINEAR, OpKind.RELU]
+    assert fused.outputs == ["h", "y"]
+
+
+def test_shape_inference_add_uses_numpy_broadcasting():
+    graph = GraphIR(name="broadcast_add")
+    graph.inputs = ["lhs", "rhs"]
+    graph.outputs = ["y"]
+    graph.add_value("lhs", shape=(2, 1), dtype="torch.float32")
+    graph.add_value("rhs", shape=(1, 3), dtype="torch.float32")
+    graph.add_op(OpNode(name="add", op=OpKind.ADD, inputs=["lhs", "rhs"], outputs=["y"]))
+
+    assert shape_inference_pass(graph).values["y"].shape == (2, 3)
+
+
+def test_shape_inference_add_rejects_incompatible_broadcast():
+    graph = GraphIR(name="bad_broadcast")
+    graph.inputs = ["lhs", "rhs"]
+    graph.outputs = ["y"]
+    graph.add_value("lhs", shape=(2, 2), dtype="torch.float32")
+    graph.add_value("rhs", shape=(3,), dtype="torch.float32")
+    graph.add_op(OpNode(name="add", op=OpKind.ADD, inputs=["lhs", "rhs"], outputs=["y"]))
+
+    import pytest
+    with pytest.raises(ValueError, match="broadcast"):
+        shape_inference_pass(graph)
+
+
 def test_dead_code_elimination_pass_removes_orphan_ops():
     graph = GraphIR(name="dce")
     graph.inputs = ["x"]

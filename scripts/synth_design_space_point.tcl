@@ -63,8 +63,8 @@ proc period_tag {period} {
 set script_dir [file normalize [file dirname [info script]]]
 set repo_root  [file normalize [file join $script_dir ..]]
 set arg_opts   [parse_kv_args $argv]
-set part_name  xc7a100tcsg324-1
-set top_name   top
+set part_name  [maybe_get $arg_opts part xc7a100tcsg324-1]
+set top_name   [maybe_get $arg_opts top top]
 
 set array_size [maybe_get $arg_opts ARRAY_SIZE 8]
 set cdw        [maybe_get $arg_opts COMPUTE_DATA_WIDTH 8]
@@ -79,6 +79,7 @@ if {$adw eq ""} {
 set max_batch  [maybe_get $arg_opts MAX_BATCH_COUNT 48]
 set prog_depth [maybe_get $arg_opts PROG_DEPTH 65536]
 set buf_size   [maybe_get $arg_opts BUFFER_SIZE 4096]
+set weight_region [maybe_get $arg_opts WEIGHT_REGION_WORDS [expr {min(14144, $buf_size)}]]
 set ext_addr   [maybe_get $arg_opts EXT_ADDR_EN 1]
 set q_lanes    [maybe_get $arg_opts QUANTIZER_LANES $array_size]
 set r_lanes    [maybe_get $arg_opts RELU_LANES $array_size]
@@ -86,13 +87,20 @@ set pipe_depth [maybe_get $arg_opts QUANTIZER_PIPE_DEPTH 3]
 set clock_period [maybe_get $arg_opts clock_period 20]
 set report_prefix [string trim [maybe_get $arg_opts report_prefix ""]]
 set jobs       [maybe_get $arg_opts jobs 4]
+if {$top_name eq "top_board"} {
+    set default_xdc [file join $repo_root boolean_xc7s50.xdc]
+} else {
+    set default_xdc [file join $repo_root arty_a7_revE_usb_uart.xdc]
+}
+set xdc_file   [maybe_get $arg_opts xdc_file $default_xdc]
+set wrapper_clock [expr {$top_name eq "top_board"}]
 set clk_tag    [period_tag $clock_period]
 
 if {$report_prefix eq ""} {
     set report_prefix "dss_n${array_size}_cdw${cdw}_mb${max_batch}_clk${clk_tag}_pd${pipe_depth}_prog${prog_depth}"
 }
 
-set proj_name "uTPU_dss_n${array_size}_cdw${cdw}_mb${max_batch}_clk${clk_tag}"
+set proj_name [maybe_get $arg_opts proj_name "uTPU_dss_n${array_size}_cdw${cdw}_mb${max_batch}_clk${clk_tag}"]
 set proj_dir  [file join $repo_root build "vivado_${proj_name}"]
 file mkdir $proj_dir
 
@@ -110,7 +118,10 @@ set rtl_files [concat $rtl_files [add_whitelist_dir $repo_root "rtl/unified_buff
 lappend rtl_files [file join $repo_root generated generated_params.sv]
 read_verilog -sv $rtl_files
 
-set xdc_file [file join $repo_root arty_a7_revE_usb_uart.xdc]
+if {![file exists $xdc_file]} {
+    error "Constraint file does not exist: $xdc_file"
+}
+if {!$wrapper_clock} {
 set xdc_override [file join $proj_dir "${proj_name}_clock_override.xdc"]
 set in_fh  [open $xdc_file r]
 set out_fh [open $xdc_override w]
@@ -124,6 +135,10 @@ close $in_fh
 puts $out_fh "create_clock -name sys_clk_pin -period $clock_period -waveform {0 [expr {$clock_period / 2.0}]} \[get_ports { clk }\];"
 close $out_fh
 read_xdc $xdc_override
+} else {
+    # Keep the 100 MHz input-clock constraint; Vivado derives the MMCM output.
+    read_xdc $xdc_file
+}
 
 set_property top $top_name [current_fileset]
 set generic_opt [join [list \
@@ -132,15 +147,22 @@ set generic_opt [join [list \
     "ACCUMULATOR_DATA_WIDTH=$adw" \
     "ARRAY_SIZE=$array_size" \
     "BUFFER_SIZE=$buf_size" \
+    "WEIGHT_REGION_WORDS=$weight_region" \
     "EXT_ADDR_EN=$ext_addr" \
     "MAX_BATCH_COUNT=$max_batch" \
     "QUANTIZER_LANES=$q_lanes" \
     "RELU_LANES=$r_lanes" \
     "QUANTIZER_PIPE_DEPTH=$pipe_depth" \
+    "RST_ACTIVE_LOW=[maybe_get $arg_opts RST_ACTIVE_LOW 1]" \
+    "UART_BAUD=[maybe_get $arg_opts UART_BAUD 115200]" \
+    "FORCE_UART_ECHO=[maybe_get $arg_opts FORCE_UART_ECHO 0]" \
 ] " "]
+if {$wrapper_clock} {
+    append generic_opt " CORE_CLK_HZ=[maybe_get $arg_opts CORE_CLK_HZ 50000000]"
+}
 set_property generic $generic_opt [current_fileset]
 puts "DSS generics: $generic_opt"
-puts "DSS clock_period=$clock_period report_prefix=$report_prefix proj=$proj_name"
+puts "DSS part=$part_name top=$top_name xdc=$xdc_file clock_period=$clock_period wrapper_clock=$wrapper_clock report_prefix=$report_prefix proj=$proj_name"
 
 # Match program_arty_a7_revE.tcl: sequential synth then impl-to-route (no bitstream).
 launch_runs synth_1 -jobs $jobs

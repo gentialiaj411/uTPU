@@ -45,6 +45,56 @@ def test_import_simple_mlp():
     assert graph.ops[1].op == OpKind.RELU
 
 
+def test_import_nn_flatten_as_shape_only_view():
+    torch_info = _require_torch_or_skip()
+    if torch_info is None:
+        return
+    torch, nn, _ = torch_info
+    from fx_importer import import_fx_graph_module
+    from graph_ir import OpKind
+
+    class ModuleFlatten(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.flatten = nn.Flatten(start_dim=1)
+
+        def forward(self, x):
+            return self.flatten(x)
+
+    class FunctionFlatten(nn.Module):
+        def forward(self, x):
+            return torch.flatten(x, start_dim=1)
+
+    for model in (ModuleFlatten(), FunctionFlatten()):
+        graph = import_fx_graph_module(
+            _trace_with_shapes(model, torch.randn(2, 3, 4)), name="flatten_view"
+        )
+        assert graph.ops[0].op == OpKind.VIEW
+        assert graph.ops[0].attrs["target"] == "flatten"
+        assert graph.ops[0].attrs["args"] == (2, 12)
+        assert graph.values[graph.ops[0].outputs[0]].shape == (2, 12)
+
+
+def test_import_leaky_relu_with_hardware_slope_metadata():
+    torch_info = _require_torch_or_skip()
+    if torch_info is None:
+        return
+    torch, nn, _ = torch_info
+    import torch.nn.functional as F
+    from fx_importer import import_fx_graph_module
+    from graph_ir import OpKind
+
+    class LeakyModel(nn.Module):
+        def forward(self, x):
+            return F.leaky_relu(x, negative_slope=0.25)
+
+    graph = import_fx_graph_module(
+        _trace_with_shapes(LeakyModel(), torch.randn(1, 4)), name="leaky_model"
+    )
+    assert graph.ops[0].op == OpKind.RELU
+    assert graph.ops[0].attrs["negative_slope"] == 0.25
+
+
 def test_import_add_function():
     torch_info = _require_torch_or_skip()
     if torch_info is None:
@@ -64,6 +114,22 @@ def test_import_add_function():
     assert len(graph.ops) == 1
     assert graph.ops[0].op == OpKind.ADD
     assert graph.values[graph.ops[0].outputs[0]].shape == (1, 4)
+
+
+def test_import_softmax_captures_and_normalizes_axis():
+    torch_info = _require_torch_or_skip()
+    if torch_info is None:
+        return
+    torch, nn, _ = torch_info
+    import torch.nn.functional as F
+    from fx_importer import import_fx_graph_module
+
+    class SoftmaxDimZero(nn.Module):
+        def forward(self, x):
+            return F.softmax(x, 0)
+
+    graph = import_fx_graph_module(_trace_with_shapes(SoftmaxDimZero(), torch.randn(2, 3)), name="softmax_dim")
+    assert graph.ops[0].attrs["dim"] == 0
 
 
 def test_unsupported_op_fails_clearly():

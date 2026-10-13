@@ -55,6 +55,8 @@ class BoardConfig:
     array_size: int = 16
     data_width_bits: int = 8
     notes: str = ""
+    weight_region_words: int | None = None
+    max_batch_count: int | None = None
 
     @classmethod
     def pynqz2_baseline(cls) -> "BoardConfig":
@@ -128,6 +130,39 @@ class BoardConfig:
         )
 
     @classmethod
+    def boolean_xc7s50(cls) -> "BoardConfig":
+        """Real Digital Boolean (xc7s50csga324-1) fit configuration.
+
+        The MAX_BATCH_COUNT setting belongs to the RTL build, rather than the
+        ISA program.  The board runner records it alongside this host model so
+        the uploaded program and bitstream cannot be confused with the former
+        Artix shipping configuration.
+        """
+        return cls(
+            name="boolean_xc7s50",
+            # The INT8 196->256->10 network needs 27,648 tiled weight words:
+            # 25,600 for 200x256 FC1 and 2,048 for padded 16x256 FC2.
+            # The 32,768-word buffer leaves 5,120 words for activation scratch.
+            # FC1 control is 29,057 words, so 32,768 is the smallest power-of-2
+            # instruction depth that admits it.
+            prog_depth=32768,
+            buffer_size=32768,
+            array_size=8,
+            data_width_bits=8,
+            weight_region_words=27648,
+            max_batch_count=4,
+            notes=(
+                "Real Digital Boolean, xc7s50csga324-1: N=8 INT8, "
+                "BUFFER_SIZE=32768, WEIGHT_REGION_WORDS=27648, "
+                "PROG_DEPTH=32768, MAX_BATCH_COUNT=4. Existing Artix sweeps "
+                "show 33 BRAM36 at PROG_DEPTH=32768/BUFFER_SIZE=4096; "
+                "memory-bit extrapolation estimates about 46/75 BRAM36 "
+                "(29-tile margin) for this point. "
+                "Estimate only; Boolean synthesis is required for measured fit."
+            ),
+        )
+
+    @classmethod
     def reference_set(cls, artix_prog_depth: int | None = None) -> List["BoardConfig"]:
         boards = [
             cls.pynqz2_baseline(),
@@ -138,13 +173,14 @@ class BoardConfig:
             boards.append(cls.artix_a7100t_bram_max(artix_prog_depth))
         else:
             boards.append(cls.artix_a7100t_bram_max())
+        boards.append(cls.boolean_xc7s50())
         return boards
 
     def fits(self, program_instruction_words: int) -> bool:
         return int(program_instruction_words) <= int(self.prog_depth)
 
     def as_dict(self) -> Dict[str, object]:
-        return {
+        result = {
             "name": self.name,
             "prog_depth": int(self.prog_depth),
             "buffer_size": int(self.buffer_size),
@@ -152,3 +188,8 @@ class BoardConfig:
             "data_width_bits": int(self.data_width_bits),
             "notes": self.notes,
         }
+        if self.weight_region_words is not None:
+            result["weight_region_words"] = int(self.weight_region_words)
+        if self.max_batch_count is not None:
+            result["max_batch_count"] = int(self.max_batch_count)
+        return result

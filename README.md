@@ -17,7 +17,7 @@ Supported:
 
 - Batch-1 MLP-style `Linear -> ReLU -> Linear` flows.
 - Single-block transformer path: `Q/K/V linear -> attention -> output projection -> residual -> RMSNorm -> (optional MLP reuse)`.
-- Pass-based Graph IR: shape inference, Linear+ReLU fusion, dead-code elimination, liveness memory planning, backend legality.
+- Pass-based Graph IR: shape inference, Linear+ReLU fusion, dead-code elimination, liveness-based memory-plan analysis, backend legality.
 - Transformer pass pipeline: attention decomposition (`scaled_dot_product_attention` -> `permute + batched_matmul + scale + softmax + batched_matmul`) plus `scale+softmax` fusion.
 - INT4 blocked fully connected lowering for CUDA and uTPU program emission.
 - CUDA runtime execution through generated NVRTC kernels.
@@ -31,8 +31,8 @@ Not claimed:
 - Full GPT/BERT graph coverage.
 - Production `torch.compile` backend.
 - End-to-end speedup over PyTorch/cuBLAS on tiny benchmarks (or FPGA speedup vs GPU).
-- On-board FPGA / silicon execution (P0 open) — all RTL cycle and UART claims below are iverilog or post-route synth, not board capture.
-- Shipping at the demonstrated 100 MHz ceiling (marginal WNS); the ship point is ~83.3 MHz.
+- On-board FPGA / silicon execution (P0 open) — hardware evidence remains simulation / post-route timing only until an artifact records `status==hardware_bit_exact`.
+- Artix-7 timing evidence: post-route timing closure at 12 ns (no on-chip clock generation; not an on-silicon frequency).
 - uTPU cycle-model selection regret comparable to CUDA’s 16-candidate menu (uTPU menu is 5 candidates).
 - Concurrent LOAD+COMPUTE as the next win (isolated-GEMM attribution parks that path).
 - Part A descriptor ISA (parked).
@@ -41,7 +41,7 @@ Not claimed:
 
 ### Hardware / RTL (Artix-7 path)
 
-- **DSP 192 → 72 and clock shipping:** requant/ReLU finalize rightsizing (Step1+2) cuts Artix-7 A7-100T DSP from **192/240** to **72/240** on `ARRAY_SIZE=8` INT8. Design-space shipping close is **~83.3 MHz** (`12 ns`, post-route **WNS=+0.271 ns**, margin thin) on `xc7a100tcsg324-1`; demonstrated Fmax ceiling is **100 MHz** (`10 ns`, **WNS=+0.012 ns**, marginal — cite WNS if quoted). Workload/harness: N=8 INT8, `MAX_BATCH_COUNT=48`, Vivado P&R. Evidence: [bench/results/requant_rightsizing_synth.json](bench/results/requant_rightsizing_synth.json), [bench/results/design_space_sweep.json](bench/results/design_space_sweep.json), [docs/HARDWARE_DESIGN_SPACE.md](docs/HARDWARE_DESIGN_SPACE.md).
+- **DSP rightsizing and Artix-7 timing:** requant/ReLU finalize rightsizing cuts DSP use from **192/240** to **72/240** on `ARRAY_SIZE=8` INT8. Timing evidence is post-route timing closure at 12 ns (no on-chip clock generation; not an on-silicon frequency), with WNS +0.271 ns on `xc7a100tcsg324-1`. A 10 ns constrained point is also present in the sweep and is marginal (WNS +0.012 ns); neither is an on-silicon frequency. Workload/harness: N=8 INT8, `MAX_BATCH_COUNT=48`, Vivado P&R. Evidence: [bench/results/requant_rightsizing_synth.json](bench/results/requant_rightsizing_synth.json), [bench/results/design_space_sweep.json](bench/results/design_space_sweep.json), [docs/HARDWARE_DESIGN_SPACE.md](docs/HARDWARE_DESIGN_SPACE.md).
 
 - **Instruction-stream attribution:** on isolated GEMM **64×64 B=48 N=16** (fast-UART TB), instruction-stream is **66%** of on-chip core cycles and buffer→PE **LOAD is 1.1%**; compute ~5.7%. PE-level concurrent LOAD+COMPUTE cannot materially help under this harness. Evidence: [bench/results/cycle_attribution.json](bench/results/cycle_attribution.json).
 
@@ -53,7 +53,7 @@ Not claimed:
 
 - **uTPU cycle cost model:** held-out **log R² 0.924**, **MAPE 10.04%**, **zero selection regret** over a **5-candidate** `(batch, hoist)` space (contrast CUDA held-out mean regret **5.21%** on a **16-candidate** space). Evidence: [bench/results/utpu_cycle_model_heldout.json](bench/results/utpu_cycle_model_heldout.json), [docs/COSTMODEL_COMPARISON.md](docs/COSTMODEL_COMPARISON.md), [bench/results/cost_model_heldout.json](bench/results/cost_model_heldout.json).
 
-- **Determinism vs GPU:** FPGA/RTL cycle variance **0** across adversarial+random inputs; at shipping **~83 MHz** median wall-clock latency is **~1.89×** the GPU p50 (loss, not speedup). FPGA p99 equals p50 (flat); GPU p99 / p99.9 tails are recorded in the artifact. Evidence: [bench/results/latency_determinism_vs_gpu.json](bench/results/latency_determinism_vs_gpu.json), [bench/results/latency_determinism.json](bench/results/latency_determinism.json), [docs/latency_determinism_vs_gpu_logx.png](docs/latency_determinism_vs_gpu_logx.png).
+- **Determinism vs GPU:** FPGA/RTL cycle variance **0** across adversarial+random inputs; the modeled latency uses the 12 ns timing constraint (no on-chip clock generation; not an on-silicon frequency) and is **~1.89×** the GPU p50 (loss, not speedup). FPGA p99 equals p50 (flat); GPU p99 / p99.9 tails are recorded in the artifact. Evidence: [bench/results/latency_determinism_vs_gpu.json](bench/results/latency_determinism_vs_gpu.json), [bench/results/latency_determinism.json](bench/results/latency_determinism.json), [docs/latency_determinism_vs_gpu_logx.png](docs/latency_determinism_vs_gpu_logx.png).
 
 ### Compiler / CUDA / simulation
 
@@ -61,7 +61,7 @@ Not claimed:
 
 - Real-model CUDA path: ResNet-18 lowers end-to-end through FX → Graph IR → graph-op execution. Parity vs eager PyTorch at `rtol=1e-3`, `atol=1e-3`. Evidence: [bench/results/real_model_end_to_end.json](bench/results/real_model_end_to_end.json).
 
-- CUDA performance engineering: calibrated CUDA-event data backs a schedule-aware analytical cost model and pruning policy for blocked-FC autotuning. Measured-data replay profiles `4.92` of 16 schedules on average (`3.25x` search reduction), keeps every selected schedule within `1%` of exhaustive best, and lowers max replay regression from strict top-k's `5.90%` to `0.49%`. Evidence: [docs/EVIDENCE.md#cost-model-and-pruned-autotuner](docs/EVIDENCE.md#cost-model-and-pruned-autotuner), [firmware/host/cost_model.py](firmware/host/cost_model.py), [firmware/host/cuda_autotuner.py](firmware/host/cuda_autotuner.py).
+- CUDA performance engineering: **3.12x candidate-count reduction over a 16-schedule (threads x unroll) menu on calibration replay, max regression <0.5%**. Artifact: [bench/results/pruned_autotuner_replay.json](bench/results/pruned_autotuner_replay.json). Reproduce: `python firmware/host/evaluate_pruned_autotuner.py --calibration-json bench/fixtures/cost_model_calibration_seed.json --top-k 4 --output-json bench/results/pruned_autotuner_replay.json`.
 
 - Hardware verification (simulation): Python ISA simulator and Verilog RTL produce bit-identical fetch bytes on compiled fused MLP programs. Evidence: [docs/EVIDENCE.md#python-isa-simulator--rtl-bitmatch](docs/EVIDENCE.md#python-isa-simulator--rtl-bitmatch), [firmware/host/isa_simulator.py](firmware/host/isa_simulator.py), [rtl/tb/tb_fused_compressed_program.sv](rtl/tb/tb_fused_compressed_program.sv).
 
@@ -151,11 +151,11 @@ Current GitHub Actions status is reflected by the badge above. For the latest pu
 
 ## Resume-Safe Wording
 
-- Built a pass-based Graph IR compiler for a scoped MLP subset with shape inference, Linear+ReLU fusion, liveness memory planning, backend legality checks, and differential testing against reference/backend oracles.
+- Built a pass-based Graph IR compiler for a scoped MLP subset with shape inference, Linear+ReLU fusion, liveness-based memory-plan analysis, backend legality checks, and differential testing against reference/backend oracles.
 
-- Built a cost-model-guided CUDA blocked-FC autotuner that prunes a 16-candidate schedule space to `4.92` measured candidates on calibrated replay (`3.25x` reduction), with all selected schedules within `1%` of exhaustive best and max replay regression under `0.5%`.
+- Built a cost-model-guided CUDA blocked-FC autotuner with **3.12x candidate-count reduction over a 16-schedule (threads x unroll) menu on calibration replay, max regression <0.5%**. Artifact: `bench/results/pruned_autotuner_replay.json`; command: `python firmware/host/evaluate_pruned_autotuner.py --calibration-json bench/fixtures/cost_model_calibration_seed.json --top-k 4 --output-json bench/results/pruned_autotuner_replay.json`.
 
-- Closed Artix-7 timing at ~83 MHz (WNS=+0.271) after rightsizing DSP 192→72; attributed on-chip cycles (instruction-stream 66%, LOAD 1.1%); and showed zero FPGA cycle variance with ~1.89× median-latency loss vs GPU at the shipping clock.
+- Artix-7 post-route timing closure at 12 ns (no on-chip clock generation; not an on-silicon frequency; WNS=+0.271) after rightsizing DSP 192→72; attributed on-chip cycles (instruction-stream 66%, LOAD 1.1%); and showed zero FPGA cycle variance with ~1.89× modeled median-latency loss vs GPU.
 
 - Verified bit-accurate agreement between a Python uTPU ISA simulator and Verilog RTL on compiled fused MLP programs.
 

@@ -1,0 +1,1054 @@
+{
+  "schema_version": 1,
+  "model": "mnist_mlp",
+  "dataset": "MNIST",
+  "evaluated_images": 20,
+  "full_test_set": false,
+  "deployment": {
+    "board": {
+      "name": "boolean_xc7s50",
+      "prog_depth": 32768,
+      "buffer_size": 32768,
+      "array_size": 8,
+      "data_width_bits": 8,
+      "notes": "Real Digital Boolean, xc7s50csga324-1: N=8 INT8, BUFFER_SIZE=32768, WEIGHT_REGION_WORDS=27648, PROG_DEPTH=32768, MAX_BATCH_COUNT=4. Existing Artix sweeps show 33 BRAM36 at PROG_DEPTH=32768/BUFFER_SIZE=4096; memory-bit extrapolation estimates about 46/75 BRAM36 (29-tile margin) for this point. Estimate only; Boolean synthesis is required for measured fit.",
+      "weight_region_words": 27648,
+      "max_batch_count": 4
+    },
+    "layers": [
+      {
+        "name": "fc1",
+        "input_features": 196,
+        "output_features": 256,
+        "weight_words": 25600,
+        "control_words": 5408
+      },
+      {
+        "name": "fc2",
+        "input_features": 256,
+        "output_features": 10,
+        "weight_words": 2048,
+        "control_words": 454
+      }
+    ],
+    "weight_words": 27648,
+    "control_words": 5863,
+    "activation_scratch_words": 236,
+    "fits": true,
+    "bram_budget": {
+      "estimated_bram36_used": 46,
+      "bram36_available": 75,
+      "estimated_margin_tiles": 29,
+      "estimated_lut_used": 16600,
+      "lut_available": 32600,
+      "estimated_lut_utilization_fraction": 0.50920245398773,
+      "source_artifacts": [
+        "bench/results/prog_depth_sweep.json",
+        "bench/results/design_space_sweep.json"
+      ],
+      "status": "estimate_only_unverified_on_boolean",
+      "lut_source_artifact": "bench/results/design_space_sweep.json (N=8, INT8, batch4, pd65536/buf4096, Artix-7)",
+      "method": "BRAM: measured 32k-depth/4k-buffer fixed logic plus memory-bit extrapolation; LUT: measured 16.6k Artix batch4 point carried as a rough Boolean estimate; no XC7S50 synthesis"
+    }
+  },
+  "float_accuracy": 1.0,
+  "int8_accuracy": 1.0,
+  "isa_vs_independent_integer_reference": {
+    "all_output_bytes_bit_exact": true,
+    "mismatched_images": 0,
+    "checked_output_bytes": 200
+  },
+  "cycles_per_inference": {
+    "cold_including_weight_fill": null,
+    "steady_state_mean": 2677.0,
+    "steady_state_min": 2677,
+    "steady_state_max": 2677,
+    "note": "ISA instruction cycles; A5 UART fill latency is not represented"
+  },
+  "simulator_elapsed_seconds": 0.704400299990084,
+  "samples_first_20": [
+    {
+      "index": 0,
+      "label": 7,
+      "predicted_class": 7,
+      "expected_int8": [
+        -7,
+        -13,
+        -2,
+        11,
+        -33,
+        -1,
+        -42,
+        37,
+        -2,
+        7
+      ],
+      "actual_int8": [
+        -7,
+        -13,
+        -2,
+        11,
+        -33,
+        -1,
+        -42,
+        37,
+        -2,
+        7
+      ],
+      "non_saturated_outputs": 10,
+      "bit_exact": true,
+      "cycles": 2677
+    },
+    {
+      "index": 1,
+      "label": 2,
+      "predicted_class": 2,
+      "expected_int8": [
+        -8,
+        22,
+        71,
+        2,
+        -38,
+        3,
+        -10,
+        -34,
+        9,
+        -48
+      ],
+      "actual_int8": [
+        -8,
+        22,
+        71,
+        2,
+        -38,
+        3,
+        -10,
+        -34,
+        9,
+        -48
+      ],
+      "non_saturated_outputs": 10,
+      "bit_exact": true,
+      "cycles": 2677
+    },
+    {
+      "index": 2,
+      "label": 1,
+      "predicted_class": 1,
+      "expected_int8": [
+        -3,
+        16,
+        3,
+        -4,
+        -1,
+        -18,
+        -2,
+        9,
+        3,
+        -12
+      ],
+      "actual_int8": [
+        -3,
+        16,
+        3,
+        -4,
+        -1,
+        -18,
+        -2,
+        9,
+        3,
+        -12
+      ],
+      "non_saturated_outputs": 10,
+      "bit_exact": true,
+      "cycles": 2677
+    },
+    {
+      "index": 3,
+      "label": 0,
+      "predicted_class": 0,
+      "expected_int8": [
+        38,
+        -2,
+        15,
+        -4,
+        -4,
+        -2,
+        6,
+        12,
+        -2,
+        7
+      ],
+      "actual_int8": [
+        38,
+        -2,
+        15,
+        -4,
+        -4,
+        -2,
+        6,
+        12,
+        -2,
+        7
+      ],
+      "non_saturated_outputs": 10,
+      "bit_exact": true,
+      "cycles": 2677
+    },
+    {
+      "index": 4,
+      "label": 4,
+      "predicted_class": 4,
+      "expected_int8": [
+        -6,
+        -9,
+        4,
+        -11,
+        34,
+        -12,
+        -6,
+        4,
+        -4,
+        18
+      ],
+      "actual_int8": [
+        -6,
+        -9,
+        4,
+        -11,
+        34,
+        -12,
+        -6,
+        4,
+        -4,
+        18
+      ],
+      "non_saturated_outputs": 10,
+      "bit_exact": true,
+      "cycles": 2677
+    },
+    {
+      "index": 5,
+      "label": 1,
+      "predicted_class": 1,
+      "expected_int8": [
+        -3,
+        25,
+        -3,
+        -5,
+        4,
+        -25,
+        -9,
+        15,
+        0,
+        -10
+      ],
+      "actual_int8": [
+        -3,
+        25,
+        -3,
+        -5,
+        4,
+        -25,
+        -9,
+        15,
+        0,
+        -10
+      ],
+      "non_saturated_outputs": 10,
+      "bit_exact": true,
+      "cycles": 2677
+    },
+    {
+      "index": 6,
+      "label": 4,
+      "predicted_class": 4,
+      "expected_int8": [
+        -22,
+        -15,
+        -13,
+        -19,
+        35,
+        2,
+        0,
+        7,
+        11,
+        2
+      ],
+      "actual_int8": [
+        -22,
+        -15,
+        -13,
+        -19,
+        35,
+        2,
+        0,
+        7,
+        11,
+        2
+      ],
+      "non_saturated_outputs": 10,
+      "bit_exact": true,
+      "cycles": 2677
+    },
+    {
+      "index": 7,
+      "label": 9,
+      "predicted_class": 9,
+      "expected_int8": [
+        -29,
+        -15,
+        0,
+        11,
+        6,
+        4,
+        -28,
+        0,
+        -2,
+        30
+      ],
+      "actual_int8": [
+        -29,
+        -15,
+        0,
+        11,
+        6,
+        4,
+        -28,
+        0,
+        -2,
+        30
+      ],
+      "non_saturated_outputs": 10,
+      "bit_exact": true,
+      "cycles": 2677
+    },
+    {
+      "index": 8,
+      "label": 5,
+      "predicted_class": 5,
+      "expected_int8": [
+        -23,
+        -14,
+        5,
+        -9,
+        -3,
+        28,
+        5,
+        -20,
+        11,
+        5
+      ],
+      "actual_int8": [
+        -23,
+        -14,
+        5,
+        -9,
+        -3,
+        28,
+        5,
+        -20,
+        11,
+        5
+      ],
+      "non_saturated_outputs": 10,
+      "bit_exact": true,
+      "cycles": 2677
+    },
+    {
+      "index": 9,
+      "label": 9,
+      "predicted_class": 9,
+      "expected_int8": [
+        -22,
+        -36,
+        -26,
+        2,
+        15,
+        -2,
+        -28,
+        23,
+        16,
+        43
+      ],
+      "actual_int8": [
+        -22,
+        -36,
+        -26,
+        2,
+        15,
+        -2,
+        -28,
+        23,
+        16,
+        43
+      ],
+      "non_saturated_outputs": 10,
+      "bit_exact": true,
+      "cycles": 2677
+    },
+    {
+      "index": 10,
+      "label": 0,
+      "predicted_class": 0,
+      "expected_int8": [
+        60,
+        -10,
+        19,
+        -6,
+        -24,
+        -6,
+        10,
+        -7,
+        -16,
+        0
+      ],
+      "actual_int8": [
+        60,
+        -10,
+        19,
+        -6,
+        -24,
+        -6,
+        10,
+        -7,
+        -16,
+        0
+      ],
+      "non_saturated_outputs": 10,
+      "bit_exact": true,
+      "cycles": 2677
+    },
+    {
+      "index": 11,
+      "label": 6,
+      "predicted_class": 6,
+      "expected_int8": [
+        11,
+        -7,
+        2,
+        -6,
+        -4,
+        17,
+        54,
+        -15,
+        24,
+        -16
+      ],
+      "actual_int8": [
+        11,
+        -7,
+        2,
+        -6,
+        -4,
+        17,
+        54,
+        -15,
+        24,
+        -16
+      ],
+      "non_saturated_outputs": 10,
+      "bit_exact": true,
+      "cycles": 2677
+    },
+    {
+      "index": 12,
+      "label": 9,
+      "predicted_class": 9,
+      "expected_int8": [
+        -24,
+        -23,
+        -15,
+        1,
+        16,
+        2,
+        -23,
+        12,
+        6,
+        33
+      ],
+      "actual_int8": [
+        -24,
+        -23,
+        -15,
+        1,
+        16,
+        2,
+        -23,
+        12,
+        6,
+        33
+      ],
+      "non_saturated_outputs": 10,
+      "bit_exact": true,
+      "cycles": 2677
+    },
+    {
+      "index": 13,
+      "label": 0,
+      "predicted_class": 0,
+      "expected_int8": [
+        42,
+        -11,
+        6,
+        -10,
+        -18,
+        3,
+        9,
+        9,
+        0,
+        3
+      ],
+      "actual_int8": [
+        42,
+        -11,
+        6,
+        -10,
+        -18,
+        3,
+        9,
+        9,
+        0,
+        3
+      ],
+      "non_saturated_outputs": 10,
+      "bit_exact": true,
+      "cycles": 2677
+    },
+    {
+      "index": 14,
+      "label": 1,
+      "predicted_class": 1,
+      "expected_int8": [
+        -12,
+        19,
+        -4,
+        1,
+        1,
+        -17,
+        -4,
+        6,
+        6,
+        -5
+      ],
+      "actual_int8": [
+        -12,
+        19,
+        -4,
+        1,
+        1,
+        -17,
+        -4,
+        6,
+        6,
+        -5
+      ],
+      "non_saturated_outputs": 10,
+      "bit_exact": true,
+      "cycles": 2677
+    },
+    {
+      "index": 15,
+      "label": 5,
+      "predicted_class": 5,
+      "expected_int8": [
+        -13,
+        -5,
+        2,
+        13,
+        -9,
+        27,
+        -14,
+        -11,
+        7,
+        -10
+      ],
+      "actual_int8": [
+        -13,
+        -5,
+        2,
+        13,
+        -9,
+        27,
+        -14,
+        -11,
+        7,
+        -10
+      ],
+      "non_saturated_outputs": 10,
+      "bit_exact": true,
+      "cycles": 2677
+    },
+    {
+      "index": 16,
+      "label": 9,
+      "predicted_class": 9,
+      "expected_int8": [
+        -4,
+        -30,
+        2,
+        -6,
+        4,
+        -5,
+        -17,
+        10,
+        9,
+        30
+      ],
+      "actual_int8": [
+        -4,
+        -30,
+        2,
+        -6,
+        4,
+        -5,
+        -17,
+        10,
+        9,
+        30
+      ],
+      "non_saturated_outputs": 10,
+      "bit_exact": true,
+      "cycles": 2677
+    },
+    {
+      "index": 17,
+      "label": 7,
+      "predicted_class": 7,
+      "expected_int8": [
+        0,
+        -11,
+        15,
+        11,
+        -36,
+        -14,
+        -48,
+        42,
+        -10,
+        2
+      ],
+      "actual_int8": [
+        0,
+        -11,
+        15,
+        11,
+        -36,
+        -14,
+        -48,
+        42,
+        -10,
+        2
+      ],
+      "non_saturated_outputs": 10,
+      "bit_exact": true,
+      "cycles": 2677
+    },
+    {
+      "index": 18,
+      "label": 3,
+      "predicted_class": 3,
+      "expected_int8": [
+        -11,
+        -6,
+        20,
+        25,
+        3,
+        3,
+        -7,
+        3,
+        21,
+        -3
+      ],
+      "actual_int8": [
+        -11,
+        -6,
+        20,
+        25,
+        3,
+        3,
+        -7,
+        3,
+        21,
+        -3
+      ],
+      "non_saturated_outputs": 10,
+      "bit_exact": true,
+      "cycles": 2677
+    },
+    {
+      "index": 19,
+      "label": 4,
+      "predicted_class": 4,
+      "expected_int8": [
+        -19,
+        -7,
+        -2,
+        -11,
+        34,
+        -8,
+        -2,
+        0,
+        -4,
+        3
+      ],
+      "actual_int8": [
+        -19,
+        -7,
+        -2,
+        -11,
+        34,
+        -8,
+        -2,
+        0,
+        -4,
+        3
+      ],
+      "non_saturated_outputs": 10,
+      "bit_exact": true,
+      "cycles": 2677
+    }
+  ],
+  "rtl_uart_replay": {
+    "passed": true,
+    "samples_requested": 20,
+    "samples_passed": 20,
+    "output_bytes_checked": 320,
+    "rtl_parameters": {
+      "ARRAY_SIZE": 8,
+      "COMPUTE_DATA_WIDTH": 8,
+      "BUFFER_SIZE": 32768,
+      "WEIGHT_REGION_WORDS": 27648,
+      "PROG_DEPTH": 32768,
+      "MAX_BATCH_COUNT": 4,
+      "RST_ACTIVE_LOW": 0,
+      "CORE_CLK_HZ": 50000000,
+      "MMCM": "bypassed in simulation",
+      "UART_BAUD_SIM": 3125000
+    },
+    "samples": [
+      {
+        "index": 0,
+        "label": 7,
+        "predicted_class": 7,
+        "non_saturated_output_count": 10,
+        "cycles": 2677,
+        "expected_uart_hex": "f9f3fe0bdfffd625fe07000000000000"
+      },
+      {
+        "index": 1,
+        "label": 2,
+        "predicted_class": 2,
+        "non_saturated_output_count": 10,
+        "cycles": 2677,
+        "expected_uart_hex": "f8164702da03f6de09d0000000000000"
+      },
+      {
+        "index": 2,
+        "label": 1,
+        "predicted_class": 1,
+        "non_saturated_output_count": 10,
+        "cycles": 2677,
+        "expected_uart_hex": "fd1003fcffeefe0903f4000000000000"
+      },
+      {
+        "index": 3,
+        "label": 0,
+        "predicted_class": 0,
+        "non_saturated_output_count": 10,
+        "cycles": 2677,
+        "expected_uart_hex": "26fe0ffcfcfe060cfe07000000000000"
+      },
+      {
+        "index": 4,
+        "label": 4,
+        "predicted_class": 4,
+        "non_saturated_output_count": 10,
+        "cycles": 2677,
+        "expected_uart_hex": "faf704f522f4fa04fc12000000000000"
+      },
+      {
+        "index": 5,
+        "label": 1,
+        "predicted_class": 1,
+        "non_saturated_output_count": 10,
+        "cycles": 2677,
+        "expected_uart_hex": "fd19fdfb04e7f70f00f6000000000000"
+      },
+      {
+        "index": 6,
+        "label": 4,
+        "predicted_class": 4,
+        "non_saturated_output_count": 10,
+        "cycles": 2677,
+        "expected_uart_hex": "eaf1f3ed230200070b02000000000000"
+      },
+      {
+        "index": 7,
+        "label": 9,
+        "predicted_class": 9,
+        "non_saturated_output_count": 10,
+        "cycles": 2677,
+        "expected_uart_hex": "e3f1000b0604e400fe1e000000000000"
+      },
+      {
+        "index": 8,
+        "label": 5,
+        "predicted_class": 5,
+        "non_saturated_output_count": 10,
+        "cycles": 2677,
+        "expected_uart_hex": "e9f205f7fd1c05ec0b05000000000000"
+      },
+      {
+        "index": 9,
+        "label": 9,
+        "predicted_class": 9,
+        "non_saturated_output_count": 10,
+        "cycles": 2677,
+        "expected_uart_hex": "eadce6020ffee417102b000000000000"
+      },
+      {
+        "index": 10,
+        "label": 0,
+        "predicted_class": 0,
+        "non_saturated_output_count": 10,
+        "cycles": 2677,
+        "expected_uart_hex": "3cf613fae8fa0af9f000000000000000"
+      },
+      {
+        "index": 11,
+        "label": 6,
+        "predicted_class": 6,
+        "non_saturated_output_count": 10,
+        "cycles": 2677,
+        "expected_uart_hex": "0bf902fafc1136f118f0000000000000"
+      },
+      {
+        "index": 12,
+        "label": 9,
+        "predicted_class": 9,
+        "non_saturated_output_count": 10,
+        "cycles": 2677,
+        "expected_uart_hex": "e8e9f1011002e90c0621000000000000"
+      },
+      {
+        "index": 13,
+        "label": 0,
+        "predicted_class": 0,
+        "non_saturated_output_count": 10,
+        "cycles": 2677,
+        "expected_uart_hex": "2af506f6ee0309090003000000000000"
+      },
+      {
+        "index": 14,
+        "label": 1,
+        "predicted_class": 1,
+        "non_saturated_output_count": 10,
+        "cycles": 2677,
+        "expected_uart_hex": "f413fc0101effc0606fb000000000000"
+      },
+      {
+        "index": 15,
+        "label": 5,
+        "predicted_class": 5,
+        "non_saturated_output_count": 10,
+        "cycles": 2677,
+        "expected_uart_hex": "f3fb020df71bf2f507f6000000000000"
+      },
+      {
+        "index": 16,
+        "label": 9,
+        "predicted_class": 9,
+        "non_saturated_output_count": 10,
+        "cycles": 2677,
+        "expected_uart_hex": "fce202fa04fbef0a091e000000000000"
+      },
+      {
+        "index": 17,
+        "label": 7,
+        "predicted_class": 7,
+        "non_saturated_output_count": 10,
+        "cycles": 2677,
+        "expected_uart_hex": "00f50f0bdcf2d02af602000000000000"
+      },
+      {
+        "index": 18,
+        "label": 3,
+        "predicted_class": 3,
+        "non_saturated_output_count": 10,
+        "cycles": 2677,
+        "expected_uart_hex": "f5fa14190303f90315fd000000000000"
+      },
+      {
+        "index": 19,
+        "label": 4,
+        "predicted_class": 4,
+        "non_saturated_output_count": 10,
+        "cycles": 2677,
+        "expected_uart_hex": "edf9fef522f8fe00fc03000000000000"
+      }
+    ],
+    "log_tail": "SAMPLE_RESULT index=0 byte_count=16 pass=1\nSAMPLE_RESULT index=1 byte_count=16 pass=1\nSAMPLE_RESULT index=2 byte_count=16 pass=1\nSAMPLE_RESULT index=3 byte_count=16 pass=1\nSAMPLE_RESULT index=4 byte_count=16 pass=1\nSAMPLE_RESULT index=5 byte_count=16 pass=1\nSAMPLE_RESULT index=6 byte_count=16 pass=1\nSAMPLE_RESULT index=7 byte_count=16 pass=1\nSAMPLE_RESULT index=8 byte_count=16 pass=1\nSAMPLE_RESULT index=9 byte_count=16 pass=1\nSAMPLE_RESULT index=10 byte_count=16 pass=1\nSAMPLE_RESULT index=11 byte_count=16 pass=1\nSAMPLE_RESULT index=12 byte_count=16 pass=1\nSAMPLE_RESULT index=13 byte_count=16 pass=1\nSAMPLE_RESULT index=14 byte_count=16 pass=1\nSAMPLE_RESULT index=15 byte_count=16 pass=1\nSAMPLE_RESULT index=16 byte_count=16 pass=1\nSAMPLE_RESULT index=17 byte_count=16 pass=1\nSAMPLE_RESULT index=18 byte_count=16 pass=1\nSAMPLE_RESULT index=19 byte_count=16 pass=1\nPERF_PROGRAM_CYCLES=36070\nBUFFER_RESIDENT_REPLAY_SAMPLES=20\nTB_RESULT: PASS\nC:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_buffer_resident_uart_replay.sv:140: $finish called at 242670550000 (1ps)\n",
+    "rtl_perf_program_cycles_per_inference": [
+      {
+        "sample_index": 0,
+        "cycles": 36070
+      },
+      {
+        "sample_index": 1,
+        "cycles": 36070
+      },
+      {
+        "sample_index": 2,
+        "cycles": 36070
+      },
+      {
+        "sample_index": 3,
+        "cycles": 36070
+      },
+      {
+        "sample_index": 4,
+        "cycles": 36070
+      },
+      {
+        "sample_index": 5,
+        "cycles": 36070
+      },
+      {
+        "sample_index": 6,
+        "cycles": 36070
+      },
+      {
+        "sample_index": 7,
+        "cycles": 36070
+      },
+      {
+        "sample_index": 8,
+        "cycles": 36070
+      },
+      {
+        "sample_index": 9,
+        "cycles": 36070
+      },
+      {
+        "sample_index": 10,
+        "cycles": 36070
+      },
+      {
+        "sample_index": 11,
+        "cycles": 36070
+      },
+      {
+        "sample_index": 12,
+        "cycles": 36070
+      },
+      {
+        "sample_index": 13,
+        "cycles": 36070
+      },
+      {
+        "sample_index": 14,
+        "cycles": 36070
+      },
+      {
+        "sample_index": 15,
+        "cycles": 36070
+      },
+      {
+        "sample_index": 16,
+        "cycles": 36070
+      },
+      {
+        "sample_index": 17,
+        "cycles": 36070
+      },
+      {
+        "sample_index": 18,
+        "cycles": 36070
+      },
+      {
+        "sample_index": 19,
+        "cycles": 36070
+      }
+    ],
+    "cold_core_cycles_including_weight_program_input_fill": 10795080,
+    "steady_core_cycles_including_repeat_and_input_fill": [
+      {
+        "sample_index": 1,
+        "cycles": 70442
+      },
+      {
+        "sample_index": 2,
+        "cycles": 70442
+      },
+      {
+        "sample_index": 3,
+        "cycles": 70442
+      },
+      {
+        "sample_index": 4,
+        "cycles": 70442
+      },
+      {
+        "sample_index": 5,
+        "cycles": 70442
+      },
+      {
+        "sample_index": 6,
+        "cycles": 70442
+      },
+      {
+        "sample_index": 7,
+        "cycles": 70442
+      },
+      {
+        "sample_index": 8,
+        "cycles": 70442
+      },
+      {
+        "sample_index": 9,
+        "cycles": 70442
+      },
+      {
+        "sample_index": 10,
+        "cycles": 70442
+      },
+      {
+        "sample_index": 11,
+        "cycles": 70442
+      },
+      {
+        "sample_index": 12,
+        "cycles": 70442
+      },
+      {
+        "sample_index": 13,
+        "cycles": 70442
+      },
+      {
+        "sample_index": 14,
+        "cycles": 70442
+      },
+      {
+        "sample_index": 15,
+        "cycles": 70442
+      },
+      {
+        "sample_index": 16,
+        "cycles": 70442
+      },
+      {
+        "sample_index": 17,
+        "cycles": 70442
+      },
+      {
+        "sample_index": 18,
+        "cycles": 70442
+      },
+      {
+        "sample_index": 19,
+        "cycles": 70442
+      }
+    ],
+    "perf_counter_source": "rtl/top/top.sv perf_program_cycle_counter; full-core-cycle timing from Icarus testbench"
+  }
+}

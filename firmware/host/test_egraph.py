@@ -545,8 +545,8 @@ def test_run_superopt_benchmark_emits_required_schema_keys(tmp_path) -> None:
         assert key in realistic, f"missing realistic corpus key: {key!r}"
     ragg = realistic["aggregate"]
     for key in (
-        "win_rate_pct", "flop_reduction_pct_median_on_wins",
-        "flop_reduction_pct_max_on_wins", "isa_cycle_reduction_pct_median_on_wins",
+        "win_rate_pct", "flop_reduction_pct_median_all_cases",
+        "flop_reduction_pct_max_on_wins", "isa_cycle_reduction_pct_median_all_cases",
         "isa_cycle_reduction_pct_max_on_wins", "num_phase_ordering_wins",
         "num_extractions_rejected_by_equiv_check", "num_graphs_evaluated",
         "median_pipeline_flops", "median_egraph_flops",
@@ -698,9 +698,11 @@ def test_realistic_corpus_aggregate_is_derivable_from_rows(tmp_path) -> None:
     assert realistic["aggregate"]["win_rate_pct"] == pytest.approx(expected_win_rate)
     flop_wins = [r["flop_reduction_pct"] for r in wins]
     isa_wins = [r["isa_cycle_reduction_pct"] for r in wins]
-    assert realistic["aggregate"]["flop_reduction_pct_median_on_wins"] == pytest.approx(float(np.median(flop_wins)))
+    flop_all_cases = [r["flop_reduction_pct"] for r in eval_rows]
+    isa_all_cases = [r["isa_cycle_reduction_pct"] for r in eval_rows]
+    assert realistic["aggregate"]["flop_reduction_pct_median_all_cases"] == pytest.approx(float(np.median(flop_all_cases)))
     assert realistic["aggregate"]["flop_reduction_pct_max_on_wins"] == pytest.approx(float(max(flop_wins)))
-    assert realistic["aggregate"]["isa_cycle_reduction_pct_median_on_wins"] == pytest.approx(float(np.median(isa_wins)))
+    assert realistic["aggregate"]["isa_cycle_reduction_pct_median_all_cases"] == pytest.approx(float(np.median(isa_all_cases)))
     assert realistic["aggregate"]["isa_cycle_reduction_pct_max_on_wins"] == pytest.approx(float(max(isa_wins)))
 
 

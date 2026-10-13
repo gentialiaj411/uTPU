@@ -102,13 +102,15 @@ class GraphReferenceInterpreter:
                 if b_arr is not None:
                     y = y + b_arr
                 if op.op == OpKind.LINEAR_RELU:
-                    y = np.maximum(y, 0.0)
+                    slope = float(op.attrs.get("negative_slope", 0.0))
+                    y = np.where(y < 0.0, y * slope, y)
                 values[op.outputs[0]] = y.astype(np.float32, copy=False)
                 continue
 
             if op.op == OpKind.RELU:
                 x = _as_float32(values[op.inputs[0]])
-                values[op.outputs[0]] = np.maximum(x, 0.0).astype(np.float32, copy=False)
+                slope = float(op.attrs.get("negative_slope", 0.0))
+                values[op.outputs[0]] = np.where(x < 0.0, x * slope, x).astype(np.float32, copy=False)
                 continue
 
             if op.op == OpKind.ADD:
@@ -140,7 +142,9 @@ class GraphReferenceInterpreter:
                 if bool(op.attrs.get("causal_mask", False)):
                     tri = np.triu(np.ones((x.shape[-2], x.shape[-1]), dtype=bool), k=1)
                     x = np.where(tri, -1e9, x)
-                values[op.outputs[0]] = _stable_softmax(x, axis=-1).astype(np.float32, copy=False)
+                values[op.outputs[0]] = _stable_softmax(
+                    x, axis=int(op.attrs.get("dim", -1))
+                ).astype(np.float32, copy=False)
                 continue
 
             if op.op == OpKind.LAYER_NORM:
@@ -209,7 +213,9 @@ class GraphReferenceInterpreter:
                 if bool(op.attrs.get("causal_mask", False)):
                     tri = np.triu(np.ones((x.shape[-2], x.shape[-1]), dtype=bool), k=1)
                     x = np.where(tri, -1e9, x)
-                values[op.outputs[0]] = _stable_softmax(x * s, axis=-1).astype(np.float32, copy=False)
+                values[op.outputs[0]] = _stable_softmax(
+                    x * s, axis=int(op.attrs.get("dim", -1))
+                ).astype(np.float32, copy=False)
                 continue
 
             if op.op == OpKind.CONV2D:

@@ -2,11 +2,11 @@
 
 Every bullet names the **artifact** and the **workload/harness** it was measured on.
 Dropped: claims whose artifacts are absent (`fuzzer_report.json`) or superseded
-(pre-rightsizing **50 MHz / DSP=192** as the *shipping* close; use **~83 MHz / DSP=72**).
+(pre-rightsizing **50 MHz / DSP=192** as the *shipping* close; use the 12 ns post-route timing evidence / DSP=72).
 
 ## Flagship bullets (submittable)
 
-- Built a PyTorch-to-accelerator compiler that lowers FX graphs into a pass-based Graph IR with NVRTC CUDA and a custom 16-bit SystemVerilog ISA; INT8/INT4 MLPs are bit-identical to a NumPy oracle across tiling shapes, and the Python ISA simulator is byte-exact with iverilog RTL on the bitmatch corpus.
+- Built a PyTorch-to-accelerator compiler that lowers FX graphs into a pass-based Graph IR with NVRTC CUDA and a custom ISA: **16-bit instruction words; INT4/INT8 datapath**. MLPs are bit-identical to a NumPy oracle across tiling shapes, and the Python ISA simulator is byte-exact with iverilog RTL on the bitmatch corpus.
   - Artifacts: `bench/results/tiling_correctness.json` (blocked-FC INT4 tiling sweep), `build/reports/isa_rtl_bitmatch_report.json` (ISA↔RTL), `bench/results/real_model_end_to_end.json` (ResNet-18 CUDA graph path).
   - Workloads: blocked-FC tiling shapes; fused MLP bitmatch programs; ResNet-18 on CUDA graph executor (not uTPU full-model).
 
@@ -14,7 +14,7 @@ Dropped: claims whose artifacts are absent (`fuzzer_report.json`) or superseded
   - Artifact: `bench/results/real_model_accelerator.json`.
   - Workload: 14×14 MNIST PTQ capstone; simulation + host-reference (not on-silicon).
 
-- Closed Artix-7 A7-100T (`xc7a100tcsg324-1`) post-route at **~83.3 MHz** (`12 ns`, **WNS=+0.271 ns**) after requant rightsizing cut DSP **192→72**; demonstrated **100 MHz** ceiling only (**WNS=+0.012 ns**, marginal).
+- Artix-7 A7-100T (`xc7a100tcsg324-1`): post-route timing closure at 12 ns (no on-chip clock generation; not an on-silicon frequency; WNS=+0.271 ns), after requant rightsizing cut DSP **192→72**. The separate 10 ns constrained point is marginal (WNS=+0.012 ns) and is not an on-silicon frequency.
   - Artifacts: `bench/results/requant_rightsizing_synth.json`, `bench/results/design_space_sweep.json` (`shipping_point` / `demonstrated_fmax_ceiling`).
   - Workload/harness: N=8 INT8, `MAX_BATCH_COUNT=48`, Vivado P&R (not board execution).
 
@@ -41,7 +41,7 @@ Dropped: claims whose artifacts are absent (`fuzzer_report.json`) or superseded
 - uTPU cycle cost model held-out: **log R² 0.924**, **MAPE 10.04%**, **0% selection regret** on a **5-candidate** menu (CUDA comparison is 16-candidate, mean regret 5.21%).
   - Artifacts: `bench/results/utpu_cycle_model_heldout.json`, `bench/results/cost_model_heldout.json`, `docs/COSTMODEL_COMPARISON.md`.
 
-- Determinism: **zero** FPGA/RTL cycle variance; median wall-clock **~1.89×** GPU p50 at shipping ~83 MHz (loss, not speedup); FPGA p99=p50 flat vs GPU p99/p99.9 tails in artifact.
+- Determinism: **zero** FPGA/RTL cycle variance; modeled median latency **~1.89×** GPU p50 under the 12 ns timing constraint (no on-chip clock generation; not an on-silicon frequency; loss, not speedup); FPGA p99=p50 flat vs GPU p99/p99.9 tails in artifact.
   - Artifacts: `bench/results/latency_determinism_vs_gpu.json`, `bench/results/latency_determinism.json`.
   - Workload: RTL sim cycles@shipping clock vs GPU NVRTC blocked-FC INT4 events.
 
@@ -51,7 +51,7 @@ Dropped: claims whose artifacts are absent (`fuzzer_report.json`) or superseded
 
 ## Compiler / CUDA (still current)
 
-- Pass-based Graph IR: shape inference, Linear+ReLU fusion, DCE, liveness memory planning, backend legality.
+- Pass-based Graph IR: shape inference, Linear+ReLU fusion, DCE, liveness-based memory-plan analysis, backend legality.
   - Evidence: `firmware/host/test_graph_passes.py` (blocked-FC MLP).
 
 - NumPy Graph IR interpreter as independent oracle.
@@ -81,14 +81,11 @@ Dropped: claims whose artifacts are absent (`fuzzer_report.json`) or superseded
 - 2-PE K-split FC1 path (simulator only): **24.1%** parallel cycle reduction on `case2_multi_k`.
   - Artifact: `bench/results/multi_pe_sim.json`.
 
-- Superoptimizer on 8 matmul-chain graphs: **100%** win rate, **87.5%** median modeled FLOP reduction on wins (sim-only).
-  - Artifact: `bench/results/superopt_payoff.json`.
-
 - Transformer-block host validation + INT4 weight-memory reduction **71.875%**.
   - Evidence: `firmware/host/test_transformer_integration.py`, `build/reports/transformer_parity_report.json`, `build/reports/int4_quantization_report.json`.
 
-- Calibrated CUDA cost model + pruned autotuner (replay): log_R² ~0.936, profiles ~4.9/16 schedules (~3.3× search cut).
-  - Evidence: `build/reports/cost_model_calibration.json`, `build/reports/pruned_autotuner_report.json`.
+- Calibrated CUDA cost model + pruned autotuner: **3.12x candidate-count reduction over a 16-schedule (threads x unroll) menu on calibration replay, max regression <0.5%**.
+  - Artifact/command: `bench/results/pruned_autotuner_replay.json`; `python firmware/host/evaluate_pruned_autotuner.py --calibration-json bench/fixtures/cost_model_calibration_seed.json --top-k 4 --output-json bench/results/pruned_autotuner_replay.json`.
 
 ## Explicitly not claimed / dropped
 

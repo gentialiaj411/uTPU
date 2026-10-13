@@ -153,10 +153,16 @@ class _PEState:
     acc_partial_matrix: List[List[int]]
 
     @classmethod
-    def create(cls, array_size: int, buffer_size: int, max_batch_size: int) -> "_PEState":
+    def create(
+        cls,
+        array_size: int,
+        buffer_size: int,
+        max_batch_size: int,
+        buffer: Optional[List[int]] = None,
+    ) -> "_PEState":
         zeros = [[0 for _ in range(array_size)] for _ in range(array_size)]
         return cls(
-            buffer=[0] * buffer_size,
+            buffer=buffer if buffer is not None else [0] * buffer_size,
             weights=[row[:] for row in zeros],
             weight_shadow=[row[:] for row in zeros],
             inputs=[0 for _ in range(array_size)],
@@ -215,8 +221,21 @@ class UTPUISASimulator:
     # state helpers
     # ------------------------------------------------------------------
 
-    def reset(self) -> None:
-        self.pes = [_PEState.create(self.array_size, self.buffer_size, self.max_batch_size) for _ in range(self.num_pe)]
+    def reset(self, *, preserve_buffer: bool = False) -> None:
+        preserved_buffers = (
+            [pe.buffer for pe in self.pes]
+            if preserve_buffer and hasattr(self, "pes")
+            else None
+        )
+        self.pes = [
+            _PEState.create(
+                self.array_size,
+                self.buffer_size,
+                self.max_batch_size,
+                buffer=(preserved_buffers[index] if preserved_buffers is not None else None),
+            )
+            for index in range(self.num_pe)
+        ]
         self.fetch_bytes: List[int] = []
         self.executed_ops = {
             "store": 0,
@@ -547,8 +566,20 @@ class UTPUISASimulator:
     # main interpreter loop
     # ------------------------------------------------------------------
 
-    def run_words(self, words: List[int], max_steps: Optional[int] = None) -> ISASimulationResult:
-        self.reset()
+    def run_words(
+        self,
+        words: List[int],
+        max_steps: Optional[int] = None,
+        *,
+        preserve_buffer: bool = False,
+    ) -> ISASimulationResult:
+        """Execute one program; optionally retain preloaded unified-buffer words.
+
+        ``preserve_buffer=True`` models A5 host fills between invocations while
+        resetting all PE/accumulator/perf state. It is intended for replaying a
+        control-only image with a fixed weight image and changing input region.
+        """
+        self.reset(preserve_buffer=preserve_buffer)
         cfg = self.cfg
         pc = 0
         steps = 0
