@@ -9,32 +9,160 @@
   },
   "corpus_sha256": "86c4e6aa9db7c042ec79f339dcb96d42b0075e16b8fc2e86bf0ca57e2dc565ed",
   "degradation": {
-    "bits_per_char": 2.6853759790951335,
-    "loss": 1.8613607886531942,
-    "top1_accuracy": -0.28668400286944046
+    "bits_per_char": 0.03358173406221971,
+    "loss": 0.02327708428354147,
+    "top1_accuracy": -0.006474175035868002
   },
+  "export_schema_sha256": "b52f0cbbb5f6e09b32846dfa9d45d6887b4cab2ebe9e32c3c855598fed4af77d",
   "float_validation": {
-    "bits_per_char": 3.4045199554661103,
-    "loss": 2.3598334082914048,
+    "bits_per_char": 2.8361461880420653,
+    "loss": 1.965866733897194,
     "tokens": 111520,
-    "top1_accuracy": 0.3238522238163558
+    "top1_accuracy": 0.4221126255380201
   },
   "integer_validation": {
-    "bits_per_char": 6.089895934561244,
-    "loss": 4.221194196944599,
+    "bits_per_char": 2.869727922104285,
+    "loss": 1.9891438181807355,
     "tokens": 111520,
-    "top1_accuracy": 0.037168220946915353
+    "top1_accuracy": 0.4156384505021521
   },
   "limits": [
     "independent NumPy integer reference; ISA-simulator and RTL equality are Phase 2/3 work"
   ],
+  "loss_curve": [
+    {
+      "loss": 2.892010450363159,
+      "step": 100
+    },
+    {
+      "loss": 2.608125686645508,
+      "step": 200
+    },
+    {
+      "loss": 2.462772846221924,
+      "step": 300
+    },
+    {
+      "loss": 2.3440327644348145,
+      "step": 400
+    },
+    {
+      "loss": 2.2441365718841553,
+      "step": 500
+    },
+    {
+      "loss": 2.1936333179473877,
+      "step": 600
+    },
+    {
+      "loss": 2.183262348175049,
+      "step": 700
+    },
+    {
+      "loss": 2.1465260982513428,
+      "step": 800
+    },
+    {
+      "loss": 2.134337902069092,
+      "step": 900
+    },
+    {
+      "loss": 2.1107685565948486,
+      "step": 1000
+    },
+    {
+      "loss": 2.0345282554626465,
+      "step": 1100
+    },
+    {
+      "loss": 2.0277864933013916,
+      "step": 1200
+    },
+    {
+      "loss": 2.0086984634399414,
+      "step": 1300
+    },
+    {
+      "loss": 1.9914984703063965,
+      "step": 1400
+    },
+    {
+      "loss": 1.9959393739700317,
+      "step": 1500
+    },
+    {
+      "loss": 1.922432541847229,
+      "step": 1600
+    },
+    {
+      "loss": 1.9070286750793457,
+      "step": 1700
+    },
+    {
+      "loss": 1.9582337141036987,
+      "step": 1800
+    },
+    {
+      "loss": 1.88201105594635,
+      "step": 1900
+    },
+    {
+      "loss": 1.9307479858398438,
+      "step": 2000
+    },
+    {
+      "loss": 1.8983354568481445,
+      "step": 2100
+    },
+    {
+      "loss": 1.9124945402145386,
+      "step": 2200
+    },
+    {
+      "loss": 1.9233263731002808,
+      "step": 2300
+    },
+    {
+      "loss": 1.8536479473114014,
+      "step": 2400
+    },
+    {
+      "loss": 1.8662701845169067,
+      "step": 2500
+    },
+    {
+      "loss": 1.863322138786316,
+      "step": 2600
+    },
+    {
+      "loss": 1.926452875137329,
+      "step": 2700
+    },
+    {
+      "loss": 1.8426668643951416,
+      "step": 2800
+    },
+    {
+      "loss": 1.8146122694015503,
+      "step": 2900
+    },
+    {
+      "loss": 1.8285789489746094,
+      "step": 3000
+    }
+  ],
   "parameter_count": 32448,
+  "plateau": false,
   "saturation_counts": {
     "position_add": 0,
     "residual_attention": 0,
     "residual_ffn": 0
   },
   "seed": 20261013,
+  "source_tree": {
+    "firmware/host": "a74de3520817d1e3fb9fc6455e409d906b2423d5",
+    "tools": "064c63a942f3dd5c1b1194d4c8db0514ae6f3dd1"
+  },
   "split": {
     "corpus_length": 1115394,
     "seed": 20261013,
@@ -44,6 +172,6 @@
     "validation_end_exclusive": 1115394,
     "validation_start": 1003854
   },
-  "status": "phase1_independent_integer_reference",
-  "training_steps": 400
+  "status": "phase1_independent_scale_aware_integer_reference",
+  "training_steps": 3000
 }
