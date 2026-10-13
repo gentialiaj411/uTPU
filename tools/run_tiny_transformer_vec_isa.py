@@ -31,19 +31,27 @@ def run(sim, program): sim.run_words(words(program + encodeHalt(cfg=CFG)), prese
 def source_tree(): return {p: subprocess.check_output(["git","rev-parse",f"HEAD:{p}"], cwd=ROOT, text=True).strip() for p in ("firmware/host", "tools")}
 def expword(ea, eb, eo): return [((eb&255)<<8)|(ea&255), eo&255]
 def make_sim(): return UTPUISASimulator(array_size=16,buffer_size=30000,cfg=CFG)
+def lut_bin(row):
+    total=int(np.sum(np.asarray(row,dtype=np.int64)**2)); q0,rem=divmod(total,48); v=q0+int(2*rem>48 or (2*rem==48 and (q0&1)))+1; q=(v.bit_length()-1)&~1; mq=min(65535,max(16384,int(round((v<<14)/(1<<q))))); return min(191,(mq-16384)>>8)
+def coverage_rows():
+    rows=[]
+    for target in range(192):
+        for desired in range(4096+64*target,4096+64*(target+1)):
+            a=int(np.sqrt(desired)); b=min(128,a+1); step=b*b-a*a; k=0 if not step else int(round(48*(desired-a*a)/step)); k=max(0,min(48,k)); row=np.array([b]*k+[a]*(48-k),dtype=np.int8)
+            if lut_bin(row)==target: rows.append(row); break
+    return rows
 
 def main():
     checkpoint = torch.load(ROOT / "bench/results/tiny_transformer_numerics.pt", map_location="cpu", weights_only=False)
     schema, state, cfg = checkpoint["export_schema"], checkpoint["qstate"], TinyTransformerConfig(**checkpoint["config"])
     rng = np.random.default_rng(20261013); compared = {k: 0 for k in ("vadd_rq","vpos_add","vrmsnorm","vsoftmax")}; mismatch = dict.fromkeys(compared, 0)
     # 10,000 adversarial/random RMS and softmax heads, grouped only by the fixed v1 shape.
-    rms_rows = rng.integers(-128, 128, (10000,48), dtype=np.int8); gamma = rng.integers(-128,128,48,dtype=np.int8)
+    rms_rows = np.concatenate([rng.integers(-128, 128, (10000,48), dtype=np.int8), np.asarray(coverage_rows(),dtype=np.int8)]); gamma = rng.integers(-128,128,48,dtype=np.int8)
     bins=set()
     sim=make_sim()
     for start in range(0, 10000, 32):
         rows0=rms_rows[start:start+32]; put(sim,X,rows0.reshape(-1)); put(sim,G1,gamma); record(sim,P1,2,[G1,3]); run(sim,encode_vec_vrmsnorm(NEXT,X,P1,len(rows0)*48,cfg=CFG)); actual=get(sim,NEXT,len(rows0)*48).reshape(rows0.shape); expected=np.stack([rmsnorm_i8(row,gamma,3) for row in rows0]); mismatch["vrmsnorm"] += int(np.count_nonzero(actual != expected)); compared["vrmsnorm"] += actual.size
-        for row in rows0:
-            v=int(np.rint(np.mean(row.astype(np.int64)**2)))+1; q=(v.bit_length()-1)&~1; mq=min(65535,max(16384,int(round((v<<14)/(1<<q))))); bins.add(min(191,(mq-16384)>>8))
+        for row in rows0: bins.add(lut_bin(row))
     soft = rng.integers(-128,128,(10000,32,32),dtype=np.int8)
     sim=make_sim()
     for head in soft:
@@ -63,7 +71,7 @@ def main():
     sim=make_sim()
     for st in starts:
         trace=integer_decoder_trace(data[st:st+32],state,schema,cfg); put(sim,X,state["token.weight"][data[st:st+32]].reshape(-1)); put(sim,POS,pos.reshape(-1)); put(sim,G1,g1); put(sim,G2,g2); put(sim,GF,gf)
-        rp=schema["residuals"]["pos_add"]; record(sim,P0,3,[POS,*expword(rp["ea"],rp["eb"],rp["eo"])]); run(sim,encode_vec_vpos_add(X,X,P0,cfg=CFG)); actual=get(sim,X,1536).reshape(32,48); expected=trace["pos_add"][0]; stage["pos_add"]["mismatches"]+=int(np.count_nonzero(actual!=expected)); stage["pos_add"]["compared_elements"]+=actual.size
+        rp=schema["residuals"]["pos_add"]; record(sim,P0,3,[POS,*expword(rp["ea"],rp["eb"],rp["eo"])]); run(sim,encode_vec_vpos_add(X,X,P0,cfg=CFG)); actual=get(sim,X,1536).reshape(32,48); expected=trace["pos_add"][0]; stage["pos_add"]["mismatches"]+=int(np.count_nonzero(actual!=expected)); stage["pos_add"]["compared_elements"]+=actual.size; mismatch["vpos_add"]+=int(np.count_nonzero(actual!=expected)); compared["vpos_add"]+=actual.size
         record(sim,P1,2,[G1,int(schema["norms"]["n1"]["gamma_shift"])]); run(sim,encode_vec_vrmsnorm(NEXT,X,P1,1536,cfg=CFG)); actual=get(sim,NEXT,1536).reshape(32,48); expected=trace["rmsnorm1"][0]; stage["rmsnorm1"]["mismatches"]+=int(np.count_nonzero(actual!=expected)); stage["rmsnorm1"]["compared_elements"]+=actual.size
         for h in range(3):
             put(sim,SCORE,trace["scores"][0,h].reshape(-1)); record(sim,PS,4,[SCRATCH]); run(sim,encode_vec_vsoftmax(SCORE,SCORE,PS,head_id=h,cfg=CFG)); actual=get(sim,SCORE,1024,True).reshape(32,32); expected=trace["softmax_probs"][0,h]; key=f"softmax_head{h}"; stage[key]["mismatches"]+=int(np.count_nonzero(actual!=expected)); stage[key]["compared_elements"]+=actual.size
