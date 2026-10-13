@@ -20,6 +20,7 @@ import shutil
 import subprocess
 import sys
 import time
+from functools import lru_cache
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -51,6 +52,32 @@ SHIPPING_DCP = (
 SHIPPING_BIT = REPO / "build" / "reports" / f"{SHIPPING_REPORT_PREFIX}.bit"
 UPLOAD_LEN_MAX = 65535
 DEFAULT_BAUD = 115200
+MAGIC_REPEAT = 0xA6
+BUFFER_RESIDENT_ARTIFACT_REQUIRED = {
+    "schema_version", "generated_at_utc", "status", "claim_rule", "scope",
+    "deployment", "float_accuracy", "quantized_accuracy",
+    "isa_vs_integer_reference", "device_cycles_per_inference",
+    "board_perf_program_cycles_per_inference", "simulation_seconds",
+    "board_host_elapsed_seconds", "board_host_seconds_per_image",
+    "board_host_latency_scope", "bitstream", "flash", "uart",
+}
+
+
+def validate_buffer_resident_artifact(artifact: Dict[str, Any]) -> None:
+    missing = BUFFER_RESIDENT_ARTIFACT_REQUIRED.difference(artifact)
+    if missing:
+        raise ValueError(f"buffer-resident artifact missing schema fields: {sorted(missing)}")
+    if artifact["schema_version"] != 1:
+        raise ValueError("unsupported buffer-resident artifact schema_version")
+    uart = artifact["uart"]
+    rows = uart.get("per_image", [])
+    if int(artifact["scope"]["images_requested"]) < 1:
+        raise ValueError("artifact images_requested must be positive")
+    if artifact["status"] == "hardware_bit_exact":
+        if not uart.get("attempted") or len(rows) != int(artifact["scope"]["images_requested"]):
+            raise ValueError("hardware_bit_exact requires a UART result row for every requested image")
+        if not all(row.get("output_bytes_bit_exact") is True for row in rows):
+            raise ValueError("hardware_bit_exact requires every output byte comparison to pass")
 
 # Board-specific defaults are deliberately explicit: UART protocol and the
 # generated program stay common, while the RTL build provenance cannot.
@@ -252,6 +279,7 @@ def build_onboard_mnist_program(
     buffer_size: int,
     prog_depth: int,
     compute_data_width: int,
+    sample_index: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Fused MNIST 64→64→10 INT8 program matched to shipping array generics.
 
@@ -260,15 +288,24 @@ def build_onboard_mnist_program(
     program fits the Artix shipping bitstream (N=8 INT8), not the historical
     N=16 INT4 sim vectors.
     """
-    rng = np.random.default_rng(20260805)
     # Address width must cover BUFFER_SIZE.
     address_width = int(np.ceil(np.log2(max(buffer_size, 2))))
     cfg = IsaConfig(address_width=address_width, compute_data_width=compute_data_width)
 
-    # INT8 weights/activations in the fused-MLP INT4-named API (values clipped).
-    q1 = rng.integers(-7, 8, size=(64, 64), dtype=np.int8)
-    q2 = rng.integers(-7, 8, size=(10, 64), dtype=np.int8)
-    xq = rng.integers(-7, 8, size=(1, 64), dtype=np.int8)
+    label = None
+    if sample_index is None:
+        rng = np.random.default_rng(20260805)
+        q1 = rng.integers(-7, 8, size=(64, 64), dtype=np.int8)
+        q2 = rng.integers(-7, 8, size=(10, 64), dtype=np.int8)
+        xq = rng.integers(-7, 8, size=(1, 64), dtype=np.int8)
+    else:
+        xte8, yte, q1, q2 = _boolean_mnist_assets()
+        if not 0 <= int(sample_index) < len(xte8):
+            raise IndexError(f"MNIST test sample index out of range: {sample_index}")
+        from run_mnist_utpu_demo import _quantize_input_vector
+        xq, _ = _quantize_input_vector(xte8[int(sample_index)])
+        xq = xq.astype(np.int8).reshape(1, -1)
+        label = int(yte[int(sample_index)])
 
     lowered = lower_fused_mlp_program_utpu(
         fc1_weights_int4=q1,
@@ -294,10 +331,14 @@ def build_onboard_mnist_program(
         accumulator_data_width=32,
     )
     expected = bytes(int(v) & 0xFF for v in sim.fetch_bytes)
+    output_values = [int(v) - 256 if int(v) >= 128 else int(v) for v in expected[:10]]
     upload = serialize_program_upload(program)
     fits = program_words <= prog_depth and program_words <= UPLOAD_LEN_MAX
     return {
         "name": "fused_mnist_64x64x10_int8_shipping",
+        "sample_index": sample_index,
+        "label": label,
+        "predicted_class": int(np.argmax(output_values)),
         "topology": {"in": 64, "hidden": 64, "out": 10},
         "array_size": array_size,
         "buffer_size": buffer_size,
@@ -319,6 +360,53 @@ def build_onboard_mnist_program(
             "compute_data_width": compute_data_width,
         },
     }
+
+
+@lru_cache(maxsize=1)
+def _boolean_mnist_assets() -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Train the committed deterministic MNIST MLP and return test inputs/INT8 weights."""
+    from run_mnist_utpu_demo import (
+        _load_and_downsample,
+        _quantize_weights_per_row,
+        _train_float_model,
+    )
+
+    xtr, ytr, xte, yte = _load_and_downsample()
+    model = _train_float_model(xtr, ytr, xte, yte)
+    q1, _ = _quantize_weights_per_row(model.fc1.weight.detach().cpu().numpy())
+    q2, _ = _quantize_weights_per_row(model.fc2.weight.detach().cpu().numpy())
+    # Keep the 8-bit output tensor in range while retaining the trained
+    # classifier's sign/relative structure; the exact scaled weights are what
+    # both the ISA oracle and board runner upload and compare.
+    q2 = np.rint(q2.astype(np.float32) / 4.0).astype(np.int8)
+    return xte, yte, q1, q2
+
+
+def build_boolean_mnist_sample_programs(
+    *, array_size: int, buffer_size: int, prog_depth: int,
+    compute_data_width: int, sample_count: int = 10, candidate_limit: int = 512,
+) -> List[Dict[str, Any]]:
+    """Choose the first real test examples with at least 6/10 non-clipped logits."""
+    selected: List[Dict[str, Any]] = []
+    for index in range(candidate_limit):
+        program = build_onboard_mnist_program(
+            array_size=array_size,
+            buffer_size=buffer_size,
+            prog_depth=prog_depth,
+            compute_data_width=compute_data_width,
+            sample_index=index,
+        )
+        logits = program["expected_uart_bytes"][:10]
+        non_saturated = sum(int(v) not in (0x7F, 0x80) for v in logits)
+        if non_saturated >= 6:
+            program["non_saturated_output_count"] = non_saturated
+            selected.append(program)
+            if len(selected) == sample_count:
+                return selected
+    raise RuntimeError(
+        f"found only {len(selected)}/{sample_count} MNIST test samples with >=6/10 "
+        f"non-saturated outputs in the first {candidate_limit} cases"
+    )
 
 
 def _stage_evidence(
@@ -353,6 +441,7 @@ def _stage_evidence(
                 "expected_uart_bytes": program_info["expected_uart_bytes"],
                 "program_sha256": program_info["program_sha256"],
                 "program_words": program_info["program_words"],
+                "samples": program_info.get("sample_summaries", []),
             },
             indent=2,
         )
@@ -534,6 +623,8 @@ def _try_uart_run(
 
 
 def build_artifact(args: argparse.Namespace) -> Dict[str, Any]:
+    if getattr(args, "model", None):
+        return build_buffer_resident_model_artifact(args)
     profile = BOARD_PROFILES[args.board]
     board = profile["board_config"]
     shipping = _load_shipping_point() if args.board == "arty_a7_100t" else {}
@@ -560,6 +651,30 @@ def build_artifact(args: argparse.Namespace) -> Dict[str, Any]:
         prog_depth=prog_depth,
         compute_data_width=compute_dw,
     )
+    sample_programs: List[Dict[str, Any]] = []
+    if args.board == "boolean_xc7s50":
+        sample_programs = build_boolean_mnist_sample_programs(
+            array_size=array_size,
+            buffer_size=buffer_size,
+            prog_depth=prog_depth,
+            compute_data_width=compute_dw,
+        )
+        program_info = sample_programs[0]
+        program_info["sample_summaries"] = [
+            {
+                "sample_index": p["sample_index"],
+                "label": p["label"],
+                "predicted_class": p["predicted_class"],
+                "non_saturated_output_count": p["non_saturated_output_count"],
+                "expected_uart_bytes": p["expected_uart_bytes"],
+                "program_sha256": p["program_sha256"],
+            }
+            for p in sample_programs
+        ]
+        program_info["expected_uart_bytes"] = [
+            byte for p in sample_programs for byte in p["expected_uart_bytes"]
+        ]
+        program_info["expected_uart_hex"] = bytes(program_info["expected_uart_bytes"]).hex()
     if not program_info["fits_shipping"]:
         diagnostics.append(
             f"program_does_not_fit: words={program_info['program_words']} "
@@ -583,14 +698,52 @@ def build_artifact(args: argparse.Namespace) -> Dict[str, Any]:
         and (bitstream_info.get("bit_exists") or not args.require_bitstream_for_uart)
     )
     if args.uart and can_uart:
-        uart_info = _try_uart_run(
-            port=args.port,
-            baud=int(args.baud),
-            program=program_info["program"],
-            expected=bytes(program_info["expected_uart_bytes"]),
-            timeout_s=float(args.timeout),
-            board_label=str(profile["label"]),
-        )
+        if sample_programs:
+            sample_results = []
+            for sample in sample_programs:
+                one = _try_uart_run(
+                    port=args.port,
+                    baud=int(args.baud),
+                    program=sample["program"],
+                    expected=bytes(sample["expected_uart_bytes"]),
+                    timeout_s=float(args.timeout),
+                    board_label=str(profile["label"]),
+                )
+                sample_results.append({
+                    "sample_index": sample["sample_index"],
+                    "label": sample["label"],
+                    "predicted_class": sample["predicted_class"],
+                    "non_saturated_output_count": sample["non_saturated_output_count"],
+                    "expected_uart_bytes": sample["expected_uart_bytes"],
+                    "captured_uart_bytes": one.get("rx_bytes", []),
+                    "bit_exact_vs_isa_sim": one.get("bit_exact_vs_isa_sim") is True,
+                    "diagnostic": one.get("diagnostic"),
+                    "first_mismatch": one.get("first_mismatch"),
+                })
+                if not args.port and one.get("port"):
+                    args.port = one["port"]
+            all_pass = all(row["bit_exact_vs_isa_sim"] for row in sample_results)
+            uart_info = {
+                "attempted": any(row.get("diagnostic") != "no_serial_port" for row in sample_results),
+                "port": args.port,
+                "baud": int(args.baud),
+                "ports_seen": _list_serial_ports(),
+                "per_sample": sample_results,
+                "expected_bytes": sum(len(row["expected_uart_bytes"]) for row in sample_results),
+                "rx_bytes": [v for row in sample_results for v in row["captured_uart_bytes"]],
+                "rx_byte_count": sum(len(row["captured_uart_bytes"]) for row in sample_results),
+                "bit_exact_vs_isa_sim": all_pass,
+                "diagnostic": "all_10_samples_bit_exact" if all_pass else "one_or_more_sample_runs_failed",
+            }
+        else:
+            uart_info = _try_uart_run(
+                port=args.port,
+                baud=int(args.baud),
+                program=program_info["program"],
+                expected=bytes(program_info["expected_uart_bytes"]),
+                timeout_s=float(args.timeout),
+                board_label=str(profile["label"]),
+            )
     elif args.uart and not program_info["fits_shipping"]:
         uart_info = {
             "attempted": False,
@@ -697,6 +850,189 @@ def build_artifact(args: argparse.Namespace) -> Dict[str, Any]:
     return artifact
 
 
+def build_buffer_resident_model_artifact(args: argparse.Namespace) -> Dict[str, Any]:
+    """Build an A5 resident-weight run report for one requested MLP model.
+
+    On silicon this uploads the weight image once. The current RTL returns to
+    UPLOAD_HEADER after A3 rearm, so it reloads the control program for each
+    image before filling that image and issuing A2. No hardware status is
+    granted unless every fetched byte for every requested image matched ISA.
+    """
+    import torch
+    from board_config import BoardConfig
+    from buffer_resident_deployment import (
+        deploy_model, encode_buffer_fill, integer_reference, quantize_input,
+        run_isa_inference,
+    )
+    from isa_simulator import UTPUISASimulator
+    from run_buffer_resident_models import (
+        FashionMLP, _load_dataset, load_fashion, train_fashion,
+    )
+    from run_real_model_accelerator import FloatMLP, _train_float_model
+
+    if args.board != "boolean_xc7s50":
+        raise ValueError("--model deployments are currently supported only on --board boolean_xc7s50")
+    if args.model == "mnist_mlp":
+        xtr, ytr, xte, yte = _load_dataset()
+        model = _train_float_model(xtr, ytr)
+    else:
+        xtr, ytr, xte, yte = load_fashion(Path(args.fashion_data))
+        model = train_fashion(xtr, ytr)
+    n = min(len(xte), int(args.images))
+    if n <= 0:
+        raise ValueError("--images must be positive")
+    board = BoardConfig.boolean_xc7s50()
+    deployment = deploy_model(model, board, torch.from_numpy(xtr))
+    sim = UTPUISASimulator(array_size=board.array_size, buffer_size=board.buffer_size,
+                           cfg=deployment.config, accumulator_data_width=32)
+    for address, word in enumerate(deployment.weight_image_words):
+        sim.buffer[address] = int(word)
+
+    predictions: List[int] = []
+    per_image: List[Dict[str, Any]] = []
+    cycle_counts: List[int] = []
+    expected_by_image: List[Tuple[bytes, int]] = []
+    sim_start = time.perf_counter()
+    for i in range(n):
+        image_q = quantize_input(xte[i], deployment.input_scale)
+        integer_expected = integer_reference(image_q, deployment)
+        isa_values, cycles = run_isa_inference(image_q, deployment, sim)
+        if not np.array_equal(isa_values, integer_expected):
+            raise RuntimeError(f"ISA vs independent integer mismatch before board run at image {i}")
+        padded_bytes = bytearray(max(16, ((deployment.output_features + 7) // 8) * 8))
+        padded_bytes[:deployment.output_features] = bytes(int(x) & 0xff for x in integer_expected)
+        expected_by_image.append((bytes(padded_bytes), cycles))
+        predictions.append(int(np.argmax(integer_expected)))
+        cycle_counts.append(cycles)
+    sim_seconds = time.perf_counter() - sim_start
+    model.eval()
+    with torch.no_grad():
+        float_predictions = np.concatenate([
+            model(torch.from_numpy(xte[start:min(n, start + 512)])).argmax(1).cpu().numpy()
+            for start in range(0, n, 512)
+        ])
+
+    uart_rows: List[Dict[str, Any]] = []
+    device_program_cycles: List[int] = []
+    uart_attempted = False
+    host_started = time.perf_counter()
+    port = args.port
+    if args.uart:
+        bitstream_path = Path(args.bitstream).expanduser().resolve() if args.bitstream else None
+        if bitstream_path is None or not bitstream_path.is_file():
+            uart_rows.append({"passed": False, "diagnostic": "missing bitstream path; pass --bitstream for the configured Boolean image"})
+        else:
+            ports = _list_serial_ports()
+            if not port and len(ports) == 1:
+                port = ports[0].get("device")
+            if not port:
+                uart_rows.append({"passed": False, "diagnostic": "no serial port selected; pass --port COMx"})
+            else:
+              from uart_driver import UARTDriver
+              import struct
+              try:
+                uart_attempted = True
+                with UARTDriver(port, baud=int(args.baud), timeout=float(args.timeout),
+                                write_timeout=float(args.timeout)) as uart:
+                    loader = ProgramLoader(uart=uart, verbose=False, cfg=deployment.config)
+                    uart.flush_input()
+                    time.sleep(0.2)
+                    _send_uart_chunks(uart, encode_buffer_fill(0, deployment.weight_image_words))
+                    program_header = bytes((MAGIC_UPLOAD,)) + struct.pack("<H", deployment.control_words)
+                    _send_uart_chunks(uart, program_header + deployment.control_program)
+                    time.sleep(0.02)
+                    for i in range(n):
+                        if i:
+                            # A6 returns from HALT to WAIT_START while retaining
+                            # instruction BRAM, avoiding a retransmit per image.
+                            _send_uart_chunks(uart, bytes((MAGIC_REPEAT,)))
+                            time.sleep(0.02)
+                        image_q = quantize_input(xte[i], deployment.input_scale)
+                        _send_uart_chunks(uart, deployment.input_fill_command(image_q))
+                        _send_uart_chunks(uart, bytes((MAGIC_START,)))
+                        expected, cycles = expected_by_image[i]
+                        captured = uart.receive_exact(len(expected), timeout=float(args.timeout))
+                        passed = captured == expected
+                        counters = loader.readPerfCounters(timeout=float(args.timeout))
+                        device_program_cycles.append(int(counters["program_cycles"]))
+                        uart_rows.append({
+                            "image_index": i,
+                            "label": int(yte[i]),
+                            "predicted_class": predictions[i],
+                            "expected_bytes_hex": expected.hex(),
+                            "actual_bytes_hex": captured.hex(),
+                            "output_bytes_bit_exact": passed,
+                            "device_cycles_from_isa_sim": cycles,
+                            "device_program_cycles_from_perf_counter": int(counters["program_cycles"]),
+                            "diagnostic": "bit_exact_pass" if passed else "uart_bytes_mismatch_or_short_read",
+                        })
+                        if not passed:
+                            break
+              except Exception as exc:  # record board/driver errors in result artifact
+                uart_rows.append({"passed": False, "diagnostic": f"{type(exc).__name__}: {exc}"})
+    host_seconds = time.perf_counter() - host_started if args.uart else None
+
+    result_bit_exact = bool(args.uart and len(uart_rows) == n and all(row.get("output_bytes_bit_exact") for row in uart_rows))
+    selected_bitstream = Path(args.bitstream).expanduser().resolve() if args.bitstream else Path(BOARD_PROFILES[args.board]["bit"])
+    bitstream_record = {"path": str(selected_bitstream), "exists": selected_bitstream.is_file(),
+                        "sha256": _sha256_file(selected_bitstream) if selected_bitstream.is_file() else None}
+    flash_record = _try_flash(selected_bitstream, bool(args.flash), BOARD_PROFILES[args.board]["label"])
+    artifact = {
+        "schema_version": 1,
+        "generated_at_utc": _utc(),
+        "status": ("hardware_bit_exact" if result_bit_exact else
+                   ("hardware_attempt_failed" if uart_attempted else
+                    ("blocked_missing_bitstream" if args.uart and not bitstream_record["exists"] else "scaffolded_not_executed"))),
+        "claim_rule": "hardware_bit_exact requires every fetched output byte for every requested image to match the ISA simulator; replay test required before any claim",
+        "scope": {"model": args.model, "dataset": "MNIST" if args.model == "mnist_mlp" else "Fashion-MNIST",
+                  "images_requested": n, "board": args.board, "part": BOARD_PROFILES[args.board]["part"],
+                  "baud": int(args.baud), "weight_fill_once": True, "control_program_uploaded_once": True,
+                  "repeat_magic": f"0x{MAGIC_REPEAT:02X}"},
+        "bitstream": bitstream_record,
+        "flash": flash_record,
+        "deployment": {"board_config": board.as_dict(), "weight_words": len(deployment.weight_image_words),
+                       "control_words": deployment.control_words,
+                       "layer_shapes": [{"name": l.name, "input_features": l.input_features,
+                                         "output_features": l.output_features, "weight_words": l.weight_words}
+                                        for l in deployment.layers],
+                       "fit_report": deployment.fit_report},
+        "float_accuracy": float(np.mean(float_predictions == yte[:n])),
+        "quantized_accuracy": float(np.mean(np.asarray(predictions) == yte[:n])),
+        "isa_vs_integer_reference": {"all_images_bit_exact": True, "images": n,
+                                      "output_bytes_checked": n * deployment.output_features},
+        "device_cycles_per_inference": {"mean": float(np.mean(cycle_counts)),
+                                        "min": int(min(cycle_counts)), "max": int(max(cycle_counts)),
+                                        "source": "ISA simulator perf/cycle result; device counters require board readback"},
+        "board_perf_program_cycles_per_inference": {
+            "mean": float(np.mean(device_program_cycles)) if device_program_cycles else None,
+            "per_image": device_program_cycles,
+            "source": "RTL MAGIC_READ_PERF program_cycles; populated only during --uart board runs",
+        },
+        "simulation_seconds": sim_seconds,
+        "board_host_elapsed_seconds": host_seconds,
+        "board_host_seconds_per_image": (float(host_seconds / n) if host_seconds is not None else None),
+        "board_host_latency_scope": "includes one weight fill, one program upload, per-image input fill/start/readback, perf-counter reads, and UART chunk pacing",
+        "uart": {"attempted": uart_attempted, "port": port, "baud": int(args.baud),
+                 "matched_images": sum(bool(row.get("output_bytes_bit_exact")) for row in uart_rows),
+                 "per_image": uart_rows},
+    }
+    validate_buffer_resident_artifact(artifact)
+    out = REPO / "bench" / "results" / f"onboard_execution_{args.model}.json"
+    out.write_text(json.dumps(artifact, indent=2) + "\n", encoding="utf-8")
+    artifact["artifact_path"] = str(out.relative_to(REPO)).replace("\\", "/")
+    return artifact
+
+
+def _send_uart_chunks(uart: Any, data: bytes, chunk_size: int = 128) -> None:
+    for start in range(0, len(data), chunk_size):
+        chunk = data[start:start + chunk_size]
+        written = uart.ser.write(chunk)
+        if written != len(chunk):
+            raise IOError(f"short UART write: {written}/{len(chunk)} bytes")
+        if start + chunk_size < len(data):
+            time.sleep(0.015)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -705,6 +1041,12 @@ def main() -> int:
         default="arty_a7_100t",
         help="bitstream/build profile (default: arty_a7_100t)",
     )
+    parser.add_argument("--model", choices=("mnist_mlp", "fashion_mlp"), default=None,
+                        help="run the buffer-resident general MLP deployment path")
+    parser.add_argument("--images", type=int, default=10000,
+                        help="number of test images for --model (default: full test set)")
+    parser.add_argument("--fashion-data", default=str(REPO / "software" / "data" / "fashion-mnist"),
+                        help="directory containing official Fashion-MNIST IDX gzip files")
     parser.add_argument(
         "--bitstream",
         default=None,
@@ -732,11 +1074,14 @@ def main() -> int:
         args.require_bitstream_for_uart = False
 
     artifact = build_artifact(args)
-    OUT_JSON.parent.mkdir(parents=True, exist_ok=True)
+    out_path = Path(artifact.get("artifact_path", OUT_JSON))
+    if not out_path.is_absolute():
+        out_path = REPO / out_path
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     # Drop any non-serializable leftovers
-    OUT_JSON.write_text(json.dumps(artifact, indent=2) + "\n", encoding="utf-8")
+    out_path.write_text(json.dumps(artifact, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({"status": artifact["status"], "diagnostics": artifact["diagnostics"]}, indent=2))
-    print(f"Wrote {OUT_JSON}")
+    print(f"Wrote {out_path}")
     return 0 if artifact["status"] == "hardware_bit_exact" else 2
 
 

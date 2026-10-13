@@ -82,6 +82,9 @@ def lower_blocked_fc_program_utpu(
     hoist_tile_payloads: bool = False,
     requant_params: Optional[RequantParams] = None,
     weight_overlap: bool = False,
+    embed_weights: bool = True,
+    embed_inputs: bool = True,
+    emit_fetch: bool = True,
 ) -> Dict[str, Any]:
     schedule = build_blocked_fc_schedule(
         problem=BlockedFCProblem(
@@ -102,6 +105,12 @@ def lower_blocked_fc_program_utpu(
         raise ValueError("batched blocked-FC lowering requires extended-address ISA encoding")
     if weight_overlap and not cfg.extended_address:
         raise ValueError("weight_overlap lowering requires extended-address ISA encoding")
+    if not embed_weights and weight_overlap:
+        raise ValueError("preloaded weight images do not support weight_overlap")
+    if not embed_weights and hoist_tile_payloads:
+        raise ValueError("preloaded weights cannot be combined with hoist_tile_payloads")
+    if not embed_inputs and hoist_tile_payloads:
+        raise ValueError("preloaded inputs cannot be combined with hoist_tile_payloads")
     if requant_params is not None and requant_params.is_per_channel:
         if not cfg.extended_address:
             raise ValueError("per-channel requant lowering requires extended-address ISA encoding")
@@ -134,6 +143,8 @@ def lower_blocked_fc_program_utpu(
     use_hoisted_tiles = bool(
         hoist_tile_payloads and batch_size > 1 and cfg.extended_address
     )
+    weight_words_per_tile = (array_size * array_size) // cfg.items_per_word
+    input_words_per_tile = (array_size * batch_size) // cfg.items_per_word
     if use_hoisted_tiles:
         weight_words_per_tile = (array_size * array_size) // cfg.items_per_word
         input_words_per_tile = (array_size * batch_size) // cfg.items_per_word
@@ -186,16 +197,21 @@ def lower_blocked_fc_program_utpu(
             input_block = x_pad[:, i0:i1]
 
             if use_hoisted_tiles:
-                weight_tile_addr = weight_addr + (
-                    (ob * in_blocks + ib) * ((array_size * array_size) // cfg.items_per_word)
-                )
+                weight_tile_addr = weight_addr + ((ob * in_blocks + ib) * weight_words_per_tile)
                 input_tile_addr = hoisted_input_addr + (
                     ib * ((array_size * batch_size) // cfg.items_per_word)
                 )
             else:
-                weight_tile_addr = weight_addr
-                input_tile_addr = input_addr
-                if not weight_overlap or (ob == 0 and ib == 0):
+                tile_index_for_addr = ob * in_blocks + ib
+                weight_tile_addr = (
+                    weight_addr + tile_index_for_addr * weight_words_per_tile
+                    if not embed_weights else weight_addr
+                )
+                input_tile_addr = (
+                    input_addr + ib * input_words_per_tile
+                    if not embed_inputs else input_addr
+                )
+                if embed_weights and (not weight_overlap or (ob == 0 and ib == 0)):
                     # Non-hoisted path still stores the active tile payload before LOAD.
                     # Overlap prefetch of N+1 stores happen below when needed.
                     _store_int4_array_to_buffer(encoder, weight_addr, weight_block)
@@ -225,10 +241,10 @@ def lower_blocked_fc_program_utpu(
                 if not is_last_tile:
                     # Prefetch W_{N+1} into shadow before run(N).
                     next_ob, next_ib = divmod(tile_index + 1, in_blocks)
-                    if use_hoisted_tiles:
+                    if use_hoisted_tiles or not embed_weights:
                         next_w_addr = weight_addr + (
                             (next_ob * in_blocks + next_ib)
-                            * ((array_size * array_size) // cfg.items_per_word)
+                            * weight_words_per_tile
                         )
                     else:
                         next_o0 = next_ob * array_size
@@ -246,20 +262,21 @@ def lower_blocked_fc_program_utpu(
                     batch_count=batch_size,
                 )
             else:
-                if use_hoisted_tiles:
+                if use_hoisted_tiles or not embed_weights:
                     encoder.loadWeights(weight_tile_addr)
                 else:
                     encoder.loadWeights(weight_addr)
                 if batch_size == 1:
-                    _store_int4_array_to_buffer(encoder, input_addr, input_block[0])
-                    encoder.loadInputs(input_addr, batch_count=1)
+                    if embed_inputs:
+                        _store_int4_array_to_buffer(encoder, input_addr, input_block[0])
+                    encoder.loadInputs(input_tile_addr, batch_count=1)
                 else:
-                    if not use_hoisted_tiles:
+                    if embed_inputs and not use_hoisted_tiles:
                         input_matrix = np.zeros((array_size, batch_size), dtype=np.int8)
                         input_matrix[:, :batch_size] = input_block.T
                         _store_int4_array_to_buffer(encoder, input_addr, input_matrix, order="F")
                     encoder.loadInputs(
-                        input_tile_addr if use_hoisted_tiles else input_addr,
+                        input_tile_addr,
                         batch_count=batch_size,
                     )
                 encoder.run(
@@ -291,11 +308,12 @@ def lower_blocked_fc_program_utpu(
             acc_clear=False,
             batch_count=batch_size,
         )
-        fetch_words = (batch_size * array_size) // cfg.items_per_word
-        for widx in range(fetch_words):
-            addr = out_base_addr + widx
-            encoder.fetch(addr, top_half=False)
-            encoder.fetch(addr, top_half=True)
+        if emit_fetch:
+            fetch_words = (batch_size * array_size) // cfg.items_per_word
+            for widx in range(fetch_words):
+                addr = out_base_addr + widx
+                encoder.fetch(addr, top_half=False)
+                encoder.fetch(addr, top_half=True)
 
     encoder.halt()
     program = encoder.getProgram()
@@ -322,6 +340,10 @@ def lower_blocked_fc_program_utpu(
         "batch_size": int(batch_size),
         "hoist_tile_payloads": bool(use_hoisted_tiles),
         "weight_overlap": bool(weight_overlap),
+        "embed_weights": bool(embed_weights),
+        "embed_inputs": bool(embed_inputs),
+        "emit_fetch": bool(emit_fetch),
+        "weight_words_per_tile": int(weight_words_per_tile),
         "requant_params": requant_params.as_dict() if requant_params is not None else None,
         "executable_on_current_fpga_path": bool(executable),
         "int32_accumulation_supported": True,

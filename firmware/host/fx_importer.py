@@ -151,6 +151,10 @@ def _is_relu_function(target: Any, torch: Any, F: Any) -> bool:
     return target in {torch.relu, F.relu}
 
 
+def _is_leaky_relu_function(target: Any, F: Any) -> bool:
+    return target is F.leaky_relu
+
+
 def _is_add_function(target: Any, torch: Any) -> bool:
     return target in {operator.add, torch.add}
 
@@ -217,6 +221,22 @@ def import_fx_graph_module(fx_module: Any, name: Optional[str] = None) -> GraphI
 
         if node.op == "call_module":
             module = modules.get(node.target)
+            if isinstance(module, nn.Flatten):
+                input_name = _single_node_arg(node)
+                if shape is None:
+                    raise FXImportError(f"Flatten node '{node.name}' requires known output shape metadata")
+                graph.add_value(node.name, shape=shape, dtype=dtype, producer=node.name)
+                graph.add_op(
+                    OpNode(
+                        name=node.name,
+                        op=OpKind.VIEW,
+                        inputs=[input_name],
+                        outputs=[node.name],
+                        attrs={"target": "flatten", "args": tuple(int(d) for d in shape)},
+                    )
+                )
+                node_to_value[node] = node.name
+                continue
             if isinstance(module, nn.Linear):
                 input_name = _single_node_arg(node)
                 graph.add_value(node.name, shape=shape, dtype=dtype, producer=node.name)
@@ -241,6 +261,24 @@ def import_fx_graph_module(fx_module: Any, name: Optional[str] = None) -> GraphI
                         inputs=[input_name],
                         outputs=[node.name],
                         attrs={"target": str(node.target), "inplace": bool(module.inplace)},
+                    )
+                )
+                node_to_value[node] = node.name
+                continue
+            if isinstance(module, nn.LeakyReLU):
+                input_name = _single_node_arg(node)
+                graph.add_value(node.name, shape=shape, dtype=dtype, producer=node.name)
+                graph.add_op(
+                    OpNode(
+                        name=node.name,
+                        op=OpKind.RELU,
+                        inputs=[input_name],
+                        outputs=[node.name],
+                        attrs={
+                            "target": str(node.target),
+                            "inplace": bool(module.inplace),
+                            "negative_slope": float(module.negative_slope),
+                        },
                     )
                 )
                 node_to_value[node] = node.name
@@ -374,6 +412,24 @@ def import_fx_graph_module(fx_module: Any, name: Optional[str] = None) -> GraphI
                         inputs=[input_name],
                         outputs=[node.name],
                         attrs={"target": str(node.target)},
+                    )
+                )
+                node_to_value[node] = node.name
+                continue
+            if _is_leaky_relu_function(node.target, F):
+                input_name = _single_node_arg(node)
+                slope = node.kwargs.get("negative_slope")
+                if slope is None and len(node.args) > 1:
+                    slope = node.args[1]
+                slope = 0.01 if slope is None else float(slope)
+                graph.add_value(node.name, shape=shape, dtype=dtype, producer=node.name)
+                graph.add_op(
+                    OpNode(
+                        name=node.name,
+                        op=OpKind.RELU,
+                        inputs=[input_name],
+                        outputs=[node.name],
+                        attrs={"target": str(node.target), "negative_slope": slope},
                     )
                 )
                 node_to_value[node] = node.name

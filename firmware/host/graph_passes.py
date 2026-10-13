@@ -558,6 +558,8 @@ def _rewrite_linear_relu(
 ) -> FusionRewrite:
     attrs = dict(producer.attrs)
     attrs["fused_activation"] = "relu"
+    if "negative_slope" in consumer.attrs:
+        attrs["negative_slope"] = consumer.attrs["negative_slope"]
     fused = OpNode(
         name=f"{producer.name}_relu_fused",
         op=OpKind.LINEAR_RELU,
