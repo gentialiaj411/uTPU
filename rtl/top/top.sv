@@ -1,6 +1,8 @@
 module top #(
     parameter UART_BITS_TRANSFERED   = 8,
     parameter UART_INPUT_CLK         = 100000000,
+    // External reset polarity: active-low on the Arty CPU_RESET input.
+    parameter RST_ACTIVE_LOW          = 1,
     parameter UART_BAUD              = 115200,
     parameter FORCE_UART_AA          = 0,
     parameter FORCE_UART_ECHO        = 0,
@@ -12,6 +14,10 @@ module top #(
     parameter FIFO_WIDTH             = 256,
     parameter FIFO_DATA_WIDTH        = 8,
     parameter BUFFER_SIZE            = 16384,
+    // Default reserves the historically used FC1-sized span when it fits,
+    // otherwise it clamps to BUFFER_SIZE for legacy/small-buffer builds.
+    // Larger deployments override this to their packed weight-image size.
+    parameter int WEIGHT_REGION_WORDS = (BUFFER_SIZE < 14144) ? BUFFER_SIZE : 14144,
     parameter BUFFER_WORD_SIZE       = 16,
     parameter ADDRESS_SIZE           = $clog2(BUFFER_SIZE),
     // Phase 4 widening: when 1, FETCH/RUN/LOAD/BSTORE use a 2-word extended
@@ -71,9 +77,20 @@ module top #(
     localparam logic [7:0] MAGIC_REARM  = 8'hA3; // host: re-arm from HALT
     localparam logic [7:0] MAGIC_READ_PERF = 8'hA4; // host: stream perf counters
     localparam logic [7:0] MAGIC_BUF_FILL = 8'hA5; // host: fill unified buffer words
-    // FC1-class weight region on BUFFER_SIZE=16384 (smallest swept that holds
-    // 14144 payload words). Activations use [WEIGHT_REGION_WORDS .. BUFFER_SIZE).
-    localparam int WEIGHT_REGION_WORDS = 14144;    localparam logic [3:0] NOP_SUBOP_REQUANT = 4'b0001;
+    // Re-execute the already uploaded control program from PC=0 without
+    // returning to UPLOAD_HEADER or retransmitting its bytes.
+    localparam logic [7:0] MAGIC_REPEAT = 8'hA6;
+    // Weight images occupy [0, WEIGHT_REGION_WORDS); activations use the rest.
+    localparam logic [3:0] NOP_SUBOP_REQUANT = 4'b0001;
+
+    // Elaboration-time guard: reject an impossible buffer partition before
+    // simulation or synthesis can silently alias weights with activations.
+    generate
+        if (WEIGHT_REGION_WORDS < 0 || WEIGHT_REGION_WORDS > BUFFER_SIZE) begin : g_invalid_weight_region
+            initial $error("WEIGHT_REGION_WORDS (%0d) must be in [0, BUFFER_SIZE (%0d)]",
+                           WEIGHT_REGION_WORDS, BUFFER_SIZE);
+        end
+    endgenerate
     localparam int STREAM_CHUNK_WORDS = (ARRAY_SIZE * ARRAY_SIZE) / ITEMS_IN_SLOT;
     // Narrow finalize: QUANTIZER_SIZE == ARRAY_SIZE streams one output column
     // per cycle. Wide finalize: QUANTIZER_SIZE == NUM_COMPUTE_LANES keeps the
@@ -235,9 +252,9 @@ module top #(
     logic        buf_fill_issue; // we asserted; wait for buffer_done
 
     // -----------------------------------------------------------------------
-    // Active-low external reset → active-high internal
+    // Convert the board-level reset to the active-high internal convention.
     // -----------------------------------------------------------------------
-    assign rst_int = ~rst;
+    assign rst_int = RST_ACTIVE_LOW ? ~rst : rst;
 
     // -----------------------------------------------------------------------
     // Submodule instantiations
@@ -964,6 +981,8 @@ module top #(
             HALT_STATE:
                 if (rx_rvalid && rx_fifo_to_mem == MAGIC_REARM)
                     next_state = UPLOAD_HEADER_STATE;
+                else if (rx_rvalid && rx_fifo_to_mem == MAGIC_REPEAT)
+                    next_state = WAIT_START_STATE;
 
             default:
                 next_state = RESET_STATE;
@@ -1238,6 +1257,10 @@ module top #(
                 // On transition to execution, reset PC
                 if (current_state == WAIT_START_STATE && rx_rvalid &&
                     rx_fifo_to_mem == MAGIC_START) begin
+                    pc <= '0;
+                end
+                if (current_state == HALT_STATE && rx_rvalid &&
+                    rx_fifo_to_mem == MAGIC_REPEAT) begin
                     pc <= '0;
                 end
             end

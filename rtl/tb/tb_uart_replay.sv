@@ -8,7 +8,11 @@ module tb_uart_replay;
     wire tx;
     wire led_rst;
 
+`ifdef UART_REPLAY_CLK_PERIOD_NS
+    localparam time CLK_PERIOD = `UART_REPLAY_CLK_PERIOD_NS * 1ns;
+`else
     localparam time CLK_PERIOD = 10ns;
+`endif
     always #(CLK_PERIOD/2) clk = ~clk;
 
     localparam int TB_ARRAY_SIZE = `UART_REPLAY_ARRAY_SIZE;
@@ -19,6 +23,16 @@ module tb_uart_replay;
     localparam int TB_COMPUTE_DATA_WIDTH = `UART_REPLAY_COMPUTE_DATA_WIDTH;
     localparam int TB_ACCUMULATOR_DATA_WIDTH = `UART_REPLAY_ACCUMULATOR_DATA_WIDTH;
     localparam int TB_UART_BAUD = `UART_REPLAY_UART_BAUD;
+`ifdef UART_REPLAY_CORE_CLK_HZ
+    localparam int TB_CORE_CLK_HZ = `UART_REPLAY_CORE_CLK_HZ;
+`else
+    localparam int TB_CORE_CLK_HZ = 100000000;
+`endif
+`ifdef UART_REPLAY_RST_ACTIVE_LOW
+    localparam int TB_RST_ACTIVE_LOW = `UART_REPLAY_RST_ACTIVE_LOW;
+`else
+    localparam int TB_RST_ACTIVE_LOW = 1;
+`endif
 `ifdef UART_REPLAY_MAX_BATCH_COUNT
     localparam int TB_MAX_BATCH_COUNT = `UART_REPLAY_MAX_BATCH_COUNT;
 `else
@@ -29,17 +43,22 @@ module tb_uart_replay;
     localparam int RESULT_WAIT_CYCLES = 500000;
     localparam int WAIT_START_CYCLES = 500000;
     localparam logic [7:0] MAGIC_START = 8'hA2;
+    localparam logic [7:0] MAGIC_REPEAT = 8'hA6;
 
     top #(
         .ARRAY_SIZE(TB_ARRAY_SIZE),
         .BUFFER_SIZE(TB_BUFFER_SIZE),
+`ifdef UART_REPLAY_WEIGHT_REGION_WORDS
+        .WEIGHT_REGION_WORDS(`UART_REPLAY_WEIGHT_REGION_WORDS),
+`endif
         .FIFO_WIDTH(TB_FIFO_WIDTH),
         .PROG_DEPTH(TB_PROG_DEPTH),
         .EXT_ADDR_EN(TB_EXT_ADDR_EN),
         .COMPUTE_DATA_WIDTH(TB_COMPUTE_DATA_WIDTH),
         .ACCUMULATOR_DATA_WIDTH(TB_ACCUMULATOR_DATA_WIDTH),
         .MAX_BATCH_COUNT(TB_MAX_BATCH_COUNT),
-        .UART_INPUT_CLK(100000000),
+        .UART_INPUT_CLK(TB_CORE_CLK_HZ),
+        .RST_ACTIVE_LOW(TB_RST_ACTIVE_LOW),
         .UART_BAUD(TB_UART_BAUD)
     ) dut (
         .clk(clk), .rst(rst), .rx(rx), .tx(tx), .led_rst(led_rst)
@@ -52,7 +71,7 @@ module tb_uart_replay;
         .OVERSAMPLE(OVERSAMPLE)
     ) tx_monitor (
         .clk(clk),
-        .rst(~rst),
+        .rst(dut.rst_int),
         .baud_tick(dut.u_uart.baud_tick),
         .rx(tx),
         .valid(tx_mon_valid),
@@ -124,10 +143,10 @@ module tb_uart_replay;
         uart_tx_x_seen = 1'b0;
         capture_enabled = 1'b0;
 
-        rst <= 1'b0;
+        rst <= TB_RST_ACTIVE_LOW ? 1'b0 : 1'b1;
         rx <= 1'b1;
         wait_cycles(10);
-        rst <= 1'b1;
+        rst <= TB_RST_ACTIVE_LOW ? 1'b1 : 1'b0;
         wait_cycles(40);
 
         for (i = 0; i < `UART_REPLAY_UPLOAD_N; i++) begin
@@ -173,6 +192,28 @@ module tb_uart_replay;
                 $display("UART_BYTE_MISMATCH idx=%0d expected=%02x actual=%02x", i, expected_mem[i], actual_mem[i]);
             CHECK($sformatf("UART byte %0d", i), actual_mem[i] === expected_mem[i]);
         end
+
+        // Buffer-resident multi-inference deployments upload control once.
+        // A6 returns HALT -> WAIT_START and restarts the retained program at PC=0.
+        push_serial_byte(MAGIC_REPEAT);
+        wait_for_state(dut.WAIT_START_STATE, WAIT_START_CYCLES, reached_wait_start);
+        CHECK("A6 repeat retains uploaded program", reached_wait_start);
+        push_serial_byte(MAGIC_START);
+        got = 0;
+        spins = 0;
+        while (got < `UART_REPLAY_EXPECTED_N && spins < RESULT_WAIT_CYCLES) begin
+            @(posedge clk);
+            spins = spins + 1;
+            if (tx_mon_valid && got < `UART_REPLAY_EXPECTED_N) begin
+                actual_mem[got] = tx_mon_byte;
+                got = got + 1;
+            end
+        end
+        wait_for_state(dut.HALT_STATE, WAIT_START_CYCLES, reached_halt);
+        CHECK("A6 repeated execution reaches HALT", reached_halt);
+        CHECK("A6 repeated execution emits full output", got == `UART_REPLAY_EXPECTED_N);
+        for (i = 0; i < `UART_REPLAY_EXPECTED_N; i++)
+            CHECK($sformatf("A6 repeated UART byte %0d", i), actual_mem[i] === expected_mem[i]);
         $write("UART_BYTES_ACTUAL=");
         for (i = 0; i < `UART_REPLAY_EXPECTED_N; i++) begin
             $write("%02x", actual_mem[i]);

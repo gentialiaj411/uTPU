@@ -8,12 +8,13 @@ same RTL parameterization; it does not make an on-silicon claim.
 from __future__ import annotations
 
 import json
+import argparse
 import os
 import subprocess
 from pathlib import Path
 
 from board_config import BoardConfig
-from run_onboard_execution import build_onboard_mnist_program
+from run_onboard_execution import build_boolean_mnist_sample_programs
 from run_rtl_fused_sim import _resolve_iverilog_tools
 
 REPO = Path(__file__).resolve().parents[2]
@@ -40,14 +41,18 @@ def _write_vectors(program: dict) -> None:
                 f"`define UART_REPLAY_UPLOAD_N {len(upload)}",
                 f"`define UART_REPLAY_EXPECTED_N {len(expected)}",
                 f"`define UART_REPLAY_WORDS {program['program_words']}",
-                "`define UART_REPLAY_PROG_DEPTH 65536",
+                "`define UART_REPLAY_PROG_DEPTH 32768",
                 "`define UART_REPLAY_ARRAY_SIZE 8",
-                "`define UART_REPLAY_BUFFER_SIZE 4096",
+                "`define UART_REPLAY_BUFFER_SIZE 32768",
+                "`define UART_REPLAY_WEIGHT_REGION_WORDS 27648",
                 "`define UART_REPLAY_EXT_ADDR_EN 1",
                 "`define UART_REPLAY_COMPUTE_DATA_WIDTH 8",
                 "`define UART_REPLAY_ACCUMULATOR_DATA_WIDTH 32",
-                "`define UART_REPLAY_UART_BAUD 6250000",
+                "`define UART_REPLAY_UART_BAUD 3125000",
                 "`define UART_REPLAY_MAX_BATCH_COUNT 4",
+                "`define UART_REPLAY_CORE_CLK_HZ 50000000",
+                "`define UART_REPLAY_CLK_PERIOD_NS 20",
+                "`define UART_REPLAY_RST_ACTIVE_LOW 0",
             ]
         )
         + "\n",
@@ -56,26 +61,43 @@ def _write_vectors(program: dict) -> None:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--isa-only", action="store_true", help="generate and inspect vectors without running Icarus")
+    args = parser.parse_args()
     board = BoardConfig.boolean_xc7s50()
-    program = build_onboard_mnist_program(
+    programs = build_boolean_mnist_sample_programs(
         array_size=board.array_size,
         buffer_size=board.buffer_size,
         prog_depth=board.prog_depth,
         compute_data_width=board.data_width_bits,
     )
-    _write_vectors(program)
+    samples = []
+    for program in programs:
+        samples.append({
+            "sample_index": program["sample_index"],
+            "label": program["label"],
+            "predicted_class": program["predicted_class"],
+            "expected_uart_hex": program["expected_uart_hex"],
+            "non_saturated_output_count": program["non_saturated_output_count"],
+        })
     iv, vvp = _resolve_iverilog_tools()
     report = {
         "board": board.as_dict(),
         "workload": "fused_mnist_64x64x10_int8",
-        "program_words": program["program_words"],
-        "fits_prog_depth": program["fits_prog_depth"],
-        "fits_upload_len_max": program["fits_upload_len_max"],
-        "isa_expected_uart_hex": program["expected_uart_hex"],
-        "iverilog_executed": False,
-        "iverilog_passed": False,
+        "rtl_parameters": {"ARRAY_SIZE": board.array_size, "COMPUTE_DATA_WIDTH": board.data_width_bits,
+                            "BUFFER_SIZE": board.buffer_size, "WEIGHT_REGION_WORDS": board.weight_region_words,
+                            "PROG_DEPTH": board.prog_depth, "MAX_BATCH_COUNT": board.max_batch_count,
+                            "RST_ACTIVE_LOW": 0, "CORE_CLK_HZ": 50000000,
+                            "MMCM": "bypassed in RTL simulation"},
+        "sample_count": len(samples),
+        "selection_rule": "first 10 test-set examples with at least 6 of 10 logits not equal to INT8 clip endpoints",
+        "samples": samples,
+        "all_programs_fit": all(p["fits_shipping"] for p in programs),
+        "iverilog_cases": [],
     }
-    if iv and vvp:
+    if args.isa_only:
+        report["diagnostic"] = "ISA-only vector inspection requested"
+    elif iv and vvp:
         build = REPO / "build" / "rtl_sim"
         build.mkdir(parents=True, exist_ok=True)
         out = build / "tb_boolean_mnist_uart_replay.out"
@@ -88,22 +110,30 @@ def main() -> int:
             "rtl/UART/uart.sv", "rtl/UART/uart_receiver.sv", "rtl/UART/uart_transmitter.sv",
             "rtl/UART/clk_divider.sv",
         ]
-        compile_run = subprocess.run(
-            [iv, "-g2012", "-DICARUS", "-o", str(out)] + [str(REPO / p) for p in rel],
-            cwd=REPO, capture_output=True, text=True,
-        )
-        run = subprocess.run([vvp, str(out)], cwd=REPO, capture_output=True, text=True) if compile_run.returncode == 0 else None
-        log = (compile_run.stdout or "") + (compile_run.stderr or "")
-        if run:
-            log += (run.stdout or "") + (run.stderr or "")
-        report["iverilog_executed"] = True
-        report["iverilog_passed"] = bool(run and run.returncode == 0 and "TB_RESULT: PASS" in (run.stdout or ""))
-        report["iverilog_log_tail"] = log[-4000:]
+        for program in programs[:2]:
+            _write_vectors(program)
+            compile_run = subprocess.run(
+                [iv, "-g2012", "-DICARUS", "-o", str(out)] + [str(REPO / p) for p in rel],
+                cwd=REPO, capture_output=True, text=True,
+            )
+            run = subprocess.run([vvp, str(out)], cwd=REPO, capture_output=True, text=True) if compile_run.returncode == 0 else None
+            log = (compile_run.stdout or "") + (compile_run.stderr or "")
+            if run:
+                log += (run.stdout or "") + (run.stderr or "")
+            report["iverilog_cases"].append({
+                "sample_index": program["sample_index"],
+                "label": program["label"],
+                "expected_uart_hex": program["expected_uart_hex"],
+                "executed": True,
+                "passed": bool(run and run.returncode == 0 and "TB_RESULT: PASS" in (run.stdout or "")),
+                "log_tail": log[-3000:],
+            })
     else:
         report["diagnostic"] = "iverilog/vvp binaries unavailable"
+    report["iverilog_passed"] = len(report["iverilog_cases"]) >= 2 and all(c["passed"] for c in report["iverilog_cases"])
     OUT.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(report, indent=2))
-    return 0 if report["iverilog_passed"] else 1
+    return 0 if report["iverilog_passed"] and report["all_programs_fit"] else 1
 
 
 if __name__ == "__main__":

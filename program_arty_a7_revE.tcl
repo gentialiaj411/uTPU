@@ -38,12 +38,12 @@ set arg_opts   [parse_kv_args $argv]
 set proj_dir   [file normalize [maybe_get $arg_opts proj_dir [file join $script_dir build vivado_arty_a7]]]
 set proj_name  [maybe_get $arg_opts proj_name uTPU_arty_a7]
 set part_name  [maybe_get $arg_opts part xc7a100tcsg324-1]
-set top_name   top
+set top_name   [maybe_get $arg_opts top top]
 set clock_period [string trim [maybe_get $arg_opts clock_period ""]]
 set generic_opt [maybe_get $arg_opts generic ""]
 if {$generic_opt eq ""} {
     set generic_pairs {}
-    foreach key {PROG_DEPTH COMPUTE_DATA_WIDTH ACCUMULATOR_DATA_WIDTH ARRAY_SIZE BUFFER_SIZE EXT_ADDR_EN MAX_BATCH_COUNT QUANTIZER_LANES RELU_LANES QUANTIZER_PIPE_DEPTH WEIGHT_OVERLAP_EN} {
+    foreach key {PROG_DEPTH COMPUTE_DATA_WIDTH ACCUMULATOR_DATA_WIDTH ARRAY_SIZE BUFFER_SIZE WEIGHT_REGION_WORDS EXT_ADDR_EN MAX_BATCH_COUNT QUANTIZER_LANES RELU_LANES QUANTIZER_PIPE_DEPTH WEIGHT_OVERLAP_EN CORE_CLK_HZ RST_ACTIVE_LOW UART_BAUD FORCE_UART_ECHO} {
         if {[dict exists $arg_opts $key]} {
             lappend generic_pairs "${key}=[dict get $arg_opts $key]"
         }
@@ -54,7 +54,12 @@ regsub -all {,} $generic_opt { } generic_opt
 regsub -all {:} $generic_opt {=} generic_opt
 set generic_opt [string trim $generic_opt]
 set report_prefix [string trim [maybe_get $arg_opts report_prefix ""]]
-set xdc_file [file normalize [maybe_get $arg_opts xdc_file [file join $script_dir arty_a7_revE_usb_uart.xdc]]]
+if {$top_name eq "top_board"} {
+    set default_xdc [file join $script_dir boolean_xc7s50.xdc]
+} else {
+    set default_xdc [file join $script_dir arty_a7_revE_usb_uart.xdc]
+}
+set xdc_file [file normalize [maybe_get $arg_opts xdc_file $default_xdc]]
 
 # Create project
 create_project -force $proj_name $proj_dir -part $part_name
@@ -93,7 +98,7 @@ read_verilog -sv $rtl_files
 if {![file exists $xdc_file]} {
     error "Constraint file does not exist: $xdc_file"
 }
-if {$clock_period ne ""} {
+if {$clock_period ne "" && $top_name ne "top_board"} {
     set xdc_override [file join $proj_dir "${proj_name}_clock_override.xdc"]
     set in_fh  [open $xdc_file r]
     set out_fh [open $xdc_override w]
@@ -110,6 +115,9 @@ if {$clock_period ne ""} {
     puts "Applied clock period override: $clock_period ns"
 } else {
     read_xdc $xdc_file
+    if {$clock_period ne "" && $top_name eq "top_board"} {
+        puts "Wrapper build keeps input clock constraints from XDC; ignoring clock_period override."
+    }
 }
 
 # Set top

@@ -1,5 +1,8 @@
 ## Real Digital Boolean board (xc7s50csga324-1) uTPU top-level constraints.
-## Source: https://www.realdigital.org/doc/c4ceeb20d229e5f3d4e32f3a74e343e9
+## Sources: Boolean Reference Manual https://www.realdigital.org/doc/02013cd17602c8af749f00561f88ae21
+## and master XDC https://www.realdigital.org/downloads/8d5c167add28c014173edcf51db78bb9.txt.
+## Schematic https://www.realdigital.org/downloads/63f9a8205ebd9c2e8c2d265ad25097dc.pdf:
+## p.3 shows active-high BTN0; p.9 shows PROG USB-UART (FPGA TX=U11, RX=V12).
 ## The official Boolean tutorial identifies the 100 MHz oscillator on F14,
 ## BTN0 on J2, and LED0 on G1.  The official schematic identifies the USB-UART
 ## nets UART_RXD_OUT=U11 (FPGA TX) and UART_TXD_IN=V12 (FPGA RX).
