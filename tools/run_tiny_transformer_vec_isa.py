@@ -55,7 +55,7 @@ def main():
     rms_rows = np.concatenate([rng.integers(-128, 128, (10000,48), dtype=np.int8), np.asarray(coverage_rows(),dtype=np.int8)]); gamma = rng.integers(-128,128,48,dtype=np.int8)
     bins=set()
     sim=make_sim()
-    for start in range(0, 10000, 32):
+    for start in range(0, len(rms_rows), 32):
         rows0=rms_rows[start:start+32]; put(sim,X,rows0.reshape(-1)); put(sim,G1,gamma); record(sim,P1,2,[G1,3]); run(sim,encode_vec_vrmsnorm(NEXT,X,P1,len(rows0)*48,cfg=CFG)); actual=get(sim,NEXT,len(rows0)*48).reshape(rows0.shape); expected=np.stack([rmsnorm_i8(row,gamma,3) for row in rows0]); mismatch["vrmsnorm"] += int(np.count_nonzero(actual != expected)); compared["vrmsnorm"] += actual.size
         for row in rows0: bins.add(lut_bin(row))
     soft = rng.integers(-128,128,(10000,32,32),dtype=np.int8)
