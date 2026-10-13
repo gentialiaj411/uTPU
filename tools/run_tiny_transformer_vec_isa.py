@@ -30,6 +30,7 @@ def record(sim, addr, kind, data): sim.buffer[addr:addr+8] = [kind, *data] + [0]
 def run(sim, program): sim.run_words(words(program + encodeHalt(cfg=CFG)), preserve_buffer=True)
 def source_tree(): return {p: subprocess.check_output(["git","rev-parse",f"HEAD:{p}"], cwd=ROOT, text=True).strip() for p in ("firmware/host", "tools")}
 def expword(ea, eb, eo): return [((eb&255)<<8)|(ea&255), eo&255]
+def make_sim(): return UTPUISASimulator(array_size=16,buffer_size=30000,cfg=CFG)
 
 def main():
     checkpoint = torch.load(ROOT / "bench/results/tiny_transformer_numerics.pt", map_location="cpu", weights_only=False)
@@ -38,27 +39,30 @@ def main():
     # 10,000 adversarial/random RMS and softmax heads, grouped only by the fixed v1 shape.
     rms_rows = rng.integers(-128, 128, (10000,48), dtype=np.int8); gamma = rng.integers(-128,128,48,dtype=np.int8)
     bins=set()
+    sim=make_sim()
     for start in range(0, 10000, 32):
-        rows0=rms_rows[start:start+32]; sim=UTPUISASimulator(array_size=16,buffer_size=65536,cfg=CFG); put(sim,X,rows0.reshape(-1)); put(sim,G1,gamma); record(sim,P1,2,[G1,3]); run(sim,encode_vec_vrmsnorm(NEXT,X,P1,len(rows0)*48,cfg=CFG)); actual=get(sim,NEXT,len(rows0)*48).reshape(rows0.shape); expected=np.stack([rmsnorm_i8(row,gamma,3) for row in rows0]); mismatch["vrmsnorm"] += int(np.count_nonzero(actual != expected)); compared["vrmsnorm"] += actual.size
+        rows0=rms_rows[start:start+32]; put(sim,X,rows0.reshape(-1)); put(sim,G1,gamma); record(sim,P1,2,[G1,3]); run(sim,encode_vec_vrmsnorm(NEXT,X,P1,len(rows0)*48,cfg=CFG)); actual=get(sim,NEXT,len(rows0)*48).reshape(rows0.shape); expected=np.stack([rmsnorm_i8(row,gamma,3) for row in rows0]); mismatch["vrmsnorm"] += int(np.count_nonzero(actual != expected)); compared["vrmsnorm"] += actual.size
         for row in rows0:
             v=int(np.rint(np.mean(row.astype(np.int64)**2)))+1; q=(v.bit_length()-1)&~1; mq=min(65535,max(16384,int(round((v<<14)/(1<<q))))); bins.add(min(191,(mq-16384)>>8))
     soft = rng.integers(-128,128,(10000,32,32),dtype=np.int8)
+    sim=make_sim()
     for head in soft:
-        sim=UTPUISASimulator(array_size=16,buffer_size=65536,cfg=CFG); put(sim,SCORE,head.reshape(-1)); record(sim,PS,4,[SCRATCH]); run(sim,encode_vec_vsoftmax(SCORE,SCORE,PS,head_id=0,cfg=CFG)); actual=get(sim,SCORE,1024,True).reshape(32,32); expected=np.stack([softmax_u8(head[i],i+1) for i in range(32)]); mismatch["vsoftmax"]+=int(np.count_nonzero(actual!=expected)); compared["vsoftmax"]+=1024
+        put(sim,SCORE,head.reshape(-1)); record(sim,PS,4,[SCRATCH]); run(sim,encode_vec_vsoftmax(SCORE,SCORE,PS,head_id=0,cfg=CFG)); actual=get(sim,SCORE,1024,True).reshape(32,32); expected=np.stack([softmax_u8(head[i],i+1) for i in range(32)]); mismatch["vsoftmax"]+=int(np.count_nonzero(actual!=expected)); compared["vsoftmax"]+=1024
     # Exhaustive all int8 pairs at each exported residual exponent triple.
     pairs=np.arange(-128,128,dtype=np.int16); aa,bb=np.meshgrid(pairs,pairs,indexing="ij"); aa,bb=aa.reshape(-1).astype(np.int8),bb.reshape(-1).astype(np.int8)
     triples={tuple(int(r[k]) for k in ("ea","eb","eo")) for r in schema["residuals"].values()} | {(-31,-31,-30)}
     for ea,eb,eo in triples:
         want,_=vadd_rq(aa,ea,bb,eb,eo); got=[]
         for off in range(0,len(aa),1536):
-            end=min(off+1536,len(aa)); a=np.pad(aa[off:end],(0,1536-(end-off))); b=np.pad(bb[off:end],(0,1536-(end-off))); sim=UTPUISASimulator(array_size=16,buffer_size=65536,cfg=CFG); put(sim,X,a); put(sim,NEXT,b); record(sim,PR1,1,[NEXT,*expword(ea,eb,eo)]); run(sim,encode_vec_vadd_rq(R,X,PR1,1536,cfg=CFG)); got.append(get(sim,R,1536)[:end-off])
+            end=min(off+1536,len(aa)); a=np.pad(aa[off:end],(0,1536-(end-off))); b=np.pad(bb[off:end],(0,1536-(end-off))); sim=make_sim(); put(sim,X,a); put(sim,NEXT,b); record(sim,PR1,1,[NEXT,*expword(ea,eb,eo)]); run(sim,encode_vec_vadd_rq(R,X,PR1,1536,cfg=CFG)); got.append(get(sim,R,1536)[:end-off])
         mismatch["vadd_rq"]+=int(np.count_nonzero(np.concatenate(got)!=want)); compared["vadd_rq"]+=len(want)
     # Real-table position add and every vector boundary for 512 validation sequences.
     data=np.asarray([json.loads((HOST/"fixtures/tiny_transformer_vocab.json").read_text())["characters"].index(c) for c in (ROOT/"build/tiny_transformer/input.txt").read_text(encoding="utf-8")],np.int64)
     split=json.loads((HOST/"fixtures/tiny_transformer_split.json").read_text()); starts=range(split["validation_start"],split["validation_start"]+512*32,32); stage={k:{"compared_elements":0,"mismatches":0} for k in ("pos_add","rmsnorm1","softmax_head0","softmax_head1","softmax_head2","residual1","rmsnorm2","residual2","final_norm")}
     pos=state["pos.weight"][:32]; g1,g2,gf=state["blocks.0.n1.weight"],state["blocks.0.n2.weight"],state["final.weight"]
+    sim=make_sim()
     for st in starts:
-        trace=integer_decoder_trace(data[st:st+32],state,schema,cfg); sim=UTPUISASimulator(array_size=16,buffer_size=65536,cfg=CFG); put(sim,X,state["token.weight"][data[st:st+32]].reshape(-1)); put(sim,POS,pos.reshape(-1)); put(sim,G1,g1); put(sim,G2,g2); put(sim,GF,gf)
+        trace=integer_decoder_trace(data[st:st+32],state,schema,cfg); put(sim,X,state["token.weight"][data[st:st+32]].reshape(-1)); put(sim,POS,pos.reshape(-1)); put(sim,G1,g1); put(sim,G2,g2); put(sim,GF,gf)
         rp=schema["residuals"]["pos_add"]; record(sim,P0,3,[POS,*expword(rp["ea"],rp["eb"],rp["eo"])]); run(sim,encode_vec_vpos_add(X,X,P0,cfg=CFG)); actual=get(sim,X,1536).reshape(32,48); expected=trace["pos_add"][0]; stage["pos_add"]["mismatches"]+=int(np.count_nonzero(actual!=expected)); stage["pos_add"]["compared_elements"]+=actual.size
         record(sim,P1,2,[G1,int(schema["norms"]["n1"]["gamma_shift"])]); run(sim,encode_vec_vrmsnorm(NEXT,X,P1,1536,cfg=CFG)); actual=get(sim,NEXT,1536).reshape(32,48); expected=trace["rmsnorm1"][0]; stage["rmsnorm1"]["mismatches"]+=int(np.count_nonzero(actual!=expected)); stage["rmsnorm1"]["compared_elements"]+=actual.size
         for h in range(3):
