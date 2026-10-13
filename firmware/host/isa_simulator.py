@@ -45,6 +45,7 @@ from isa_encoder import (
     OPCODE_DTYPE,
     OPCODE_TILE_GEMM,
     OPCODE_VEC,
+    VEC_ESCAPE_WORD,
     TILE_GEMM_WORD_COUNT,
     VEC_WORD_COUNT,
     VEC_SUBOP_VADD_RQ,
@@ -78,24 +79,6 @@ if _LUT_DOCUMENT.get("payload_sha256") != hashlib.sha256(_LUT_BYTES).hexdigest()
     raise RuntimeError("tiny transformer LUT fixture hash mismatch")
 EXP_Q15 = np.asarray(_LUT_PAYLOAD["exp_q15"], dtype=np.uint16)
 RSQRT_Q14 = np.asarray(_LUT_PAYLOAD["rsqrt_q14"], dtype=np.uint16)
-
-
-def _looks_like_vec_header(word: int) -> bool:
-    """Avoid treating ordinary legacy FETCH-top headers as disabled VECs."""
-    if (int(word) & 0xF) != OPCODE_VEC:
-        return False
-    subop = (int(word) >> 4) & 0xF
-    kind = (int(word) >> 11) & 0x1F
-    expected = {
-        VEC_SUBOP_VADD_RQ: VEC_PARAM_KIND_VADD_RQ,
-        VEC_SUBOP_VRMSNORM: VEC_PARAM_KIND_VRMSNORM,
-        VEC_SUBOP_VPOS_ADD: VEC_PARAM_KIND_VPOS_ADD,
-        VEC_SUBOP_VSOFTMAX: VEC_PARAM_KIND_VSOFTMAX,
-    }.get(subop)
-    if kind != expected:
-        return False
-    causal, head_id = bool((int(word) >> 8) & 1), (int(word) >> 9) & 0x3
-    return (causal and head_id <= 2) if subop == VEC_SUBOP_VSOFTMAX else (not causal and head_id == 0)
 
 
 def _sign_extend(value: int, width: int) -> int:
@@ -806,9 +789,9 @@ class UTPUISASimulator:
             low4 = instruction & 0xF
             if self.cfg.descriptor_isa and low4 == OPCODE_TILE_GEMM:
                 opcode = OPCODE_TILE_GEMM
-            elif self.cfg.descriptor_isa and self.cfg.vector_unit and low4 == OPCODE_VEC:
+            elif self.cfg.descriptor_isa and self.cfg.vector_unit and instruction == VEC_ESCAPE_WORD:
                 opcode = OPCODE_VEC
-            elif self.cfg.descriptor_isa and not self.cfg.vector_unit and _looks_like_vec_header(instruction):
+            elif self.cfg.descriptor_isa and not self.cfg.vector_unit and instruction == VEC_ESCAPE_WORD:
                 raise ValueError("VEC requires IsaConfig(descriptor_isa=True, vector_unit=True)")
             else:
                 opcode = instruction & 0x7

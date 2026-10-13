@@ -186,20 +186,24 @@ Phase-1 checked artifact, not values copied from a floating implementation.
 
 ## 5. Frozen vector descriptor ISA (Phase 2)
 
-`VEC` is a five-word descriptor in the existing optional four-bit descriptor
-space. It is legal only when both `descriptor_isa` and `vector_unit` are set;
-both defaults are false. `TILE_GEMM=0x8` is unchanged; `0xA..0xF` are
-unallocated and must decode as errors.
+`VEC` is an escaped six-word descriptor. Its leading escape word is `0x05A5`
+(legacy `NOP`, low three bits `101`, with bit 3 clear), followed by the five
+descriptor words below. This is essential: `0x9` alone aliases legacy
+`FETCH(top_half=True)`. It is legal only when both `descriptor_isa` and
+`vector_unit` are set; both defaults are false. `TILE_GEMM=0x8` is unchanged:
+the opcode audit proves legacy STORE encoders never set bit 3, so no emitted
+legacy STORE header has low nibble `0x8`; RTL STORE also ignores bit 3.
 
 | word | Bits | Meaning |
 |---|---|---|
-| 0 | `[3:0]` | opcode `0x9` (`VEC`) |
-| 0 | `[7:4]` | subop: `0=VADD_RQ`, `1=VRMSNORM`, `2=VPOS_ADD`, `3=VSOFTMAX`; `4..15` are decode errors |
-| 0 | `[15:8]` | flags: bit 8 is `causal` (must be one for VSOFTMAX and zero otherwise); bits `[10:9]` are `head_id` (`0..2`, must be zero for non-softmax); bits `[15:11]` are `param_kind` (`1=VADD`, `2=RMSNorm`, `3=position`, `4=softmax`) and must match the subop/record |
-| 1 | `[15:0]` | `dst`, a unified-buffer **word** address |
-| 2 | `[15:0]` | `src0`, a unified-buffer word address |
-| 3 | `[15:0]` | parameter-record word address (all subops) |
-| 4 | `[15:0]` | `length`, in packed-code elements, never words |
+| 0 | `[15:0]` | fixed escape `0x05A5` |
+| 1 | `[3:0]` | descriptor opcode `0x9` (`VEC`), consumed only after the escape |
+| 1 | `[7:4]` | subop: `0=VADD_RQ`, `1=VRMSNORM`, `2=VPOS_ADD`, `3=VSOFTMAX`; `4..15` are decode errors |
+| 1 | `[15:8]` | flags: bit 8 is `causal`; bits `[10:9]` are `head_id`; bits `[15:11]` are `param_kind` |
+| 2 | `[15:0]` | `dst`, a unified-buffer **word** address |
+| 3 | `[15:0]` | `src0`, a unified-buffer word address |
+| 4 | `[15:0]` | parameter-record word address (all subops) |
+| 5 | `[15:0]` | `length`, in packed-code elements, never words |
 
 The buffer convention is the existing `_pack_compute_word` implementation in
 `firmware/host/isa_simulator.py`: for `compute_data_width=8`, code lane `2k`

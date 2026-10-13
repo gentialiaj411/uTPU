@@ -39,6 +39,9 @@ OPCODE_DTYPE = 0b111  # 7 - multi-PE / dataflow extensions (sim-validated; not i
 # Part A descriptor ISA (4-bit opcode, bit[3]=1). Frozen in docs/descriptor_isa_part_a_design.md.
 OPCODE_TILE_GEMM = 0x8
 OPCODE_VEC = 0x9
+# A benign legacy NOP word followed by a VEC descriptor.  The old RTL sees
+# this prefix as NOP (low3=101, bit3=0); only VECTOR_UNIT_EN consumes it.
+VEC_ESCAPE_WORD = 0x05A5
 NOP_SUBOP_REQUANT = 0b1
 
 TILE_GEMM_FLAG_ACC_CLEAR_FIRST = 1 << 0
@@ -46,7 +49,8 @@ TILE_GEMM_FLAG_FINALIZE_LAST = 1 << 1
 TILE_GEMM_FLAG_HOIST_PAYLOADS = 1 << 2
 TILE_GEMM_FLAG_WEIGHT_OVERLAP = 1 << 3  # parked; golden model ignores unless overlap enabled
 TILE_GEMM_WORD_COUNT = 6
-VEC_WORD_COUNT = 5
+VEC_WORD_COUNT = 6
+VEC_DESCRIPTOR_WORD_COUNT = 5
 VEC_SUBOP_VADD_RQ = 0
 VEC_SUBOP_VRMSNORM = 1
 VEC_SUBOP_VPOS_ADD = 2
@@ -668,7 +672,7 @@ def encodeVec(
     head_id: int = 0,
     cfg: Optional[IsaConfig] = None,
 ) -> bytes:
-    """Encode the frozen five-word Phase-2 VEC descriptor."""
+    """Encode the escaped six-word Phase-2 VEC descriptor."""
     cfg = _resolve_cfg(cfg)
     _require_vector_cfg(cfg)
     subop = int(subop)
@@ -689,6 +693,7 @@ def encodeVec(
     return b"".join(
         instructionToBytes(word)
         for word in (
+            VEC_ESCAPE_WORD,
             header,
             encodeAddress(dst, cfg),
             encodeAddress(src0, cfg),
@@ -720,7 +725,9 @@ def decodeVecWords(words: Sequence[int], cfg: Optional[IsaConfig] = None) -> dic
     _require_vector_cfg(cfg)
     if len(words) < VEC_WORD_COUNT:
         raise ValueError("truncated VEC descriptor")
-    word0 = int(words[0]) & 0xFFFF
+    if (int(words[0]) & 0xFFFF) != VEC_ESCAPE_WORD:
+        raise ValueError("expected VEC escape word")
+    word0 = int(words[1]) & 0xFFFF
     if (word0 & 0xF) != OPCODE_VEC:
         raise ValueError(f"expected VEC opcode 0x9, got {(word0 & 0xF):#x}")
     subop = (word0 >> 4) & 0xF
@@ -736,14 +743,14 @@ def decodeVecWords(words: Sequence[int], cfg: Optional[IsaConfig] = None) -> dic
             raise ValueError("VSOFTMAX requires causal=1 and head_id <= 2")
     elif causal or head_id:
         raise ValueError("non-softmax VEC flags must have causal=0 and head_id=0")
-    length = int(words[4]) & 0xFFFF
+    length = int(words[5]) & 0xFFFF
     if length == 0:
         raise ValueError("VEC zero length")
     return {
         "opcode": OPCODE_VEC, "subop": subop, "flags": flags, "causal": causal,
         "head_id": head_id, "param_kind": param_kind,
-        "dst": int(words[1]) & cfg.address_max, "src0": int(words[2]) & cfg.address_max,
-        "param_record": int(words[3]) & cfg.address_max, "length": length,
+        "dst": int(words[2]) & cfg.address_max, "src0": int(words[3]) & cfg.address_max,
+        "param_record": int(words[4]) & cfg.address_max, "length": length,
         "word_count": VEC_WORD_COUNT,
     }
 

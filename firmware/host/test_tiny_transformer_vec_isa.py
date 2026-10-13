@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 
 from isa_encoder import (
-    IsaConfig, decodeVecWords, encodeHalt, encode_vec_vadd_rq,
+    IsaConfig, decodeVecWords, encodeFetch, encodeHalt, encodeLoadInputs, encodeLoadWeights, encodeRun, encodeBurstStore, encodeTileGemm, encode_vec_vadd_rq,
     encode_vec_vpos_add, encode_vec_vrmsnorm, encode_vec_vsoftmax,
 )
 from isa_simulator import UTPUISASimulator
@@ -122,9 +122,21 @@ def test_vec_encode_decode_and_errors():
     assert [decodeVecWords(_words(item), cfg=CFG)["subop"] for item in encodings] == [0, 1, 2, 3]
     with pytest.raises(ValueError, match="VEC requires"):
         encode_vec_vadd_rq(DST, SRC0, PARAM, 48, cfg=IsaConfig(address_width=16, compute_data_width=8, descriptor_isa=True))
-    bad = _words(encodings[0]); bad[0] = (bad[0] & ~0xF0) | 0x40
+    bad = _words(encodings[0]); bad[1] = (bad[1] & ~0xF0) | 0x40
     with pytest.raises(ValueError, match="unknown/reserved"):
         decodeVecWords(bad, cfg=CFG)
-    bad = _words(encodings[0]); bad[4] = 0
+    bad = _words(encodings[0]); bad[5] = 0
     with pytest.raises(ValueError, match="zero length"):
         decodeVecWords(bad, cfg=CFG)
+
+
+def test_mixed_vector_and_legacy_fetch_top_half_stays_fetch():
+    """The VEC escape, not low nibble 0x9, owns descriptor dispatch."""
+    def setup(sim):
+        _put(sim, SRC0, np.ones(48, np.int8)); _put(sim, SRC1, np.ones(48, np.int8))
+        _record(sim, 1, [SRC1, ((-5 & 0xFF) << 8) | (-5 & 0xFF), -4 & 0xFF])
+        sim.buffer[64] = 0x3412
+    vec = encode_vec_vadd_rq(DST, SRC0, PARAM, 48, cfg=CFG)
+    sim = _run(vec + encodeFetch(64, True, cfg=CFG) + encodeFetch(64, False, cfg=CFG), setup)
+    assert sim.fetch_bytes == [0x34, 0x12]
+    assert sim.executed_ops["vec"] == 1
