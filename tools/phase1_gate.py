@@ -11,14 +11,16 @@ ROOT = Path(__file__).resolve().parents[1]
 RESULTS = ROOT / "bench" / "results"
 HOST_SUMMARY = ROOT / "build" / "host_suite" / "summary.json"
 KNOWN_PREEXISTING_FAILURES = {
-    "test_runtime_validation_rejects_invalid_attention_mask_rank",
-    "test_runtime_validation_rejects_invalid_attention_mask_shape",
-    "test_runtime_validation_rejects_invalid_attention_mask_3d_batch_broadcast",
-    "test_runtime_validation_rejects_invalid_attention_mask_4d_head_broadcast",
-    "test_runtime_validation_rejects_mismatched_qkv_shape_contracts",
-    "test_supported_mlp_compiles_and_runs_with_zero_fallback",
-    "test_transformer_integration_cfg3",
-    "test_packed_dsp_synth_reports",
+    "firmware/host/test_compiled_runtime_validation.py::test_runtime_validation_rejects_invalid_attention_mask_rank",
+    "firmware/host/test_compiled_runtime_validation.py::test_runtime_validation_rejects_invalid_attention_mask_shape",
+    "firmware/host/test_compiled_runtime_validation.py::test_runtime_validation_rejects_invalid_attention_mask_3d_batch_broadcast",
+    "firmware/host/test_compiled_runtime_validation.py::test_runtime_validation_rejects_invalid_attention_mask_4d_head_broadcast",
+    "firmware/host/test_compiled_runtime_validation.py::test_runtime_validation_rejects_mismatched_qkv_shape_contracts",
+    "firmware/host/test_packed_dsp_synth_reports.py::test_schema_and_pending_status",
+    "firmware/host/test_packed_dsp_synth_reports.py::test_run_entries_have_p4_2_shape",
+    "firmware/host/test_torch_compile_backend.py::test_supported_mlp_compiles_and_runs_with_zero_fallback",
+    "firmware/host/test_transformer_integration.py::test_transformer_compiled_cuda_no_fallback_parity[cfg3]",
+    "firmware/host/test_cuda_autotuner.py::test_compiled_runtime_can_use_tuned_schedule",
 }
 
 
