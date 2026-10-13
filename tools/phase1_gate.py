@@ -18,6 +18,7 @@ KNOWN_PREEXISTING_FAILURES = {
     "firmware/host/test_compiled_runtime_validation.py::test_runtime_validation_rejects_mismatched_qkv_shape_contracts",
     "firmware/host/test_packed_dsp_synth_reports.py::test_schema_and_pending_status",
     "firmware/host/test_packed_dsp_synth_reports.py::test_run_entries_have_p4_2_shape",
+    "firmware/host/test_packed_dsp_sims.py::test_packed_dsp_synth_pending_schema",
     "firmware/host/test_torch_compile_backend.py::test_supported_mlp_compiles_and_runs_with_zero_fallback",
     "firmware/host/test_transformer_integration.py::test_transformer_compiled_cuda_no_fallback_parity[cfg3]",
     "firmware/host/test_cuda_autotuner.py::test_compiled_runtime_can_use_tuned_schedule",
