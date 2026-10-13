@@ -1,8 +1,10 @@
+import hashlib
+import json
 import numpy as np
 import pytest
 
 from requantization import MAX_REQUANT_MULTIPLIER, MAX_REQUANT_RIGHT_SHIFT
-from tiny_transformer_export import choose_activation_exponent, linear_int8_rne, quantize_activation, quantize_weight_per_output_channel, linear_record
+from tiny_transformer_export import choose_activation_exponent, export_schema_document, linear_int8_rne, quantize_activation, quantize_weight_per_output_channel, linear_record
 
 
 def test_train_calibrated_activation_exponent_is_smallest_safe_power_of_two():
@@ -61,3 +63,16 @@ def test_linear_requant_supports_zero_shift_identity_ratio():
     record = {"multipliers": [1], "right_shifts": [0], "input_exponent": 0, "output_exponent": 0}
     actual = linear_int8_rne(np.array([[2, -3]], np.int8), np.array([[4, 5]], np.int8), record)
     np.testing.assert_array_equal(actual, np.array([[-7]], dtype=np.int8))
+
+
+def test_serialized_export_schema_hashes_canonical_payload_and_has_no_implicit_exponents():
+    document = export_schema_document(
+        calibration={"percentile": 100.0, "split": "train"},
+        activations={"pos_add": -6, "rmsnorm1": -6},
+        linears={"qkv": {"input_exponent": -6, "output_exponent": -5, "multipliers": [1], "right_shifts": [0]}},
+        norms={"n1": {"input_exponent": -6, "output_exponent": -6, "gamma_exponent": -7}},
+        residuals={"residual1": {"ea": -6, "eb": -6, "eo": -5}},
+    )
+    assert document["payload_sha256"] == hashlib.sha256(json.dumps(document["payload"], sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+    assert document["payload"]["calibration"]["split"] == "train"
+    assert document["payload"]["residuals"]["residual1"]["eo"] >= -6

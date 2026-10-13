@@ -7,6 +7,8 @@ records at each linear boundary.
 from __future__ import annotations
 
 import math
+import hashlib
+import json
 from typing import Any
 
 import numpy as np
@@ -75,3 +77,18 @@ def linear_int8_rne(input_code: np.ndarray, weight_code: np.ndarray, record: dic
     shift = np.asarray(record["right_shifts"], dtype=np.int64)
     scaled = _rshift_rne(accum * multiplier, shift)
     return np.clip(scaled, -128, 127).astype(np.int8)
+
+
+def export_schema_document(*, calibration: dict[str, Any], activations: dict[str, int], linears: dict[str, dict[str, Any]], norms: dict[str, dict[str, Any]], residuals: dict[str, dict[str, int]]) -> dict[str, Any]:
+    """Canonical JSON payload and hash consumed by the independent reference."""
+    if calibration.get("split") != "train":
+        raise ValueError("activation calibration must be train-only")
+    for name, exponent in activations.items():
+        if not isinstance(exponent, int):
+            raise ValueError(f"activation {name} lacks an explicit integer exponent")
+    for name, record in residuals.items():
+        if int(record["eo"]) < max(int(record["ea"]), int(record["eb"])):
+            raise ValueError(f"residual {name} violates eo >= max(ea, eb)")
+    payload = {"version": 1, "calibration": calibration, "activations": activations, "linears": linears, "norms": norms, "residuals": residuals}
+    rendered = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return {"payload": payload, "payload_sha256": hashlib.sha256(rendered).hexdigest()}
