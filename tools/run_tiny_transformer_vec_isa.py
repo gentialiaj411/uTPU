@@ -37,7 +37,7 @@ def coverage_rows():
     rows=[]
     for target in range(192):
         for desired in range(4096+64*target,4096+64*(target+1)):
-            a=int(np.sqrt(desired)); b=min(128,a+1); step=b*b-a*a; k=0 if not step else int(round(48*(desired-a*a)/step)); k=max(0,min(48,k)); row=np.array([b]*k+[a]*(48-k),dtype=np.int8)
+            a=int(np.sqrt(desired)); b=min(128,a+1); step=b*b-a*a; k=0 if not step else int(round(48*(desired-a*a)/step)); k=max(0,min(48,k)); row=np.array(([-128 if b==128 else b]*k)+([a]*(48-k)),dtype=np.int8)
             if lut_bin(row)==target: rows.append(row); break
     return rows
 
