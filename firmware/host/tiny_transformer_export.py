@@ -9,6 +9,7 @@ from __future__ import annotations
 import math
 import hashlib
 import json
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -92,3 +93,20 @@ def export_schema_document(*, calibration: dict[str, Any], activations: dict[str
     payload = {"version": 1, "calibration": calibration, "activations": activations, "linears": linears, "norms": norms, "residuals": residuals}
     rendered = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return {"payload": payload, "payload_sha256": hashlib.sha256(rendered).hexdigest()}
+
+
+def write_export_schema(path: Path, document: dict[str, Any]) -> None:
+    """Write the one-file JSON schema consumed by the reference."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(document, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def load_export_schema(path: Path) -> dict[str, Any]:
+    document = json.loads(path.read_text(encoding="utf-8"))
+    payload = document["payload"]
+    actual = hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+    if actual != document.get("payload_sha256"):
+        raise ValueError("export schema payload hash mismatch")
+    if payload.get("calibration", {}).get("split") != "train":
+        raise ValueError("export schema is not train-calibrated")
+    return payload
