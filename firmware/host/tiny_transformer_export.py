@@ -110,3 +110,10 @@ def load_export_schema(path: Path) -> dict[str, Any]:
     if payload.get("calibration", {}).get("split") != "train":
         raise ValueError("export schema is not train-calibrated")
     return payload
+
+
+def calibrate_activation_exponents(train_traces: dict[str, np.ndarray], *, percentile: float = CALIBRATION_PERCENTILE) -> dict[str, int]:
+    """Derive every activation exponent from train-only float trace samples."""
+    if not train_traces:
+        raise ValueError("train trace set is empty")
+    return {name: choose_activation_exponent(values, percentile=percentile) for name, values in train_traces.items()}

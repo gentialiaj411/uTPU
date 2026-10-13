@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from requantization import MAX_REQUANT_MULTIPLIER, MAX_REQUANT_RIGHT_SHIFT
-from tiny_transformer_export import choose_activation_exponent, export_schema_document, linear_int8_rne, linear_record, load_export_schema, quantize_activation, quantize_weight_per_output_channel, write_export_schema
+from tiny_transformer_export import calibrate_activation_exponents, choose_activation_exponent, export_schema_document, linear_int8_rne, linear_record, load_export_schema, quantize_activation, quantize_weight_per_output_channel, write_export_schema
 
 
 def test_train_calibrated_activation_exponent_is_smallest_safe_power_of_two():
@@ -87,3 +87,7 @@ def test_export_schema_round_trip_rejects_tampering(tmp_path):
     path.write_text(json.dumps(raw), encoding="utf-8")
     with pytest.raises(ValueError, match="hash"):
         load_export_schema(path)
+
+
+def test_activation_calibration_derives_all_exponents_from_train_traces():
+    assert calibrate_activation_exponents({"a": np.array([1.0]), "b": np.array([0.1])}) == {"a": -6, "b": -10}
