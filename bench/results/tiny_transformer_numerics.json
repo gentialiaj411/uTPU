@@ -1,0 +1,49 @@
+{
+  "config": {
+    "D": 48,
+    "Dff": 192,
+    "H": 3,
+    "L": 1,
+    "T": 32,
+    "vocab": 65
+  },
+  "corpus_sha256": "86c4e6aa9db7c042ec79f339dcb96d42b0075e16b8fc2e86bf0ca57e2dc565ed",
+  "degradation": {
+    "bits_per_char": 2.6853759790951335,
+    "loss": 1.8613607886531942,
+    "top1_accuracy": -0.28668400286944046
+  },
+  "float_validation": {
+    "bits_per_char": 3.4045199554661103,
+    "loss": 2.3598334082914048,
+    "tokens": 111520,
+    "top1_accuracy": 0.3238522238163558
+  },
+  "integer_validation": {
+    "bits_per_char": 6.089895934561244,
+    "loss": 4.221194196944599,
+    "tokens": 111520,
+    "top1_accuracy": 0.037168220946915353
+  },
+  "limits": [
+    "independent NumPy integer reference; ISA-simulator and RTL equality are Phase 2/3 work"
+  ],
+  "parameter_count": 32448,
+  "saturation_counts": {
+    "position_add": 0,
+    "residual_attention": 0,
+    "residual_ffn": 0
+  },
+  "seed": 20261013,
+  "split": {
+    "corpus_length": 1115394,
+    "seed": 20261013,
+    "split": "contiguous_90_10",
+    "train_end_exclusive": 1003854,
+    "train_start": 0,
+    "validation_end_exclusive": 1115394,
+    "validation_start": 1003854
+  },
+  "status": "phase1_independent_integer_reference",
+  "training_steps": 400
+}
