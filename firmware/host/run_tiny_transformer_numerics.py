@@ -89,7 +89,8 @@ def _build_export(model: TinyDecoder, maxima: dict[str, float]) -> tuple[dict[st
         "position": pos_e,
         "pos_add": max(exp("pos_add"), token_e, pos_e),
         "rmsnorm1": exp("rmsnorm1"),
-        "scores": exp("scores"),
+        # The frozen softmax contract consumes signed Q4.4 score codes.
+        "scores": -4,
         "softmax_probs": -8,  # UINT8 p represents p/255; metadata remains explicit.
         "av": exp("av"),
         "out_proj": exp("out_proj"),
@@ -194,11 +195,14 @@ def main() -> None:
     iloss = icorrect = icount = 0
     saturation_counts = {"position_add": 0, "residual_attention": 0, "residual_ffn": 0}
     starts = list(range(split["validation_start"], split["validation_end_exclusive"] - cfg.T - 1, cfg.T))
-    for offset in range(0, len(starts), 8):
-        group = starts[offset:offset + 8]
+    for offset in range(0, len(starts), 64):
+        group = starts[offset:offset + 64]
         x = np.stack([data[s:s + cfg.T].numpy() for s in group]); y = np.stack([data[s + 1:s + cfg.T + 1].numpy() for s in group])
         logits, counts = integer_decoder_logits(x, qstate, schema, cfg)
-        logits_t, y_t = torch.from_numpy(logits.astype(np.float32)), torch.from_numpy(y)
+        # Loss is defined in the exported logit real domain; argmax is scale
+        # invariant but cross entropy is not.
+        logits_t = torch.from_numpy(logits.astype(np.float32) * (2.0 ** schema["activations"]["logits"]))
+        y_t = torch.from_numpy(y)
         iloss += float(F.cross_entropy(logits_t.reshape(-1, cfg.vocab), y_t.reshape(-1), reduction="sum"))
         icorrect += int((logits_t.argmax(-1) == y_t).sum()); icount += int(y.size)
         for key, value in counts.items():

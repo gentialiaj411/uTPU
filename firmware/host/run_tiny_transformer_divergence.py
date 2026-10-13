@@ -31,9 +31,9 @@ def _dequant(name: str, code: np.ndarray, acts: dict[str, int]) -> np.ndarray:
     return np.asarray(code, dtype=np.float64) * (2.0 ** int(acts[name]))
 
 
-def _metric(float_value: np.ndarray, int_code: np.ndarray, exponent: int | str) -> dict[str, float | int | str]:
+def _metric(float_value: np.ndarray, code: np.ndarray, dequantized: np.ndarray, exponent: int | str) -> dict[str, float | int | str]:
     f = np.asarray(float_value, dtype=np.float64).reshape(-1)
-    q = np.asarray(int_code, dtype=np.float64).reshape(-1)
+    q = np.asarray(dequantized, dtype=np.float64).reshape(-1)
     finite = np.isfinite(f)
     f, q = f[finite], q[finite]
     norm = float(np.linalg.norm(f) * np.linalg.norm(q))
@@ -42,8 +42,8 @@ def _metric(float_value: np.ndarray, int_code: np.ndarray, exponent: int | str) 
         "cosine": cosine,
         "max_abs_error": float(np.max(np.abs(f - q))) if len(f) else 0.0,
         "integer_exponent": exponent,
-        "max_abs_code": int(np.max(np.abs(int_code.astype(np.int64)))) if int_code.size else 0,
-        "pct_codes_in_neg1_zero_pos1": float(100.0 * np.mean(np.abs(int_code.astype(np.int64)) <= 1)) if int_code.size else 100.0,
+        "max_abs_code": int(np.max(np.abs(code.astype(np.int64)))) if code.size else 0,
+        "pct_codes_in_neg1_zero_pos1": float(100.0 * np.mean(np.abs(code.astype(np.int64)) <= 1)) if code.size else 100.0,
     }
 
 
@@ -72,6 +72,7 @@ def main() -> int:
     stages = {
         name: _metric(
             float_trace[name].cpu().numpy(),
+            integer_trace[name],
             _dequant(name, integer_trace[name], schema["activations"]),
             "p/255" if name == "softmax_probs" else int(schema["activations"][name]),
         )

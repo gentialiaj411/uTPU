@@ -6,7 +6,7 @@ import numpy as np
 
 from tools.gen_tiny_transformer_luts import build_payload, payload_bytes
 
-from tiny_transformer_reference import TinyTransformerConfig, integer_decoder_logits, integer_decoder_trace, softmax_u8, vadd_rq
+from tiny_transformer_reference import TinyTransformerConfig, integer_decoder_logits, integer_decoder_trace, rmsnorm_i8, softmax_u8, vadd_rq
 
 
 def _schema() -> dict:
@@ -55,6 +55,27 @@ def test_residual_uses_exported_output_exponent_and_reports_saturation():
     np.testing.assert_array_equal(result, np.array([127, -128], dtype=np.int8))
     # +127 rounds to +64 at eo=max+1; the sum is +128 and must be counted.
     assert saturation_count == 1
+
+
+def test_vadd_dequantized_error_is_bounded_by_one_output_lsb():
+    # Each input rounding contributes <=0.5 LSB and the final sum is exact:
+    # after dequantization the absolute error is therefore <=1 output LSB.
+    a, b = np.array([21, -35], np.int8), np.array([17, 11], np.int8)
+    result, _ = vadd_rq(a, -7, b, -6, -5)
+    expected = a.astype(np.float64) * 2.0**-7 + b.astype(np.float64) * 2.0**-6
+    actual = result.astype(np.float64) * 2.0**-5
+    assert np.max(np.abs(expected - actual)) <= 2.0**-5
+
+
+def test_rmsnorm_dequantized_error_is_bounded_in_output_lsbs():
+    code = np.array([32, -48, 64, -16], np.int8)
+    # gamma=64 * 2^-6=1, and output uses the same 2^-6 exponent.
+    actual = rmsnorm_i8(code, np.full(4, 64, np.int8), gamma_shift=0).astype(np.float64) * 2.0**-6
+    expected = code.astype(np.float64) / np.sqrt(np.mean(code.astype(np.float64) ** 2) + 1.0)
+    cosine = float(actual @ expected / (np.linalg.norm(actual) * np.linalg.norm(expected)))
+    # LUT seed + one Newton step is below two code LSBs in this calibrated case.
+    assert cosine >= 0.99
+    assert np.max(np.abs(actual - expected)) <= 2 * 2.0**-6
 
 
 def test_config_is_parameterized_not_backend_pinned():
