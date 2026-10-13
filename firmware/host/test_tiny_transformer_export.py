@@ -55,3 +55,9 @@ def test_linear_requant_matches_float_at_calibrated_scale():
     # accumulated half-weight-LSB terms; this random calibrated case is <3 LSB.
     assert cosine >= 0.99
     assert np.max(np.abs(expected - dequant)) <= 3 * 2.0**e_out
+
+
+def test_linear_requant_supports_zero_shift_identity_ratio():
+    record = {"multipliers": [1], "right_shifts": [0], "input_exponent": 0, "output_exponent": 0}
+    actual = linear_int8_rne(np.array([[2, -3]], np.int8), np.array([[4, 5]], np.int8), record)
+    np.testing.assert_array_equal(actual, np.array([[-7]], dtype=np.int8))

@@ -58,12 +58,14 @@ def _rshift_rne(values: np.ndarray, shift: np.ndarray) -> np.ndarray:
     """Signed right shift with the frozen nearest-even rule, broadcast by channel."""
     value = np.asarray(values, dtype=np.int64)
     amount = np.asarray(shift, dtype=np.int64)
+    safe_amount = np.maximum(amount, 1)
     magnitude = np.abs(value)
-    quotient = np.right_shift(magnitude, amount)
-    remainder = magnitude - np.left_shift(quotient, amount)
-    half = np.left_shift(np.ones_like(amount, dtype=np.int64), amount - 1)
+    quotient = np.right_shift(magnitude, safe_amount)
+    remainder = magnitude - np.left_shift(quotient, safe_amount)
+    half = np.left_shift(np.ones_like(safe_amount, dtype=np.int64), safe_amount - 1)
     increment = (remainder > half) | ((remainder == half) & ((quotient & 1) == 1))
-    return np.where(value < 0, -(quotient + increment), quotient + increment)
+    rounded = np.where(value < 0, -(quotient + increment), quotient + increment)
+    return np.where(amount == 0, value, rounded)
 
 
 def linear_int8_rne(input_code: np.ndarray, weight_code: np.ndarray, record: dict[str, Any]) -> np.ndarray:
