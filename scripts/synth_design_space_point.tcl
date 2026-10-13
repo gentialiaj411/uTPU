@@ -81,6 +81,7 @@ set prog_depth [maybe_get $arg_opts PROG_DEPTH 65536]
 set buf_size   [maybe_get $arg_opts BUFFER_SIZE 4096]
 set weight_region [maybe_get $arg_opts WEIGHT_REGION_WORDS [expr {min(14144, $buf_size)}]]
 set ext_addr   [maybe_get $arg_opts EXT_ADDR_EN 1]
+set vector_unit [maybe_get $arg_opts VECTOR_UNIT_EN 0]
 set q_lanes    [maybe_get $arg_opts QUANTIZER_LANES $array_size]
 set r_lanes    [maybe_get $arg_opts RELU_LANES $array_size]
 set pipe_depth [maybe_get $arg_opts QUANTIZER_PIPE_DEPTH 3]
@@ -115,6 +116,7 @@ set rtl_files [concat $rtl_files [add_whitelist_dir $repo_root "rtl/memory"]]
 set rtl_files [concat $rtl_files [add_whitelist_dir $repo_root "rtl/quantizer"]]
 set rtl_files [concat $rtl_files [add_whitelist_dir $repo_root "rtl/LeakyReLU"]]
 set rtl_files [concat $rtl_files [add_whitelist_dir $repo_root "rtl/unified_buffer"]]
+set rtl_files [concat $rtl_files [add_whitelist_dir $repo_root "rtl/vector"]]
 lappend rtl_files [file join $repo_root generated generated_params.sv]
 read_verilog -sv $rtl_files
 
@@ -149,6 +151,7 @@ set generic_opt [join [list \
     "BUFFER_SIZE=$buf_size" \
     "WEIGHT_REGION_WORDS=$weight_region" \
     "EXT_ADDR_EN=$ext_addr" \
+    "VECTOR_UNIT_EN=$vector_unit" \
     "MAX_BATCH_COUNT=$max_batch" \
     "QUANTIZER_LANES=$q_lanes" \
     "RELU_LANES=$r_lanes" \

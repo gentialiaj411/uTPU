@@ -25,6 +25,7 @@ module top #(
     // When 0 (default), legacy 9-bit address-in-opcode-word layout is used
     // and behaviour is byte-identical to pre-Phase-4.
     parameter EXT_ADDR_EN            = 0,
+    parameter VECTOR_UNIT_EN          = 0,
     parameter OPCODE_WIDTH           = 3,
     // Finalize datapath width. Default ARRAY_SIZE matches the PE output rate
     // (one column of rows per cycle). Override to ARRAY_SIZE*ARRAY_SIZE to
@@ -185,6 +186,14 @@ module top #(
     logic signed [COMPUTE_DATA_WIDTH-1:0] compute_to_buffer [NUM_COMPUTE_LANES-1:0];
     logic [STORE_DATA_WIDTH-1:0] controller_to_buffer;
     logic [STORE_DATA_WIDTH-1:0] buffer_to_controller;
+    logic vec_busy, vec_done, vec_error, vec_start;
+    logic [15:0] vec_desc [0:4];
+    logic [2:0] vec_desc_index;
+    logic vec_buffer_we, vec_buffer_re, vec_buffer_store_en;
+    logic [ADDRESS_SIZE-1:0] vec_buffer_addr;
+    logic [15:0] vec_buffer_wdata;
+    logic vec_port_active;
+    assign vec_port_active = vec_busy || vec_start;
 
     // Misc
     logic [23:0] rst_blink;
@@ -205,6 +214,7 @@ module top #(
     logic        tx_selftest_sent;
     logic [63:0] perf_cycle_counter;
     logic [63:0] perf_busy_counter;
+    logic [7:0]  vector_error_code;
     logic [63:0] perf_program_count;
     // Program wall-clock: MAGIC_START -> HALT (excludes UART upload / post-HALT idle).
     logic [63:0] perf_program_cycle_counter;
@@ -221,6 +231,8 @@ module top #(
     logic [63:0] perf_attr_requant;
     logic [63:0] perf_attr_result_fetch; // FETCH_BUFFER_STATE (UART result drain)
     logic [831:0] perf_snapshot;         // 13 x 64-bit words
+    logic [63:0]  perf_busy_status_word;
+    assign perf_busy_status_word = {vector_error_code, perf_busy_counter[55:0]};
     logic         perf_stream_active;
     logic [6:0]   perf_stream_idx;       // 0..103
     logic         perf_busy_active;
@@ -358,21 +370,30 @@ module top #(
         .STORE_WIDE(BSTORE_WIDTH)
     ) u_unified_buffer (
         .clk(clk),
-        .we(buffer_we), .re(buffer_re),
-        .compute_en(buffer_compute_en),
-        .fifo_en(buffer_fifo_en),
-        .store_en(buffer_store_en),
+        .we(vec_port_active ? vec_buffer_we : buffer_we), .re(vec_port_active ? vec_buffer_re : buffer_re),
+        .compute_en(vec_port_active ? 1'b0 : buffer_compute_en),
+        .fifo_en(vec_port_active ? 1'b0 : buffer_fifo_en),
+        .store_en(vec_port_active ? vec_buffer_store_en : buffer_store_en),
         .done(buffer_done),
         .section(section),
-        .address(address),
+        .address(vec_port_active ? vec_buffer_addr : address),
         .fifo_in(rx_fifo_to_mem),
         .fifo_out(mem_to_tx_fifo),
         .compute_in(compute_to_buffer),
         .compute_out(mem_to_compute),
-        .store_in(controller_to_buffer),
+        .store_in(vec_port_active ? vec_buffer_wdata : controller_to_buffer),
         .store_out(buffer_to_controller),
         .store_count(buffer_store_count),
         .store_wide_in(buffer_store_wide)
+    );
+
+    vector_sequencer #(.ADDRESS_SIZE(ADDRESS_SIZE)) u_vector_sequencer (
+        .clk(clk), .rst(rst_int), .start(vec_start), .subop(vec_desc[0][7:4]),
+        .dst(vec_desc[1][ADDRESS_SIZE-1:0]), .src0(vec_desc[2][ADDRESS_SIZE-1:0]),
+        .param(vec_desc[3][ADDRESS_SIZE-1:0]), .length(vec_desc[4]),
+        .buf_rdata(buffer_to_controller), .busy(vec_busy), .done(vec_done), .error(vec_error),
+        .buf_we(vec_buffer_we), .buf_re(vec_buffer_re), .buf_store_en(vec_buffer_store_en),
+        .buf_addr(vec_buffer_addr), .buf_wdata(vec_buffer_wdata)
     );
 
     instr_bram #(
@@ -437,7 +458,11 @@ module top #(
         BUF_FILL_DEST_HI_STATE,   // 29 A5 dest address high
         BUF_FILL_COUNT_LO_STATE,  // 30 A5 word count low
         BUF_FILL_COUNT_HI_STATE,  // 31 A5 word count high
-        BUF_FILL_BODY_STATE       // 32 A5 payload → unified buffer
+        BUF_FILL_BODY_STATE,      // 32 A5 payload → unified buffer
+        VEC_FETCH_STATE,          // escaped descriptor read beat
+        VEC_LATCH_STATE,          // latch descriptor word and advance
+        VEC_START_STATE,
+        VEC_EXEC_STATE
     } state_e;
 
     state_e current_state, next_state;
@@ -645,6 +670,7 @@ module top #(
         if (rst_int) begin
             perf_cycle_counter <= '0;
             perf_busy_counter <= '0;
+            vector_error_code <= '0;
             perf_program_count <= '0;
             perf_program_cycle_counter <= '0;
             perf_program_active <= 1'b0;
@@ -832,7 +858,13 @@ module top #(
                 next_state = DECODE_STATE;
 
             DECODE_STATE:
-                case (opcode)
+                if (instruction == 16'h05A5) begin
+                    // Do not let the old NOP decode consume descriptor words.
+                    // VECTOR_UNIT_EN=0 reports an architected "unit absent"
+                    // code; enabled hardware replaces code 02 with controller
+                    // completion/error status in the vector integration.
+                    next_state = VECTOR_UNIT_EN ? VEC_FETCH_STATE : HALT_STATE;
+                end else case (opcode)
                     STORE_OP: next_state = STORE_FETCH_W2_STATE;
                     FETCH_OP: next_state = EXT_ADDR_EN ? EXT_ADDR_FETCH_STATE : FETCH_BUFFER_STATE;
                     RUN_OP:   next_state = EXT_ADDR_EN ? EXT_ADDR_FETCH_STATE : COMPUTE_STATE;
@@ -847,6 +879,22 @@ module top #(
                     end
                     default:  next_state = FETCH_BRAM_STATE;
                 endcase
+
+            VEC_FETCH_STATE:
+                next_state = VEC_LATCH_STATE;
+
+            VEC_LATCH_STATE:
+                next_state = (vec_desc_index == 3'd4) ? VEC_START_STATE : VEC_FETCH_STATE;
+
+            VEC_START_STATE:
+                if ((vec_desc[0][3:0] != 4'h9) || (vec_desc[0][15:11] != 5'd0) ||
+                    (vec_desc[4] == 0) || (vec_desc[0][7:4] > 4'd3))
+                    next_state = HALT_STATE;
+                else
+                    next_state = VEC_EXEC_STATE;
+
+            VEC_EXEC_STATE:
+                if (vec_done) next_state = vec_error ? HALT_STATE : FETCH_BRAM_STATE;
 
             // STORE multi-word fetch from BRAM
             STORE_FETCH_W2_STATE:
@@ -1003,6 +1051,7 @@ module top #(
         tx_we      <= 1'b0;
         bram_wr_en <= 1'b0;
         bram_rd_en <= 1'b0;
+        vec_start  <= 1'b0;
         compute_weight_commit <= 1'b0;
         // Legacy single-word stores unless BSTORE_WRITE overrides.
         if (current_state != BSTORE_WRITE_STATE && current_state != BSTORE_FETCH_DATA_STATE)
@@ -1108,6 +1157,9 @@ module top #(
                 perf_waiting_for_immediate_finalize <= 1'b0;
                 perf_span_measuring <= 1'b0;
                 perf_compute_span_counter <= '0;
+                vec_start <= 1'b0;
+                vec_desc_index <= '0;
+                for (int vi = 0; vi < 5; vi++) vec_desc[vi] <= '0;
                 for (int ai = 0; ai < ARRAY_SIZE; ai++) begin
                     acc_partial_sums[ai] <= '0;
                     for (int bj = 0; bj < MAX_BATCH_COUNT; bj++) begin
@@ -1197,7 +1249,7 @@ module top #(
                             end else if (rx_fifo_to_mem == MAGIC_READ_PERF) begin
                                 // 104 bytes: legacy 4x64 + 9x64 state-group attribution
                                 perf_snapshot <= {
-                                    perf_cycle_counter, perf_busy_counter,
+                                    perf_cycle_counter, perf_busy_status_word,
                                     perf_program_count, perf_program_cycle_counter,
                                     perf_attr_fetch_decode, perf_attr_store,
                                     perf_attr_load, perf_attr_compute,
@@ -1213,7 +1265,7 @@ module top #(
                         HALT_STATE: begin
                             if (rx_fifo_to_mem == MAGIC_READ_PERF) begin
                                 perf_snapshot <= {
-                                    perf_cycle_counter, perf_busy_counter,
+                                    perf_cycle_counter, perf_busy_status_word,
                                     perf_program_count, perf_program_cycle_counter,
                                     perf_attr_fetch_decode, perf_attr_store,
                                     perf_attr_load, perf_attr_compute,
@@ -1334,7 +1386,10 @@ module top #(
                 pending_opcode <= opcode;
                 residual_en <= 1'b0;
                 run_residual_addr_stage <= 1'b0;
-                case (opcode)
+                if (instruction == 16'h05A5) begin
+                    vector_error_code <= VECTOR_UNIT_EN ? 8'h02 : 8'h01;
+                    vec_desc_index <= '0;
+                end else case (opcode)
                     STORE_OP: begin
                         address_indicator <= instruction[4];
                     end
@@ -1399,6 +1454,33 @@ module top #(
                     end
                     default: ;
                 endcase
+            end
+
+            VEC_FETCH_STATE: begin
+                bram_rd_addr <= pc[PC_WIDTH-1:0];
+                bram_rd_en   <= 1'b1;
+                pc           <= pc + 1'b1;
+            end
+
+            VEC_LATCH_STATE: begin
+                vec_desc[vec_desc_index] <= bram_rd_data;
+                if (vec_desc_index != 3'd4) vec_desc_index <= vec_desc_index + 1'b1;
+            end
+
+            VEC_START_STATE: begin
+                // Header validation is deliberately before the unit gains the
+                // buffer port; malformed headers never execute payload data.
+                if ((vec_desc[0][3:0] != 4'h9) || (vec_desc[0][15:11] != 5'd0) ||
+                    (vec_desc[4] == 0) || (vec_desc[0][7:4] > 4'd3)) begin
+                    vector_error_code <= 8'h03;
+                end else begin
+                    vector_error_code <= 8'h00;
+                    vec_start <= 1'b1;
+                end
+            end
+
+            VEC_EXEC_STATE: begin
+                if (vec_done && vec_error) vector_error_code <= 8'h04;
             end
 
             // -----------------------------------------------------------------
