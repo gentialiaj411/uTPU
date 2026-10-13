@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "name": "tile_gemm_frozen_encoding",
+  "word_count": 6,
+  "cfg": {
+    "address_width": 12,
+    "compute_data_width": 4,
+    "descriptor_isa": true
+  },
+  "fields": {
+    "weight_base": 16,
+    "input_base": 64,
+    "result_base": 128,
+    "out_blocks": 2,
+    "in_blocks": 3,
+    "batch_size": 48,
+    "array_size": 16,
+    "acc_clear_first": true,
+    "finalize_last": true,
+    "hoist_payloads": true,
+    "weight_overlap": false
+  },
+  "program_words_le": [
+    48584,
+    16,
+    64,
+    128,
+    515,
+    4100
+  ],
+  "program_bytes_hex": "c8bd10004000800003020410"
+}
