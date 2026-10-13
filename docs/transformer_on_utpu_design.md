@@ -108,9 +108,15 @@ not regenerate values using their language math library.
   9-bit before INT8 saturation.  Any overflow outside a stated destination is
   a test failure, never wraparound.
 * `RNE(x / 2^s)` means round-to-nearest, ties-to-even on signed magnitude,
-  restoring the sign afterward.  `sat8` clamps to `[-128,127]`; `satu8`
-  clamps to `[0,255]`.  Every requant is `sat8(RNE(acc*m / 2^shift))` with
-  `m` a signed 16-bit integer and `shift in [0,31]`.
+  restoring the sign afterward. `sat8` clamps to `[-128,127]`; `satu8`
+  clamps to `[0,255]`. Vector operations (`VADD_RQ`, `VPOS_ADD`,
+  `VRMSNORM`, and their stated intermediate steps) use RNE. GEMM-output
+  requant is deliberately different: clamp the signed accumulator to the
+  DSP-facing signed-25-bit range `[-2^24, 2^24-1]`, multiply by the unsigned
+  16-bit exported multiplier, arithmetic-right-shift by `shift in [0,31]`
+  (floor for negative products), then `sat8`. This is the established
+  hardware quantizer contract and is reimplemented independently by the
+  integer reference.
 * Per-output-channel `(m, shift, e_out)` records are trained/exported with the
   model and checked by Phase 1.  No raw INT8 values at different exponents may
   be added.
@@ -178,30 +184,66 @@ and saturation points are contractual.  This uses the LUT-plus-Newton
 integer-rsqrt pattern motivated by I-BERT; its actual 192 constants are a
 Phase-1 checked artifact, not values copied from a floating implementation.
 
-## 5. Proposed descriptor ISA extension
+## 5. Frozen vector descriptor ISA (Phase 2)
 
-The current ISA is a 16-bit word stream with 3-bit legacy opcodes and an
-optional 4-bit descriptor space (`TILE_GEMM=0x8`).  To preserve existing
-programs, the vector decoder is enabled only when `VECTOR_UNIT_EN=1`, default
-`0`, with descriptor ISA enabled.  Legacy encodings remain byte-identical.
+`VEC` is a five-word descriptor in the existing optional four-bit descriptor
+space. It is legal only when both `descriptor_isa` and `vector_unit` are set;
+both defaults are false. `TILE_GEMM=0x8` is unchanged; `0xA..0xF` are
+unallocated and must decode as errors.
 
-| Opcode / words | Fields | Semantics |
+| word | Bits | Meaning |
 |---|---|---|
-| `0x9` `VEC`, 5 words | word0 `[3:0]=9`, `[7:4]=subop`, `[15:8]=flags`; word1 dst; word2 src0; word3 src1/parameter record; word4 length (1..65535 elements) | **New** vector descriptor.  Addresses are 16-bit buffer-word addresses; INT8 pairs pack two per word. |
-| `VEC subop=0` | `dst,src0,src1,length` | `VADD_RQ`; flags identify the exponent records. |
-| `VEC subop=1` | `dst,src0,gamma,length` | `VRMSNORM`; length must be 48 in v1. |
-| `VEC subop=2` | `dst,src0,position_base,length` | `VPOS_ADD`; vector count is 32, width is 48. |
-| `VEC subop=3` | `dst,src0,scratch,length` | `VSOFTMAX`; flags=`causal|head_id`; length must encode a 32x32 head matrix. |
-| `VEC subop=4` | reserved | `VREQUANT` only if lowering cannot fold scale conversion into a producer/consumer. |
+| 0 | `[3:0]` | opcode `0x9` (`VEC`) |
+| 0 | `[7:4]` | subop: `0=VADD_RQ`, `1=VRMSNORM`, `2=VPOS_ADD`, `3=VSOFTMAX`; `4..15` are decode errors |
+| 0 | `[15:8]` | flags: bit 8 is `causal` (must be one for VSOFTMAX and zero otherwise); bits `[10:9]` are `head_id` (`0..2`, must be zero for non-softmax); bits `[15:11]` are `param_kind` (`1=VADD`, `2=RMSNorm`, `3=position`, `4=softmax`) and must match the subop/record |
+| 1 | `[15:0]` | `dst`, a unified-buffer **word** address |
+| 2 | `[15:0]` | `src0`, a unified-buffer word address |
+| 3 | `[15:0]` | parameter-record word address (all subops) |
+| 4 | `[15:0]` | `length`, in packed-code elements, never words |
 
-All descriptor operands are buffer addresses, never host pointers.  V1 GEMMs
-use existing unrolled tile control: the **11,520-word ESTIMATE** fits
-`BoardConfig.boolean_xc7s50().prog_depth == 32,768`.  `TGEMM_LOOP` remains a
-future control-size optimization, not a v1 ISA extension.  A descriptor
-with zero length, an unknown subop, an invalid v1 shape, or source/destination
-overlap not explicitly allowed is a hard decode error.  The exact binary
-packing is a Phase-2 implementation contract; the field allocation above is
-the Phase-0 proposed encoding and leaves `0xA..0xF` unallocated.
+The buffer convention is the existing `_pack_compute_word` implementation in
+`firmware/host/isa_simulator.py`: for `compute_data_width=8`, code lane `2k`
+is bits `[7:0]` of buffer word `base+k` and lane `2k+1` is bits `[15:8]`.
+INT8 lanes are two's-complement; VSOFTMAX writes UINT8 into the identical
+low/high byte positions. All descriptor addresses are word addresses and all
+v1 vector lengths are even.
+
+### 5.1 Parameter records
+
+Each `word3` points to an eight-word record; unused words must be zero. Word
+0 is the record kind in `[3:0]` and reserved-zero in `[15:4]`. Signed
+exponents and shifts are eight-bit two's-complement fields; an encoded value
+outside its listed range is a decode error. Every pointer is a buffer-word
+address.
+
+| Subop / kind | record words | Meaning |
+|---|---|---|
+| VADD_RQ / 1 | 0,1,2,3 | word0 kind; word1 `src1`; word2 `[7:0]=ea`, `[15:8]=eb`; word3 `[7:0]=eo`. `ea, eb, eo` are signed exponents in `[-31,31]`; `eo >= max(ea,eb)`. |
+| VRMSNORM / 2 | 0,1,2 | word0 kind; word1 `gamma_base`; word2 `[7:0]=gamma_shift` in `[0,31]`, `[15:8]=output_requant_shift` and must equal zero in v1. Gamma is exactly 48 signed INT8 codes at `gamma_base`; the contractual output computation is Section 4.4. |
+| VPOS_ADD / 3 | 0,1,2,3 | word0 kind; word1 `position_base` for a packed `32x48` INT8 row-major table; word2 has `ea`/`eb` in low/high bytes; word3 low byte is `eo`, with the same exponent rules as VADD_RQ. |
+| VSOFTMAX / 4 | 0,1 | word0 kind; word1 `scratch_base` (reserved for the RTL implementation, must be a valid non-overlapping 1024-code region in v1). The frozen Q4.4 score and UINT8 probability formats need no exponent field. |
+
+### 5.2 Subop shapes, aliasing, and decode errors
+
+`VADD_RQ` has `length = 48*n`, `1 <= n <= 32`; its second input is record
+word1. `VRMSNORM` has `length = 48*n`, `1 <= n <= 32`, and independently
+normalizes each contiguous 48-code row. `VPOS_ADD` is exactly `length=1536`
+(`32x48`). `VSOFTMAX` is exactly `length=1024`, one row-major `32x32` head;
+each row uses `i+1` valid entries because `causal=1`.
+
+Exact whole-region in-place aliases `dst==src0` are allowed for all subops;
+VADD_RQ also allows `dst==src1`. Any other source/destination partial overlap
+is a decode error. Position and gamma tables, parameter records, and softmax
+scratch must not overlap a destination or a mutable source. The decoder must
+raise (never silently execute) for: VEC without both config flags; zero
+length; a truncated descriptor; an unknown/reserved subop or `param_kind`;
+nonzero reserved record bits/words; invalid signed ranges or pointer extent; a
+v1 shape violation; illegal flags; bad record kind; any prohibited overlap;
+or a VSOFTMAX `head_id > 2`/noncausal request.
+
+V1 GEMMs use existing unrolled tile control: the **11,520-word ESTIMATE** fits
+`BoardConfig.boolean_xc7s50().prog_depth == 32,768`. `TGEMM_LOOP` remains a
+future control-size optimization, not a v1 ISA extension.
 
 ## 6. Unified-buffer map and execution reuse
 
