@@ -9,6 +9,21 @@ from tools.gen_tiny_transformer_luts import build_payload, payload_bytes
 from tiny_transformer_reference import TinyTransformerConfig, integer_decoder_logits, integer_decoder_trace, softmax_u8, vadd_rq
 
 
+def _schema() -> dict:
+    acts = {name: 0 for name in (
+        'token', 'position', 'pos_add', 'rmsnorm1', 'qkv', 'q', 'k', 'v',
+        'scores', 'softmax_probs', 'av', 'out_proj', 'residual1', 'rmsnorm2',
+        'ffn1', 'leaky_relu', 'ffn2', 'residual2', 'final_norm', 'logits',
+    )}
+    record = {'input_exponent': 0, 'output_exponent': 0, 'multipliers': [1], 'right_shifts': [0]}
+    return {
+        'activations': acts,
+        'linears': {name: dict(record) for name in ('qkv', 'scores', 'av', 'out', 'ff1', 'ff2', 'logits')},
+        'norms': {name: {'input_exponent': 0, 'output_exponent': 0, 'gamma_exponent': 0, 'gamma_shift': 0} for name in ('n1', 'n2', 'final')},
+        'residuals': {name: {'ea': 0, 'eb': 0, 'eo': 0} for name in ('pos_add', 'residual1', 'residual2')},
+    }
+
+
 def test_frozen_luts_are_generated_exactly_and_hash_pinned():
     fixture = Path(__file__).parent / 'fixtures' / 'tiny_transformer_integer_luts.json'
     committed = json.loads(fixture.read_text(encoding='utf-8'))
@@ -57,7 +72,7 @@ def test_independent_integer_decoder_executes_parameterized_model():
         'blocks.0.qkv.weight': rng.integers(-4, 5, (24, 8), dtype=np.int8), 'blocks.0.out.weight': rng.integers(-4, 5, (8, 8), dtype=np.int8),
         'blocks.0.ff1.weight': rng.integers(-4, 5, (16, 8), dtype=np.int8), 'blocks.0.ff2.weight': rng.integers(-4, 5, (8, 16), dtype=np.int8), 'final.weight': np.full(8, 127, np.int8),
     }
-    logits, counts = integer_decoder_logits(np.array([0,1,2,3]), state, cfg)
+    logits, counts = integer_decoder_logits(np.array([0,1,2,3]), state, _schema(), cfg)
     assert logits.shape == (1,4,7)
     assert set(counts) == {'position_add','residual_attention','residual_ffn'}
 
@@ -70,6 +85,6 @@ def test_integer_trace_exposes_every_phase1_stage_boundary():
         'blocks.0.qkv.weight': np.ones((12, 4), np.int8), 'blocks.0.out.weight': np.ones((4, 4), np.int8),
         'blocks.0.ff1.weight': np.ones((8, 4), np.int8), 'blocks.0.ff2.weight': np.ones((4, 8), np.int8), 'final.weight': np.full(4, 127, np.int8),
     }
-    trace = integer_decoder_trace(np.array([0, 1]), state, cfg)
+    trace = integer_decoder_trace(np.array([0, 1]), state, _schema(), cfg)
     expected = {'pos_add', 'rmsnorm1', 'q', 'k', 'v', 'scores', 'softmax_probs', 'av', 'out_proj', 'residual1', 'rmsnorm2', 'ffn1', 'leaky_relu', 'ffn2', 'residual2', 'final_norm', 'logits'}
     assert expected <= set(trace)
