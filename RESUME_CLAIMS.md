@@ -2,7 +2,7 @@
 
 Every bullet names the **artifact** and the **workload/harness** it was measured on.
 Dropped: claims whose artifacts are absent (`fuzzer_report.json`) or superseded
-(pre-rightsizing **50 MHz / DSP=192** as the *shipping* close; use **~83 MHz / DSP=72**).
+(pre-rightsizing **50 MHz / DSP=192** as the *shipping* close; use the 12 ns post-route timing evidence / DSP=72).
 
 ## Flagship bullets (submittable)
 
@@ -14,7 +14,7 @@ Dropped: claims whose artifacts are absent (`fuzzer_report.json`) or superseded
   - Artifact: `bench/results/real_model_accelerator.json`.
   - Workload: 14×14 MNIST PTQ capstone; simulation + host-reference (not on-silicon).
 
-- Closed Artix-7 A7-100T (`xc7a100tcsg324-1`) post-route at **~83.3 MHz** (`12 ns`, **WNS=+0.271 ns**) after requant rightsizing cut DSP **192→72**; demonstrated **100 MHz** ceiling only (**WNS=+0.012 ns**, marginal).
+- Artix-7 A7-100T (`xc7a100tcsg324-1`): post-route timing closure at 12 ns (no on-chip clock generation; not an on-silicon frequency; WNS=+0.271 ns), after requant rightsizing cut DSP **192→72**. The separate 10 ns constrained point is marginal (WNS=+0.012 ns) and is not an on-silicon frequency.
   - Artifacts: `bench/results/requant_rightsizing_synth.json`, `bench/results/design_space_sweep.json` (`shipping_point` / `demonstrated_fmax_ceiling`).
   - Workload/harness: N=8 INT8, `MAX_BATCH_COUNT=48`, Vivado P&R (not board execution).
 
@@ -41,7 +41,7 @@ Dropped: claims whose artifacts are absent (`fuzzer_report.json`) or superseded
 - uTPU cycle cost model held-out: **log R² 0.924**, **MAPE 10.04%**, **0% selection regret** on a **5-candidate** menu (CUDA comparison is 16-candidate, mean regret 5.21%).
   - Artifacts: `bench/results/utpu_cycle_model_heldout.json`, `bench/results/cost_model_heldout.json`, `docs/COSTMODEL_COMPARISON.md`.
 
-- Determinism: **zero** FPGA/RTL cycle variance; median wall-clock **~1.89×** GPU p50 at shipping ~83 MHz (loss, not speedup); FPGA p99=p50 flat vs GPU p99/p99.9 tails in artifact.
+- Determinism: **zero** FPGA/RTL cycle variance; modeled median latency **~1.89×** GPU p50 under the 12 ns timing constraint (no on-chip clock generation; not an on-silicon frequency; loss, not speedup); FPGA p99=p50 flat vs GPU p99/p99.9 tails in artifact.
   - Artifacts: `bench/results/latency_determinism_vs_gpu.json`, `bench/results/latency_determinism.json`.
   - Workload: RTL sim cycles@shipping clock vs GPU NVRTC blocked-FC INT4 events.
 
