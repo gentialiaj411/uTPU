@@ -1,0 +1,154 @@
+{
+  "batch_starts": [
+    1003854,
+    1003886,
+    1003918,
+    1003950,
+    1003982,
+    1004014,
+    1004046,
+    1004078
+  ],
+  "checkpoint_sha256": "447c662d794d9ab25a14b6f0b424f95658dee30f88c6dbf3df127691c230dd24",
+  "first_cosine_below_0_99": "rmsnorm1",
+  "stages": {
+    "av": {
+      "cosine": 0.5735228512822304,
+      "diagnostic_fitted_scale_not_export_scale": 0.5727071106082892,
+      "integer_exponent": "MISSING_FROM_CURRENT_EXPORT",
+      "max_abs_code": 4,
+      "max_abs_error_after_diagnostic_fit": 3.318772315979004,
+      "pct_codes_in_neg1_zero_pos1": 95.90657552083334
+    },
+    "ffn1": {
+      "cosine": 0.8302107321319127,
+      "diagnostic_fitted_scale_not_export_scale": 0.7191327378772813,
+      "integer_exponent": "MISSING_FROM_CURRENT_EXPORT",
+      "max_abs_code": 9,
+      "max_abs_error_after_diagnostic_fit": 4.720435300840806,
+      "pct_codes_in_neg1_zero_pos1": 60.860188802083336
+    },
+    "ffn2": {
+      "cosine": 0.9563159099784841,
+      "diagnostic_fitted_scale_not_export_scale": 0.6024177062421077,
+      "integer_exponent": "MISSING_FROM_CURRENT_EXPORT",
+      "max_abs_code": 69,
+      "max_abs_error_after_diagnostic_fit": 16.03299422227952,
+      "pct_codes_in_neg1_zero_pos1": 6.624348958333333
+    },
+    "final_norm": {
+      "cosine": 0.8117043502354035,
+      "diagnostic_fitted_scale_not_export_scale": 0.7502858519815585,
+      "integer_exponent": "MISSING_FROM_CURRENT_EXPORT",
+      "max_abs_code": 3,
+      "max_abs_error_after_diagnostic_fit": 2.3334706902765414,
+      "pct_codes_in_neg1_zero_pos1": 89.95768229166666
+    },
+    "k": {
+      "cosine": 0.9481184023343884,
+      "diagnostic_fitted_scale_not_export_scale": 0.6300914907101828,
+      "integer_exponent": "MISSING_FROM_CURRENT_EXPORT",
+      "max_abs_code": 8,
+      "max_abs_error_after_diagnostic_fit": 1.9965206957217019,
+      "pct_codes_in_neg1_zero_pos1": 56.526692708333336
+    },
+    "leaky_relu": {
+      "cosine": 0.8685180413793288,
+      "diagnostic_fitted_scale_not_export_scale": 0.7826150500641161,
+      "integer_exponent": "MISSING_FROM_CURRENT_EXPORT",
+      "max_abs_code": 9,
+      "max_abs_error_after_diagnostic_fit": 4.797100018778976,
+      "pct_codes_in_neg1_zero_pos1": 70.47932942708334
+    },
+    "logits": {
+      "cosine": 0.6532542596080818,
+      "diagnostic_fitted_scale_not_export_scale": 1.7298573384476323,
+      "integer_exponent": "MISSING_FROM_CURRENT_EXPORT",
+      "max_abs_code": 11,
+      "max_abs_error_after_diagnostic_fit": 14.148560311355714,
+      "pct_codes_in_neg1_zero_pos1": 71.47235576923077
+    },
+    "out_proj": {
+      "cosine": 0.6647925009522497,
+      "diagnostic_fitted_scale_not_export_scale": 0.2450049001840102,
+      "integer_exponent": "MISSING_FROM_CURRENT_EXPORT",
+      "max_abs_code": 14,
+      "max_abs_error_after_diagnostic_fit": 3.080675101617769,
+      "pct_codes_in_neg1_zero_pos1": 47.85970052083333
+    },
+    "pos_add": {
+      "cosine": 0.999724550437705,
+      "diagnostic_fitted_scale_not_export_scale": 0.05630688034470175,
+      "integer_exponent": "MISSING_FROM_CURRENT_EXPORT",
+      "max_abs_code": 89,
+      "max_abs_error_after_diagnostic_fit": 0.10311202855806725,
+      "pct_codes_in_neg1_zero_pos1": 4.8828125
+    },
+    "q": {
+      "cosine": 0.9429405240660447,
+      "diagnostic_fitted_scale_not_export_scale": 0.6193082800805975,
+      "integer_exponent": "MISSING_FROM_CURRENT_EXPORT",
+      "max_abs_code": 9,
+      "max_abs_error_after_diagnostic_fit": 1.47579824924469,
+      "pct_codes_in_neg1_zero_pos1": 59.684244791666664
+    },
+    "residual1": {
+      "cosine": 0.8572722556501904,
+      "diagnostic_fitted_scale_not_export_scale": 0.11406486698186305,
+      "integer_exponent": "MISSING_FROM_CURRENT_EXPORT",
+      "max_abs_code": 44,
+      "max_abs_error_after_diagnostic_fit": 3.8069177126362197,
+      "pct_codes_in_neg1_zero_pos1": 9.383138020833332
+    },
+    "residual2": {
+      "cosine": 0.8594155683100146,
+      "diagnostic_fitted_scale_not_export_scale": 0.8838562721103937,
+      "integer_exponent": "MISSING_FROM_CURRENT_EXPORT",
+      "max_abs_code": 46,
+      "max_abs_error_after_diagnostic_fit": 21.353456851884978,
+      "pct_codes_in_neg1_zero_pos1": 10.847981770833332
+    },
+    "rmsnorm1": {
+      "cosine": 0.9478011871026975,
+      "diagnostic_fitted_scale_not_export_scale": 1.1680194376744688,
+      "integer_exponent": "MISSING_FROM_CURRENT_EXPORT",
+      "max_abs_code": 3,
+      "max_abs_error_after_diagnostic_fit": 0.9570781710072636,
+      "pct_codes_in_neg1_zero_pos1": 92.03287760416666
+    },
+    "rmsnorm2": {
+      "cosine": 0.819030570141214,
+      "diagnostic_fitted_scale_not_export_scale": 1.0236867150272349,
+      "integer_exponent": "MISSING_FROM_CURRENT_EXPORT",
+      "max_abs_code": 3,
+      "max_abs_error_after_diagnostic_fit": 3.011251397987745,
+      "pct_codes_in_neg1_zero_pos1": 91.04817708333334
+    },
+    "scores": {
+      "cosine": 0.8782368969454216,
+      "diagnostic_fitted_scale_not_export_scale": 1.5104991194224866,
+      "integer_exponent": "MISSING_FROM_CURRENT_EXPORT",
+      "max_abs_code": 5,
+      "max_abs_error_after_diagnostic_fit": 4.484341860489744,
+      "pct_codes_in_neg1_zero_pos1": 82.12594696969697
+    },
+    "softmax_probs": {
+      "cosine": 0.588239403746363,
+      "diagnostic_fitted_scale_not_export_scale": 0.004100199138169409,
+      "integer_exponent": "MISSING_FROM_CURRENT_EXPORT",
+      "max_abs_code": 255,
+      "max_abs_error_after_diagnostic_fit": 0.9268683720225701,
+      "pct_codes_in_neg1_zero_pos1": 48.4375
+    },
+    "v": {
+      "cosine": 0.9381890909182832,
+      "diagnostic_fitted_scale_not_export_scale": 0.6136355192210841,
+      "integer_exponent": "MISSING_FROM_CURRENT_EXPORT",
+      "max_abs_code": 7,
+      "max_abs_error_after_diagnostic_fit": 1.533323329538789,
+      "pct_codes_in_neg1_zero_pos1": 67.6025390625
+    }
+  },
+  "status": "diagnostic_only_missing_export_exponents",
+  "warning": "Current qstate has per-tensor float scales, but integer_decoder_trace discards them and has no exported stage exponent. This is an export/semantics defect, not evidence for QAT."
+}

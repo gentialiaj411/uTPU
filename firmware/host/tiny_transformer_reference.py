@@ -60,7 +60,7 @@ def _linear_i8(x: np.ndarray, weight: np.ndarray, shift: int = 7) -> np.ndarray:
     accum = np.matmul(np.asarray(x, np.int64), np.asarray(weight, np.int64).T)
     return np.clip(_rshift_rne(accum, shift), -128, 127).astype(np.int8)
 
-def integer_decoder_logits(tokens: np.ndarray, state: dict[str, np.ndarray], cfg: TinyTransformerConfig) -> tuple[np.ndarray, dict[str, int]]:
+def _integer_decoder(tokens: np.ndarray, state: dict[str, np.ndarray], cfg: TinyTransformerConfig, capture_trace: bool) -> tuple[np.ndarray, dict[str, int], dict[str, np.ndarray]]:
     """Execute the bounded decoder with integer operations only.
 
     ``state`` is the exported INT8 state dictionary.  The function does not
@@ -72,20 +72,55 @@ def integer_decoder_logits(tokens: np.ndarray, state: dict[str, np.ndarray], cfg
     if tok.shape[1] != cfg.T: raise ValueError("tokens must have configured T")
     x = np.asarray(state['token.weight'], np.int8)[tok]
     pos = np.broadcast_to(np.asarray(state['pos.weight'], np.int8)[None, :cfg.T], x.shape)
+    trace: dict[str, np.ndarray] = {}
     x, pos_sat = vadd_rq(x, 0, pos, 0, 1)
+    if capture_trace: trace['pos_add'] = x.copy()
     counts = {'position_add': pos_sat, 'residual_attention': 0, 'residual_ffn': 0}
     for layer in range(cfg.L):
         p = f'blocks.{layer}.'; residual = x
         norm = np.stack([rmsnorm_i8(row, state[p+'n1.weight']) for batch in x for row in batch]).reshape(x.shape)
+        if capture_trace: trace['rmsnorm1'] = norm.copy()
         qkv = _linear_i8(norm, state[p+'qkv.weight']).reshape(tok.shape[0], cfg.T, 3, cfg.H, cfg.head_dim)
         q, k, v = (qkv[:, :, i].transpose(0, 2, 1, 3) for i in range(3)); heads=[]
+        if capture_trace:
+            trace['q'], trace['k'], trace['v'] = q.copy(), k.copy(), v.copy()
+        all_scores, all_probs = [], []
         for head in range(cfg.H):
             score = _rshift_rne(q[:, head].astype(np.int64) @ k[:, head].transpose(0,2,1).astype(np.int64), 4)
-            score = np.clip(score, -128, 127).astype(np.int8); probs=np.stack([softmax_u8(score[b,i],i+1) for b in range(tok.shape[0]) for i in range(cfg.T)]).reshape(tok.shape[0],cfg.T,cfg.T)
+            score = np.clip(score, -128, 127).astype(np.int8); all_scores.append(score)
+            probs=np.stack([softmax_u8(score[b,i],i+1) for b in range(tok.shape[0]) for i in range(cfg.T)]).reshape(tok.shape[0],cfg.T,cfg.T); all_probs.append(probs)
             value = _rshift_rne(probs.astype(np.int64) @ v[:, head].astype(np.int64), 8); heads.append(np.clip(value,-128,127).astype(np.int8))
-        attn=np.concatenate(heads,axis=-1); projected=_linear_i8(attn,state[p+'out.weight']); x,sat=vadd_rq(residual,0,projected,0,1);counts['residual_attention']+=sat
+        attn=np.concatenate(heads,axis=-1)
+        if capture_trace:
+            trace['scores'] = np.stack(all_scores, axis=1); trace['softmax_probs'] = np.stack(all_probs, axis=1); trace['av'] = attn.copy()
+        projected=_linear_i8(attn,state[p+'out.weight'])
+        if capture_trace: trace['out_proj'] = projected.copy()
+        x,sat=vadd_rq(residual,0,projected,0,1);counts['residual_attention']+=sat
+        if capture_trace: trace['residual1'] = x.copy()
         residual=x; norm=np.stack([rmsnorm_i8(row,state[p+'n2.weight']) for batch in x for row in batch]).reshape(x.shape)
-        hidden=_linear_i8(norm,state[p+'ff1.weight']); hidden=np.where(hidden<0,_rshift_rne(hidden,2),hidden).astype(np.int8)
-        ff=_linear_i8(hidden,state[p+'ff2.weight']); x,sat=vadd_rq(residual,1,ff,1,2);counts['residual_ffn']+=sat
+        if capture_trace: trace['rmsnorm2'] = norm.copy()
+        hidden=_linear_i8(norm,state[p+'ff1.weight'])
+        if capture_trace: trace['ffn1'] = hidden.copy()
+        hidden=np.where(hidden<0,_rshift_rne(hidden,2),hidden).astype(np.int8)
+        if capture_trace: trace['leaky_relu'] = hidden.copy()
+        ff=_linear_i8(hidden,state[p+'ff2.weight'])
+        if capture_trace: trace['ffn2'] = ff.copy()
+        x,sat=vadd_rq(residual,1,ff,1,2);counts['residual_ffn']+=sat
+        if capture_trace: trace['residual2'] = x.copy()
     norm=np.stack([rmsnorm_i8(row,state['final.weight']) for batch in x for row in batch]).reshape(x.shape)
-    return _linear_i8(norm,state['token.weight']), counts
+    if capture_trace: trace['final_norm'] = norm.copy()
+    logits = _linear_i8(norm,state['token.weight'])
+    if capture_trace: trace['logits'] = logits.copy()
+    return logits, counts, trace
+
+
+def integer_decoder_logits(tokens: np.ndarray, state: dict[str, np.ndarray], cfg: TinyTransformerConfig) -> tuple[np.ndarray, dict[str, int]]:
+    """Execute the bounded decoder with integer operations only."""
+    logits, counts, _ = _integer_decoder(tokens, state, cfg, capture_trace=False)
+    return logits, counts
+
+
+def integer_decoder_trace(tokens: np.ndarray, state: dict[str, np.ndarray], cfg: TinyTransformerConfig) -> dict[str, np.ndarray]:
+    """Return unmodified integer codes at all Phase-1 stage boundaries."""
+    _, _, trace = _integer_decoder(tokens, state, cfg, capture_trace=True)
+    return trace

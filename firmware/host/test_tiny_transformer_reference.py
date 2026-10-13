@@ -6,7 +6,7 @@ import numpy as np
 
 from tools.gen_tiny_transformer_luts import build_payload, payload_bytes
 
-from tiny_transformer_reference import TinyTransformerConfig, integer_decoder_logits, softmax_u8, vadd_rq
+from tiny_transformer_reference import TinyTransformerConfig, integer_decoder_logits, integer_decoder_trace, softmax_u8, vadd_rq
 
 
 def test_frozen_luts_are_generated_exactly_and_hash_pinned():
@@ -60,3 +60,16 @@ def test_independent_integer_decoder_executes_parameterized_model():
     logits, counts = integer_decoder_logits(np.array([0,1,2,3]), state, cfg)
     assert logits.shape == (1,4,7)
     assert set(counts) == {'position_add','residual_attention','residual_ffn'}
+
+
+def test_integer_trace_exposes_every_phase1_stage_boundary():
+    cfg = TinyTransformerConfig(T=2, D=4, H=1, Dff=8, L=1, vocab=5)
+    state = {
+        'token.weight': np.ones((5, 4), np.int8), 'pos.weight': np.ones((2, 4), np.int8),
+        'blocks.0.n1.weight': np.full(4, 127, np.int8), 'blocks.0.n2.weight': np.full(4, 127, np.int8),
+        'blocks.0.qkv.weight': np.ones((12, 4), np.int8), 'blocks.0.out.weight': np.ones((4, 4), np.int8),
+        'blocks.0.ff1.weight': np.ones((8, 4), np.int8), 'blocks.0.ff2.weight': np.ones((4, 8), np.int8), 'final.weight': np.full(4, 127, np.int8),
+    }
+    trace = integer_decoder_trace(np.array([0, 1]), state, cfg)
+    expected = {'pos_add', 'rmsnorm1', 'q', 'k', 'v', 'scores', 'softmax_probs', 'av', 'out_proj', 'residual1', 'rmsnorm2', 'ffn1', 'leaky_relu', 'ffn2', 'residual2', 'final_norm', 'logits'}
+    assert expected <= set(trace)

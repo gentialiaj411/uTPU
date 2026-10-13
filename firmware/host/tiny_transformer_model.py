@@ -30,3 +30,28 @@ class TinyDecoder(nn.Module):
         pos=torch.arange(tokens.shape[1],device=tokens.device); x=self.token(tokens)+self.pos(pos)[None]
         for block in self.blocks: x=block(x)
         return F.linear(self.final(x),self.token.weight)
+
+    @torch.no_grad()
+    def forward_with_trace(self, tokens: torch.Tensor) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
+        """Float counterpart to the independent-reference stage trace."""
+        b, t = tokens.shape
+        pos = torch.arange(t, device=tokens.device)
+        trace: dict[str, torch.Tensor] = {}
+        x = self.token(tokens) + self.pos(pos)[None]; trace['pos_add'] = x
+        for block in self.blocks:
+            n1 = block.n1(x); trace['rmsnorm1'] = n1
+            q, k, v = block.qkv(n1).chunk(3, -1); dh = x.shape[-1] // block.heads
+            q = q.view(b,t,block.heads,dh).transpose(1,2); k = k.view(b,t,block.heads,dh).transpose(1,2); v = v.view(b,t,block.heads,dh).transpose(1,2)
+            trace['q'], trace['k'], trace['v'] = q, k, v
+            scores = (q @ k.transpose(-2,-1)) / (dh ** 0.5)
+            scores = scores.masked_fill(~torch.ones(t,t,device=tokens.device,dtype=torch.bool).tril(), float('-inf')); trace['scores'] = scores
+            probs = torch.softmax(scores, dim=-1); trace['softmax_probs'] = probs
+            av = (probs @ v).transpose(1,2).reshape(b,t,x.shape[-1]); trace['av'] = av
+            out = block.out(av); trace['out_proj'] = out; x = x + out; trace['residual1'] = x
+            n2 = block.n2(x); trace['rmsnorm2'] = n2
+            ffn1 = block.ff1(n2); trace['ffn1'] = ffn1
+            leaky = F.leaky_relu(ffn1, negative_slope=0.25); trace['leaky_relu'] = leaky
+            ffn2 = block.ff2(leaky); trace['ffn2'] = ffn2; x = x + ffn2; trace['residual2'] = x
+        final = self.final(x); trace['final_norm'] = final
+        logits = F.linear(final,self.token.weight); trace['logits'] = logits
+        return logits, trace
