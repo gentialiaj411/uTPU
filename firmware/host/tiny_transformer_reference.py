@@ -52,13 +52,24 @@ def _rshift_rne(x: np.ndarray | int, shift: int | np.ndarray) -> np.ndarray:
 
 
 def _requant_accum(accum: np.ndarray, record: dict[str, Any]) -> np.ndarray:
+    """GEMM requantization matching the fixed DSP-facing hardware contract.
+
+    This remains independent of ``requantization.py``.  Vector operations use
+    ``_rshift_rne`` directly and intentionally retain their RNE contract.
+    """
     multipliers = np.asarray(record["multipliers"], dtype=np.int64)
     shifts = np.asarray(record["right_shifts"], dtype=np.int64)
     if multipliers.shape != shifts.shape or multipliers.ndim != 1:
         raise ValueError("invalid exported multiplier/shift record")
     if multipliers.size not in (1, accum.shape[-1]):
         raise ValueError("exported requant channel count does not match output")
-    return np.clip(_rshift_rne(np.asarray(accum, dtype=np.int64) * multipliers, shifts), -128, 127).astype(np.int8)
+    # DSP48E1's signed A-port is 25 bits. The established hardware path first
+    # saturates into that range, then relies on an arithmetic (floor) shift.
+    operand_min = -(1 << 24)
+    operand_max = (1 << 24) - 1
+    saturated_accum = np.clip(np.asarray(accum, dtype=np.int64), operand_min, operand_max)
+    scaled = np.right_shift(saturated_accum * multipliers, shifts)
+    return np.clip(scaled, -128, 127).astype(np.int8)
 
 
 def vadd_rq(a: np.ndarray, ea: int, b: np.ndarray, eb: int, eo: int) -> Tuple[np.ndarray, int]:
