@@ -132,7 +132,16 @@ module vector_sequencer #(
                 AR: state<=AW0; AW0: state<=AW1;
                 AW1: begin word_a<=buf_rdata; if(subop==NORM) begin a[index*2]<=buf_rdata[7:0]; a[index*2+1]<=buf_rdata[15:8]; if(index==23) begin index<=0; state<=NWRITE; end else begin index<=index+1; state<=NAR; end end else state<=BR; end
                 NAR: state<=NAW0; NAW0: state<=NAW1;
-                NAW1: begin a[index*2]<=buf_rdata[7:0]; a[index*2+1]<=buf_rdata[15:8]; square_sum<=square_sum+$signed(buf_rdata[7:0])*$signed(buf_rdata[7:0])+$signed(buf_rdata[15:8])*$signed(buf_rdata[15:8]); if(index==23) begin index<=0; state<=NWRITE; end else begin index<=index+1; state<=NAR; end end
+                NAW1: begin
+                    a[index*2]<=buf_rdata[7:0]; a[index*2+1]<=buf_rdata[15:8];
+                    // Widen each signed byte before multiplication.  Without
+                    // this explicit extension Verilog truncates an 8x8
+                    // product in the expression, corrupting RMS magnitude.
+                    square_sum<=square_sum+
+                        $signed({{24{buf_rdata[7]}},buf_rdata[7:0]})*$signed({{24{buf_rdata[7]}},buf_rdata[7:0]})+
+                        $signed({{24{buf_rdata[15]}},buf_rdata[15:8]})*$signed({{24{buf_rdata[15]}},buf_rdata[15:8]});
+                    if(index==23) begin index<=0; state<=NWRITE; end else begin index<=index+1; state<=NAR; end
+                end
                 BR: state<=BW0; BW0: state<=BW1;
                 BW1: begin word_b<=buf_rdata; state<=WRITE; end
                 WRITE: state<=WW;
