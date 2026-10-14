@@ -19,12 +19,16 @@ module vector_sequencer #(
                      NAR=16, NAW0=17, NAW1=18, NWRITE=19, NWW=20,
                      SR=21, SW0=22, SW1=23, SWRITE=24, SWW=25,
                      FINISH=26, ALIGN_PIPE=27, ADD_PIPE=28, RNE_PIPE=29,
-                     SAT_PIPE=30;
+                     SAT_PIPE=30, NORM_SUM_LO=31, NORM_SUM_HI=32,
+                     NORM_PREP=33, NORM_LUT_ADDR=34, NORM_LUT_READ=35,
+                     NORM_NEWTON_MUL0=36, NORM_NEWTON_MUL1=37,
+                     NORM_NEWTON_T=38, NORM_NEWTON_R=39,
+                     NORM_NEWTON_RNE=40, NORM_SCALE_MUL0=41,
+                     NORM_SCALE_MUL1=42, NORM_SCALE_RNE=43,
+                     NORM_SCALE_SAT=44;
     logic [5:0] state;
     logic [15:0] record [0:7];
     logic signed [7:0] a [0:47], b [0:47], gamma [0:47], score [0:31];
-    logic signed [383:0] a_flat, gamma_flat;
-    logic signed [255:0] score_flat;
     logic [15:0] norm_word, soft_word;
     logic signed [7:0] ea, eb, eo;
     logic [5:0] gamma_shift, valid_count;
@@ -38,18 +42,27 @@ module vector_sequencer #(
     logic [15:0] add_word;
     logic [31:0] square_sum;
     logic [15:0] words_total;
+    logic [15:0] square_word;
+    logic [5:0] norm_element;
+    logic [15:0] rsqrt_q14 [0:191];
+    logic [31:0] norm_mean;
+    logic [4:0] norm_exponent;
+    logic [16:0] norm_mantissa;
+    logic [7:0] norm_bin;
+    logic signed [31:0] norm_r0, norm_t, norm_r1;
+    logic signed [47:0] newton_mul0, newton_mul1;
+    logic signed [63:0] newton_product, scale_product;
+    logic signed [15:0] scale_ag;
+    logic signed [63:0] scale_rounded;
+    logic [7:0] norm_low_byte;
 
-    generate
-        for (genvar flat_i=0; flat_i<48; flat_i=flat_i+1) begin: g_flat_rows
-            assign a_flat[flat_i*8 +: 8]=a[flat_i];
-            assign gamma_flat[flat_i*8 +: 8]=gamma[flat_i];
-        end
-        for (genvar score_i=0; score_i<32; score_i=score_i+1) begin: g_flat_scores
-            assign score_flat[score_i*8 +: 8]=score[score_i];
-        end
-    endgenerate
-    vector_serial_alu u_alu(.a(a_flat),.gamma(gamma_flat),.score(score_flat),.square_sum(square_sum),.word_index(index[5:0]),
-        .gamma_shift(gamma_shift),.valid_count(valid_count),.norm_word(norm_word),.soft_word(soft_word));
+    initial begin
+`ifdef SYNTHESIS
+        $readmemh("rsqrt_q14.mem", rsqrt_q14);
+`else
+        $readmemh("rtl/vector/rsqrt_q14.mem", rsqrt_q14);
+`endif
+    end
 
     function automatic signed [63:0] rne_shift(input signed [63:0] v, input integer sh);
         reg signed [63:0] mag,q,rem,half;
@@ -62,6 +75,22 @@ module vector_sequencer #(
     endfunction
     function automatic signed [7:0] sat8(input signed [63:0] v);
         if(v>127) sat8=127; else if(v < -128) sat8=-128; else sat8=v[7:0];
+    endfunction
+    function automatic [31:0] rne_div48(input [31:0] v);
+        reg [31:0] q, rem;
+        begin
+            q=v/48; rem=v%48;
+            if((2*rem>48)||((2*rem==48)&&q[0])) q=q+1;
+            rne_div48=q;
+        end
+    endfunction
+    function automatic [4:0] even_log2(input [31:0] v);
+        integer bit_index;
+        begin
+            even_log2=0;
+            for(bit_index=0;bit_index<31;bit_index=bit_index+1)
+                if(v>=(32'd1<<bit_index) && !bit_index[0]) even_log2=bit_index[4:0];
+        end
     endfunction
     function automatic range_ok(input [ADDRESS_SIZE-1:0] base, input [15:0] words);
         reg [ADDRESS_SIZE:0] finish;
@@ -86,7 +115,7 @@ module vector_sequencer #(
             BR: begin buf_re=1; buf_store_en=1; buf_addr=(subop==POS ? record[1] : record[1])+index; end
             SR: begin buf_re=1; buf_store_en=1; buf_addr=src0+row*16+index; end
             WRITE: begin buf_we=1; buf_store_en=1; buf_addr=dst+index; buf_wdata=add_word; end
-            NWRITE: begin buf_we=1; buf_store_en=1; buf_addr=dst+row*24+index; buf_wdata=norm_word; end
+            NWRITE: begin buf_we=1; buf_store_en=1; buf_addr=dst+row*24+(norm_element>>1); buf_wdata=norm_word; end
             SWRITE: begin buf_we=1; buf_store_en=1; buf_addr=dst+row*16+index; buf_wdata=soft_word; end
             default: ;
         endcase
@@ -134,17 +163,79 @@ module vector_sequencer #(
                 GR: state<=GW0; GW0: state<=GW1;
                 GW1: begin gamma[index*2]<=buf_rdata[7:0]; gamma[index*2+1]<=buf_rdata[15:8]; if(index==23) begin index<=0; state<=NAR; end else begin index<=index+1; state<=GR; end end
                 AR: state<=AW0; AW0: state<=AW1;
-                AW1: begin word_a<=buf_rdata; if(subop==NORM) begin a[index*2]<=buf_rdata[7:0]; a[index*2+1]<=buf_rdata[15:8]; if(index==23) begin index<=0; state<=NWRITE; end else begin index<=index+1; state<=NAR; end end else state<=BR; end
+                AW1: begin word_a<=buf_rdata; if(subop==NORM) state<=NORM_SUM_LO; else state<=BR; end
                 NAR: state<=NAW0; NAW0: state<=NAW1;
                 NAW1: begin
                     a[index*2]<=buf_rdata[7:0]; a[index*2+1]<=buf_rdata[15:8];
-                    // Widen each signed byte before multiplication.  Without
-                    // this explicit extension Verilog truncates an 8x8
-                    // product in the expression, corrupting RMS magnitude.
+                    square_word<=buf_rdata;
+                    state<=NORM_SUM_LO;
+                end
+                // One registered multiply-accumulate per element.  The
+                // packed buffer word is split across two successive states.
+                NORM_SUM_LO: begin
                     square_sum<=square_sum+
-                        $signed({{24{buf_rdata[7]}},buf_rdata[7:0]})*$signed({{24{buf_rdata[7]}},buf_rdata[7:0]})+
-                        $signed({{24{buf_rdata[15]}},buf_rdata[15:8]})*$signed({{24{buf_rdata[15]}},buf_rdata[15:8]});
-                    if(index==23) begin index<=0; state<=NWRITE; end else begin index<=index+1; state<=NAR; end
+                        $signed({{24{square_word[7]}},square_word[7:0]})*
+                        $signed({{24{square_word[7]}},square_word[7:0]});
+                    state<=NORM_SUM_HI;
+                end
+                NORM_SUM_HI: begin
+                    square_sum<=square_sum+
+                        $signed({{24{square_word[15]}},square_word[15:8]})*
+                        $signed({{24{square_word[15]}},square_word[15:8]});
+                    if(index==23) begin index<=0; state<=NORM_PREP; end
+                    else begin index<=index+1; state<=NAR; end
+                end
+                NORM_PREP: begin norm_mean<=rne_div48(square_sum)+1; state<=NORM_LUT_ADDR; end
+                NORM_LUT_ADDR: begin
+                    norm_exponent<=even_log2(norm_mean);
+                    if(rne_shift($signed({1'b0,norm_mean})<<<14,even_log2(norm_mean))<16384)
+                        norm_mantissa<=16384;
+                    else if(rne_shift($signed({1'b0,norm_mean})<<<14,even_log2(norm_mean))>65535)
+                        norm_mantissa<=65535;
+                    else norm_mantissa<=rne_shift($signed({1'b0,norm_mean})<<<14,even_log2(norm_mean));
+                    state<=NORM_LUT_READ;
+                end
+                NORM_LUT_READ: begin
+                    norm_bin<=(norm_mantissa-16384)>>8;
+                    state<=NORM_NEWTON_MUL0;
+                end
+                NORM_NEWTON_MUL0: begin
+                    norm_r0<=rsqrt_q14[norm_bin];
+                    newton_mul0<=$signed({1'b0,norm_mantissa})*$signed(rsqrt_q14[norm_bin]);
+                    state<=NORM_NEWTON_MUL1;
+                end
+                NORM_NEWTON_MUL1: begin
+                    newton_mul1<=newton_mul0*norm_r0;
+                    state<=NORM_NEWTON_T;
+                end
+                NORM_NEWTON_T: begin norm_t<=rne_shift(newton_mul1,28); state<=NORM_NEWTON_R; end
+                NORM_NEWTON_R: begin
+                    newton_product<=norm_r0*(49152-norm_t);
+                    state<=NORM_NEWTON_RNE;
+                end
+                NORM_NEWTON_RNE: begin
+                    norm_r1<=rne_shift(newton_product,15);
+                    norm_element<=0;
+                    state<=NORM_SCALE_MUL0;
+                end
+                NORM_SCALE_MUL0: begin
+                    scale_ag<=$signed(a[norm_element])*$signed(gamma[norm_element]);
+                    state<=NORM_SCALE_MUL1;
+                end
+                NORM_SCALE_MUL1: begin scale_product<=scale_ag*norm_r1; state<=NORM_SCALE_RNE; end
+                NORM_SCALE_RNE: begin
+                    scale_rounded<=rne_shift(scale_product,14+gamma_shift+(norm_exponent>>1));
+                    state<=NORM_SCALE_SAT;
+                end
+                NORM_SCALE_SAT: begin
+                    if(!norm_element[0]) begin
+                        norm_low_byte<=sat8(scale_rounded);
+                        norm_element<=norm_element+1;
+                        state<=NORM_SCALE_MUL0;
+                    end else begin
+                        norm_word<={sat8(scale_rounded),norm_low_byte};
+                        state<=NWRITE;
+                    end
                 end
                 BR: state<=BW0; BW0: state<=BW1;
                 BW1: begin word_b<=buf_rdata; state<=ALIGN_PIPE; end
@@ -169,7 +260,10 @@ module vector_sequencer #(
                 WRITE: state<=WW;
                 WW: if(index+1>=words_total) begin state<=FINISH; end else begin index<=index+1; state<=AR; end
                 NWRITE: state<=NWW;
-                NWW: if(index==23) begin if(row+1>=words_total/24) state<=FINISH; else begin row<=row+1; index<=0; square_sum<=0; state<=NAR; end end else begin index<=index+1; state<=NWRITE; end
+                NWW: if(norm_element==47) begin
+                    if(row+1>=words_total/24) state<=FINISH;
+                    else begin row<=row+1; index<=0; square_sum<=0; state<=NAR; end
+                end else begin norm_element<=norm_element+1; state<=NORM_SCALE_MUL0; end
                 SR: state<=SW0; SW0: state<=SW1;
                 SW1: begin score[index*2]<=buf_rdata[7:0]; score[index*2+1]<=buf_rdata[15:8]; if(index==15) begin valid_count<=row+1; index<=0; state<=SWRITE; end else begin index<=index+1; state<=SR; end end
                 SWRITE: state<=SWW;

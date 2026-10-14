@@ -59,6 +59,55 @@ endmodule
             "cycles": int(cycles), "passed": int(misses) == 0}
 
 
+def run_rmsnorm_suite() -> dict:
+    """Run the contractual 2,000-row/all-bin RMSNorm set through the port FSM."""
+    if "norm" not in SELECTED_OPS:
+        return {"cases": 0, "compared_bytes": 0, "mismatches": 0, "cycles": 0, "passed": True, "skipped": True}
+    rng = np.random.default_rng(304)
+    found = {}
+    while len(found) < 192:
+        n = int(rng.integers(1, 49)); lim = int(rng.integers(1, 129)); row = np.zeros(48, np.int8)
+        row[:n] = rng.integers(-lim, lim + 1, n, dtype=np.int16).astype(np.int8); rng.shuffle(row)
+        _, bins = rms(np.asarray([row]), np.ones(48, np.int8), 0); found.setdefault(bins[0], row)
+    rows = np.empty((2000, 48), np.int8)
+    rows[:3] = [np.zeros(48, np.int8), np.full(48, -128, np.int8), np.full(48, 127, np.int8)]
+    rows[3:195] = np.asarray([found[k] for k in range(192)], np.int8)
+    rows[195:] = rng.integers(-128, 128, (1805, 48), dtype=np.int8)
+    gamma = rng.integers(-128, 128, 48, dtype=np.int8)
+    expected, bins = rms(rows, gamma, 3)
+    BUILD.mkdir(parents=True, exist_ok=True)
+    def write_bytes(path: Path, values: np.ndarray) -> None:
+        path.write_text("\n".join(f"{int(v) & 255:02x}" for v in values.reshape(-1)) + "\n", encoding="ascii")
+    paths = {"rows": BUILD / "rms_suite_rows.mem", "gamma": BUILD / "rms_suite_gamma.mem", "expected": BUILD / "rms_suite_expected.mem"}
+    write_bytes(paths["rows"], rows); write_bytes(paths["gamma"], gamma); write_bytes(paths["expected"], expected)
+    tb = f'''module tb;
+reg clk=0,rst=1,start=0; reg [15:0] buf_rdata; wire busy,done,error,buf_we,buf_re,buf_store_en; wire [15:0] buf_addr,buf_wdata;
+reg [15:0] mem[0:32767]; reg [7:0] rows[0:95999],gamma[0:47],expected_mem[0:95999]; integer i,row,cycles,miss;
+vector_sequencer #(.ADDRESS_SIZE(16),.BUFFER_WORDS(32768)) dut(.clk(clk),.rst(rst),.start(start),.subop(4'd1),.dst(16'd200),.src0(16'd100),.param(16'd800),.length(16'd48),.buf_rdata(buf_rdata),.busy(busy),.done(done),.error(error),.buf_we(buf_we),.buf_re(buf_re),.buf_store_en(buf_store_en),.buf_addr(buf_addr),.buf_wdata(buf_wdata));
+always #5 clk=~clk;
+always @(posedge clk) begin if(buf_re) buf_rdata<=mem[buf_addr]; if(buf_we) mem[buf_addr]<=buf_wdata; end
+initial begin for(i=0;i<32768;i=i+1) mem[i]=0; buf_rdata=0; $readmemh("{paths['rows'].as_posix()}",rows); $readmemh("{paths['gamma'].as_posix()}",gamma); $readmemh("{paths['expected'].as_posix()}",expected_mem); mem[800]=2;mem[801]=600;mem[802]=3; miss=0; cycles=0;
+repeat(3) @(posedge clk); rst=0;
+for(row=0;row<2000;row=row+1) begin
+  for(i=0;i<24;i=i+1) mem[100+i]={{rows[row*48+i*2+1],rows[row*48+i*2]}};
+  for(i=0;i<24;i=i+1) mem[600+i]={{gamma[i*2+1],gamma[i*2]}};
+  @(negedge clk); start=1; @(negedge clk); start=0;
+  while(!done && cycles<1200000) begin @(posedge clk); cycles=cycles+1; end
+  if(error || !done) miss=miss+1;
+  for(i=0;i<24;i=i+1) if(mem[200+i] !== {{expected_mem[row*48+i*2+1],expected_mem[row*48+i*2]}}) miss=miss+1;
+end
+$display("RMS_SUITE_RESULT 2000 %0d %0d",cycles,miss); $finish; end endmodule
+'''
+    tb_path = BUILD / "rms_suite.sv"; tb_path.write_text(tb, encoding="utf-8")
+    exe = BUILD / "rms_suite.vvp"
+    for cmd in ([str(IVERILOG), "-g2012", "-s", "tb", "-o", str(exe), "rtl/vector/vector_serial_alu.sv", "rtl/vector/vector_sequencer.sv", str(tb_path)], [str(VVP), str(exe)]):
+        proc = subprocess.run(cmd, cwd=ROOT, text=True, capture_output=True)
+        if proc.returncode: raise RuntimeError(proc.stdout + proc.stderr)
+    _, cases, cycles, misses = next(line for line in proc.stdout.splitlines() if line.startswith("RMS_SUITE_RESULT")).split()
+    return {"cases": int(cases), "compared_bytes": 96000, "mismatches": int(misses), "cycles": int(cycles),
+            "rsqrt_lut_bin_coverage": len(set(bins)), "passed": int(misses) == 0}
+
+
 def main() -> int:
     rng = np.random.default_rng(903)
     results = {}
@@ -68,11 +117,7 @@ def main() -> int:
     w |= {800:1,801:150,802:(-5 & 255) | ((-6 & 255)<<8),803:(-4 & 255)}
     results["vadd_rq"] = run_case("vadd",0,200,100,800,48,w,expect)
 
-    x = rng.integers(-128,128,48,dtype=np.int8); g = rng.integers(-128,128,48,dtype=np.int8)
-    out,_ = rms(np.asarray([x]),g,3)
-    w = {100+i:v for i,v in enumerate(pack(x))} | {600+i:v for i,v in enumerate(pack(g))}
-    w |= {800:2,801:600,802:3}
-    results["rmsnorm"] = run_case("norm",1,200,100,800,48,w,pack(out[0]))
+    results["rmsnorm"] = run_rmsnorm_suite()
 
     x = rng.integers(-128,128,1536,dtype=np.int8); p = rng.integers(-128,128,1536,dtype=np.int8)
     out = sat(rne(x.astype(np.int64),1)+rne(p.astype(np.int64),2))
