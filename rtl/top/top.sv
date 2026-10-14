@@ -409,14 +409,27 @@ module top #(
         .store_wide_in(buffer_store_wide)
     );
 
-    vector_sequencer #(.ADDRESS_SIZE(ADDRESS_SIZE), .BUFFER_WORDS(BUFFER_SIZE)) u_vector_sequencer (
-        .clk(clk), .rst(rst_int), .start(vec_start), .subop(vec_desc[0][7:4]),
-        .dst(vec_desc[1][ADDRESS_SIZE-1:0]), .src0(vec_desc[2][ADDRESS_SIZE-1:0]),
-        .param(vec_desc[3][ADDRESS_SIZE-1:0]), .length(vec_desc[4]),
-        .buf_rdata(buffer_to_controller), .busy(vec_busy), .done(vec_done), .error(vec_error),
-        .buf_we(vec_buffer_we), .buf_re(vec_buffer_re), .buf_store_en(vec_buffer_store_en),
-        .buf_addr(vec_buffer_addr), .buf_wdata(vec_buffer_wdata)
-    );
+    generate
+        if (VECTOR_UNIT_EN) begin: g_vector_unit
+            vector_sequencer #(.ADDRESS_SIZE(ADDRESS_SIZE), .BUFFER_WORDS(BUFFER_SIZE)) u_vector_sequencer (
+                .clk(clk), .rst(rst_int), .start(vec_start), .subop(vec_desc[0][7:4]),
+                .dst(vec_desc[1][ADDRESS_SIZE-1:0]), .src0(vec_desc[2][ADDRESS_SIZE-1:0]),
+                .param(vec_desc[3][ADDRESS_SIZE-1:0]), .length(vec_desc[4]),
+                .buf_rdata(buffer_to_controller), .busy(vec_busy), .done(vec_done), .error(vec_error),
+                .buf_we(vec_buffer_we), .buf_re(vec_buffer_re), .buf_store_en(vec_buffer_store_en),
+                .buf_addr(vec_buffer_addr), .buf_wdata(vec_buffer_wdata)
+            );
+        end else begin: g_vector_absent
+            assign vec_busy = 1'b0;
+            assign vec_done = 1'b0;
+            assign vec_error = 1'b0;
+            assign vec_buffer_we = 1'b0;
+            assign vec_buffer_re = 1'b0;
+            assign vec_buffer_store_en = 1'b0;
+            assign vec_buffer_addr = '0;
+            assign vec_buffer_wdata = '0;
+        end
+    endgenerate
 
     instr_bram #(
         .DEPTH(PROG_DEPTH),
