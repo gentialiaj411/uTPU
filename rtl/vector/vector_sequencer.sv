@@ -27,9 +27,10 @@ module vector_sequencer #(
     logic [5:0] index;
     logic [5:0] row;
     logic [15:0] word_a, word_b;
+    logic [31:0] square_sum;
     logic [15:0] words_total;
 
-    vector_serial_alu u_alu(.a(a),.gamma(gamma),.score(score),.word_index(index),
+    vector_serial_alu u_alu(.a(a),.gamma(gamma),.score(score),.square_sum(square_sum),.word_index(index),
         .gamma_shift(gamma_shift),.valid_count(valid_count),.norm_word(norm_word),.soft_word(soft_word));
 
     function automatic signed [63:0] rne_shift(input signed [63:0] v, input integer sh);
@@ -65,7 +66,7 @@ module vector_sequencer #(
         else begin
             done<=0;
             case(state)
-                IDLE: if(start) begin busy<=1; error<=0; index<=0; row<=0; words_total<=length>>1; state<=PR; end
+                IDLE: if(start) begin busy<=1; error<=0; index<=0; row<=0; square_sum<=0; words_total<=length>>1; state<=PR; end
                 PR: state<=PW0; PW0: state<=PW1;
                 PW1: begin record[index]<=buf_rdata; if(index==7) begin index<=0; state<=CHECK; end else begin index<=index+1; state<=PR; end end
                 CHECK: begin
@@ -78,13 +79,13 @@ module vector_sequencer #(
                 AR: state<=AW0; AW0: state<=AW1;
                 AW1: begin word_a<=buf_rdata; if(subop==NORM) begin a[index*2]<=buf_rdata[7:0]; a[index*2+1]<=buf_rdata[15:8]; if(index==23) begin index<=0; state<=NWRITE; end else begin index<=index+1; state<=NAR; end end else state<=BR; end
                 NAR: state<=NAW0; NAW0: state<=NAW1;
-                NAW1: begin a[index*2]<=buf_rdata[7:0]; a[index*2+1]<=buf_rdata[15:8]; if(index==23) begin index<=0; state<=NWRITE; end else begin index<=index+1; state<=NAR; end end
+                NAW1: begin a[index*2]<=buf_rdata[7:0]; a[index*2+1]<=buf_rdata[15:8]; square_sum<=square_sum+$signed(buf_rdata[7:0])*$signed(buf_rdata[7:0])+$signed(buf_rdata[15:8])*$signed(buf_rdata[15:8]); if(index==23) begin index<=0; state<=NWRITE; end else begin index<=index+1; state<=NAR; end end
                 BR: state<=BW0; BW0: state<=BW1;
                 BW1: begin word_b<=buf_rdata; state<=WRITE; end
                 WRITE: state<=WW;
                 WW: if(index+1>=words_total) begin state<=FINISH; end else begin index<=index+1; state<=AR; end
                 NWRITE: state<=NWW;
-                NWW: if(index==23) begin if(row+1>=words_total/24) state<=FINISH; else begin row<=row+1; index<=0; state<=NAR; end end else begin index<=index+1; state<=NWRITE; end
+                NWW: if(index==23) begin if(row+1>=words_total/24) state<=FINISH; else begin row<=row+1; index<=0; square_sum<=0; state<=NAR; end end else begin index<=index+1; state<=NWRITE; end
                 SR: state<=SW0; SW0: state<=SW1;
                 SW1: begin score[index*2]<=buf_rdata[7:0]; score[index*2+1]<=buf_rdata[15:8]; if(index==15) begin valid_count<=row+1; index<=0; state<=SWRITE; end else begin index<=index+1; state<=SR; end end
                 SWRITE: state<=SWW;
