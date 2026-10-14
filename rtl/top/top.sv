@@ -409,7 +409,7 @@ module top #(
         .store_wide_in(buffer_store_wide)
     );
 
-    vector_sequencer #(.ADDRESS_SIZE(ADDRESS_SIZE)) u_vector_sequencer (
+    vector_sequencer #(.ADDRESS_SIZE(ADDRESS_SIZE), .BUFFER_WORDS(BUFFER_SIZE)) u_vector_sequencer (
         .clk(clk), .rst(rst_int), .start(vec_start), .subop(vec_desc[0][7:4]),
         .dst(vec_desc[1][ADDRESS_SIZE-1:0]), .src0(vec_desc[2][ADDRESS_SIZE-1:0]),
         .param(vec_desc[3][ADDRESS_SIZE-1:0]), .length(vec_desc[4]),
