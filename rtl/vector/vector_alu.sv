@@ -7,6 +7,7 @@ module vector_alu (
     input  logic signed [7:0] gamma [0:47],
     input  logic signed [7:0] ea, eb, eo,
     input  logic [5:0] gamma_shift,
+    input  logic [5:0] strobe,
     output logic signed [7:0] add_out [0:47],
     output logic signed [7:0] norm_out [0:47],
     input  logic signed [7:0] score [0:31],
@@ -45,14 +46,21 @@ module vector_alu (
         end
     endfunction
 
-    integer sumsq, mean_q, mean_rem, exponent, mantissa, bin;
+    genvar add_i;
+    generate
+        for (add_i = 0; add_i < 48; add_i = add_i + 1) begin: g_add
+            assign add_out[add_i] = sat8(rne_shift(a[add_i], $signed(eo)-$signed(ea)) +
+                                       rne_shift(b[add_i], $signed(eo)-$signed(eb)));
+        end
+    endgenerate
+
+    integer sumsq, mean_q, mean_rem, exponent, mantissa, bin, force_strobe;
     reg signed [63:0] r0, t, r1, product;
     integer max_score, rel, total, numerator;
+    // ``strobe`` is advanced by the serialized loader after array writes. It
+    // also makes unpacked-port sensitivity explicit for conservative simulators.
     always_comb begin
-        // VADD_RQ / VPOS_ADD, with the per-input RNE before the 9-bit sum.
-        for (i = 0; i < 48; i = i + 1)
-            add_out[i] = sat8(rne_shift(a[i], eo-ea) + rne_shift(b[i], eo-eb));
-
+        force_strobe = strobe;
         sumsq = 0;
         for (i = 0; i < 48; i = i + 1) sumsq = sumsq + a[i] * a[i];
         mean_q = sumsq / 48;

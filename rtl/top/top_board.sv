@@ -53,7 +53,7 @@ module top_board #(
         .CLKFBOUT(mmcm_fb),
         .CLKOUT0(mmcm_clk),
         .LOCKED(mmcm_locked),
-        .PWRDN(1'b0),
+        .PWRDWN(1'b0),
         .RST(1'b0)
     );
 

@@ -31,7 +31,7 @@ module vector_sequencer #(
     logic [15:0] words_total;
 
     vector_alu u_alu(.a(a),.b(b),.gamma(gamma),.ea(ea),.eb(eb),.eo(eo),
-        .gamma_shift(gamma_shift),.add_out(add_o),.norm_out(norm_o),
+        .gamma_shift(gamma_shift),.strobe(index),.add_out(add_o),.norm_out(norm_o),
         .score(score),.valid_count(valid_count),.softmax_out(soft_o));
 
     function automatic signed [63:0] rne_shift(input signed [63:0] v, input integer sh);
