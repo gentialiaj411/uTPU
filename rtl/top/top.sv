@@ -703,10 +703,6 @@ module top #(
             perf_program_count <= '0;
             perf_program_cycle_counter <= '0;
             perf_program_active <= 1'b0;
-            perf_busy_active <= 1'b0;
-            perf_waiting_for_immediate_finalize <= 1'b0;
-            perf_span_measuring <= 1'b0;
-            perf_compute_span_counter <= '0;
             perf_attr_fetch_decode <= '0;
             perf_attr_store <= '0;
             perf_attr_load <= '0;
@@ -720,8 +716,6 @@ module top #(
             perf_cycle_counter <= perf_cycle_counter + 1'b1;
             if (perf_busy_active)
                 perf_busy_counter <= perf_busy_counter + 1'b1;
-            if (perf_span_measuring)
-                perf_compute_span_counter <= perf_compute_span_counter + 1'b1;
             if (current_state == DECODE_STATE && opcode == HALT_OP)
                 perf_program_count <= perf_program_count + 1'b1;
             // total_program_cycles: start on MAGIC_START, freeze on HALT entry.
@@ -1118,7 +1112,6 @@ module top #(
                 tx_pending_data  <= '0;
                 tx_selftest_sent <= 1'b0;
                 uart_spam_div    <= '0;
-                rx_led           <= 1'b0;
                 store_src_addr      <= '0;
                 store_dest_addr     <= '0;
                 compute_result_addr <= '0;
@@ -2278,6 +2271,8 @@ module top #(
                 perf_stream_active <= 1'b0;
                 perf_stream_idx    <= '0;
             end else begin
+                if (perf_span_measuring)
+                    perf_compute_span_counter <= perf_compute_span_counter + 1'b1;
                 perf_stream_idx <= perf_stream_idx + 1'b1;
             end
         end else if (DEBUG_STORE_ACK && store_ack_pending && ~tx_full) begin
@@ -2311,6 +2306,7 @@ module top #(
             rx_we_d         <= 1'b0;
             tx_re           <= 1'b0;
             tx_pop_inflight <= 1'b0;
+            rx_led          <= 1'b0;
         end else begin
             if (rx_valid && ~rx_full) begin
                 rx_data_buf <= rx_to_fifo;
