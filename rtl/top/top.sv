@@ -1083,6 +1083,8 @@ module top #(
         bram_rd_en <= 1'b0;
         vec_start  <= 1'b0;
         compute_weight_commit <= 1'b0;
+        if (perf_span_measuring)
+            perf_compute_span_counter <= perf_compute_span_counter + 1'b1;
         // Legacy single-word stores unless BSTORE_WRITE overrides.
         if (current_state != BSTORE_WRITE_STATE && current_state != BSTORE_FETCH_DATA_STATE)
             buffer_store_count <= '0;
@@ -2271,8 +2273,6 @@ module top #(
                 perf_stream_active <= 1'b0;
                 perf_stream_idx    <= '0;
             end else begin
-                if (perf_span_measuring)
-                    perf_compute_span_counter <= perf_compute_span_counter + 1'b1;
                 perf_stream_idx <= perf_stream_idx + 1'b1;
             end
         end else if (DEBUG_STORE_ACK && store_ack_pending && ~tx_full) begin
