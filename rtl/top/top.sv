@@ -194,6 +194,23 @@ module top #(
     logic vec_busy, vec_done, vec_error, vec_start;
     logic [15:0] vec_desc [0:4];
     logic [2:0] vec_desc_index;
+    logic vec_header_invalid;
+    always_comb begin
+        vec_header_invalid = (vec_desc[0][3:0] != 4'h9) ||
+            (vec_desc[4] == 0) || (vec_desc[0][7:4] > 4'd3) ||
+            (vec_desc[0][15:11] != (vec_desc[0][7:4] + 1'b1));
+        if (!vec_header_invalid) begin
+            if (vec_desc[0][7:4] == 4'd3) begin
+                if (!vec_desc[0][8] || vec_desc[0][10:9] > 2 || vec_desc[4] != 1024)
+                    vec_header_invalid = 1'b1;
+            end else begin
+                if (vec_desc[0][10:8] != 0) vec_header_invalid = 1'b1;
+                if ((vec_desc[0][7:4] == 4'd2 && vec_desc[4] != 1536) ||
+                    ((vec_desc[0][7:4] < 4'd2) && ((vec_desc[4] % 48) != 0 || vec_desc[4] > 1536)))
+                    vec_header_invalid = 1'b1;
+            end
+        end
+    end
     logic vec_buffer_we, vec_buffer_re, vec_buffer_store_en;
     logic [ADDRESS_SIZE-1:0] vec_buffer_addr;
     logic [15:0] vec_buffer_wdata;
@@ -886,8 +903,7 @@ module top #(
                 next_state = (vec_desc_index == 3'd4) ? VEC_START_STATE : VEC_FETCH_STATE;
 
             VEC_START_STATE:
-                if ((vec_desc[0][3:0] != 4'h9) || (vec_desc[0][15:11] != 5'd0) ||
-                    (vec_desc[4] == 0) || (vec_desc[0][7:4] > 4'd3))
+                if (vec_header_invalid)
                     next_state = HALT_STATE;
                 else
                     next_state = VEC_EXEC_STATE;
@@ -1470,8 +1486,7 @@ module top #(
             VEC_START_STATE: begin
                 // Header validation is deliberately before the unit gains the
                 // buffer port; malformed headers never execute payload data.
-                if ((vec_desc[0][3:0] != 4'h9) || (vec_desc[0][15:11] != 5'd0) ||
-                    (vec_desc[4] == 0) || (vec_desc[0][7:4] > 4'd3)) begin
+                if (vec_header_invalid) begin
                     vector_error_code <= 8'h03;
                 end else begin
                     vector_error_code <= 8'h00;
