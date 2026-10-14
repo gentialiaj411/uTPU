@@ -913,7 +913,10 @@ module top #(
                 next_state = VEC_LATCH_STATE;
 
             VEC_LATCH_STATE:
-                next_state = (vec_desc_index == 3'd4) ? VEC_START_STATE : VEC_FETCH_STATE;
+                if (vec_desc_index == 3'd4)
+                    next_state = VEC_START_STATE;
+                else
+                    next_state = VEC_FETCH_STATE;
 
             VEC_START_STATE:
                 if (vec_header_invalid)
@@ -922,7 +925,12 @@ module top #(
                     next_state = VEC_EXEC_STATE;
 
             VEC_EXEC_STATE:
-                if (vec_done) next_state = vec_error ? HALT_STATE : FETCH_BRAM_STATE;
+                if (vec_done) begin
+                    if (vec_error)
+                        next_state = HALT_STATE;
+                    else
+                        next_state = FETCH_BRAM_STATE;
+                end
 
             // STORE multi-word fetch from BRAM
             STORE_FETCH_W2_STATE:
