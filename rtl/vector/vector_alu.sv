@@ -49,8 +49,10 @@ module vector_alu (
     genvar add_i;
     generate
         for (add_i = 0; add_i < 48; add_i = add_i + 1) begin: g_add
-            assign add_out[add_i] = sat8(rne_shift(a[add_i], $signed(eo)-$signed(ea)) +
+            always @(a[add_i] or b[add_i] or ea or eb or eo) begin
+                add_out[add_i] = sat8(rne_shift(a[add_i], $signed(eo)-$signed(ea)) +
                                        rne_shift(b[add_i], $signed(eo)-$signed(eb)));
+            end
         end
     endgenerate
 

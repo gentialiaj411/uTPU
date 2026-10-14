@@ -21,8 +21,7 @@ module vector_sequencer #(
     logic [4:0] state;
     logic [15:0] record [0:7];
     logic signed [7:0] a [0:47], b [0:47], gamma [0:47], score [0:31];
-    logic signed [7:0] add_o [0:47], norm_o [0:47];
-    logic [7:0] soft_o [0:31];
+    logic [15:0] norm_word, soft_word;
     logic signed [7:0] ea, eb, eo;
     logic [5:0] gamma_shift, valid_count;
     logic [5:0] index;
@@ -30,9 +29,8 @@ module vector_sequencer #(
     logic [15:0] word_a, word_b;
     logic [15:0] words_total;
 
-    vector_alu u_alu(.a(a),.b(b),.gamma(gamma),.ea(ea),.eb(eb),.eo(eo),
-        .gamma_shift(gamma_shift),.strobe(index),.add_out(add_o),.norm_out(norm_o),
-        .score(score),.valid_count(valid_count),.softmax_out(soft_o));
+    vector_serial_alu u_alu(.a(a),.gamma(gamma),.score(score),.word_index(index),
+        .gamma_shift(gamma_shift),.valid_count(valid_count),.norm_word(norm_word),.soft_word(soft_word));
 
     function automatic signed [63:0] rne_shift(input signed [63:0] v, input integer sh);
         reg signed [63:0] mag,q,rem,half;
@@ -56,8 +54,8 @@ module vector_sequencer #(
             BR: begin buf_re=1; buf_store_en=1; buf_addr=(subop==POS ? record[1] : record[1])+index; end
             SR: begin buf_re=1; buf_store_en=1; buf_addr=src0+row*16+index; end
             WRITE: begin buf_we=1; buf_store_en=1; buf_addr=dst+index; buf_wdata={sat8(rne_shift($signed(word_a[15:8]),eo-ea)+rne_shift($signed(word_b[15:8]),eo-eb)),sat8(rne_shift($signed(word_a[7:0]),eo-ea)+rne_shift($signed(word_b[7:0]),eo-eb))}; end
-            NWRITE: begin buf_we=1; buf_store_en=1; buf_addr=dst+row*24+index; buf_wdata={norm_o[index*2+1],norm_o[index*2]}; end
-            SWRITE: begin buf_we=1; buf_store_en=1; buf_addr=dst+row*16+index; buf_wdata={soft_o[index*2+1],soft_o[index*2]}; end
+            NWRITE: begin buf_we=1; buf_store_en=1; buf_addr=dst+row*24+index; buf_wdata=norm_word; end
+            SWRITE: begin buf_we=1; buf_store_en=1; buf_addr=dst+row*16+index; buf_wdata=soft_word; end
             default: ;
         endcase
     end
