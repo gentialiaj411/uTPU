@@ -120,6 +120,14 @@ set rtl_files [concat $rtl_files [add_whitelist_dir $repo_root "rtl/vector"]]
 lappend rtl_files [file join $repo_root generated generated_params.sv]
 read_verilog -sv $rtl_files
 
+# Keep generated LUT initialization visible to synthesis.  The RTL names the
+# files by basename so this also gives Vivado a source-relative search path.
+set vector_mem_files [glob -nocomplain -directory [file join $repo_root rtl vector] *.mem]
+foreach mem_file $vector_mem_files {
+    add_files -norecurse $mem_file
+    set_property file_type {Memory File} [get_files $mem_file]
+}
+
 if {![file exists $xdc_file]} {
     error "Constraint file does not exist: $xdc_file"
 }

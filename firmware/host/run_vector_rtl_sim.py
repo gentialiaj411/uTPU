@@ -47,15 +47,21 @@ def run_tb(name, a, b, g, expected, eas=None, ebs=None, eos=None, valid=None, so
     # The 48-lane inputs retain their declared width; softmax only consumes 32.
     tb=f'''module tb;
 reg signed [7:0] am[0:{n*w-1}],bm[0:{n*w-1}],gm[0:{n*w-1}],em[0:{n*w-1}]; reg signed [7:0] eam[0:{n-1}],ebm[0:{n-1}],eom[0:{n-1}]; reg [7:0] vcm[0:{n-1}];
-logic signed [7:0] a[0:47],b[0:47],g[0:47],score[0:31],add_o[0:47],norm_o[0:47]; logic [7:0] soft_o[0:31]; logic signed [7:0] ea,eb,eo; logic [5:0] gs,vc,strobe;
+logic signed [383:0] a,b,g,add_o,norm_o; logic signed [255:0] score; logic [255:0] soft_o; logic signed [7:0] ea,eb,eo; logic [5:0] gs,vc,strobe;
 vector_alu dut(.a(a),.b(b),.gamma(g),.ea(ea),.eb(eb),.eo(eo),.gamma_shift(gs),.strobe(strobe),.add_out(add_o),.norm_out(norm_o),.score(score),.valid_count(vc),.softmax_out(soft_o));
-integer c,i,miss; initial begin strobe=63;$readmemh("{paths['a'].as_posix()}",am);$readmemh("{paths['b'].as_posix()}",bm);$readmemh("{paths['g'].as_posix()}",gm);$readmemh("{paths['e'].as_posix()}",em);$readmemh("{paths['ea'].as_posix()}",eam);$readmemh("{paths['eb'].as_posix()}",ebm);$readmemh("{paths['eo'].as_posix()}",eom);$readmemh("{paths['vc'].as_posix()}",vcm); miss=0; gs=3; for(c=0;c<{n};c=c+1) begin ea=eam[c];eb=ebm[c];eo=eom[c];vc=vcm[c];for(i=0;i<48;i=i+1) begin a[i]=0;b[i]=0;g[i]=0;if(i<{w}) begin a[i]=am[c*{w}+i];b[i]=bm[c*{w}+i];g[i]=gm[c*{w}+i];end end for(i=0;i<32;i=i+1) score[i]=i<{w}?am[c*{w}+i]:0; strobe=c[5:0]; #1; for(i=0;i<{w};i=i+1) if ($signed({out_kind}[i]) !== $signed(em[c*{w}+i])) miss=miss+1; end $display("VECTOR_RESULT {n*w} %0d",miss);$finish;end endmodule
+integer c,i,miss; initial begin strobe=63;$readmemh("{paths['a'].as_posix()}",am);$readmemh("{paths['b'].as_posix()}",bm);$readmemh("{paths['g'].as_posix()}",gm);$readmemh("{paths['e'].as_posix()}",em);$readmemh("{paths['ea'].as_posix()}",eam);$readmemh("{paths['eb'].as_posix()}",ebm);$readmemh("{paths['eo'].as_posix()}",eom);$readmemh("{paths['vc'].as_posix()}",vcm); miss=0; gs=3; for(c=0;c<{n};c=c+1) begin ea=eam[c];eb=ebm[c];eo=eom[c];vc=vcm[c];a=0;b=0;g=0;score=0;for(i=0;i<48;i=i+1) if(i<{w}) begin a[i*8 +: 8]=am[c*{w}+i];b[i*8 +: 8]=bm[c*{w}+i];g[i*8 +: 8]=gm[c*{w}+i];end for(i=0;i<32;i=i+1) if(i<{w}) score[i*8 +: 8]=am[c*{w}+i]; strobe=c[5:0]; #1; for(i=0;i<{w};i=i+1) if ($signed({out_kind}[i*8 +: 8]) !== $signed(em[c*{w}+i])) miss=miss+1; end $display("VECTOR_RESULT {n*w} %0d",miss);$finish;end endmodule
 '''
     tb_path=BUILD/f"{name}.sv"; tb_path.write_text(tb,encoding="utf-8")
-    xvlog=ROOT / "C:/AMDDesignTools" # dummy keeps compiler selection below explicit
-    exe=Path(r"C:\AMDDesignTools\2025.2\Vivado\bin\xvlog.bat")
-    if not exe.is_file(): raise RuntimeError("Vivado xsim unavailable")
-    for cmd in ([str(exe),"-sv","rtl/vector/vector_alu.sv",str(tb_path)], [str(exe.parent/"xelab.bat"),"tb","-s",name], [str(exe.parent/"xsim.bat"),name,"-runall"]):
+    iverilog=Path(r"C:\iverilog\bin\iverilog.exe")
+    vvp=iverilog.with_name("vvp.exe")
+    if iverilog.is_file() and vvp.is_file():
+        commands=([str(iverilog),"-g2012","-s","tb","-o",str(BUILD/f"{name}.vvp"),"rtl/vector/vector_alu.sv",str(tb_path)],
+                  [str(vvp),str(BUILD/f"{name}.vvp")])
+    else:
+        exe=Path(r"C:\AMDDesignTools\2025.2\Vivado\bin\xvlog.bat")
+        if not exe.is_file(): raise RuntimeError("neither Icarus nor Vivado xsim is available")
+        commands=([str(exe),"-sv","rtl/vector/vector_alu.sv",str(tb_path)], [str(exe.parent/"xelab.bat"),"tb","-s",name], [str(exe.parent/"xsim.bat"),name,"-runall"])
+    for cmd in commands:
         p=subprocess.run(cmd,cwd=ROOT,text=True,capture_output=True)
         if p.returncode: raise RuntimeError(p.stdout+p.stderr)
     line=[x for x in p.stdout.splitlines() if x.startswith("VECTOR_RESULT")][-1].split()

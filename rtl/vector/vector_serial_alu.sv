@@ -7,7 +7,13 @@ module vector_serial_alu(
  output logic [15:0] norm_word, output logic [15:0] soft_word);
  logic [15:0] exp_q15[0:128],rsqrt_q14[0:191]; integer i,ss,q,rem,e,m,bin,mx,rel,sum,num;
  reg signed [63:0] r0,t,r1,p0,p1;
- initial begin $readmemh("rtl/vector/exp_q15.mem",exp_q15); $readmemh("rtl/vector/rsqrt_q14.mem",rsqrt_q14); end
+ initial begin
+`ifdef SYNTHESIS
+   $readmemh("exp_q15.mem",exp_q15); $readmemh("rsqrt_q14.mem",rsqrt_q14);
+`else
+   $readmemh("rtl/vector/exp_q15.mem",exp_q15); $readmemh("rtl/vector/rsqrt_q14.mem",rsqrt_q14);
+`endif
+ end
  function automatic signed [63:0] rne(input signed [63:0] v,input integer sh);
    reg signed[63:0] z,d,r,h; begin if(sh<=0) rne=v; else begin z=v<0?-v:v;d=z>>>sh;r=z-(d<<<sh);h=64'sd1<<<(sh-1);if(r>h||(r==h&&d[0]))d=d+1;rne=v<0?-d:d;end end endfunction
  function automatic [7:0] sat(input signed [63:0] v); begin if(v>127)sat=8'h7f;else if(v < -128)sat=8'h80;else sat=v[7:0];end endfunction
