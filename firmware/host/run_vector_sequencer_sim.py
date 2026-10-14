@@ -5,7 +5,7 @@ it checks real buffer addresses, record validation, causal row traversal, and
 the write-side protocol used by ``top``.
 """
 from __future__ import annotations
-import re
+import os, re
 import subprocess
 from pathlib import Path
 import numpy as np
@@ -16,6 +16,8 @@ IVERILOG = Path(r"C:\iverilog\bin\iverilog.exe")
 VVP = IVERILOG.with_name("vvp.exe")
 from run_vector_rtl_sim import rne, rms, sat, soft
 
+SELECTED_OPS = set(os.environ.get("VECTOR_SEQUENCER_OPS", "vadd,norm,pos,soft").split(","))
+
 
 def pack(values: np.ndarray) -> list[int]:
     x = np.asarray(values).astype(np.uint8).reshape(-1)
@@ -24,6 +26,8 @@ def pack(values: np.ndarray) -> list[int]:
 
 def run_case(name: str, subop: int, dst: int, src: int, record: int, length: int,
              words: dict[int, int], expected: list[int]) -> dict:
+    if name not in SELECTED_OPS:
+        return {"cases": 0, "compared_bytes": 0, "mismatches": 0, "cycles": 0, "passed": True, "skipped": True}
     BUILD.mkdir(parents=True, exist_ok=True)
     init = "\n".join(f"mem[{a}] = 16'h{v:04x};" for a, v in sorted(words.items()))
     checks = "\n".join(f"if (mem[{dst+i}] !== 16'h{v:04x}) begin miss=miss+1; $display(\"SEQ_MISMATCH {name} {i} %h {v:04x}\",mem[{dst+i}]); end" for i, v in enumerate(expected))

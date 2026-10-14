@@ -13,13 +13,14 @@ module vector_sequencer #(
     output logic [15:0] buf_wdata
 );
     localparam [3:0] ADD=0, NORM=1, POS=2, SOFT=3;
-    localparam [4:0] IDLE=0, PR=1, PW0=2, PW1=3, CHECK=4,
+    localparam [5:0] IDLE=0, PR=1, PW0=2, PW1=3, CHECK=4,
                      GR=5, GW0=6, GW1=7, AR=8, AW0=9, AW1=10,
                      BR=11, BW0=12, BW1=13, WRITE=14, WW=15,
                      NAR=16, NAW0=17, NAW1=18, NWRITE=19, NWW=20,
                      SR=21, SW0=22, SW1=23, SWRITE=24, SWW=25,
-                     FINISH=26;
-    logic [4:0] state;
+                     FINISH=26, ALIGN_PIPE=27, ADD_PIPE=28, RNE_PIPE=29,
+                     SAT_PIPE=30;
+    logic [5:0] state;
     logic [15:0] record [0:7];
     logic signed [7:0] a [0:47], b [0:47], gamma [0:47], score [0:31];
     logic signed [383:0] a_flat, gamma_flat;
@@ -32,6 +33,9 @@ module vector_sequencer #(
     logic [9:0] index;
     logic [5:0] row;
     logic [15:0] word_a, word_b;
+    logic signed [8:0] aligned_a_lo, aligned_a_hi, aligned_b_lo, aligned_b_hi;
+    logic signed [9:0] add_lo, add_hi, rounded_lo, rounded_hi;
+    logic [15:0] add_word;
     logic [31:0] square_sum;
     logic [15:0] words_total;
 
@@ -81,7 +85,7 @@ module vector_sequencer #(
             AR, NAR: begin buf_re=1; buf_store_en=1; buf_addr=src0 + ((subop==NORM) ? row*24+index : index); end
             BR: begin buf_re=1; buf_store_en=1; buf_addr=(subop==POS ? record[1] : record[1])+index; end
             SR: begin buf_re=1; buf_store_en=1; buf_addr=src0+row*16+index; end
-            WRITE: begin buf_we=1; buf_store_en=1; buf_addr=dst+index; buf_wdata={sat8(rne_shift($signed(word_a[15:8]),eo-ea)+rne_shift($signed(word_b[15:8]),eo-eb)),sat8(rne_shift($signed(word_a[7:0]),eo-ea)+rne_shift($signed(word_b[7:0]),eo-eb))}; end
+            WRITE: begin buf_we=1; buf_store_en=1; buf_addr=dst+index; buf_wdata=add_word; end
             NWRITE: begin buf_we=1; buf_store_en=1; buf_addr=dst+row*24+index; buf_wdata=norm_word; end
             SWRITE: begin buf_we=1; buf_store_en=1; buf_addr=dst+row*16+index; buf_wdata=soft_word; end
             default: ;
@@ -143,7 +147,25 @@ module vector_sequencer #(
                     if(index==23) begin index<=0; state<=NWRITE; end else begin index<=index+1; state<=NAR; end
                 end
                 BR: state<=BW0; BW0: state<=BW1;
-                BW1: begin word_b<=buf_rdata; state<=WRITE; end
+                BW1: begin word_b<=buf_rdata; state<=ALIGN_PIPE; end
+                // Align, add, and saturation are separate registers so the
+                // VADD/VPOS write path has no element-wide combinational cone.
+                ALIGN_PIPE: begin
+                    aligned_a_lo<=rne_shift($signed(word_a[7:0]),eo-ea);
+                    aligned_a_hi<=rne_shift($signed(word_a[15:8]),eo-ea);
+                    aligned_b_lo<=rne_shift($signed(word_b[7:0]),eo-eb);
+                    aligned_b_hi<=rne_shift($signed(word_b[15:8]),eo-eb);
+                    state<=ADD_PIPE;
+                end
+                ADD_PIPE: begin
+                    add_lo<=aligned_a_lo+aligned_b_lo;
+                    add_hi<=aligned_a_hi+aligned_b_hi;
+                    state<=RNE_PIPE;
+                end
+                // Alignment already implements the contract's RNE shifts;
+                // retain a registered rounding boundary before saturation.
+                RNE_PIPE: begin rounded_lo<=add_lo; rounded_hi<=add_hi; state<=SAT_PIPE; end
+                SAT_PIPE: begin add_word<={sat8(rounded_hi),sat8(rounded_lo)}; state<=WRITE; end
                 WRITE: state<=WW;
                 WW: if(index+1>=words_total) begin state<=FINISH; end else begin index<=index+1; state<=AR; end
                 NWRITE: state<=NWW;

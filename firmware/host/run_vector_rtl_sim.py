@@ -5,7 +5,7 @@ uses Vivado xsim when Icarus is not installed, keeping the same SV subset used
 by the board build.  Generated sources and memories live only under build/.
 """
 from __future__ import annotations
-import json, shutil, subprocess, sys
+import json, os, shutil, subprocess, sys
 from pathlib import Path
 import numpy as np
 
@@ -13,6 +13,9 @@ ROOT = Path(__file__).resolve().parents[2]
 BUILD = ROOT / "build" / "phase3_vector"
 sys.path.insert(0, str(ROOT / "firmware" / "host"))
 from isa_simulator import UTPUISASimulator
+
+# Focused rewrite steps may execute only the completed RTL operation(s).
+SELECTED_OPS = set(os.environ.get("VECTOR_RTL_OPS", "vadd,vpos,rms,softmax").split(","))
 
 
 def rne(v, s): return UTPUISASimulator._rshift_rne(v, s)
@@ -38,6 +41,8 @@ def write_mem(path: Path, values):
     path.write_text("\n".join(f"{int(x)&255:02x}" for x in np.asarray(values).reshape(-1))+"\n", encoding="ascii")
 
 def run_tb(name, a, b, g, expected, eas=None, ebs=None, eos=None, valid=None, softmax=False):
+    if name not in SELECTED_OPS:
+        return {"cases": 0, "compared_bytes": 0, "mismatches": 0, "passed": True, "skipped": True}
     BUILD.mkdir(parents=True, exist_ok=True); n,w=a.shape
     paths={"a":BUILD/f"{name}_a.mem","b":BUILD/f"{name}_b.mem","g":BUILD/f"{name}_g.mem","e":BUILD/f"{name}_e.mem"}
     for k,v in (("a",a),("b",b),("g",g),("e",expected)): write_mem(paths[k],v)
