@@ -175,6 +175,9 @@ module top #(
     logic [(QUANTIZER_SIZE*COMPUTE_DATA_WIDTH)-1:0] quantizer_out_flat;
     logic [(QUANTIZER_SIZE*16)-1:0]           requant_multiplier_flat;
     logic [(QUANTIZER_SIZE*16)-1:0]           requant_right_shift_flat;
+    logic                        requant_finalize_enable;
+    logic [15:0]                 requant_multiplier_latched [ARRAY_SIZE-1:0];
+    logic [15:0]                 requant_right_shift_latched [ARRAY_SIZE-1:0];
 
     // ReLU
     logic signed [COMPUTE_DATA_WIDTH-1:0] relu_in  [RELU_SIZE-1:0];
@@ -186,6 +189,8 @@ module top #(
     logic signed [COMPUTE_DATA_WIDTH-1:0] compute_to_buffer [NUM_COMPUTE_LANES-1:0];
     logic [STORE_DATA_WIDTH-1:0] controller_to_buffer;
     logic [STORE_DATA_WIDTH-1:0] buffer_to_controller;
+    logic [$clog2(BSTORE_WIDTH+1)-1:0] buffer_store_count;
+    logic [BUFFER_WORD_SIZE-1:0] buffer_store_wide [BSTORE_WIDTH-1:0];
     logic vec_busy, vec_done, vec_error, vec_start;
     logic [15:0] vec_desc [0:4];
     logic [2:0] vec_desc_index;
@@ -486,8 +491,6 @@ module top #(
     logic [BUFFER_WORD_SIZE-1:0] bstore_data_word;
     logic [BUFFER_WORD_SIZE-1:0] bstore_skid [BSTORE_WIDTH-1:0];
     logic [$clog2(BSTORE_WIDTH+1)-1:0] bstore_fill;
-    logic [$clog2(BSTORE_WIDTH+1)-1:0] buffer_store_count;
-    logic [BUFFER_WORD_SIZE-1:0] buffer_store_wide [BSTORE_WIDTH-1:0];
     logic bstore_skid_ready;
     logic bstore_more;
     logic bstore_count_latched;
@@ -512,12 +515,9 @@ module top #(
     // QUANTIZER_PIPE_DEPTH==0 (combo) keeps this at 0 and captures immediately.
     logic [3:0]                       writeback_pipe_fill_cnt;
     logic                        requant_enable_latched;
-    logic [15:0]                 requant_multiplier_latched [ARRAY_SIZE-1:0];
-    logic [15:0]                 requant_right_shift_latched [ARRAY_SIZE-1:0];
     logic                        requant_vector_mode_latched;
     logic [7:0]                  requant_vector_count_latched;
     logic [7:0]                  requant_vector_index_latched;
-    logic                        requant_finalize_enable;
     assign requant_finalize_enable = requant_enable_latched && !compute_en && quantizer_en;
     // Phase 4: latched opcode for routing the EXT_ADDR_LATCH_STATE -> target
     // state in 2-word extended-address mode. Only used when EXT_ADDR_EN=1.
@@ -670,7 +670,6 @@ module top #(
         if (rst_int) begin
             perf_cycle_counter <= '0;
             perf_busy_counter <= '0;
-            vector_error_code <= '0;
             perf_program_count <= '0;
             perf_program_cycle_counter <= '0;
             perf_program_active <= 1'b0;
@@ -1157,6 +1156,7 @@ module top #(
                 perf_waiting_for_immediate_finalize <= 1'b0;
                 perf_span_measuring <= 1'b0;
                 perf_compute_span_counter <= '0;
+                vector_error_code <= '0;
                 vec_start <= 1'b0;
                 vec_desc_index <= '0;
                 for (int vi = 0; vi < 5; vi++) vec_desc[vi] <= '0;
