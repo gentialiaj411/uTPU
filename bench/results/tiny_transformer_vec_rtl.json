@@ -1348,7 +1348,7 @@
   "source_tree": {
     "firmware/host": "3b02a04c90b4d544cc12da1361a00b0ca1388f3c",
     "rtl": "ace970c09bef2604e4cf775a9768e490c57ca1a7",
-    "tools": "75aed3e69d31b736329a4ff37c28a133a7f8146f"
+    "tools": "a20d45ac920bbc9ab9d3aa66b173b83a5495e48b"
   },
   "status": "phase3_vector_rtl_incomplete",
   "trace_full_top": {
