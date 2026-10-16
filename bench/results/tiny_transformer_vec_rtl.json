@@ -146,6 +146,1048 @@
     "mismatches": 0,
     "passed": true
   },
+  "dual_mode_regression": {
+    "cases": 26,
+    "command": "python tools/run_phase3_evidence.py --only dual_mode",
+    "declared_harnesses": {
+      "batched": {
+        "command": "python tools/run_phase3_evidence.py --only dual_mode",
+        "mode_runs": [
+          0,
+          1
+        ],
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_batched_gemm.sv"
+      },
+      "bitmatch": {
+        "command": "python tools/run_phase3_evidence.py --only dual_mode",
+        "mode_runs": [
+          0,
+          1
+        ],
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_fused_compressed_program.sv"
+      },
+      "bstore_wide": {
+        "command": "python tools/run_phase3_evidence.py --only dual_mode",
+        "mode_runs": [
+          0,
+          1
+        ],
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_bstore_wide_smoke.sv"
+      },
+      "buffer_resident_uart_replay": {
+        "command": "python tools/run_phase3_evidence.py --only dual_mode",
+        "mode_runs": [
+          0,
+          1
+        ],
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_buffer_resident_uart_replay.sv"
+      },
+      "fused": {
+        "command": "python tools/run_phase3_evidence.py --only dual_mode",
+        "mode_runs": [
+          0,
+          1
+        ],
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_fused_compressed_program.sv"
+      },
+      "latency": {
+        "command": "python tools/run_phase3_evidence.py --only dual_mode",
+        "mode_runs": [
+          0,
+          1
+        ],
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_latency_determinism.sv"
+      },
+      "mnist": {
+        "command": "python tools/run_phase3_evidence.py --only dual_mode",
+        "mode_runs": [
+          0,
+          1
+        ],
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_mnist_utpu_program.sv"
+      },
+      "perf_counters": {
+        "command": "python tools/run_phase3_evidence.py --only dual_mode",
+        "mode_runs": [
+          0,
+          1
+        ],
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_perf_counters.sv"
+      },
+      "phase4_widen": {
+        "command": "python tools/run_phase3_evidence.py --only dual_mode",
+        "mode_runs": [
+          0,
+          1
+        ],
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_phase4_widen.sv"
+      },
+      "prog_depth": {
+        "command": "python tools/run_phase3_evidence.py --only dual_mode",
+        "mode_runs": [
+          0,
+          1
+        ],
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_prog_depth_smoke.sv"
+      },
+      "residual": {
+        "command": "python tools/run_phase3_evidence.py --only dual_mode",
+        "mode_runs": [
+          0,
+          1
+        ],
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_fused_residual_program.sv"
+      },
+      "scheduler": {
+        "command": "python tools/run_phase3_evidence.py --only dual_mode",
+        "mode_runs": [
+          0,
+          1
+        ],
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_scheduler_cycles.sv"
+      },
+      "uart_replay": {
+        "command": "python tools/run_phase3_evidence.py --only dual_mode",
+        "mode_runs": [
+          0,
+          1
+        ],
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_uart_replay.sv"
+      }
+    },
+    "exemptions": {
+      "tb_pe_array_packed": "standalone pe_array_packed unit; no top module or VECTOR_UNIT_EN parameter",
+      "tb_pe_array_packed_cycles": "standalone pe_array_packed cycle unit; no top module or VECTOR_UNIT_EN parameter",
+      "tb_pe_array_packed_hardened": "standalone pe_array_packed hardening unit; no top module or VECTOR_UNIT_EN parameter",
+      "tb_pe_array_packed_odd_guard": "standalone pe_array_packed guard unit; no top module or VECTOR_UNIT_EN parameter",
+      "tb_pe_controller_streaming": "standalone PE controller unit; no top module or VECTOR_UNIT_EN parameter (attempted both modes; existing test reports unresolved result values)",
+      "tb_pe_packed_pair": "standalone packed PE pair unit; no top module or VECTOR_UNIT_EN parameter",
+      "tb_top_packed_smoke": "synthesis-only top_packed datapath wrapper, not rtl/top/top.sv; no VECTOR_UNIT_EN parameter"
+    },
+    "failed": [],
+    "globbed_testbench_count": 21,
+    "globbed_testbenches": [
+      "rtl\\tb\\tb_batched_gemm.sv",
+      "rtl\\tb\\tb_bstore_wide_smoke.sv",
+      "rtl\\tb\\tb_buf_fill_smoke.sv",
+      "rtl\\tb\\tb_buffer_resident_uart_replay.sv",
+      "rtl\\tb\\tb_fused_compressed_program.sv",
+      "rtl\\tb\\tb_fused_residual_program.sv",
+      "rtl\\tb\\tb_latency_determinism.sv",
+      "rtl\\tb\\tb_mnist_utpu_program.sv",
+      "rtl\\tb\\tb_pe_array_packed.sv",
+      "rtl\\tb\\tb_pe_array_packed_cycles.sv",
+      "rtl\\tb\\tb_pe_array_packed_hardened.sv",
+      "rtl\\tb\\tb_pe_array_packed_odd_guard.sv",
+      "rtl\\tb\\tb_pe_controller_streaming.sv",
+      "rtl\\tb\\tb_pe_packed_pair.sv",
+      "rtl\\tb\\tb_perf_counters.sv",
+      "rtl\\tb\\tb_phase4_widen.sv",
+      "rtl\\tb\\tb_prog_depth_smoke.sv",
+      "rtl\\tb\\tb_scheduler_cycles.sv",
+      "rtl\\tb\\tb_top_packed_smoke.sv",
+      "rtl\\tb\\tb_uart_replay.sv",
+      "rtl\\tb\\tb_vector_full_top_decode_errors.sv"
+    ],
+    "mismatches": 0,
+    "passed": true,
+    "python_iverilog_harness_inventory": {
+      "run_boolean_xc7s50_preflight.py": {
+        "exempted": true,
+        "passed": true,
+        "reason": "workload/preflight or standalone-vector harness has no single globbed top.sv testbench with VECTOR_UNIT_EN selection"
+      },
+      "run_bstore_wide_smoke.py": {
+        "coverage": "backing rtl/tb testbench executed directly by this runner",
+        "mode_runs": [
+          0,
+          1
+        ],
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_bstore_wide_smoke.sv"
+      },
+      "run_buffer_resident_models.py": {
+        "coverage": "backing rtl/tb testbench executed directly by this runner",
+        "mode_runs": [
+          0,
+          1
+        ],
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_buffer_resident_uart_replay.sv"
+      },
+      "run_cycle_attribution.py": {
+        "coverage": "backing rtl/tb testbench executed directly by this runner",
+        "mode_runs": [
+          0,
+          1
+        ],
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_batched_gemm.sv"
+      },
+      "run_cycle_attribution_mnist.py": {
+        "coverage": "backing rtl/tb testbench executed directly by this runner",
+        "mode_runs": [
+          0,
+          1
+        ],
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_mnist_utpu_program.sv"
+      },
+      "run_isa_rtl_bitmatch.py": {
+        "coverage": "backing rtl/tb testbench executed directly by this runner",
+        "mode_runs": [
+          0,
+          1
+        ],
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_fused_compressed_program.sv"
+      },
+      "run_isa_rtl_residual_bitmatch.py": {
+        "coverage": "backing rtl/tb testbench executed directly by this runner",
+        "mode_runs": [
+          0,
+          1
+        ],
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_fused_residual_program.sv"
+      },
+      "run_latency_determinism.py": {
+        "coverage": "backing rtl/tb testbench executed directly by this runner",
+        "mode_runs": [
+          0,
+          1
+        ],
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_latency_determinism.sv"
+      },
+      "run_latency_determinism_vs_gpu.py": {
+        "coverage": "backing rtl/tb testbench executed directly by this runner",
+        "mode_runs": [
+          0,
+          1
+        ],
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_latency_determinism.sv"
+      },
+      "run_mnist_utpu_demo.py": {
+        "coverage": "backing rtl/tb testbench executed directly by this runner",
+        "mode_runs": [
+          0,
+          1
+        ],
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_mnist_utpu_program.sv"
+      },
+      "run_packed_array_cycle_compare.py": {
+        "exempted": true,
+        "passed": true,
+        "reason": "standalone pe_array_packed cycle unit; no top module or VECTOR_UNIT_EN parameter",
+        "testbench": "rtl\\tb\\tb_pe_array_packed_cycles.sv"
+      },
+      "run_pe_array_packed_hardened_sim.py": {
+        "exempted": true,
+        "passed": true,
+        "reason": "standalone pe_array_packed hardening unit; no top module or VECTOR_UNIT_EN parameter",
+        "testbench": "rtl\\tb\\tb_pe_array_packed_hardened.sv"
+      },
+      "run_pe_array_packed_sim.py": {
+        "exempted": true,
+        "passed": true,
+        "reason": "standalone pe_array_packed unit; no top module or VECTOR_UNIT_EN parameter",
+        "testbench": "rtl\\tb\\tb_pe_array_packed.sv"
+      },
+      "run_pe_packed_pair_sim.py": {
+        "exempted": true,
+        "passed": true,
+        "reason": "standalone packed PE pair unit; no top module or VECTOR_UNIT_EN parameter",
+        "testbench": "rtl\\tb\\tb_pe_packed_pair.sv"
+      },
+      "run_prog_depth_smoke.py": {
+        "coverage": "backing rtl/tb testbench executed directly by this runner",
+        "mode_runs": [
+          0,
+          1
+        ],
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_prog_depth_smoke.sv"
+      },
+      "run_real_model_accelerator.py": {
+        "exempted": true,
+        "passed": true,
+        "reason": "workload/preflight or standalone-vector harness has no single globbed top.sv testbench with VECTOR_UNIT_EN selection"
+      },
+      "run_requant_rightsizing_measure.py": {
+        "exempted": true,
+        "passed": true,
+        "reason": "workload/preflight or standalone-vector harness has no single globbed top.sv testbench with VECTOR_UNIT_EN selection"
+      },
+      "run_restoring_divider_sim.py": {
+        "exempted": true,
+        "passed": true,
+        "reason": "workload/preflight or standalone-vector harness has no single globbed top.sv testbench with VECTOR_UNIT_EN selection"
+      },
+      "run_rtl_batched_gemm_sim.py": {
+        "coverage": "backing rtl/tb testbench executed directly by this runner",
+        "mode_runs": [
+          0,
+          1
+        ],
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_batched_gemm.sv"
+      },
+      "run_rtl_fused_sim.py": {
+        "coverage": "backing rtl/tb testbench executed directly by this runner",
+        "mode_runs": [
+          0,
+          1
+        ],
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_fused_compressed_program.sv"
+      },
+      "run_saved_buffer_resident_rtl.py": {
+        "coverage": "backing rtl/tb testbench executed directly by this runner",
+        "mode_runs": [
+          0,
+          1
+        ],
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_buffer_resident_uart_replay.sv"
+      },
+      "run_scheduler_benchmark.py": {
+        "coverage": "backing rtl/tb testbench executed directly by this runner",
+        "mode_runs": [
+          0,
+          1
+        ],
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_perf_counters.sv"
+      },
+      "run_scheduler_rtl_crosscheck.py": {
+        "coverage": "backing rtl/tb testbench executed directly by this runner",
+        "mode_runs": [
+          0,
+          1
+        ],
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_scheduler_cycles.sv"
+      },
+      "run_scheduler_rtl_crosscheck_bigmlp.py": {
+        "coverage": "backing rtl/tb testbench executed directly by this runner",
+        "mode_runs": [
+          0,
+          1
+        ],
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_scheduler_cycles.sv"
+      },
+      "run_steady_state_attribution.py": {
+        "exempted": true,
+        "passed": true,
+        "reason": "workload/preflight or standalone-vector harness has no single globbed top.sv testbench with VECTOR_UNIT_EN selection"
+      },
+      "run_systolic_characterization.py": {
+        "exempted": true,
+        "passed": true,
+        "reason": "workload/preflight or standalone-vector harness has no single globbed top.sv testbench with VECTOR_UNIT_EN selection"
+      },
+      "run_top_packed_smoke.py": {
+        "exempted": true,
+        "passed": true,
+        "reason": "synthesis-only top_packed datapath wrapper, not rtl/top/top.sv; no VECTOR_UNIT_EN parameter",
+        "testbench": "rtl\\tb\\tb_top_packed_smoke.sv"
+      },
+      "run_uart_preboard_demo.py": {
+        "coverage": "backing rtl/tb testbench executed directly by this runner",
+        "mode_runs": [
+          0,
+          1
+        ],
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_uart_replay.sv"
+      },
+      "run_utpu_cycle_model_heldout.py": {
+        "exempted": true,
+        "passed": true,
+        "reason": "workload/preflight or standalone-vector harness has no single globbed top.sv testbench with VECTOR_UNIT_EN selection"
+      },
+      "run_vector_rtl_sim.py": {
+        "exempted": true,
+        "passed": true,
+        "reason": "workload/preflight or standalone-vector harness has no single globbed top.sv testbench with VECTOR_UNIT_EN selection"
+      },
+      "run_vector_sequencer_sim.py": {
+        "exempted": true,
+        "passed": true,
+        "reason": "workload/preflight or standalone-vector harness has no single globbed top.sv testbench with VECTOR_UNIT_EN selection"
+      }
+    },
+    "results": {
+      "tb_batched_gemm": {
+        "cases": 1,
+        "command": "python tools/run_phase3_evidence.py --only dual_mode",
+        "comparison_exemption": null,
+        "mismatches": 0,
+        "modes": {
+          "0": {
+            "command": "C:\\iverilog\\bin\\iverilog.exe -g2012 -DICARUS -DPHASE3_VECTOR_UNIT_EN=0 -I C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU -s tb_batched_gemm -o C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_batched_gemm_ven0.vvp C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\xpm_memory_sdpram_stub.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\memory\\instr_bram.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_controller.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\unified_buffer\\unified_buffer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_rx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_tx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_receiver.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_transmitter.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\clk_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_serial_alu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\restoring_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_sequencer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_batched_gemm.sv && C:\\iverilog\\bin\\vvp.exe -n C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_batched_gemm_ven0.vvp",
+            "log": "build\\phase3_dual_mode\\tb_batched_gemm_ven0.log",
+            "output_bytes": 2171,
+            "output_sha256": "db334ef5844f9b1dc70f7b4b0f899a4acccc165113ef64636bf2d7508b93134c",
+            "passed": true,
+            "returncode": 0,
+            "reused": true
+          },
+          "1": {
+            "command": "C:\\iverilog\\bin\\iverilog.exe -g2012 -DICARUS -DPHASE3_VECTOR_UNIT_EN=1 -I C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU -s tb_batched_gemm -o C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_batched_gemm_ven1.vvp C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\xpm_memory_sdpram_stub.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\memory\\instr_bram.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_controller.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\unified_buffer\\unified_buffer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_rx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_tx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_receiver.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_transmitter.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\clk_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_serial_alu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\restoring_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_sequencer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_batched_gemm.sv && C:\\iverilog\\bin\\vvp.exe -n C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_batched_gemm_ven1.vvp",
+            "log": "build\\phase3_dual_mode\\tb_batched_gemm_ven1.log",
+            "output_bytes": 2171,
+            "output_sha256": "db334ef5844f9b1dc70f7b4b0f899a4acccc165113ef64636bf2d7508b93134c",
+            "passed": true,
+            "returncode": 0,
+            "reused": true
+          }
+        },
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_batched_gemm.sv"
+      },
+      "tb_bstore_wide_smoke": {
+        "cases": 1,
+        "command": "python tools/run_phase3_evidence.py --only dual_mode",
+        "comparison_exemption": null,
+        "mismatches": 0,
+        "modes": {
+          "0": {
+            "command": "C:\\iverilog\\bin\\iverilog.exe -g2012 -DICARUS -DPHASE3_VECTOR_UNIT_EN=0 -I C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU -s tb_bstore_wide_smoke -o C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_bstore_wide_smoke_ven0.vvp C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\xpm_memory_sdpram_stub.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\memory\\instr_bram.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_controller.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\unified_buffer\\unified_buffer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_rx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_tx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_receiver.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_transmitter.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\clk_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_serial_alu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\restoring_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_sequencer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_bstore_wide_smoke.sv && C:\\iverilog\\bin\\vvp.exe -n C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_bstore_wide_smoke_ven0.vvp",
+            "log": "build\\phase3_dual_mode\\tb_bstore_wide_smoke_ven0.log",
+            "output_bytes": 909,
+            "output_sha256": "e1b672f82735f0fd59089f41ae8c8930b07b063f4d11a40f02c11b343a41ddfc",
+            "passed": true,
+            "returncode": 0,
+            "reused": true
+          },
+          "1": {
+            "command": "C:\\iverilog\\bin\\iverilog.exe -g2012 -DICARUS -DPHASE3_VECTOR_UNIT_EN=1 -I C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU -s tb_bstore_wide_smoke -o C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_bstore_wide_smoke_ven1.vvp C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\xpm_memory_sdpram_stub.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\memory\\instr_bram.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_controller.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\unified_buffer\\unified_buffer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_rx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_tx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_receiver.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_transmitter.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\clk_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_serial_alu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\restoring_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_sequencer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_bstore_wide_smoke.sv && C:\\iverilog\\bin\\vvp.exe -n C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_bstore_wide_smoke_ven1.vvp",
+            "log": "build\\phase3_dual_mode\\tb_bstore_wide_smoke_ven1.log",
+            "output_bytes": 909,
+            "output_sha256": "e1b672f82735f0fd59089f41ae8c8930b07b063f4d11a40f02c11b343a41ddfc",
+            "passed": true,
+            "returncode": 0,
+            "reused": true
+          }
+        },
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_bstore_wide_smoke.sv"
+      },
+      "tb_buf_fill_smoke": {
+        "cases": 1,
+        "command": "python tools/run_phase3_evidence.py --only dual_mode",
+        "comparison_exemption": null,
+        "mismatches": 0,
+        "modes": {
+          "0": {
+            "command": "C:\\iverilog\\bin\\iverilog.exe -g2012 -DICARUS -DPHASE3_VECTOR_UNIT_EN=0 -I C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU -s tb_buf_fill_smoke -o C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_buf_fill_smoke_ven0.vvp C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\xpm_memory_sdpram_stub.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\memory\\instr_bram.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_controller.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\unified_buffer\\unified_buffer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_rx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_tx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_receiver.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_transmitter.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\clk_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_serial_alu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\restoring_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_sequencer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_buf_fill_smoke.sv && C:\\iverilog\\bin\\vvp.exe -n C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_buf_fill_smoke_ven0.vvp",
+            "log": "build\\phase3_dual_mode\\tb_buf_fill_smoke_ven0.log",
+            "output_bytes": 658,
+            "output_sha256": "e4b91762f2aac79b9878b25162709d80460c33d41aaf1c10b688cabf8026490d",
+            "passed": true,
+            "returncode": 0,
+            "reused": true
+          },
+          "1": {
+            "command": "C:\\iverilog\\bin\\iverilog.exe -g2012 -DICARUS -DPHASE3_VECTOR_UNIT_EN=1 -I C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU -s tb_buf_fill_smoke -o C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_buf_fill_smoke_ven1.vvp C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\xpm_memory_sdpram_stub.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\memory\\instr_bram.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_controller.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\unified_buffer\\unified_buffer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_rx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_tx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_receiver.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_transmitter.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\clk_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_serial_alu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\restoring_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_sequencer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_buf_fill_smoke.sv && C:\\iverilog\\bin\\vvp.exe -n C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_buf_fill_smoke_ven1.vvp",
+            "log": "build\\phase3_dual_mode\\tb_buf_fill_smoke_ven1.log",
+            "output_bytes": 658,
+            "output_sha256": "e4b91762f2aac79b9878b25162709d80460c33d41aaf1c10b688cabf8026490d",
+            "passed": true,
+            "returncode": 0,
+            "reused": true
+          }
+        },
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_buf_fill_smoke.sv"
+      },
+      "tb_buffer_resident_uart_replay": {
+        "cases": 1,
+        "command": "python tools/run_phase3_evidence.py --only dual_mode",
+        "comparison_exemption": null,
+        "mismatches": 0,
+        "modes": {
+          "0": {
+            "command": "C:\\iverilog\\bin\\iverilog.exe -g2012 -DICARUS -DPHASE3_VECTOR_UNIT_EN=0 -I C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU -s tb_buffer_resident_uart_replay -o C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_buffer_resident_uart_replay_ven0.vvp C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\xpm_memory_sdpram_stub.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\memory\\instr_bram.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_controller.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\unified_buffer\\unified_buffer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_rx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_tx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_receiver.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_transmitter.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\clk_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_serial_alu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\restoring_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_sequencer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_buffer_resident_uart_replay.sv && C:\\iverilog\\bin\\vvp.exe -n C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_buffer_resident_uart_replay_ven0.vvp",
+            "log": "build\\phase3_dual_mode\\tb_buffer_resident_uart_replay_ven0.log",
+            "output_bytes": 3269,
+            "output_sha256": "73caf3bf53889fc5634ef09a1cedd08be652d4150497e1dade9eb9a50d11971e",
+            "passed": true,
+            "returncode": 0,
+            "reused": true
+          },
+          "1": {
+            "command": "C:\\iverilog\\bin\\iverilog.exe -g2012 -DICARUS -DPHASE3_VECTOR_UNIT_EN=1 -I C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU -s tb_buffer_resident_uart_replay -o C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_buffer_resident_uart_replay_ven1.vvp C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\xpm_memory_sdpram_stub.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\memory\\instr_bram.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_controller.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\unified_buffer\\unified_buffer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_rx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_tx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_receiver.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_transmitter.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\clk_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_serial_alu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\restoring_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_sequencer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_buffer_resident_uart_replay.sv && C:\\iverilog\\bin\\vvp.exe -n C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_buffer_resident_uart_replay_ven1.vvp",
+            "log": "build\\phase3_dual_mode\\tb_buffer_resident_uart_replay_ven1.log",
+            "output_bytes": 3269,
+            "output_sha256": "73caf3bf53889fc5634ef09a1cedd08be652d4150497e1dade9eb9a50d11971e",
+            "passed": true,
+            "returncode": 0,
+            "reused": true
+          }
+        },
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_buffer_resident_uart_replay.sv"
+      },
+      "tb_fused_compressed_program": {
+        "cases": 1,
+        "command": "python tools/run_phase3_evidence.py --only dual_mode",
+        "comparison_exemption": null,
+        "mismatches": 0,
+        "modes": {
+          "0": {
+            "command": "C:\\iverilog\\bin\\iverilog.exe -g2012 -DICARUS -DPHASE3_VECTOR_UNIT_EN=0 -I C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU -s tb_fused_compressed_program -o C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_fused_compressed_program_ven0.vvp C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\xpm_memory_sdpram_stub.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\memory\\instr_bram.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_controller.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\unified_buffer\\unified_buffer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_rx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_tx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_receiver.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_transmitter.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\clk_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_serial_alu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\restoring_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_sequencer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_fused_compressed_program.sv && C:\\iverilog\\bin\\vvp.exe -n C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_fused_compressed_program_ven0.vvp",
+            "log": "build\\phase3_dual_mode\\tb_fused_compressed_program_ven0.log",
+            "output_bytes": 2457,
+            "output_sha256": "b8e7facbec8744fa686ba3f4d58bf6400dfa963d9f0c8210a607dff7deea40ea",
+            "passed": true,
+            "returncode": 0,
+            "reused": true
+          },
+          "1": {
+            "command": "C:\\iverilog\\bin\\iverilog.exe -g2012 -DICARUS -DPHASE3_VECTOR_UNIT_EN=1 -I C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU -s tb_fused_compressed_program -o C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_fused_compressed_program_ven1.vvp C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\xpm_memory_sdpram_stub.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\memory\\instr_bram.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_controller.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\unified_buffer\\unified_buffer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_rx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_tx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_receiver.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_transmitter.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\clk_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_serial_alu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\restoring_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_sequencer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_fused_compressed_program.sv && C:\\iverilog\\bin\\vvp.exe -n C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_fused_compressed_program_ven1.vvp",
+            "log": "build\\phase3_dual_mode\\tb_fused_compressed_program_ven1.log",
+            "output_bytes": 2457,
+            "output_sha256": "b8e7facbec8744fa686ba3f4d58bf6400dfa963d9f0c8210a607dff7deea40ea",
+            "passed": true,
+            "returncode": 0,
+            "reused": true
+          }
+        },
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_fused_compressed_program.sv"
+      },
+      "tb_fused_residual_program": {
+        "cases": 1,
+        "command": "python tools/run_phase3_evidence.py --only dual_mode",
+        "comparison_exemption": null,
+        "mismatches": 0,
+        "modes": {
+          "0": {
+            "command": "C:\\iverilog\\bin\\iverilog.exe -g2012 -DICARUS -DPHASE3_VECTOR_UNIT_EN=0 -I C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU -s tb_fused_residual_program -o C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_fused_residual_program_ven0.vvp C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\xpm_memory_sdpram_stub.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\memory\\instr_bram.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_controller.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\unified_buffer\\unified_buffer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_rx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_tx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_receiver.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_transmitter.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\clk_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_serial_alu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\restoring_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_sequencer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_fused_residual_program.sv && C:\\iverilog\\bin\\vvp.exe -n C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_fused_residual_program_ven0.vvp",
+            "log": "build\\phase3_dual_mode\\tb_fused_residual_program_ven0.log",
+            "output_bytes": 18736,
+            "output_sha256": "415e096f0b5077245286b8f617099cfe11c72e4fa8edcb0d139d9d7a990d10cf",
+            "passed": true,
+            "returncode": 0,
+            "reused": true
+          },
+          "1": {
+            "command": "C:\\iverilog\\bin\\iverilog.exe -g2012 -DICARUS -DPHASE3_VECTOR_UNIT_EN=1 -I C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU -s tb_fused_residual_program -o C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_fused_residual_program_ven1.vvp C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\xpm_memory_sdpram_stub.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\memory\\instr_bram.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_controller.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\unified_buffer\\unified_buffer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_rx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_tx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_receiver.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_transmitter.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\clk_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_serial_alu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\restoring_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_sequencer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_fused_residual_program.sv && C:\\iverilog\\bin\\vvp.exe -n C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_fused_residual_program_ven1.vvp",
+            "log": "build\\phase3_dual_mode\\tb_fused_residual_program_ven1.log",
+            "output_bytes": 18736,
+            "output_sha256": "415e096f0b5077245286b8f617099cfe11c72e4fa8edcb0d139d9d7a990d10cf",
+            "passed": true,
+            "returncode": 0,
+            "reused": true
+          }
+        },
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_fused_residual_program.sv"
+      },
+      "tb_latency_determinism": {
+        "cases": 1,
+        "command": "python tools/run_phase3_evidence.py --only dual_mode",
+        "comparison_exemption": null,
+        "mismatches": 0,
+        "modes": {
+          "0": {
+            "command": "C:\\iverilog\\bin\\iverilog.exe -g2012 -DICARUS -DPHASE3_VECTOR_UNIT_EN=0 -I C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU -s tb_latency_determinism -o C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_latency_determinism_ven0.vvp C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\xpm_memory_sdpram_stub.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\memory\\instr_bram.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_controller.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\unified_buffer\\unified_buffer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_rx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_tx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_receiver.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_transmitter.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\clk_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_serial_alu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\restoring_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_sequencer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_latency_determinism.sv && C:\\iverilog\\bin\\vvp.exe -n C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_latency_determinism_ven0.vvp",
+            "log": "build\\phase3_dual_mode\\tb_latency_determinism_ven0.log",
+            "output_bytes": 905,
+            "output_sha256": "aef8f2e17253d8ef95bd90cf2d32f2dbc8c5e2195ce91083ce0dc0bf9fc70156",
+            "passed": true,
+            "returncode": 0,
+            "reused": true
+          },
+          "1": {
+            "command": "C:\\iverilog\\bin\\iverilog.exe -g2012 -DICARUS -DPHASE3_VECTOR_UNIT_EN=1 -I C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU -s tb_latency_determinism -o C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_latency_determinism_ven1.vvp C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\xpm_memory_sdpram_stub.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\memory\\instr_bram.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_controller.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\unified_buffer\\unified_buffer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_rx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_tx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_receiver.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_transmitter.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\clk_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_serial_alu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\restoring_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_sequencer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_latency_determinism.sv && C:\\iverilog\\bin\\vvp.exe -n C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_latency_determinism_ven1.vvp",
+            "log": "build\\phase3_dual_mode\\tb_latency_determinism_ven1.log",
+            "output_bytes": 905,
+            "output_sha256": "aef8f2e17253d8ef95bd90cf2d32f2dbc8c5e2195ce91083ce0dc0bf9fc70156",
+            "passed": true,
+            "returncode": 0,
+            "reused": true
+          }
+        },
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_latency_determinism.sv"
+      },
+      "tb_mnist_utpu_program": {
+        "cases": 1,
+        "command": "python tools/run_phase3_evidence.py --only dual_mode",
+        "comparison_exemption": null,
+        "mismatches": 0,
+        "modes": {
+          "0": {
+            "command": "C:\\iverilog\\bin\\iverilog.exe -g2012 -DICARUS -DPHASE3_VECTOR_UNIT_EN=0 -I C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU -s tb_mnist_utpu_program -o C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_mnist_utpu_program_ven0.vvp C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\xpm_memory_sdpram_stub.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\memory\\instr_bram.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_controller.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\unified_buffer\\unified_buffer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_rx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_tx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_receiver.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_transmitter.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\clk_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_serial_alu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\restoring_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_sequencer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_mnist_utpu_program.sv && C:\\iverilog\\bin\\vvp.exe -n C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_mnist_utpu_program_ven0.vvp",
+            "log": "build\\phase3_dual_mode\\tb_mnist_utpu_program_ven0.log",
+            "output_bytes": 440664,
+            "output_sha256": "8dbfa702b8beca7258390676efbf1955c02cf2f9fde7f655a0d8a85515de94e7",
+            "passed": true,
+            "returncode": 0,
+            "reused": true
+          },
+          "1": {
+            "command": "C:\\iverilog\\bin\\iverilog.exe -g2012 -DICARUS -DPHASE3_VECTOR_UNIT_EN=1 -I C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU -s tb_mnist_utpu_program -o C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_mnist_utpu_program_ven1.vvp C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\xpm_memory_sdpram_stub.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\memory\\instr_bram.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_controller.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\unified_buffer\\unified_buffer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_rx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_tx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_receiver.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_transmitter.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\clk_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_serial_alu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\restoring_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_sequencer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_mnist_utpu_program.sv && C:\\iverilog\\bin\\vvp.exe -n C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_mnist_utpu_program_ven1.vvp",
+            "log": "build\\phase3_dual_mode\\tb_mnist_utpu_program_ven1.log",
+            "output_bytes": 440664,
+            "output_sha256": "8dbfa702b8beca7258390676efbf1955c02cf2f9fde7f655a0d8a85515de94e7",
+            "passed": true,
+            "returncode": 0,
+            "reused": true
+          }
+        },
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_mnist_utpu_program.sv"
+      },
+      "tb_pe_array_packed": {
+        "cases": 0,
+        "command": "exemption: standalone unit without VECTOR_UNIT_EN",
+        "exempted": true,
+        "mismatches": 0,
+        "modes": {},
+        "passed": true,
+        "reason": "standalone pe_array_packed unit; no top module or VECTOR_UNIT_EN parameter",
+        "testbench": "rtl\\tb\\tb_pe_array_packed.sv"
+      },
+      "tb_pe_array_packed_cycles": {
+        "cases": 0,
+        "command": "exemption: standalone unit without VECTOR_UNIT_EN",
+        "exempted": true,
+        "mismatches": 0,
+        "modes": {},
+        "passed": true,
+        "reason": "standalone pe_array_packed cycle unit; no top module or VECTOR_UNIT_EN parameter",
+        "testbench": "rtl\\tb\\tb_pe_array_packed_cycles.sv"
+      },
+      "tb_pe_array_packed_hardened": {
+        "cases": 0,
+        "command": "exemption: standalone unit without VECTOR_UNIT_EN",
+        "exempted": true,
+        "mismatches": 0,
+        "modes": {},
+        "passed": true,
+        "reason": "standalone pe_array_packed hardening unit; no top module or VECTOR_UNIT_EN parameter",
+        "testbench": "rtl\\tb\\tb_pe_array_packed_hardened.sv"
+      },
+      "tb_pe_array_packed_odd_guard": {
+        "cases": 0,
+        "command": "exemption: standalone unit without VECTOR_UNIT_EN",
+        "exempted": true,
+        "mismatches": 0,
+        "modes": {},
+        "passed": true,
+        "reason": "standalone pe_array_packed guard unit; no top module or VECTOR_UNIT_EN parameter",
+        "testbench": "rtl\\tb\\tb_pe_array_packed_odd_guard.sv"
+      },
+      "tb_pe_controller_streaming": {
+        "cases": 0,
+        "command": "exemption: standalone unit without VECTOR_UNIT_EN",
+        "exempted": true,
+        "mismatches": 0,
+        "modes": {},
+        "passed": true,
+        "reason": "standalone PE controller unit; no top module or VECTOR_UNIT_EN parameter (attempted both modes; existing test reports unresolved result values)",
+        "testbench": "rtl\\tb\\tb_pe_controller_streaming.sv"
+      },
+      "tb_pe_packed_pair": {
+        "cases": 0,
+        "command": "exemption: standalone unit without VECTOR_UNIT_EN",
+        "exempted": true,
+        "mismatches": 0,
+        "modes": {},
+        "passed": true,
+        "reason": "standalone packed PE pair unit; no top module or VECTOR_UNIT_EN parameter",
+        "testbench": "rtl\\tb\\tb_pe_packed_pair.sv"
+      },
+      "tb_perf_counters": {
+        "cases": 1,
+        "command": "python tools/run_phase3_evidence.py --only dual_mode",
+        "comparison_exemption": null,
+        "mismatches": 0,
+        "modes": {
+          "0": {
+            "command": "C:\\iverilog\\bin\\iverilog.exe -g2012 -DICARUS -DPHASE3_VECTOR_UNIT_EN=0 -I C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU -s tb_perf_counters -o C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_perf_counters_ven0.vvp C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\xpm_memory_sdpram_stub.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\memory\\instr_bram.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_controller.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\unified_buffer\\unified_buffer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_rx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_tx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_receiver.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_transmitter.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\clk_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_serial_alu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\restoring_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_sequencer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_perf_counters.sv && C:\\iverilog\\bin\\vvp.exe -n C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_perf_counters_ven0.vvp",
+            "log": "build\\phase3_dual_mode\\tb_perf_counters_ven0.log",
+            "output_bytes": 762,
+            "output_sha256": "b9eb156f0ba41df072117a3dd5d84b473bd29bf31f0ccafc8fd2457dc99fecc3",
+            "passed": true,
+            "returncode": 0,
+            "reused": true
+          },
+          "1": {
+            "command": "C:\\iverilog\\bin\\iverilog.exe -g2012 -DICARUS -DPHASE3_VECTOR_UNIT_EN=1 -I C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU -s tb_perf_counters -o C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_perf_counters_ven1.vvp C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\xpm_memory_sdpram_stub.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\memory\\instr_bram.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_controller.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\unified_buffer\\unified_buffer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_rx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_tx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_receiver.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_transmitter.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\clk_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_serial_alu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\restoring_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_sequencer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_perf_counters.sv && C:\\iverilog\\bin\\vvp.exe -n C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_perf_counters_ven1.vvp",
+            "log": "build\\phase3_dual_mode\\tb_perf_counters_ven1.log",
+            "output_bytes": 762,
+            "output_sha256": "b9eb156f0ba41df072117a3dd5d84b473bd29bf31f0ccafc8fd2457dc99fecc3",
+            "passed": true,
+            "returncode": 0,
+            "reused": true
+          }
+        },
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_perf_counters.sv"
+      },
+      "tb_phase4_widen": {
+        "cases": 1,
+        "command": "python tools/run_phase3_evidence.py --only dual_mode",
+        "comparison_exemption": null,
+        "mismatches": 0,
+        "modes": {
+          "0": {
+            "command": "C:\\iverilog\\bin\\iverilog.exe -g2012 -DICARUS -DPHASE3_VECTOR_UNIT_EN=0 -I C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU -s tb_phase4_widen -o C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_phase4_widen_ven0.vvp C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\xpm_memory_sdpram_stub.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\memory\\instr_bram.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_controller.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\unified_buffer\\unified_buffer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_rx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_tx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_receiver.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_transmitter.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\clk_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_serial_alu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\restoring_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_sequencer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_phase4_widen.sv && C:\\iverilog\\bin\\vvp.exe -n C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_phase4_widen_ven0.vvp",
+            "log": "build\\phase3_dual_mode\\tb_phase4_widen_ven0.log",
+            "output_bytes": 1249,
+            "output_sha256": "8743bee7b02811d075f68488cb20f204bde20646d58541c5258712df44714c0b",
+            "passed": true,
+            "returncode": 0,
+            "reused": true
+          },
+          "1": {
+            "command": "C:\\iverilog\\bin\\iverilog.exe -g2012 -DICARUS -DPHASE3_VECTOR_UNIT_EN=1 -I C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU -s tb_phase4_widen -o C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_phase4_widen_ven1.vvp C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\xpm_memory_sdpram_stub.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\memory\\instr_bram.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_controller.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\unified_buffer\\unified_buffer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_rx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_tx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_receiver.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_transmitter.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\clk_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_serial_alu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\restoring_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_sequencer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_phase4_widen.sv && C:\\iverilog\\bin\\vvp.exe -n C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_phase4_widen_ven1.vvp",
+            "log": "build\\phase3_dual_mode\\tb_phase4_widen_ven1.log",
+            "output_bytes": 1249,
+            "output_sha256": "8743bee7b02811d075f68488cb20f204bde20646d58541c5258712df44714c0b",
+            "passed": true,
+            "returncode": 0,
+            "reused": true
+          }
+        },
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_phase4_widen.sv"
+      },
+      "tb_prog_depth_smoke": {
+        "cases": 1,
+        "command": "python tools/run_phase3_evidence.py --only dual_mode",
+        "comparison_exemption": null,
+        "mismatches": 0,
+        "modes": {
+          "0": {
+            "command": "C:\\iverilog\\bin\\iverilog.exe -g2012 -DICARUS -DPHASE3_VECTOR_UNIT_EN=0 -I C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU -s tb_prog_depth_smoke -o C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_prog_depth_smoke_ven0.vvp C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\xpm_memory_sdpram_stub.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\memory\\instr_bram.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_controller.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\unified_buffer\\unified_buffer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_rx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_tx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_receiver.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_transmitter.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\clk_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_serial_alu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\restoring_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_sequencer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_prog_depth_smoke.sv && C:\\iverilog\\bin\\vvp.exe -n C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_prog_depth_smoke_ven0.vvp",
+            "log": "build\\phase3_dual_mode\\tb_prog_depth_smoke_ven0.log",
+            "output_bytes": 588,
+            "output_sha256": "5098859d650c425489bac8f1dc3151624be201a130252be1ded93e4fa99864fa",
+            "passed": true,
+            "returncode": 0,
+            "reused": true
+          },
+          "1": {
+            "command": "C:\\iverilog\\bin\\iverilog.exe -g2012 -DICARUS -DPHASE3_VECTOR_UNIT_EN=1 -I C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU -s tb_prog_depth_smoke -o C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_prog_depth_smoke_ven1.vvp C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\xpm_memory_sdpram_stub.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\memory\\instr_bram.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_controller.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\unified_buffer\\unified_buffer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_rx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_tx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_receiver.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_transmitter.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\clk_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_serial_alu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\restoring_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_sequencer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_prog_depth_smoke.sv && C:\\iverilog\\bin\\vvp.exe -n C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_prog_depth_smoke_ven1.vvp",
+            "log": "build\\phase3_dual_mode\\tb_prog_depth_smoke_ven1.log",
+            "output_bytes": 588,
+            "output_sha256": "5098859d650c425489bac8f1dc3151624be201a130252be1ded93e4fa99864fa",
+            "passed": true,
+            "returncode": 0,
+            "reused": true
+          }
+        },
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_prog_depth_smoke.sv"
+      },
+      "tb_prog_depth_smoke_depth_131072": {
+        "cases": 1,
+        "command": "python tools/run_phase3_evidence.py --only dual_mode",
+        "depth": 131072,
+        "mismatches": 0,
+        "modes": {
+          "0": {
+            "command": "C:\\iverilog\\bin\\iverilog.exe -g2012 -DICARUS -DPHASE3_VECTOR_UNIT_EN=0 -I C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU -s tb_prog_depth_smoke -o C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_prog_depth_smoke_ven0_depth131072.vvp -DTB_PROG_DEPTH=131072 C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\xpm_memory_sdpram_stub.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\memory\\instr_bram.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_controller.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\unified_buffer\\unified_buffer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_rx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_tx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_receiver.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_transmitter.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\clk_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_serial_alu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\restoring_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_sequencer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_prog_depth_smoke.sv && C:\\iverilog\\bin\\vvp.exe -n C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_prog_depth_smoke_ven0_depth131072.vvp",
+            "log": "build\\phase3_dual_mode\\tb_prog_depth_smoke_ven0_depth131072.log",
+            "output_bytes": 592,
+            "output_sha256": "812048f6d84320a27d92874a3bb0e431e44b42160c3ee883a2bf3da74a7bf4c4",
+            "passed": true,
+            "returncode": 0,
+            "reused": true
+          },
+          "1": {
+            "command": "C:\\iverilog\\bin\\iverilog.exe -g2012 -DICARUS -DPHASE3_VECTOR_UNIT_EN=1 -I C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU -s tb_prog_depth_smoke -o C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_prog_depth_smoke_ven1_depth131072.vvp -DTB_PROG_DEPTH=131072 C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\xpm_memory_sdpram_stub.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\memory\\instr_bram.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_controller.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\unified_buffer\\unified_buffer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_rx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_tx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_receiver.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_transmitter.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\clk_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_serial_alu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\restoring_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_sequencer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_prog_depth_smoke.sv && C:\\iverilog\\bin\\vvp.exe -n C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_prog_depth_smoke_ven1_depth131072.vvp",
+            "log": "build\\phase3_dual_mode\\tb_prog_depth_smoke_ven1_depth131072.log",
+            "output_bytes": 592,
+            "output_sha256": "812048f6d84320a27d92874a3bb0e431e44b42160c3ee883a2bf3da74a7bf4c4",
+            "passed": true,
+            "returncode": 0,
+            "reused": true
+          }
+        },
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_prog_depth_smoke.sv"
+      },
+      "tb_prog_depth_smoke_depth_16384": {
+        "cases": 1,
+        "command": "python tools/run_phase3_evidence.py --only dual_mode",
+        "depth": 16384,
+        "mismatches": 0,
+        "modes": {
+          "0": {
+            "command": "C:\\iverilog\\bin\\iverilog.exe -g2012 -DICARUS -DPHASE3_VECTOR_UNIT_EN=0 -I C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU -s tb_prog_depth_smoke -o C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_prog_depth_smoke_ven0_depth16384.vvp -DTB_PROG_DEPTH=16384 C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\xpm_memory_sdpram_stub.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\memory\\instr_bram.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_controller.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\unified_buffer\\unified_buffer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_rx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_tx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_receiver.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_transmitter.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\clk_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_serial_alu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\restoring_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_sequencer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_prog_depth_smoke.sv && C:\\iverilog\\bin\\vvp.exe -n C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_prog_depth_smoke_ven0_depth16384.vvp",
+            "log": "build\\phase3_dual_mode\\tb_prog_depth_smoke_ven0_depth16384.log",
+            "output_bytes": 590,
+            "output_sha256": "aa855767700da697a83d6275f22133924f74b0c09a0cd41a64a455fc5832996b",
+            "passed": true,
+            "returncode": 0,
+            "reused": true
+          },
+          "1": {
+            "command": "C:\\iverilog\\bin\\iverilog.exe -g2012 -DICARUS -DPHASE3_VECTOR_UNIT_EN=1 -I C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU -s tb_prog_depth_smoke -o C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_prog_depth_smoke_ven1_depth16384.vvp -DTB_PROG_DEPTH=16384 C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\xpm_memory_sdpram_stub.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\memory\\instr_bram.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_controller.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\unified_buffer\\unified_buffer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_rx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_tx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_receiver.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_transmitter.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\clk_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_serial_alu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\restoring_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_sequencer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_prog_depth_smoke.sv && C:\\iverilog\\bin\\vvp.exe -n C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_prog_depth_smoke_ven1_depth16384.vvp",
+            "log": "build\\phase3_dual_mode\\tb_prog_depth_smoke_ven1_depth16384.log",
+            "output_bytes": 590,
+            "output_sha256": "aa855767700da697a83d6275f22133924f74b0c09a0cd41a64a455fc5832996b",
+            "passed": true,
+            "returncode": 0,
+            "reused": true
+          }
+        },
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_prog_depth_smoke.sv"
+      },
+      "tb_prog_depth_smoke_depth_32768": {
+        "cases": 1,
+        "command": "python tools/run_phase3_evidence.py --only dual_mode",
+        "depth": 32768,
+        "mismatches": 0,
+        "modes": {
+          "0": {
+            "command": "C:\\iverilog\\bin\\iverilog.exe -g2012 -DICARUS -DPHASE3_VECTOR_UNIT_EN=0 -I C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU -s tb_prog_depth_smoke -o C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_prog_depth_smoke_ven0_depth32768.vvp -DTB_PROG_DEPTH=32768 C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\xpm_memory_sdpram_stub.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\memory\\instr_bram.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_controller.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\unified_buffer\\unified_buffer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_rx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_tx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_receiver.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_transmitter.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\clk_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_serial_alu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\restoring_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_sequencer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_prog_depth_smoke.sv && C:\\iverilog\\bin\\vvp.exe -n C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_prog_depth_smoke_ven0_depth32768.vvp",
+            "log": "build\\phase3_dual_mode\\tb_prog_depth_smoke_ven0_depth32768.log",
+            "output_bytes": 590,
+            "output_sha256": "aeda6adee3d04f35badd1b6973eb4c89046258757a240c4c45473d7dfd61d42f",
+            "passed": true,
+            "returncode": 0,
+            "reused": true
+          },
+          "1": {
+            "command": "C:\\iverilog\\bin\\iverilog.exe -g2012 -DICARUS -DPHASE3_VECTOR_UNIT_EN=1 -I C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU -s tb_prog_depth_smoke -o C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_prog_depth_smoke_ven1_depth32768.vvp -DTB_PROG_DEPTH=32768 C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\xpm_memory_sdpram_stub.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\memory\\instr_bram.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_controller.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\unified_buffer\\unified_buffer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_rx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_tx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_receiver.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_transmitter.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\clk_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_serial_alu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\restoring_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_sequencer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_prog_depth_smoke.sv && C:\\iverilog\\bin\\vvp.exe -n C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_prog_depth_smoke_ven1_depth32768.vvp",
+            "log": "build\\phase3_dual_mode\\tb_prog_depth_smoke_ven1_depth32768.log",
+            "output_bytes": 590,
+            "output_sha256": "aeda6adee3d04f35badd1b6973eb4c89046258757a240c4c45473d7dfd61d42f",
+            "passed": true,
+            "returncode": 0,
+            "reused": true
+          }
+        },
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_prog_depth_smoke.sv"
+      },
+      "tb_prog_depth_smoke_depth_65536": {
+        "cases": 1,
+        "command": "python tools/run_phase3_evidence.py --only dual_mode",
+        "depth": 65536,
+        "mismatches": 0,
+        "modes": {
+          "0": {
+            "command": "C:\\iverilog\\bin\\iverilog.exe -g2012 -DICARUS -DPHASE3_VECTOR_UNIT_EN=0 -I C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU -s tb_prog_depth_smoke -o C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_prog_depth_smoke_ven0_depth65536.vvp -DTB_PROG_DEPTH=65536 C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\xpm_memory_sdpram_stub.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\memory\\instr_bram.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_controller.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\unified_buffer\\unified_buffer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_rx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_tx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_receiver.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_transmitter.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\clk_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_serial_alu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\restoring_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_sequencer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_prog_depth_smoke.sv && C:\\iverilog\\bin\\vvp.exe -n C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_prog_depth_smoke_ven0_depth65536.vvp",
+            "log": "build\\phase3_dual_mode\\tb_prog_depth_smoke_ven0_depth65536.log",
+            "output_bytes": 590,
+            "output_sha256": "186ccf289a6e498ac6a18d8f570f8e4fbcedaf8f2dcf02cc031befdbd8437961",
+            "passed": true,
+            "returncode": 0,
+            "reused": true
+          },
+          "1": {
+            "command": "C:\\iverilog\\bin\\iverilog.exe -g2012 -DICARUS -DPHASE3_VECTOR_UNIT_EN=1 -I C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU -s tb_prog_depth_smoke -o C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_prog_depth_smoke_ven1_depth65536.vvp -DTB_PROG_DEPTH=65536 C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\xpm_memory_sdpram_stub.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\memory\\instr_bram.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_controller.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\unified_buffer\\unified_buffer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_rx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_tx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_receiver.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_transmitter.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\clk_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_serial_alu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\restoring_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_sequencer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_prog_depth_smoke.sv && C:\\iverilog\\bin\\vvp.exe -n C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_prog_depth_smoke_ven1_depth65536.vvp",
+            "log": "build\\phase3_dual_mode\\tb_prog_depth_smoke_ven1_depth65536.log",
+            "output_bytes": 590,
+            "output_sha256": "186ccf289a6e498ac6a18d8f570f8e4fbcedaf8f2dcf02cc031befdbd8437961",
+            "passed": true,
+            "returncode": 0,
+            "reused": true
+          }
+        },
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_prog_depth_smoke.sv"
+      },
+      "tb_prog_depth_smoke_depth_8192": {
+        "cases": 1,
+        "command": "python tools/run_phase3_evidence.py --only dual_mode",
+        "depth": 8192,
+        "mismatches": 0,
+        "modes": {
+          "0": {
+            "command": "C:\\iverilog\\bin\\iverilog.exe -g2012 -DICARUS -DPHASE3_VECTOR_UNIT_EN=0 -I C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU -s tb_prog_depth_smoke -o C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_prog_depth_smoke_ven0_depth8192.vvp -DTB_PROG_DEPTH=8192 C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\xpm_memory_sdpram_stub.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\memory\\instr_bram.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_controller.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\unified_buffer\\unified_buffer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_rx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_tx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_receiver.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_transmitter.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\clk_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_serial_alu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\restoring_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_sequencer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_prog_depth_smoke.sv && C:\\iverilog\\bin\\vvp.exe -n C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_prog_depth_smoke_ven0_depth8192.vvp",
+            "log": "build\\phase3_dual_mode\\tb_prog_depth_smoke_ven0_depth8192.log",
+            "output_bytes": 588,
+            "output_sha256": "5098859d650c425489bac8f1dc3151624be201a130252be1ded93e4fa99864fa",
+            "passed": true,
+            "returncode": 0,
+            "reused": true
+          },
+          "1": {
+            "command": "C:\\iverilog\\bin\\iverilog.exe -g2012 -DICARUS -DPHASE3_VECTOR_UNIT_EN=1 -I C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU -s tb_prog_depth_smoke -o C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_prog_depth_smoke_ven1_depth8192.vvp -DTB_PROG_DEPTH=8192 C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\xpm_memory_sdpram_stub.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\memory\\instr_bram.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_controller.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\unified_buffer\\unified_buffer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_rx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_tx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_receiver.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_transmitter.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\clk_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_serial_alu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\restoring_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_sequencer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_prog_depth_smoke.sv && C:\\iverilog\\bin\\vvp.exe -n C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_prog_depth_smoke_ven1_depth8192.vvp",
+            "log": "build\\phase3_dual_mode\\tb_prog_depth_smoke_ven1_depth8192.log",
+            "output_bytes": 588,
+            "output_sha256": "5098859d650c425489bac8f1dc3151624be201a130252be1ded93e4fa99864fa",
+            "passed": true,
+            "returncode": 0,
+            "reused": true
+          }
+        },
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_prog_depth_smoke.sv"
+      },
+      "tb_scheduler_cycles": {
+        "cases": 1,
+        "command": "python tools/run_phase3_evidence.py --only dual_mode",
+        "comparison_exemption": null,
+        "mismatches": 0,
+        "modes": {
+          "0": {
+            "command": "C:\\iverilog\\bin\\iverilog.exe -g2012 -DICARUS -DPHASE3_VECTOR_UNIT_EN=0 -I C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU -s tb_scheduler_cycles -o C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_scheduler_cycles_ven0.vvp C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\xpm_memory_sdpram_stub.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\memory\\instr_bram.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_controller.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\unified_buffer\\unified_buffer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_rx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_tx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_receiver.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_transmitter.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\clk_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_serial_alu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\restoring_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_sequencer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_scheduler_cycles.sv && C:\\iverilog\\bin\\vvp.exe -n C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_scheduler_cycles_ven0.vvp",
+            "log": "build\\phase3_dual_mode\\tb_scheduler_cycles_ven0.log",
+            "output_bytes": 2787,
+            "output_sha256": "be9e449d260bb642723736444214356391bcd921e1479c0182d52c510c2f39a1",
+            "passed": true,
+            "returncode": 0,
+            "reused": true
+          },
+          "1": {
+            "command": "C:\\iverilog\\bin\\iverilog.exe -g2012 -DICARUS -DPHASE3_VECTOR_UNIT_EN=1 -I C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU -s tb_scheduler_cycles -o C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_scheduler_cycles_ven1.vvp C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\xpm_memory_sdpram_stub.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\memory\\instr_bram.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_controller.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\unified_buffer\\unified_buffer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_rx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_tx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_receiver.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_transmitter.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\clk_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_serial_alu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\restoring_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_sequencer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_scheduler_cycles.sv && C:\\iverilog\\bin\\vvp.exe -n C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_scheduler_cycles_ven1.vvp",
+            "log": "build\\phase3_dual_mode\\tb_scheduler_cycles_ven1.log",
+            "output_bytes": 2787,
+            "output_sha256": "be9e449d260bb642723736444214356391bcd921e1479c0182d52c510c2f39a1",
+            "passed": true,
+            "returncode": 0,
+            "reused": true
+          }
+        },
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_scheduler_cycles.sv"
+      },
+      "tb_top_packed_smoke": {
+        "cases": 0,
+        "command": "exemption: standalone unit without VECTOR_UNIT_EN",
+        "exempted": true,
+        "mismatches": 0,
+        "modes": {},
+        "passed": true,
+        "reason": "synthesis-only top_packed datapath wrapper, not rtl/top/top.sv; no VECTOR_UNIT_EN parameter",
+        "testbench": "rtl\\tb\\tb_top_packed_smoke.sv"
+      },
+      "tb_uart_replay": {
+        "cases": 1,
+        "command": "python tools/run_phase3_evidence.py --only dual_mode",
+        "comparison_exemption": null,
+        "mismatches": 0,
+        "modes": {
+          "0": {
+            "command": "C:\\iverilog\\bin\\iverilog.exe -g2012 -DICARUS -DPHASE3_VECTOR_UNIT_EN=0 -I C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU -s tb_uart_replay -o C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_uart_replay_ven0.vvp C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\xpm_memory_sdpram_stub.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\memory\\instr_bram.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_controller.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\unified_buffer\\unified_buffer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_rx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_tx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_receiver.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_transmitter.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\clk_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_serial_alu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\restoring_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_sequencer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_uart_replay.sv && C:\\iverilog\\bin\\vvp.exe -n C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_uart_replay_ven0.vvp",
+            "log": "build\\phase3_dual_mode\\tb_uart_replay_ven0.log",
+            "output_bytes": 1690,
+            "output_sha256": "88a4ffeba0852fcebce5bdd148c2f735f45c429bc7e7a1df86996c82a2d841f2",
+            "passed": true,
+            "returncode": 0,
+            "reused": true
+          },
+          "1": {
+            "command": "C:\\iverilog\\bin\\iverilog.exe -g2012 -DICARUS -DPHASE3_VECTOR_UNIT_EN=1 -I C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU -s tb_uart_replay -o C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_uart_replay_ven1.vvp C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\xpm_memory_sdpram_stub.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\memory\\instr_bram.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_controller.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\unified_buffer\\unified_buffer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_rx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_tx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_receiver.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_transmitter.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\clk_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_serial_alu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\restoring_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_sequencer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_uart_replay.sv && C:\\iverilog\\bin\\vvp.exe -n C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_uart_replay_ven1.vvp",
+            "log": "build\\phase3_dual_mode\\tb_uart_replay_ven1.log",
+            "output_bytes": 1690,
+            "output_sha256": "88a4ffeba0852fcebce5bdd148c2f735f45c429bc7e7a1df86996c82a2d841f2",
+            "passed": true,
+            "returncode": 0,
+            "reused": true
+          }
+        },
+        "outputs_equal": true,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_uart_replay.sv"
+      },
+      "tb_vector_full_top_decode_errors": {
+        "cases": 1,
+        "command": "python tools/run_phase3_evidence.py --only dual_mode",
+        "comparison_exemption": "per-case decoder contract is checked by decode_errors; VEC_EN=0 and 1 intentionally report different status codes",
+        "mismatches": 0,
+        "modes": {
+          "0": {
+            "command": "C:\\iverilog\\bin\\iverilog.exe -g2012 -DICARUS -DPHASE3_VECTOR_UNIT_EN=0 -I C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU -s tb_vector_full_top_decode_errors -o C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_vector_full_top_decode_errors_ven0.vvp -Ptb_vector_full_top_decode_errors.TB_VECTOR_EN=0 -Ptb_vector_full_top_decode_errors.TB_CASE=0 C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\xpm_memory_sdpram_stub.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\memory\\instr_bram.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_controller.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\unified_buffer\\unified_buffer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_rx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_tx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_receiver.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_transmitter.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\clk_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_serial_alu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\restoring_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_sequencer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_vector_full_top_decode_errors.sv && C:\\iverilog\\bin\\vvp.exe -n C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_vector_full_top_decode_errors_ven0.vvp",
+            "log": "build\\phase3_dual_mode\\tb_vector_full_top_decode_errors_ven0.log",
+            "output_bytes": 2042,
+            "output_sha256": "eabd5034b3013230325a6c51b7f19ccd4fe7c67302463de4bf3d0869bc64c35d",
+            "passed": true,
+            "returncode": 0,
+            "reused": true
+          },
+          "1": {
+            "command": "C:\\iverilog\\bin\\iverilog.exe -g2012 -DICARUS -DPHASE3_VECTOR_UNIT_EN=1 -I C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU -s tb_vector_full_top_decode_errors -o C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_vector_full_top_decode_errors_ven1.vvp -Ptb_vector_full_top_decode_errors.TB_VECTOR_EN=1 -Ptb_vector_full_top_decode_errors.TB_CASE=0 C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\xpm_memory_sdpram_stub.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\top\\top.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\memory\\instr_bram.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_controller.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\PEArray\\pe.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\quantizer\\quantizer_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\LeakyReLU\\leaky_relu_array.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\unified_buffer\\unified_buffer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_rx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\fifo\\fifo_tx.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_receiver.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\uart_transmitter.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\UART\\clk_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_serial_alu.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\restoring_divider.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\vector\\vector_sequencer.sv C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\rtl\\tb\\tb_vector_full_top_decode_errors.sv && C:\\iverilog\\bin\\vvp.exe -n C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\phase3_dual_mode\\tb_vector_full_top_decode_errors_ven1.vvp",
+            "log": "build\\phase3_dual_mode\\tb_vector_full_top_decode_errors_ven1.log",
+            "output_bytes": 1949,
+            "output_sha256": "080dea0c4ca61da9218743888d4857474446f4bd5b304b92f83524b2be425065",
+            "passed": true,
+            "returncode": 0,
+            "reused": true
+          }
+        },
+        "outputs_equal": false,
+        "passed": true,
+        "testbench": "rtl\\tb\\tb_vector_full_top_decode_errors.sv"
+      }
+    }
+  },
   "mixed": {
     "cases": 1,
     "command": "python tools/run_phase3_evidence.py --only mixed",
@@ -273,8 +1315,8 @@
   },
   "source_tree": {
     "firmware/host": "4767f989b5cda711cd9919496780419fee08bf6d",
-    "rtl": "2e70f7d1a7bb253544bac65d0ef84f0177fa82ea",
-    "tools": "1597c6279a15406560c183389f89d2a24847c634"
+    "rtl": "ace970c09bef2604e4cf775a9768e490c57ca1a7",
+    "tools": "2a9cb39b66f7254963a1d6c9dc4a59ff8ef35dbc"
   },
   "status": "phase3_vector_rtl_incomplete",
   "trace_full_top": {
