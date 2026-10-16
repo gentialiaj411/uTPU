@@ -1,44 +1,178 @@
 {
-  "status": "phase3_vector_rtl",
-  "source_tree": {
-    "firmware/host": "3e44255dc3d754096fa4011e520e4988112698dc",
-    "rtl": "ed0dd8c210056ada91062ae8ed218bf333c2ca4c",
-    "tools": "1bf203f97c9dc16a2870f1d8e6f927d0260cf8da"
+  "commands": [
+    "python tools/run_phase3_evidence.py"
+  ],
+  "divider": {
+    "cases": 2048,
+    "cycles": 51200,
+    "mismatches": 0,
+    "passed": true
   },
   "per_op": {
-    "vadd_rq_exhaustive": {"cases": 327680, "compared_bytes": 330240, "mismatches": 0, "cycles": 1987030, "passed": true},
-    "vpos_add_full_table": {"cases": 1536, "compared_bytes": 1536, "mismatches": 0, "cycles": 9242, "passed": true},
-    "rmsnorm_2000_rows": {"cases": 2000, "compared_bytes": 96000, "mismatches": 0, "cycles": 956462, "passed": true},
-    "softmax_16000_rows": {"cases": 16000, "compared_bytes": 512000, "mismatches": 0, "cycles": 9989500, "passed": true}
+    "rmsnorm_2000_rows": {
+      "cases": 2000,
+      "compared_bytes": 96000,
+      "cycles": 956462,
+      "mismatches": 0,
+      "passed": true,
+      "rsqrt_lut_bin_coverage": 192
+    },
+    "softmax_16000_rows": {
+      "cases": 16000,
+      "compared_bytes": 512000,
+      "cycles": 9989500,
+      "mismatches": 0,
+      "passed": true,
+      "row_lengths": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32
+      ]
+    },
+    "vadd_rq_exhaustive": {
+      "cases": 327680,
+      "compared_bytes": 327680,
+      "cycles": 1987030,
+      "exponent_tuples": [
+        [
+          -5,
+          -5,
+          -4
+        ],
+        [
+          -4,
+          -1,
+          0
+        ],
+        [
+          -31,
+          -31,
+          -30
+        ],
+        [
+          -31,
+          31,
+          31
+        ],
+        [
+          30,
+          30,
+          31
+        ]
+      ],
+      "mismatches": 0,
+      "passed": true
+    },
+    "vpos_add_full_table": {
+      "cases": 1536,
+      "compared_bytes": 1536,
+      "cycles": 9242,
+      "mismatches": 0,
+      "passed": true
+    }
   },
-  "divider": {"cases": 2048, "cycles": 51200, "mismatches": 0, "passed": true},
-  "rsqrt_lut_bin_coverage": {"covered": 192, "total": 192},
-  "decode_errors": {
-    "malformed_record_halts_before_write": {"cases": 1, "compared_bytes": 0, "mismatches": 0, "cycles": 27, "passed": true}
+  "rsqrt_lut_bin_coverage": {
+    "covered": 192,
+    "total": 192
   },
-  "mixed": {
-    "vector_enabled_top_elaboration": {"cases": 1, "compared_bytes": 0, "mismatches": 0, "passed": true}
+  "source_tree": {
+    "firmware/host": "4cb2e06e0583e6e2f11091f10b9f27ea3fbb0cc8",
+    "rtl": "ed0dd8c210056ada91062ae8ed218bf333c2ca4c",
+    "tools": "c3be6ac1ccdb0349be02e84e914451f3925c386d"
   },
+  "status": "phase3_vector_rtl_incomplete",
   "trace_stages": {
-    "pos_add": {"cases": 8, "compared_bytes": 12288, "mismatches": 0, "cycles": 73936, "passed": true},
-    "rmsnorm1": {"cases": 8, "compared_bytes": 12288, "mismatches": 0, "cycles": 98320, "passed": true},
-    "softmax_head0": {"cases": 8, "compared_bytes": 8192, "mismatches": 0, "cycles": 159824, "passed": true},
-    "softmax_head1": {"cases": 8, "compared_bytes": 8192, "mismatches": 0, "cycles": 159824, "passed": true},
-    "softmax_head2": {"cases": 8, "compared_bytes": 8192, "mismatches": 0, "cycles": 159824, "passed": true},
-    "residual1": {"cases": 8, "compared_bytes": 12288, "mismatches": 0, "cycles": 73936, "passed": true},
-    "rmsnorm2": {"cases": 8, "compared_bytes": 12288, "mismatches": 0, "cycles": 98315, "passed": true},
-    "residual2": {"cases": 8, "compared_bytes": 12288, "mismatches": 0, "cycles": 73936, "passed": true},
-    "final_norm": {"cases": 8, "compared_bytes": 12288, "mismatches": 0, "cycles": 98554, "passed": true}
-  },
-  "legacy_regression": {
-    "fused_compressed_vector_unit_off": {"cases": 3, "compared_bytes": 24, "mismatches": 0, "passed": true},
-    "fused_compressed_vector_unit_on": {"cases": 3, "compared_bytes": 24, "mismatches": 0, "passed": true}
-  },
-  "cycle_counts": {
-    "vadd_rq_per_1536_elements": 9242,
-    "vpos_add_per_1536_elements": 9242,
-    "rmsnorm_per_48_elements": 478,
-    "softmax_per_head": 19979,
-    "divider_per_24_bit_quotient": 25
+    "final_norm": {
+      "cases": 8,
+      "compared_bytes": 12288,
+      "cycles": 98320,
+      "mismatches": 0,
+      "passed": true
+    },
+    "pos_add": {
+      "cases": 8,
+      "compared_bytes": 12288,
+      "cycles": 73936,
+      "mismatches": 0,
+      "passed": true
+    },
+    "residual1": {
+      "cases": 8,
+      "compared_bytes": 12288,
+      "cycles": 73936,
+      "mismatches": 0,
+      "passed": true
+    },
+    "residual2": {
+      "cases": 8,
+      "compared_bytes": 12288,
+      "cycles": 73936,
+      "mismatches": 0,
+      "passed": true
+    },
+    "rmsnorm1": {
+      "cases": 8,
+      "compared_bytes": 12288,
+      "cycles": 98065,
+      "mismatches": 0,
+      "passed": true
+    },
+    "rmsnorm2": {
+      "cases": 8,
+      "compared_bytes": 12288,
+      "cycles": 98315,
+      "mismatches": 0,
+      "passed": true
+    },
+    "softmax_head0": {
+      "cases": 8,
+      "compared_bytes": 8192,
+      "cycles": 159824,
+      "mismatches": 0,
+      "passed": true
+    },
+    "softmax_head1": {
+      "cases": 8,
+      "compared_bytes": 8192,
+      "cycles": 159824,
+      "mismatches": 0,
+      "passed": true
+    },
+    "softmax_head2": {
+      "cases": 8,
+      "compared_bytes": 8192,
+      "cycles": 159824,
+      "mismatches": 0,
+      "passed": true
+    }
   }
 }
