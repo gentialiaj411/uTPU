@@ -1218,7 +1218,7 @@
       "cases": 2000,
       "command": "python tools/run_phase3_evidence.py --only rmsnorm",
       "compared_bytes": 96000,
-      "cycles": 956462,
+      "cycles": 1052462,
       "mismatches": 0,
       "passed": true,
       "rsqrt_lut_bin_coverage": 192
@@ -1347,7 +1347,7 @@
   },
   "source_tree": {
     "firmware/host": "3b02a04c90b4d544cc12da1361a00b0ca1388f3c",
-    "rtl": "ace970c09bef2604e4cf775a9768e490c57ca1a7",
+    "rtl": "e7fbf86b6d40ee29b6895d876ff777a17c449c30",
     "tools": "a20d45ac920bbc9ab9d3aa66b173b83a5495e48b"
   },
   "status": "phase3_vector_rtl_incomplete",
@@ -1355,7 +1355,7 @@
     "cases": 8,
     "command": "python tools/run_phase3_evidence.py --only trace_full_top",
     "compared_bytes": 98304,
-    "cycles": 998694,
+    "cycles": 1035558,
     "execution": "full top instruction BRAM -> escape -> descriptor -> vector unit -> unified buffer",
     "mismatches": 0,
     "passed": true,
@@ -1363,7 +1363,7 @@
       "final_norm": {
         "cases": 8,
         "compared_bytes": 12288,
-        "cycles": 98402,
+        "cycles": 110690,
         "mismatches": 0,
         "passed": true
       },
@@ -1391,14 +1391,14 @@
       "rmsnorm1": {
         "cases": 8,
         "compared_bytes": 12288,
-        "cycles": 98258,
+        "cycles": 110546,
         "mismatches": 0,
         "passed": true
       },
       "rmsnorm2": {
         "cases": 8,
         "compared_bytes": 12288,
-        "cycles": 98498,
+        "cycles": 110786,
         "mismatches": 0,
         "passed": true
       },
@@ -1431,7 +1431,7 @@
       "cases": 8,
       "command": "python tools/run_phase3_evidence.py --only traces",
       "compared_bytes": 12288,
-      "cycles": 98320,
+      "cycles": 110608,
       "mismatches": 0,
       "passed": true
     },
@@ -1463,7 +1463,7 @@
       "cases": 8,
       "command": "python tools/run_phase3_evidence.py --only traces",
       "compared_bytes": 12288,
-      "cycles": 98065,
+      "cycles": 110353,
       "mismatches": 0,
       "passed": true
     },
@@ -1471,7 +1471,7 @@
       "cases": 8,
       "command": "python tools/run_phase3_evidence.py --only traces",
       "compared_bytes": 12288,
-      "cycles": 98315,
+      "cycles": 110603,
       "mismatches": 0,
       "passed": true
     },
