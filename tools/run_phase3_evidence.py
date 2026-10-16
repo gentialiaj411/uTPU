@@ -59,7 +59,8 @@ def run_full_top_decode_errors() -> dict:
                        f"-Ptb_vector_full_top_decode_errors.TB_CASE={index}",
                        "-s", "tb_vector_full_top_decode_errors", "-o", str(exe), *FULL_TOP_SOURCES]
         subprocess.run(compile_cmd, cwd=ROOT, text=True, check=True, capture_output=True)
-        proc = subprocess.run([str(VVP), str(exe)], cwd=ROOT, text=True, check=True, capture_output=True)
+        proc = subprocess.run([str(VVP), str(exe)], cwd=ROOT, text=True, capture_output=True)
+        if proc.returncode: raise RuntimeError(proc.stdout + proc.stderr)
         match = re.search(r"FULL_TOP_DECODE_RESULT (\d+) (\d+) (\d+)", proc.stdout)
         if not match:
             raise RuntimeError(proc.stdout + proc.stderr)
@@ -191,8 +192,13 @@ top #(.ARRAY_SIZE(8),.BUFFER_SIZE(32768),.COMPUTE_DATA_WIDTH(8),.ACCUMULATOR_DAT
  .VECTOR_UNIT_EN(1)) dut(.clk(clk),.rst(rst),.rx(rx),.tx(tx),.led_rst(led_rst));
 always #5 clk=~clk;
 always @(posedge clk) begin
- if(dut.current_state==dut.VEC_START_STATE) stage_start_time=$time;
- if(dut.current_state==dut.FETCH_BRAM_STATE && stage_start_time!=0) begin
+ if(dut.current_state==dut.VEC_START_STATE) begin
+  if(stage_start_time!=0) begin
+   $display("TRACE_STAGE %0d %0d",stage_no,($time-stage_start_time)/10); stage_no=stage_no+1;
+  end
+  stage_start_time=$time;
+ end
+ if(dut.current_state==dut.HALT_STATE && stage_start_time!=0) begin
   $display("TRACE_STAGE %0d %0d",stage_no,($time-stage_start_time)/10); stage_no=stage_no+1; stage_start_time=0;
  end
 end
@@ -237,6 +243,145 @@ endmodule
             "stage_totals": stage_totals, "execution": "full top instruction BRAM -> escape -> descriptor -> vector unit -> unified buffer"}
 
 
+def run_full_top_mixed_program() -> dict:
+    """Compare a mixed VEC/legacy program against its VEC-disabled baseline."""
+    import numpy as np
+    import isa_encoder as isa
+    import run_vector_sequencer_sim as seq
+    from isa_encoder import IsaConfig
+    from isa_simulator import UTPUISASimulator
+
+    build = ROOT / "build" / "phase3_full_top_mixed"
+    build.mkdir(parents=True, exist_ok=True)
+    cfg = isa.IsaConfig(address_width=12, compute_data_width=8, descriptor_isa=False)
+    a = np.arange(48, dtype=np.int8) - 24
+    b = np.arange(48, dtype=np.int8)[::-1].copy() - 24
+    isa_cfg = IsaConfig(address_width=12, compute_data_width=8, descriptor_isa=True, vector_unit=True)
+    oracle = UTPUISASimulator(array_size=8, buffer_size=4096, cfg=isa_cfg)
+    for base, values in ((64, a), (128, b)):
+        packed = seq.pack(values)
+        oracle.buffer[base:base + len(packed)] = [int(x) for x in packed]
+    oracle.buffer[300:304] = [1, 128, 0, 0]
+    oracle.run_words([0x05A5, (1 << 11) | 9, 256, 64, 300, 48], preserve_buffer=True)
+    result_words = oracle.buffer[256:280]
+    expected_vec = np.asarray(
+        [signed for word in result_words for signed in
+         (int(word & 0xFF) - 256 if (word & 0x80) else int(word & 0xFF),
+          int((word >> 8) & 0xFF) - 256 if (word & 0x8000) else int((word >> 8) & 0xFF))],
+        dtype=np.int8,
+    )
+    packed_a, packed_b, packed_expected = seq.pack(a), seq.pack(b), seq.pack(expected_vec)
+
+    def words_from_bytes(data: bytes) -> list[int]:
+        return [int.from_bytes(data[i:i + 2], "little") for i in range(0, len(data), 2)]
+
+    def legacy_words() -> list[int]:
+        out = []
+        out += words_from_bytes(isa.encodeFetch(256, top_half=True, cfg=cfg))
+        out += words_from_bytes(isa.encodeFetch(256, top_half=False, cfg=cfg))
+        out += words_from_bytes(isa.encodeBurstStore(800, [0x1234, 0xABCD, 3, 4, 5, 6, 7, 8], cfg=cfg))
+        out += words_from_bytes(isa.encodeLoadWeights(512, cfg=cfg))
+        out += words_from_bytes(isa.encodeLoadInputs(576, cfg=cfg))
+        out += words_from_bytes(isa.encodeRun(640, compute_en=True, quantize_en=True,
+                                               relu_en=False, acc_clear_en=True, cfg=cfg))
+        out += words_from_bytes(isa.encodeFetch(640, top_half=True, cfg=cfg))
+        out += words_from_bytes(isa.encodeFetch(640, top_half=False, cfg=cfg))
+        out += words_from_bytes(isa.encodeRun(672, compute_en=True, quantize_en=True,
+                                               relu_en=False, acc_clear_en=True,
+                                               residual_en=True, residual_addr=640, cfg=cfg))
+        out.append(4)
+        return out
+
+    legacy = legacy_words()
+    mixed = [0x05A5, (1 << 11) | 9, 256, 64, 300, 48] + legacy
+    words = {i: w for i, w in enumerate(legacy)}
+    words.update({i: w for i, w in enumerate(mixed)})
+    # Both modes begin from identical memory. In VEC=0, dst is prefilled with
+    # the ISA result; in VEC=1, the real vector engine must produce it.
+    memory = [0] * 4096
+    for base, packed in ((64, packed_a), (128, packed_b), (256, packed_expected),
+                         (512, np.zeros(64, dtype=np.uint16)),
+                         (576, np.zeros(64, dtype=np.uint16)),
+                         (640, np.zeros(64, dtype=np.uint16)),
+                         (672, np.zeros(64, dtype=np.uint16))):
+        for i, value in enumerate(packed): memory[base + i] = int(value)
+    memory[300:304] = [1, 128, 0, 0]
+    in_file = build / "input.mem"
+    in_file.write_text("\n".join(f"{v:04x}" for v in memory) + "\n", encoding="ascii")
+    expected_file = build / "expected_vec.mem"
+    expected_file.write_text("\n".join(f"{int(v):04x}" for v in packed_expected) + "\n", encoding="ascii")
+    prog_files = []
+    for name, program in (("mixed", mixed), ("legacy", legacy)):
+        path = build / f"{name}.mem"
+        path.write_text("\n".join(f"{v & 0xffff:04x}" for v in program) + "\n", encoding="ascii")
+        prog_files.append(path)
+
+    source = f'''module tb;
+`ifndef TEST_VEN
+`define TEST_VEN 0
+`endif
+localparam integer VEN=`TEST_VEN;
+logic clk=0,rst=0,rx=1; wire tx,led_rst;
+localparam integer FW=256,PW=$clog2(FW),NW={len(mixed)},LW={len(legacy)};
+reg [15:0] mem[0:4095], prog[0:NW-1]; integer i,cycles,nbytes,miss; bit seen,started;
+reg [15:0] expected_vec[0:23];
+reg [7:0] actual[0:511]; reg [31:0] expected[0:23];
+top #(.ARRAY_SIZE(8),.BUFFER_SIZE(4096),.COMPUTE_DATA_WIDTH(8),.ACCUMULATOR_DATA_WIDTH(32),
+ .EXT_ADDR_EN(1),.PROG_DEPTH(256),.FIFO_WIDTH(FW),.MAX_BATCH_COUNT(4),.QUANTIZER_PIPE_DEPTH(1),
+ .VECTOR_UNIT_EN(VEN)) dut(.clk(clk),.rst(rst),.rx(rx),.tx(tx),.led_rst(led_rst));
+always #5 clk=~clk;
+always @(posedge clk) if(started && dut.tx_we && dut.tx_wdata!=8'haa) begin actual[nbytes]=dut.tx_wdata; nbytes=nbytes+1; end
+task automatic waitn(input integer n); repeat(n) @(posedge clk); endtask
+task automatic push(input [7:0] v); @(posedge clk); dut.fifo_in.mem[dut.fifo_in.w_ptr[PW-1:0]]=v; dut.fifo_in.w_ptr=dut.fifo_in.w_ptr+1'b1; @(posedge clk); endtask
+task automatic waitstate(input [5:0] s,input integer lim,output bit ok); integer k; begin ok=0; for(k=0;k<lim&&!ok;k=k+1) begin @(posedge clk); cycles=cycles+1; if(dut.current_state==s) ok=1; end end endtask
+initial begin cycles=0;nbytes=0;miss=0;started=0;$readmemh("{in_file.as_posix()}",mem);$readmemh("{expected_file.as_posix()}",expected_vec);
+ if(VEN) $readmemh("{prog_files[0].as_posix()}",prog); else $readmemh("{prog_files[1].as_posix()}",prog);
+ for(i=0;i<4096;i=i+1)dut.u_unified_buffer.bank_mem[i%32][i/32]=mem[i];
+ rst=0;waitn(8);rst=1;waitn(8);push(8'ha1);push(VEN?NW[7:0]:LW[7:0]);push(VEN?NW[15:8]:LW[15:8]);
+ for(i=0;i<(VEN?NW:LW);i=i+1)begin push(prog[i][7:0]);push(prog[i][15:8]);end
+ waitstate(dut.WAIT_START_STATE,10000,seen);if(!seen)$fatal(1,"upload timeout");push(8'ha2);started=1;
+ waitstate(dut.HALT_STATE,100000,seen);if(!seen)$fatal(1,"execution timeout pc=%0d state=%0d bcount=%0d bindex=%0d bfill=%0d",dut.pc,dut.current_state,dut.bstore_count,dut.bstore_index,dut.bstore_fill);
+ for(i=0;i<24;i=i+1)if(dut.u_unified_buffer.bank_mem[(256+i)%32][(256+i)/32]!==expected_vec[i])miss=miss+1;
+ $display("MIXED_RESULT %0d %0d %0d %0d %0d",VEN,nbytes,cycles,dut.perf_busy_status_word[63:56],miss);
+ for(i=0;i<nbytes;i=i+1)$display("MIXED_BYTE %02x",actual[i]);
+ $display("MIXED_VEC %h %h",dut.u_unified_buffer.bank_mem[256%32][256/32],dut.u_unified_buffer.bank_mem[280%32][280/32]);$finish;end
+endmodule
+'''
+    tb = build / "mixed.sv"
+    tb.write_text(source, encoding="utf-8")
+    iv = str(IVERILOG)
+    result = {}
+    for ven in (0, 1):
+        exe = build / f"mixed_{ven}.vvp"
+        cmd = [iv, "-g2012", "-DICARUS", f"-DTEST_VEN={ven}", "-s", "tb", "-o", str(exe), *FULL_TOP_SOURCES[:-1], str(tb)]
+        subprocess.run(cmd, cwd=ROOT, text=True, check=True, capture_output=True)
+        proc = subprocess.run([str(VVP), str(exe)], cwd=ROOT, text=True, capture_output=True)
+        if proc.returncode:
+            log_path = build / f"mixed_{ven}.log"
+            log_path.write_text(proc.stdout + proc.stderr, encoding="utf-8")
+            raise RuntimeError("mixed simulation failed; inspect " + str(log_path))
+        (build / f"mixed_{ven}.log").write_text(proc.stdout + proc.stderr, encoding="utf-8")
+        m = re.search(rf"MIXED_RESULT {ven} (\d+) (\d+) ([0-9a-fA-F]+) (\d+)", proc.stdout)
+        if not m: raise RuntimeError(proc.stdout + proc.stderr)
+        byte_count, cycles, code, vm = int(m.group(1)), int(m.group(2)), int(m.group(3), 16), int(m.group(4))
+        stream = [int(x, 16) for x in re.findall(r"MIXED_BYTE ([0-9a-fA-F]{2})", proc.stdout)]
+        result[str(ven)] = {"bytes": stream, "cycles": cycles, "status_code": code, "reported_bytes": byte_count, "vec_mismatches": vm}
+    mismatches = sum(a != b for a, b in zip(result["1"]["bytes"], result["0"]["bytes"])) + abs(len(result["1"]["bytes"]) - len(result["0"]["bytes"]))
+    vec_mismatches = result["1"]["vec_mismatches"] + int(result["1"]["status_code"] != 0)
+    payload = {"cases": 1, "legacy_bytes": min(len(result["0"]["bytes"]), len(result["1"]["bytes"])),
+               "legacy_bytes_vec0": len(result["0"]["bytes"]), "legacy_bytes_mixed": len(result["1"]["bytes"]),
+               "vec_bytes": len(expected_vec), "vec_bytes_compared": len(expected_vec),
+               "mismatches": mismatches + vec_mismatches, "cycles": result["1"]["cycles"],
+               "passed": mismatches == 0 and vec_mismatches == 0 and len(expected_vec) > 0,
+               "legacy_ops": ["FETCH(top_half=1)", "FETCH(top_half=0)", "BSTORE", "LOAD weights", "LOAD inputs", "RUN", "residual RUN"],
+               "non_covered": {"TILE_GEMM": "RTL sequencer not implemented (Phase 4 decision)"},
+               "execution": "full top instruction BRAM -> escape -> descriptor -> vector unit -> legacy FSM -> unified buffer",
+               "command": "python tools/run_phase3_evidence.py --only mixed"}
+    if mismatches or vec_mismatches:
+        raise RuntimeError(f"mixed top outputs differ: {payload}; runs={result}")
+    return payload
+
+
 def fingerprint(path: str) -> str:
     return subprocess.check_output(["git", "rev-parse", f"HEAD:{path}"], cwd=ROOT, text=True).strip()
 
@@ -255,7 +400,7 @@ def commanded(result: dict, command: str) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--only", choices=("vadd", "vpos", "rmsnorm", "softmax", "traces", "decode", "trace_full_top"))
+    parser.add_argument("--only", choices=("vadd", "vpos", "rmsnorm", "softmax", "traces", "decode", "trace_full_top", "mixed"))
     only = parser.parse_args().only
     if only:
         suite = {
@@ -266,6 +411,7 @@ def main() -> int:
             "traces": run_vector_sequencer_sim.run_vector_stage_traces,
             "decode": run_full_top_decode_errors,
             "trace_full_top": run_full_top_trace_suite,
+            "mixed": run_full_top_mixed_program,
         }[only]
         value = suite()
         if only == "traces":
@@ -281,6 +427,11 @@ def main() -> int:
         if only == "trace_full_top":
             payload = json.loads(RESULT.read_text(encoding="utf-8")) if RESULT.exists() else {}
             payload["trace_full_top"] = value
+            payload["source_tree"] = {p: fingerprint(p) for p in ("firmware/host", "rtl", "tools")}
+            RESULT.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        if only == "mixed":
+            payload = json.loads(RESULT.read_text(encoding="utf-8")) if RESULT.exists() else {}
+            payload["mixed"] = value
             payload["source_tree"] = {p: fingerprint(p) for p in ("firmware/host", "rtl", "tools")}
             RESULT.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         print(json.dumps({only: value}, sort_keys=True))

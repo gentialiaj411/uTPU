@@ -502,7 +502,10 @@ module top #(
         VEC_VALIDATE_STATE,       // allow final descriptor word to settle
         VEC_START_STATE,
         VEC_EXEC_STATE,
-        VEC_RETURN_WAIT_STATE
+        VEC_RETURN_WAIT_STATE,
+        VEC_RETURN_FETCH_STATE,
+        VEC_RETURN_FETCH_WAIT_STATE,
+        VEC_RETURN_FETCH_LATCH_STATE
     } state_e;
 
     state_e current_state, next_state;
@@ -884,10 +887,7 @@ module top #(
                 next_state = FETCH_BRAM_WAIT_STATE;
 
             FETCH_BRAM_WAIT_STATE:
-                if (vec_seen)
-                    next_state = FETCH_BRAM_LATCH_STATE;
-                else
-                    next_state = DECODE_STATE;
+                next_state = DECODE_STATE;
 
             FETCH_BRAM_LATCH_STATE:
                 next_state = DECODE_STATE;
@@ -952,7 +952,23 @@ module top #(
                 end
 
             VEC_RETURN_WAIT_STATE:
-                next_state = FETCH_BRAM_STATE;
+                next_state = VEC_RETURN_FETCH_STATE;
+
+            // Descriptor reads leave instruction BRAM response timing
+            // unrelated to the legacy fetch cadence. Prime the first
+            // post-VEC instruction with the descriptor path's proven
+            // request/wait/latch sequence, then resume at DECODE.
+            VEC_RETURN_FETCH_STATE:
+                next_state = VEC_RETURN_FETCH_WAIT_STATE;
+
+            VEC_RETURN_FETCH_WAIT_STATE:
+                next_state = VEC_RETURN_FETCH_LATCH_STATE;
+
+            VEC_RETURN_FETCH_LATCH_STATE:
+                if (bram_rd_data == 16'h05A5)
+                    next_state = DECODE_STATE;
+                else
+                    next_state = FETCH_BRAM_STATE;
 
             // STORE multi-word fetch from BRAM
             STORE_FETCH_W2_STATE:
@@ -1430,8 +1446,8 @@ module top #(
 
             FETCH_BRAM_WAIT_STATE: begin
                 // bram_rd_data is valid this cycle (1-cycle BRAM latency)
-                if (!vec_seen) instruction <= bram_rd_data;
-                if (!vec_seen && perf_waiting_for_immediate_finalize) begin
+                instruction <= bram_rd_data;
+                if (perf_waiting_for_immediate_finalize) begin
                     if (!(
                         (opcode_e'(bram_rd_data[OPCODE_WIDTH-1:0]) == RUN_OP) &&
                         (bram_rd_data[3] == 1'b0) &&
@@ -1564,6 +1580,18 @@ module top #(
 
             VEC_EXEC_STATE: begin
                 if (vec_done && vec_error) vector_error_code <= 8'h04;
+            end
+
+            VEC_RETURN_FETCH_STATE: begin
+                bram_rd_addr <= pc[PC_WIDTH-1:0];
+                bram_rd_en   <= 1'b1;
+                // This read is the pipeline's look-ahead word; the regular
+                // FETCH state consumes it while requesting the next word.
+                pc           <= pc + 1'b1;
+            end
+
+            VEC_RETURN_FETCH_LATCH_STATE: begin
+                instruction <= bram_rd_data;
             end
 
             // -----------------------------------------------------------------
