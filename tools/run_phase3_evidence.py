@@ -6,7 +6,6 @@ reported count is returned by a completed subprocess-backed RTL test.
 """
 from __future__ import annotations
 
-import hashlib
 import json
 import subprocess
 import sys
@@ -35,13 +34,16 @@ def main() -> int:
     # These helper calls each compile/run an Icarus testbench against the
     # serialized production controller.  No values are reconstructed here.
     vadd = required(run_vector_sequencer_sim.run_vadd_exhaustive_suite(), "vadd_rq")
+    vpos = required(run_vector_sequencer_sim.run_vpos_add_suite(), "vpos_add")
     rms = required(run_vector_sequencer_sim.run_rmsnorm_suite(), "rmsnorm")
-
-    # The position and softmax helpers are replaced by their suites as they
-    # become available; fail closed until there is executable coverage at the
-    # contractual count rather than perpetuating a static artifact claim.
+    softmax = required(run_vector_sequencer_sim.run_softmax_suite(), "softmax")
+    divider_rc = run_restoring_divider_sim.main()
+    if divider_rc:
+        raise RuntimeError("divider failed")
+    # run_restoring_divider_sim prints its generated result; retain a
+    # structured mirror only after its subprocess returned zero.
     raise RuntimeError(
-        "phase3 evidence incomplete: VPOS_ADD/softmax/traces/decode/mixed/dual-mode suites are required"
+        "phase3 evidence incomplete: traces/decode/mixed/dual-mode suites are required"
     )
 
 
