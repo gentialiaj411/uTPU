@@ -248,7 +248,7 @@
   },
   "source_tree": {
     "firmware/host": "4767f989b5cda711cd9919496780419fee08bf6d",
-    "rtl": "5352505bba30a80074de4e2a2ded992df3c680f8",
+    "rtl": "8d3d95457c6e2d7b768195713949e52cecbf8e54",
     "tools": "4dd89b3afa932ebccffce8d6aa1135b0412c2b43"
   },
   "status": "phase3_vector_rtl_incomplete",
@@ -256,7 +256,7 @@
     "cases": 8,
     "command": "python tools/run_phase3_evidence.py --only trace_full_top",
     "compared_bytes": 98304,
-    "cycles": 998590,
+    "cycles": 998678,
     "execution": "full top instruction BRAM -> escape -> descriptor -> vector unit -> unified buffer",
     "mismatches": 0,
     "passed": true,
@@ -264,63 +264,63 @@
       "final_norm": {
         "cases": 8,
         "compared_bytes": 12288,
-        "cycles": 98346,
+        "cycles": 98354,
         "mismatches": 0,
         "passed": true
       },
       "pos_add": {
         "cases": 8,
         "compared_bytes": 12288,
-        "cycles": 73960,
+        "cycles": 73968,
         "mismatches": 0,
         "passed": true
       },
       "residual1": {
         "cases": 8,
         "compared_bytes": 12288,
-        "cycles": 73960,
+        "cycles": 73968,
         "mismatches": 0,
         "passed": true
       },
       "residual2": {
         "cases": 8,
         "compared_bytes": 12288,
-        "cycles": 73960,
+        "cycles": 73968,
         "mismatches": 0,
         "passed": true
       },
       "rmsnorm1": {
         "cases": 8,
         "compared_bytes": 12288,
-        "cycles": 98090,
+        "cycles": 98098,
         "mismatches": 0,
         "passed": true
       },
       "rmsnorm2": {
         "cases": 8,
         "compared_bytes": 12288,
-        "cycles": 98330,
+        "cycles": 98338,
         "mismatches": 0,
         "passed": true
       },
       "softmax_head0": {
         "cases": 8,
         "compared_bytes": 8192,
-        "cycles": 159848,
+        "cycles": 159856,
         "mismatches": 0,
         "passed": true
       },
       "softmax_head1": {
         "cases": 8,
         "compared_bytes": 8192,
-        "cycles": 159848,
+        "cycles": 159856,
         "mismatches": 0,
         "passed": true
       },
       "softmax_head2": {
         "cases": 8,
         "compared_bytes": 8192,
-        "cycles": 159848,
+        "cycles": 159856,
         "mismatches": 0,
         "passed": true
       }

@@ -90,6 +90,153 @@ def run_full_top_decode_errors() -> dict:
             "mismatches": 0, "cycles": cycles, "passed": True, "command": command}
 
 
+def run_full_top_trace_suite() -> dict:
+    """Execute eight nine-stage vector traces via the top instruction BRAM."""
+    import numpy as np
+    import run_vector_sequencer_sim as seq
+    from run_vector_rtl_sim import rne, rms, sat, soft
+
+    build = ROOT / "build" / "phase3_full_top_traces"
+    build.mkdir(parents=True, exist_ok=True)
+    cmd_text = "python tools/run_phase3_evidence.py --only trace_full_top"
+    stage_totals = {name: {"cases": 0, "compared_bytes": 0, "mismatches": 0, "cycles": 0, "passed": True}
+                    for name in ("pos_add", "rmsnorm1", "softmax_head0", "softmax_head1", "softmax_head2",
+                                 "residual1", "rmsnorm2", "residual2", "final_norm")}
+    all_cycles = all_bytes = errors = 0
+    stage_cycle_totals = {name: 0 for name in stage_totals}
+    for trace in range(8):
+        rng = np.random.default_rng(906 + trace)  # independent deterministic full-top workload per trace
+        words: dict[int, int] = {}
+        expected: list[tuple[int, int]] = []
+        program: list[int] = []
+        next_addr = 64
+
+        def alloc(data: np.ndarray) -> int:
+            nonlocal next_addr
+            address = next_addr
+            packed = seq.pack(np.asarray(data).reshape(-1))
+            words.update({address + i: value for i, value in enumerate(packed)})
+            next_addr += len(packed) + 8
+            return address
+
+        def append_vec(subop: int, dst: int, src0: int, param: int, length: int, flags: int = 0) -> None:
+            program.extend((0x05A5, ((subop + 1) << 11) | (flags << 8) | (subop << 4) | 9,
+                            dst, src0, param, length))
+
+        def output_expect(dst: int, values: np.ndarray) -> None:
+            nonlocal all_bytes
+            packed = seq.pack(np.asarray(values).reshape(-1))
+            expected.extend((dst + i, value) for i, value in enumerate(packed))
+            all_bytes += len(values.reshape(-1))
+
+        x = rng.integers(-128, 128, 1536, dtype=np.int8)
+        pos = rng.integers(-128, 128, 1536, dtype=np.int8)
+        pos_out = sat(rne(x.astype(np.int64), 1) + rne(pos.astype(np.int64), 2))
+        x_a, pos_a, pos_dst, p = alloc(x), alloc(pos), alloc(np.zeros(1536, np.int8)), next_addr
+        words.update({p: 3, p+1: pos_a, p+2: ((-6 & 255) << 8) | (-5 & 255), p+3: (-4 & 255)})
+        next_addr += 12; append_vec(2, pos_dst, x_a, p, 1536); output_expect(pos_dst, pos_out)
+
+        def append_norm(data: np.ndarray, label: str) -> np.ndarray:
+            nonlocal next_addr
+            gamma = rng.integers(-128, 128, 48, dtype=np.int8)
+            result, _ = rms(data.reshape(-1, 48), gamma, 3)
+            src, dst, gamma_a = alloc(data), alloc(np.zeros(data.size, np.int8)), alloc(gamma)
+            rec = next_addr; words.update({rec: 2, rec+1: gamma_a, rec+2: 3}); next_addr += 10
+            append_vec(1, dst, src, rec, data.size)
+            output_expect(dst, result)
+            return result.reshape(-1)
+
+        norm1 = append_norm(pos_out, "rmsnorm1")
+        for head in range(3):
+            scores = rng.integers(-128, 128, (32, 32), dtype=np.int8)
+            probs = np.zeros((32, 32), dtype=np.uint8)
+            for row in range(32): probs[row, :row+1] = soft(scores[row, :row+1])
+            src, dst = alloc(scores), alloc(np.zeros_like(probs))
+            scratch = next_addr; next_addr += 520
+            rec = next_addr; words.update({rec: 4, rec+1: scratch}); next_addr += 10
+            append_vec(3, dst, src, rec, 1024, flags=(1 | (head << 1)))
+            output_expect(dst, probs)
+
+        other1 = rng.integers(-128, 128, 1536, dtype=np.int8)
+        residual1 = sat(rne(pos_out.astype(np.int64), 1) + rne(other1.astype(np.int64), 2))
+        a, b, d = alloc(pos_out), alloc(other1), alloc(np.zeros(1536, np.int8)); rec = next_addr
+        words.update({rec: 1, rec+1: b, rec+2: ((-5 & 255) | ((-6 & 255) << 8)), rec+3: (-4 & 255)}); next_addr += 12
+        append_vec(0, d, a, rec, 1536); output_expect(d, residual1)
+        norm2 = append_norm(residual1, "rmsnorm2")
+        other2 = rng.integers(-128, 128, 1536, dtype=np.int8)
+        residual2 = sat(rne(norm2.astype(np.int64), 1) + rne(other2.astype(np.int64), 2))
+        a, b, d = alloc(norm2), alloc(other2), alloc(np.zeros(1536, np.int8)); rec = next_addr
+        words.update({rec: 1, rec+1: b, rec+2: ((-5 & 255) | ((-6 & 255) << 8)), rec+3: (-4 & 255)}); next_addr += 12
+        append_vec(0, d, a, rec, 1536); output_expect(d, residual2)
+        final = append_norm(residual2, "final_norm")
+        program.append(4)
+
+        input_file = build / f"trace_{trace}_input.mem"
+        expected_file = build / f"trace_{trace}_expected.mem"
+        program_file = build / f"trace_{trace}_program.mem"
+        def write_mem(path: Path, values) -> None:
+            path.write_text("\n".join(f"{int(v) & 0xffff:04x}" for v in values) + "\n", encoding="ascii")
+        memory = [0] * 32768
+        for address, value in words.items(): memory[address] = value
+        write_mem(input_file, memory)
+        expected_file.write_text("\n".join(f"{((value << 16) | address) & 0xffffffff:08x}" for address, value in expected) + "\n", encoding="ascii")
+        write_mem(program_file, program)
+        tb = f'''module tb;
+logic clk=0,rst=0,rx=1; wire tx,led_rst; localparam integer FW=256, PW=$clog2(FW);
+localparam integer PROGRAM_WORDS={len(program)}, EXPECT_WORDS={len(expected)};
+reg [15:0] input_words[0:32767], prog[0:PROGRAM_WORDS-1]; reg [31:0] expected_pairs[0:EXPECT_WORDS-1];
+integer i,cycles,miss,stage_no,stage_start_time; bit seen;
+top #(.ARRAY_SIZE(8),.BUFFER_SIZE(32768),.COMPUTE_DATA_WIDTH(8),.ACCUMULATOR_DATA_WIDTH(32),
+ .EXT_ADDR_EN(1),.PROG_DEPTH(2048),.FIFO_WIDTH(FW),.MAX_BATCH_COUNT(4),.QUANTIZER_PIPE_DEPTH(1),
+ .VECTOR_UNIT_EN(1)) dut(.clk(clk),.rst(rst),.rx(rx),.tx(tx),.led_rst(led_rst));
+always #5 clk=~clk;
+always @(posedge clk) begin
+ if(dut.current_state==dut.VEC_START_STATE) stage_start_time=$time;
+ if(dut.current_state==dut.FETCH_BRAM_STATE && stage_start_time!=0) begin
+  $display("TRACE_STAGE %0d %0d",stage_no,($time-stage_start_time)/10); stage_no=stage_no+1; stage_start_time=0;
+ end
+end
+task automatic wait_cycles(input integer n); repeat(n) @(posedge clk); endtask
+task automatic push(input [7:0] v); @(posedge clk); dut.fifo_in.mem[dut.fifo_in.w_ptr[PW-1:0]]=v; dut.fifo_in.w_ptr=dut.fifo_in.w_ptr+1'b1; @(posedge clk); endtask
+task automatic wait_state(input [5:0] s,input integer lim,output bit ok); integer n; begin ok=0; for(n=0;n<lim&&!ok;n=n+1) begin @(posedge clk); cycles=cycles+1; if(dut.current_state==s) ok=1; end end endtask
+initial begin
+ cycles=0; stage_no=0; stage_start_time=0;
+ $readmemh("{input_file.as_posix()}",input_words); $readmemh("{expected_file.as_posix()}",expected_pairs); $readmemh("{program_file.as_posix()}",prog);
+ for(i=0;i<32768;i=i+1) dut.u_unified_buffer.bank_mem[i%32][i/32]=input_words[i];
+ rst=0; wait_cycles(8); rst=1; wait_cycles(8); push(8'ha1); push(PROGRAM_WORDS[7:0]); push(PROGRAM_WORDS[15:8]);
+ for(i=0;i<PROGRAM_WORDS;i=i+1) begin push(prog[i][7:0]); push(prog[i][15:8]); end
+ wait_state(dut.WAIT_START_STATE,10000,seen); if(!seen) $fatal(1,"upload did not reach WAIT_START"); push(8'ha2);
+ wait_state(dut.HALT_STATE,3000000,seen); if(!seen) $fatal(1,"full-top trace timeout top=%0d pc=%0d",dut.current_state,dut.pc);
+ miss=0; for(i=0;i<EXPECT_WORDS;i=i+1) if(dut.u_unified_buffer.bank_mem[expected_pairs[i][15:0]%32][expected_pairs[i][15:0]/32] !== expected_pairs[i][31:16]) begin miss=miss+1; if(miss<8) $display("TRACE_MISMATCH addr=%0d got=%h want=%h",expected_pairs[i][15:0],dut.u_unified_buffer.bank_mem[expected_pairs[i][15:0]%32][expected_pairs[i][15:0]/32],expected_pairs[i][31:16]); end
+ $display("FULL_TOP_TRACE_RESULT {trace} {len(expected)} %0d %0d",miss,cycles); $finish;
+end
+endmodule
+'''
+        tb_path = build / f"trace_{trace}.sv"; tb_path.write_text(tb, encoding="utf-8")
+        exe = build / f"trace_{trace}.vvp"
+        compile_cmd = [str(IVERILOG), "-g2012", "-DICARUS", "-s", "tb", "-o", str(exe), *FULL_TOP_SOURCES[:-1], str(tb_path)]
+        subprocess.run(compile_cmd, cwd=ROOT, text=True, check=True, capture_output=True)
+        proc = subprocess.run([str(VVP), str(exe)], cwd=ROOT, text=True, check=True, capture_output=True)
+        match = re.search(rf"FULL_TOP_TRACE_RESULT {trace} (\d+) (\d+) (\d+)", proc.stdout)
+        if not match: raise RuntimeError(proc.stdout + proc.stderr)
+        packed_words, misses, spent = map(int, match.groups())
+        if misses: raise RuntimeError(proc.stdout)
+        stage_lines = re.findall(r"TRACE_STAGE (\d+) (\d+)", proc.stdout)
+        if len(stage_lines) != 9:
+            raise RuntimeError(f"trace {trace} produced {len(stage_lines)} stage timings: {proc.stdout}")
+        stage_names = list(stage_totals)
+        for stage_index, stage_cycle in stage_lines:
+            stage_cycle_totals[stage_names[int(stage_index)]] += int(stage_cycle)
+        all_cycles += spent; errors += misses
+    stage_bytes = {"pos_add":1536,"rmsnorm1":1536,"softmax_head0":1024,"softmax_head1":1024,
+                   "softmax_head2":1024,"residual1":1536,"rmsnorm2":1536,"residual2":1536,"final_norm":1536}
+    for name, stage in stage_totals.items():
+        stage.update(cases=8, compared_bytes=stage_bytes[name]*8, cycles=stage_cycle_totals[name], passed=True)
+    return {"cases": 8, "stages_per_trace": 9, "compared_bytes": all_bytes, "mismatches": errors,
+            "cycles": all_cycles, "passed": errors == 0, "command": cmd_text,
+            "stage_totals": stage_totals, "execution": "full top instruction BRAM -> escape -> descriptor -> vector unit -> unified buffer"}
+
+
 def fingerprint(path: str) -> str:
     return subprocess.check_output(["git", "rev-parse", f"HEAD:{path}"], cwd=ROOT, text=True).strip()
 
@@ -108,7 +255,7 @@ def commanded(result: dict, command: str) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--only", choices=("vadd", "vpos", "rmsnorm", "softmax", "traces", "decode"))
+    parser.add_argument("--only", choices=("vadd", "vpos", "rmsnorm", "softmax", "traces", "decode", "trace_full_top"))
     only = parser.parse_args().only
     if only:
         suite = {
@@ -118,6 +265,7 @@ def main() -> int:
             "softmax": run_vector_sequencer_sim.run_softmax_suite,
             "traces": run_vector_sequencer_sim.run_vector_stage_traces,
             "decode": run_full_top_decode_errors,
+            "trace_full_top": run_full_top_trace_suite,
         }[only]
         value = suite()
         if only == "traces":
@@ -128,6 +276,11 @@ def main() -> int:
         if only == "decode":
             payload = json.loads(RESULT.read_text(encoding="utf-8")) if RESULT.exists() else {}
             payload["decode_errors"] = value
+            payload["source_tree"] = {p: fingerprint(p) for p in ("firmware/host", "rtl", "tools")}
+            RESULT.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        if only == "trace_full_top":
+            payload = json.loads(RESULT.read_text(encoding="utf-8")) if RESULT.exists() else {}
+            payload["trace_full_top"] = value
             payload["source_tree"] = {p: fingerprint(p) for p in ("firmware/host", "rtl", "tools")}
             RESULT.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         print(json.dumps({only: value}, sort_keys=True))

@@ -1462,12 +1462,12 @@ module top #(
                 run_residual_addr_stage <= 1'b0;
                 if (instruction == 16'h05A5) begin
                     vector_error_code <= VECTOR_UNIT_EN ? 8'h02 : 8'h01;
+                    // The first fetch after upload may have a stale BRAM
+                    // response in flight. Rewind that one speculative fetch
+                    // only; subsequent fetches use the settled response
+                    // latch and PC already points at the descriptor.
+                    if (!vec_seen) pc <= pc - 1'b1;
                     vec_seen <= 1'b1;
-                    // FETCH_BRAM_STATE speculatively advances PC while the
-                    // synchronous BRAM response settles. VEC owns the word
-                    // immediately following the escape, so undo that fetch
-                    // increment before beginning descriptor reads.
-                    pc <= pc - 1'b1;
                     vec_desc_index <= '0;
                 end else case (opcode)
                     STORE_OP: begin
