@@ -16,7 +16,7 @@ def write_words(path: Path, values: np.ndarray) -> None:
     path.write_text("\n".join(f"{int(v):06x}" for v in values) + "\n", encoding="ascii")
 
 
-def main() -> int:
+def run_suite() -> dict:
     rng = np.random.default_rng(1337)
     denominator = np.concatenate((np.array([1, 1, (1 << 22) - 1, (1 << 22) - 1], np.uint32), rng.integers(1, 1 << 22, 2044, dtype=np.uint32)))
     numerator = np.concatenate((np.array([0, (1 << 24) - 1, 0, (1 << 24) - 1], np.uint32), rng.integers(0, 1 << 24, 2044, dtype=np.uint32)))
@@ -43,6 +43,11 @@ $display("DIVIDER_RESULT {count} %0d %0d",cycles,miss);$finish;end endmodule
             raise RuntimeError(proc.stdout + proc.stderr)
     _, cases, cycles, mismatches = next(line for line in proc.stdout.splitlines() if line.startswith("DIVIDER_RESULT")).split()
     result = {"cases": int(cases), "cycles": int(cycles), "mismatches": int(mismatches), "passed": int(mismatches) == 0}
+    return result
+
+
+def main() -> int:
+    result = run_suite()
     print(result)
     return int(not result["passed"])
 
