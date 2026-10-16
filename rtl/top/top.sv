@@ -495,7 +495,9 @@ module top #(
         BUF_FILL_COUNT_HI_STATE,  // 31 A5 word count high
         BUF_FILL_BODY_STATE,      // 32 A5 payload → unified buffer
         VEC_FETCH_STATE,          // escaped descriptor read beat
+        VEC_FETCH_WAIT_STATE,     // synchronous BRAM read latency
         VEC_LATCH_STATE,          // latch descriptor word and advance
+        VEC_VALIDATE_STATE,       // allow final descriptor word to settle
         VEC_START_STATE,
         VEC_EXEC_STATE
     } state_e;
@@ -904,13 +906,19 @@ module top #(
                 endcase
 
             VEC_FETCH_STATE:
+                next_state = VEC_FETCH_WAIT_STATE;
+
+            VEC_FETCH_WAIT_STATE:
                 next_state = VEC_LATCH_STATE;
 
             VEC_LATCH_STATE:
                 if (vec_desc_index == 3'd4)
-                    next_state = VEC_START_STATE;
+                    next_state = VEC_VALIDATE_STATE;
                 else
                     next_state = VEC_FETCH_STATE;
+
+            VEC_VALIDATE_STATE:
+                next_state = VEC_START_STATE;
 
             VEC_START_STATE:
                 if (vec_header_invalid)
