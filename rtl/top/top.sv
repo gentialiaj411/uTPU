@@ -25,7 +25,11 @@ module top #(
     // When 0 (default), legacy 9-bit address-in-opcode-word layout is used
     // and behaviour is byte-identical to pre-Phase-4.
     parameter EXT_ADDR_EN            = 0,
+`ifdef PHASE3_VECTOR_UNIT_EN
+    parameter VECTOR_UNIT_EN          = `PHASE3_VECTOR_UNIT_EN,
+`else
     parameter VECTOR_UNIT_EN          = 0,
+`endif
     parameter OPCODE_WIDTH           = 3,
     // Finalize datapath width. Default ARRAY_SIZE matches the PE output rate
     // (one column of rows per cycle). Override to ARRAY_SIZE*ARRAY_SIZE to

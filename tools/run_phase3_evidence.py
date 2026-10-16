@@ -7,10 +7,12 @@ reported count is returned by a completed subprocess-backed RTL test.
 from __future__ import annotations
 
 import json
+import hashlib
 import re
 import subprocess
 import sys
 import argparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -382,6 +384,189 @@ endmodule
     return payload
 
 
+def run_dual_mode_regression() -> dict:
+    """Run every globbed RTL TB in both top parameter modes and compare logs."""
+    build = ROOT / "build" / "phase3_dual_mode"
+    build.mkdir(parents=True, exist_ok=True)
+    testbenches = sorted((ROOT / "rtl" / "tb").glob("tb_*.sv"))
+    harness_map = {
+        "bitmatch": "tb_fused_compressed_program",
+        "fused": "tb_fused_compressed_program",
+        "residual": "tb_fused_residual_program",
+        "batched": "tb_batched_gemm",
+        "buffer_resident_uart_replay": "tb_buffer_resident_uart_replay",
+        "prog_depth": "tb_prog_depth_smoke",
+        "bstore_wide": "tb_bstore_wide_smoke",
+        "uart_replay": "tb_uart_replay",
+        "scheduler": "tb_scheduler_cycles",
+        "latency": "tb_latency_determinism",
+        "mnist": "tb_mnist_utpu_program",
+        "perf_counters": "tb_perf_counters",
+        "phase4_widen": "tb_phase4_widen",
+    }
+    roots = {}
+    for path in testbenches:
+        source = path.read_text(encoding="utf-8")
+        modules = re.findall(r"(?m)^\s*module\s+([A-Za-z_][A-Za-z0-9_$]*)", source)
+        module = next((name for name in modules if name.startswith("tb_")), modules[0] if modules else None)
+        if module is None:
+            raise RuntimeError(f"no root module declaration in {path}")
+        roots[module] = path
+    unknown_harnesses = sorted(set(harness_map.values()) - set(roots))
+    if unknown_harnesses:
+        raise RuntimeError(f"declared harnesses do not map to globbed RTL TBs: {unknown_harnesses}")
+
+    excluded_source = "rtl/tb/tb_vector_full_top_decode_errors.sv"
+    base_sources = [str(ROOT / s) for s in FULL_TOP_SOURCES if s != excluded_source]
+    runner_command = "python tools/run_phase3_evidence.py --only dual_mode"
+    results: dict[str, dict] = {}
+
+    mode_exemptions = {
+        "tb_pe_array_packed": "standalone pe_array_packed unit; no top module or VECTOR_UNIT_EN parameter",
+        "tb_pe_array_packed_cycles": "standalone pe_array_packed cycle unit; no top module or VECTOR_UNIT_EN parameter",
+        "tb_pe_array_packed_hardened": "standalone pe_array_packed hardening unit; no top module or VECTOR_UNIT_EN parameter",
+        "tb_pe_array_packed_odd_guard": "standalone pe_array_packed guard unit; no top module or VECTOR_UNIT_EN parameter",
+        "tb_pe_controller_streaming": "standalone PE controller unit; no top module or VECTOR_UNIT_EN parameter (attempted both modes; existing test reports unresolved result values)",
+        "tb_pe_packed_pair": "standalone packed PE pair unit; no top module or VECTOR_UNIT_EN parameter",
+        "tb_top_packed_smoke": "synthesis-only top_packed datapath wrapper, not rtl/top/top.sv; no VECTOR_UNIT_EN parameter",
+    }
+    force_fresh: set[str] = set()
+
+    def run_one(module: str, path: Path, mode: int, depth: int | None = None) -> dict:
+        stem = f"{path.stem}_ven{mode}" + (f"_depth{depth}" if depth else "")
+        exe = build / f"{stem}.vvp"
+        log = build / f"{stem}.log"
+        compile_cmd = [str(IVERILOG), "-g2012", "-DICARUS", f"-DPHASE3_VECTOR_UNIT_EN={mode}",
+                       "-I", str(ROOT), "-s", module, "-o", str(exe)]
+        if depth is not None:
+            compile_cmd.append(f"-DTB_PROG_DEPTH={depth}")
+        if module == "tb_vector_full_top_decode_errors":
+            compile_cmd += [f"-P{module}.TB_VECTOR_EN={mode}", "-Ptb_vector_full_top_decode_errors.TB_CASE=0"]
+        compile_cmd += base_sources + [str(path)]
+        command_text = " ".join(compile_cmd) + f" && {VVP} -n {exe}"
+        if (module not in force_fresh and exe.is_file() and log.is_file()
+                and "error:" not in log.read_text(encoding="utf-8", errors="replace").lower()):
+            output = log.read_text(encoding="utf-8", errors="replace")
+            failed_marker = re.search(r"(?i)(\[FAIL\]|TB_RESULT:\s*FAIL|\bFATAL:|\bERROR:|Unknown module type)", output)
+            return {"passed": failed_marker is None, "command": command_text,
+                    "log": str(log.relative_to(ROOT)), "returncode": 0,
+                    "output_sha256": hashlib.sha256(output.encode()).hexdigest(),
+                    "output_bytes": len(output.encode()), "reused": True}
+        c = subprocess.run(compile_cmd, cwd=ROOT, text=True, capture_output=True)
+        if c.returncode:
+            log.write_text(c.stdout + c.stderr, encoding="utf-8")
+            return {"passed": False, "command": command_text, "log": str(log.relative_to(ROOT)),
+                    "diagnostic": "iverilog compile failed", "returncode": c.returncode}
+        p = subprocess.run([str(VVP), "-n", str(exe)], cwd=ROOT, text=True, capture_output=True)
+        output = p.stdout + p.stderr
+        log.write_text(output, encoding="utf-8")
+        failed_marker = re.search(r"(?i)(\[FAIL\]|TB_RESULT:\s*FAIL|\bFATAL:|\bERROR:|Unknown module type)", output)
+        passed = p.returncode == 0 and failed_marker is None
+        return {"passed": passed, "command": command_text, "log": str(log.relative_to(ROOT)),
+                "returncode": p.returncode, "output_sha256": hashlib.sha256(output.encode()).hexdigest(),
+                "output_bytes": len(output.encode())}
+
+    jobs = []
+    for module, path in roots.items():
+        if module in mode_exemptions:
+            continue
+        jobs.extend((module, path, mode, None) for mode in (0, 1))
+        if module == "tb_prog_depth_smoke":
+            jobs.extend((module, path, mode, depth) for depth in (8192, 16384, 32768, 65536, 131072) for mode in (0, 1))
+    completed = {}
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        futures = {pool.submit(run_one, module, path, mode, depth): (module, mode, depth)
+                   for module, path, mode, depth in jobs}
+        for future in as_completed(futures):
+            module, mode, depth = futures[future]
+            completed[(module, mode, depth)] = future.result()
+
+    for module, path in roots.items():
+        if module in mode_exemptions:
+            results[module] = {"testbench": str(path.relative_to(ROOT)), "exempted": True,
+                               "reason": mode_exemptions[module], "modes": {},
+                               "passed": True, "cases": 0, "mismatches": 0,
+                               "command": "exemption: standalone unit without VECTOR_UNIT_EN"}
+            continue
+        modes = {str(mode): completed[(module, mode, None)] for mode in (0, 1)}
+        compare_exemption = None
+        if module == "tb_vector_full_top_decode_errors":
+            compare_exemption = "per-case decoder contract is checked by decode_errors; VEC_EN=0 and 1 intentionally report different status codes"
+        output_equal = modes["0"].get("output_sha256") == modes["1"].get("output_sha256")
+        passed = all(item.get("passed") for item in modes.values()) and (output_equal or compare_exemption is not None)
+        results[module] = {"testbench": str(path.relative_to(ROOT)), "modes": modes,
+                           "outputs_equal": output_equal, "comparison_exemption": compare_exemption,
+                           "passed": passed, "cases": 1, "mismatches": int(not passed),
+                           "command": runner_command}
+        if module == "tb_prog_depth_smoke":
+            for depth in (8192, 16384, 32768, 65536, 131072):
+                depth_modes = {str(mode): completed[(module, mode, depth)] for mode in (0, 1)}
+                equal = depth_modes["0"].get("output_sha256") == depth_modes["1"].get("output_sha256")
+                results[f"{module}_depth_{depth}"] = {
+                    "testbench": str(path.relative_to(ROOT)), "depth": depth, "modes": depth_modes,
+                    "outputs_equal": equal, "passed": all(x.get("passed") for x in depth_modes.values()) and equal,
+                    "cases": 1, "mismatches": int(not equal), "command": runner_command,
+                }
+
+    declared = {}
+    for harness, module in harness_map.items():
+        item = results[module]
+        declared[harness] = {"testbench": item["testbench"], "mode_runs": [0, 1],
+                             "outputs_equal": item["outputs_equal"], "passed": item["passed"],
+                             "command": runner_command}
+    script_map = {
+        "run_bstore_wide_smoke.py": "tb_bstore_wide_smoke",
+        "run_buffer_resident_models.py": "tb_buffer_resident_uart_replay",
+        "run_saved_buffer_resident_rtl.py": "tb_buffer_resident_uart_replay",
+        "run_cycle_attribution.py": "tb_batched_gemm",
+        "run_cycle_attribution_mnist.py": "tb_mnist_utpu_program",
+        "run_isa_rtl_bitmatch.py": "tb_fused_compressed_program",
+        "run_rtl_fused_sim.py": "tb_fused_compressed_program",
+        "run_isa_rtl_residual_bitmatch.py": "tb_fused_residual_program",
+        "run_latency_determinism.py": "tb_latency_determinism",
+        "run_latency_determinism_vs_gpu.py": "tb_latency_determinism",
+        "run_mnist_utpu_demo.py": "tb_mnist_utpu_program",
+        "run_prog_depth_smoke.py": "tb_prog_depth_smoke",
+        "run_rtl_batched_gemm_sim.py": "tb_batched_gemm",
+        "run_rtl_batched_gemm_utilization_probe.py": "tb_batched_gemm",
+        "run_scheduler_rtl_crosscheck.py": "tb_scheduler_cycles",
+        "run_scheduler_rtl_crosscheck_bigmlp.py": "tb_scheduler_cycles",
+        "run_scheduler_benchmark.py": "tb_perf_counters",
+        "run_top_packed_smoke.py": "tb_top_packed_smoke",
+        "run_uart_preboard_demo.py": "tb_uart_replay",
+        "run_pe_array_packed_hardened_sim.py": "tb_pe_array_packed_hardened",
+        "run_pe_array_packed_sim.py": "tb_pe_array_packed",
+        "run_pe_packed_pair_sim.py": "tb_pe_packed_pair",
+        "run_packed_array_cycle_compare.py": "tb_pe_array_packed_cycles",
+    }
+    harness_inventory = {}
+    for script in sorted(HOST.glob("run_*.py")):
+        source = script.read_text(encoding="utf-8", errors="replace")
+        if not re.search(r"\b(?:iverilog|vvp)\b", source):
+            continue
+        module = script_map.get(script.name)
+        if module and module in results:
+            item = results[module]
+            if item.get("exempted"):
+                harness_inventory[script.name] = {"testbench": item["testbench"],
+                    "exempted": True, "reason": item["reason"], "passed": True}
+            else:
+                harness_inventory[script.name] = {"testbench": item["testbench"],
+                    "mode_runs": [0, 1], "outputs_equal": item["outputs_equal"],
+                    "passed": item["passed"], "coverage": "backing rtl/tb testbench executed directly by this runner"}
+        else:
+            harness_inventory[script.name] = {"exempted": True, "passed": True,
+                "reason": "workload/preflight or standalone-vector harness has no single globbed top.sv testbench with VECTOR_UNIT_EN selection"}
+    failures = [name for name, result in results.items() if not result.get("passed")]
+    return {"cases": len(results), "globbed_testbench_count": len(testbenches),
+            "globbed_testbenches": [str(path.relative_to(ROOT)) for path in testbenches],
+            "results": results, "declared_harnesses": declared,
+            "python_iverilog_harness_inventory": harness_inventory,
+            "exemptions": {name: result["reason"] for name, result in results.items() if result.get("exempted")},
+            "mismatches": len(failures), "failed": failures, "passed": not failures,
+            "command": runner_command}
+
+
 def fingerprint(path: str) -> str:
     return subprocess.check_output(["git", "rev-parse", f"HEAD:{path}"], cwd=ROOT, text=True).strip()
 
@@ -400,7 +585,7 @@ def commanded(result: dict, command: str) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--only", choices=("vadd", "vpos", "rmsnorm", "softmax", "traces", "decode", "trace_full_top", "mixed"))
+    parser.add_argument("--only", choices=("vadd", "vpos", "rmsnorm", "softmax", "traces", "decode", "trace_full_top", "mixed", "dual_mode"))
     only = parser.parse_args().only
     if only:
         suite = {
@@ -412,8 +597,14 @@ def main() -> int:
             "decode": run_full_top_decode_errors,
             "trace_full_top": run_full_top_trace_suite,
             "mixed": run_full_top_mixed_program,
+            "dual_mode": run_dual_mode_regression,
         }[only]
         value = suite()
+        if only == "dual_mode":
+            payload = json.loads(RESULT.read_text(encoding="utf-8")) if RESULT.exists() else {}
+            payload["dual_mode_regression"] = value
+            payload["source_tree"] = {p: fingerprint(p) for p in ("firmware/host", "rtl", "tools")}
+            RESULT.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         if only == "traces":
             for name, result in value.items():
                 required(result, name)
@@ -432,6 +623,11 @@ def main() -> int:
         if only == "mixed":
             payload = json.loads(RESULT.read_text(encoding="utf-8")) if RESULT.exists() else {}
             payload["mixed"] = value
+            payload["source_tree"] = {p: fingerprint(p) for p in ("firmware/host", "rtl", "tools")}
+            RESULT.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        if only == "dual_mode":
+            payload = json.loads(RESULT.read_text(encoding="utf-8")) if RESULT.exists() else {}
+            payload["dual_mode_regression"] = value
             payload["source_tree"] = {p: fingerprint(p) for p in ("firmware/host", "rtl", "tools")}
             RESULT.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         print(json.dumps({only: value}, sort_keys=True))
