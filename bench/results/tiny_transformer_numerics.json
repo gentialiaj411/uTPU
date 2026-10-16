@@ -160,7 +160,7 @@
   },
   "seed": 20261013,
   "source_tree": {
-    "firmware/host": "a1b92e19303f6f24ca595938a2696a928c3d93a1",
+    "firmware/host": "3e44255dc3d754096fa4011e520e4988112698dc",
     "tools": "1bf203f97c9dc16a2870f1d8e6f927d0260cf8da"
   },
   "split": {
