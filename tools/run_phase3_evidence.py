@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import argparse
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -31,6 +32,18 @@ def required(result: dict, name: str) -> dict:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--only", choices=("vadd", "vpos", "rmsnorm", "softmax"))
+    only = parser.parse_args().only
+    if only:
+        suite = {
+            "vadd": run_vector_sequencer_sim.run_vadd_exhaustive_suite,
+            "vpos": run_vector_sequencer_sim.run_vpos_add_suite,
+            "rmsnorm": run_vector_sequencer_sim.run_rmsnorm_suite,
+            "softmax": run_vector_sequencer_sim.run_softmax_suite,
+        }[only]
+        print(json.dumps({only: required(suite(), only)}, sort_keys=True))
+        return 0
     # These helper calls each compile/run an Icarus testbench against the
     # serialized production controller.  No values are reconstructed here.
     vadd = required(run_vector_sequencer_sim.run_vadd_exhaustive_suite(), "vadd_rq")
