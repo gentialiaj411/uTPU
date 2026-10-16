@@ -24,11 +24,11 @@ module vector_sequencer #(
                      NORM_NEWTON_MUL0=36, NORM_NEWTON_MUL1=37,
                      NORM_NEWTON_T=38, NORM_NEWTON_R=39,
                      NORM_NEWTON_RNE=40, NORM_SCALE_MUL0=41,
-                     NORM_SCALE_MUL1=42, NORM_SCALE_RNE=43,
-                     NORM_SCALE_SAT=44, SOFT_MAX_INIT=45, SOFT_MAX=46,
-                     SOFT_EXP_ADDR=47, SOFT_EXP_READ=48, SOFT_EXP_SUM=49,
-                     SOFT_DIV_START=50, SOFT_DIV_WAIT=51, SOFT_DIV_PACK=52,
-                     NORM_LOG_INIT=53, NORM_LOG_SCAN=54;
+                     NORM_SCALE_MUL1=42, NORM_SCALE_RNE_INPUT=43,
+                     NORM_SCALE_RNE=44, NORM_SCALE_SAT=45, SOFT_MAX_INIT=46,
+                     SOFT_MAX=47, SOFT_EXP_ADDR=48, SOFT_EXP_READ=49,
+                     SOFT_EXP_SUM=50, SOFT_DIV_START=51, SOFT_DIV_WAIT=52,
+                     SOFT_DIV_PACK=53, NORM_LOG_INIT=54, NORM_LOG_SCAN=55;
     logic [5:0] state;
     logic [15:0] record [0:7];
     logic signed [7:0] a [0:47], b [0:47], gamma [0:47], score [0:31];
@@ -56,7 +56,7 @@ module vector_sequencer #(
     logic [7:0] norm_bin;
     logic signed [31:0] norm_r0, norm_t, norm_r1;
     logic signed [47:0] newton_mul0, newton_mul1;
-    logic signed [63:0] newton_product, scale_product;
+    logic signed [63:0] newton_product, scale_product, scale_round_input;
     logic signed [15:0] scale_ag;
     logic signed [63:0] scale_rounded;
     logic [7:0] norm_low_byte;
@@ -272,9 +272,20 @@ module vector_sequencer #(
                     scale_ag<=$signed(a[norm_element])*$signed(gamma[norm_element]);
                     state<=NORM_SCALE_MUL1;
                 end
-                NORM_SCALE_MUL1: begin scale_product<=scale_ag*norm_r1; state<=NORM_SCALE_RNE; end
+                NORM_SCALE_MUL1: begin
+                    scale_product<=scale_ag*norm_r1;
+                    state<=NORM_SCALE_RNE_INPUT;
+                end
+                // Keep the variable-shift RNE cone off the product register's
+                // timing path.  This register is intentionally separate from
+                // scale_product: Vivado previously reported this endpoint as
+                // the vector unit's critical 52-level path.
+                NORM_SCALE_RNE_INPUT: begin
+                    scale_round_input<=scale_product;
+                    state<=NORM_SCALE_RNE;
+                end
                 NORM_SCALE_RNE: begin
-                    scale_rounded<=rne_shift(scale_product,14+gamma_shift+(norm_exponent>>1));
+                    scale_rounded<=rne_shift(scale_round_input,14+gamma_shift+(norm_exponent>>1));
                     state<=NORM_SCALE_SAT;
                 end
                 NORM_SCALE_SAT: begin
