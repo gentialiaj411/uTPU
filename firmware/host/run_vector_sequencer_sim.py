@@ -27,7 +27,10 @@ def pack(values: np.ndarray) -> list[int]:
 def run_case(name: str, subop: int, dst: int, src: int, record: int, length: int,
              words: dict[int, int], expected: list[int]) -> dict:
     # Exhaustive variants share the operation selector with their base op.
-    selector = "vadd" if name.startswith("vadd") else ("pos" if name.startswith("pos") else name)
+    selector = ("norm" if name.startswith(("rms", "final")) else
+                ("vadd" if name.startswith("vadd") else
+                ("pos" if name.startswith("pos") else
+                 ("soft" if name.startswith("soft") else name))))
     if selector not in SELECTED_OPS:
         return {"cases": 0, "compared_bytes": 0, "mismatches": 0, "cycles": 0, "passed": True, "skipped": True}
     BUILD.mkdir(parents=True, exist_ok=True)
@@ -200,6 +203,52 @@ $display("SOFTMAX_SUITE_RESULT 16000 %0d %0d",cycles,miss);$finish;end endmodule
     _, cases, cycles, misses = next(line for line in proc.stdout.splitlines() if line.startswith("SOFTMAX_SUITE_RESULT")).split()
     return {"cases": int(cases), "compared_bytes": int(cases) * 32, "mismatches": int(misses), "cycles": int(cycles), "passed": int(misses) == 0,
             "row_lengths": list(range(1, 33))}
+
+
+def run_vector_stage_traces() -> dict:
+    """Run eight chained vector-stage traces through the serialized FSM.
+
+    The intervening GEMM outputs are deterministic INT8 trace inputs.  Each
+    vector stage is nevertheless executed by the real controller and checked
+    against the ISA arithmetic helpers, not copied from an artifact.
+    """
+    rng = np.random.default_rng(906)
+    stages = {name: {"cases": 0, "compared_bytes": 0, "mismatches": 0, "cycles": 0, "passed": True}
+              for name in ("pos_add", "rmsnorm1", "softmax_head0", "softmax_head1", "softmax_head2", "residual1", "rmsnorm2", "residual2", "final_norm")}
+    def add(stage: str, result: dict) -> None:
+        d = stages[stage]; d["cases"] += 1; d["compared_bytes"] += result["compared_bytes"]
+        d["mismatches"] += result["mismatches"]; d["cycles"] += result["cycles"]
+        d["passed"] = d["mismatches"] == 0
+    for trace in range(8):
+        x = rng.integers(-128, 128, 1536, dtype=np.int8); pos = rng.integers(-128, 128, 1536, dtype=np.int8)
+        pos_out = sat(rne(x.astype(np.int64), 1) + rne(pos.astype(np.int64), 2))
+        words = ({100 + i: v for i, v in enumerate(pack(x))} | {1000 + i: v for i, v in enumerate(pack(pos))} |
+                 {5000: 3, 5001: 1000, 5002: ((-6 & 255) << 8) | (-5 & 255), 5003: -4 & 255})
+        add("pos_add", run_case(f"pos_trace_{trace}", 2, 2000, 100, 5000, 1536, words, pack(pos_out)))
+        gamma1 = rng.integers(-128, 128, 48, dtype=np.int8); norm1, _ = rms(pos_out.reshape(32, 48), gamma1, 3)
+        words = ({100 + i: v for i, v in enumerate(pack(pos_out))} | {1000 + i: v for i, v in enumerate(pack(gamma1))} |
+                 {5000: 2, 5001: 1000, 5002: 3})
+        add("rmsnorm1", run_case(f"rmsnorm1_trace_{trace}", 1, 2000, 100, 5000, 1536, words, pack(norm1)))
+        for head in range(3):
+            scores = rng.integers(-128, 128, (32, 32), dtype=np.int8); probs = np.zeros((32, 32), np.uint8)
+            for row in range(32): probs[row, :row + 1] = soft(scores[row, :row + 1])
+            words = ({100 + i: v for i, v in enumerate(pack(scores))} | {5000: 4, 5001: 7000})
+            add(f"softmax_head{head}", run_case(f"soft_trace_{trace}_{head}", 3, 2000, 100, 5000, 1024, words, pack(probs)))
+        other = rng.integers(-128, 128, 1536, dtype=np.int8)
+        residual1 = sat(rne(pos_out.astype(np.int64), 1) + rne(other.astype(np.int64), 2))
+        words = ({100 + i: v for i, v in enumerate(pack(pos_out))} | {1000 + i: v for i, v in enumerate(pack(other))} |
+                 {5000: 1, 5001: 1000, 5002: ((-6 & 255) << 8) | (-5 & 255), 5003: -4 & 255})
+        add("residual1", run_case(f"vadd_residual1_trace_{trace}", 0, 2000, 100, 5000, 1536, words, pack(residual1)))
+        gamma2 = rng.integers(-128, 128, 48, dtype=np.int8); norm2, _ = rms(residual1.reshape(32, 48), gamma2, 3)
+        words = ({100 + i: v for i, v in enumerate(pack(residual1))} | {1000 + i: v for i, v in enumerate(pack(gamma2))} | {5000: 2, 5001: 1000, 5002: 3})
+        add("rmsnorm2", run_case(f"rmsnorm2_trace_{trace}", 1, 2000, 100, 5000, 1536, words, pack(norm2)))
+        other = rng.integers(-128, 128, 1536, dtype=np.int8); residual2 = sat(rne(residual1.astype(np.int64), 1) + rne(other.astype(np.int64), 2))
+        words = ({100 + i: v for i, v in enumerate(pack(residual1))} | {1000 + i: v for i, v in enumerate(pack(other))} | {5000: 1, 5001: 1000, 5002: ((-6 & 255) << 8) | (-5 & 255), 5003: -4 & 255})
+        add("residual2", run_case(f"vadd_residual2_trace_{trace}", 0, 2000, 100, 5000, 1536, words, pack(residual2)))
+        gammaf = rng.integers(-128, 128, 48, dtype=np.int8); final, _ = rms(residual2.reshape(32, 48), gammaf, 3)
+        words = ({100 + i: v for i, v in enumerate(pack(residual2))} | {1000 + i: v for i, v in enumerate(pack(gammaf))} | {5000: 2, 5001: 1000, 5002: 3})
+        add("final_norm", run_case(f"final_norm_trace_{trace}", 1, 2000, 100, 5000, 1536, words, pack(final)))
+    return stages
 
 
 def main() -> int:

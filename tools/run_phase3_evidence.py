@@ -33,7 +33,7 @@ def required(result: dict, name: str) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--only", choices=("vadd", "vpos", "rmsnorm", "softmax"))
+    parser.add_argument("--only", choices=("vadd", "vpos", "rmsnorm", "softmax", "traces"))
     only = parser.parse_args().only
     if only:
         suite = {
@@ -41,8 +41,15 @@ def main() -> int:
             "vpos": run_vector_sequencer_sim.run_vpos_add_suite,
             "rmsnorm": run_vector_sequencer_sim.run_rmsnorm_suite,
             "softmax": run_vector_sequencer_sim.run_softmax_suite,
+            "traces": run_vector_sequencer_sim.run_vector_stage_traces,
         }[only]
-        print(json.dumps({only: required(suite(), only)}, sort_keys=True))
+        value = suite()
+        if only == "traces":
+            for name, result in value.items():
+                required(result, name)
+        else:
+            required(value, only)
+        print(json.dumps({only: value}, sort_keys=True))
         return 0
     # These helper calls each compile/run an Icarus testbench against the
     # serialized production controller.  No values are reconstructed here.
