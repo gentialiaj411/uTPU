@@ -146,6 +146,31 @@
     "mismatches": 0,
     "passed": true
   },
+  "mixed": {
+    "cases": 1,
+    "command": "python tools/run_phase3_evidence.py --only mixed",
+    "cycles": 534,
+    "execution": "full top instruction BRAM -> escape -> descriptor -> vector unit -> legacy FSM -> unified buffer",
+    "legacy_bytes": 2,
+    "legacy_bytes_mixed": 2,
+    "legacy_bytes_vec0": 2,
+    "legacy_ops": [
+      "FETCH(top_half=1)",
+      "FETCH(top_half=0)",
+      "BSTORE",
+      "LOAD weights",
+      "LOAD inputs",
+      "RUN",
+      "residual RUN"
+    ],
+    "mismatches": 0,
+    "non_covered": {
+      "TILE_GEMM": "RTL sequencer not implemented (Phase 4 decision)"
+    },
+    "passed": true,
+    "vec_bytes": 48,
+    "vec_bytes_compared": 48
+  },
   "per_op": {
     "rmsnorm_2000_rows": {
       "cases": 2000,
@@ -248,15 +273,15 @@
   },
   "source_tree": {
     "firmware/host": "4767f989b5cda711cd9919496780419fee08bf6d",
-    "rtl": "8d3d95457c6e2d7b768195713949e52cecbf8e54",
-    "tools": "4dd89b3afa932ebccffce8d6aa1135b0412c2b43"
+    "rtl": "2e70f7d1a7bb253544bac65d0ef84f0177fa82ea",
+    "tools": "1597c6279a15406560c183389f89d2a24847c634"
   },
   "status": "phase3_vector_rtl_incomplete",
   "trace_full_top": {
     "cases": 8,
     "command": "python tools/run_phase3_evidence.py --only trace_full_top",
     "compared_bytes": 98304,
-    "cycles": 998678,
+    "cycles": 998694,
     "execution": "full top instruction BRAM -> escape -> descriptor -> vector unit -> unified buffer",
     "mismatches": 0,
     "passed": true,
@@ -264,63 +289,63 @@
       "final_norm": {
         "cases": 8,
         "compared_bytes": 12288,
-        "cycles": 98354,
+        "cycles": 98402,
         "mismatches": 0,
         "passed": true
       },
       "pos_add": {
         "cases": 8,
         "compared_bytes": 12288,
-        "cycles": 73968,
+        "cycles": 74128,
         "mismatches": 0,
         "passed": true
       },
       "residual1": {
         "cases": 8,
         "compared_bytes": 12288,
-        "cycles": 73968,
+        "cycles": 74128,
         "mismatches": 0,
         "passed": true
       },
       "residual2": {
         "cases": 8,
         "compared_bytes": 12288,
-        "cycles": 73968,
+        "cycles": 74128,
         "mismatches": 0,
         "passed": true
       },
       "rmsnorm1": {
         "cases": 8,
         "compared_bytes": 12288,
-        "cycles": 98098,
+        "cycles": 98258,
         "mismatches": 0,
         "passed": true
       },
       "rmsnorm2": {
         "cases": 8,
         "compared_bytes": 12288,
-        "cycles": 98338,
+        "cycles": 98498,
         "mismatches": 0,
         "passed": true
       },
       "softmax_head0": {
         "cases": 8,
         "compared_bytes": 8192,
-        "cycles": 159856,
+        "cycles": 160016,
         "mismatches": 0,
         "passed": true
       },
       "softmax_head1": {
         "cases": 8,
         "compared_bytes": 8192,
-        "cycles": 159856,
+        "cycles": 160016,
         "mismatches": 0,
         "passed": true
       },
       "softmax_head2": {
         "cases": 8,
         "compared_bytes": 8192,
-        "cycles": 159856,
+        "cycles": 160016,
         "mismatches": 0,
         "passed": true
       }
