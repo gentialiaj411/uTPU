@@ -22,7 +22,10 @@ def _fixture(name: str) -> dict:
 
 
 def _source_tree() -> dict[str, str]:
-    return {path: subprocess.check_output(["git", "rev-parse", f"HEAD:{path}"], cwd=ROOT, text=True).strip() for path in ("firmware/host", "tools")}
+    import sys as _sys
+    _sys.path.insert(0, str(ROOT / "tools"))
+    from phase_fingerprints import PHASE1, fingerprint
+    return fingerprint(PHASE1)
 
 
 def _dequant(name: str, code: np.ndarray, acts: dict[str, int]) -> np.ndarray:

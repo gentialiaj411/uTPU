@@ -34,10 +34,11 @@ def _fixture(name: str) -> dict:
 
 
 def _source_tree() -> dict[str, str]:
-    return {
-        path: subprocess.check_output(["git", "rev-parse", f"HEAD:{path}"], cwd=ROOT, text=True).strip()
-        for path in ("firmware/host", "tools")
-    }
+    from pathlib import Path as _Path
+    import sys as _sys
+    _sys.path.insert(0, str(ROOT / "tools"))
+    from phase_fingerprints import PHASE1, fingerprint
+    return fingerprint(PHASE1)
 
 
 def _pow2_quant(values: np.ndarray, exponent: int | None = None) -> tuple[np.ndarray, int]:

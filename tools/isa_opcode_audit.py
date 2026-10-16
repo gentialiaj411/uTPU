@@ -16,7 +16,8 @@ def main():
     payload={"status":"phase2_opcode_audit","legacy_opcode_usage":legacy,"corpora":["blocked-FC","fused-MNIST","buffer-resident","CNN","attention-hybrid","batched-matmul"],"observed_first_words":first,"descriptor_candidates":{"vec_escape_word":"0x05a5","vec_escape_seen_in_legacy":0x05a5 in first,"tile_gemm_low_nibble":"0x8","tile_gemm_store_collision":any((x&0xf)==0x8 for x in first)},"collisions":[]}
     if payload["descriptor_candidates"]["vec_escape_seen_in_legacy"]: payload["collisions"].append("VEC escape")
     if payload["descriptor_candidates"]["tile_gemm_store_collision"]: payload["collisions"].append("TILE_GEMM/STORE")
-    payload["source_tree"]={p:__import__("subprocess").check_output(["git","rev-parse",f"HEAD:{p}"],cwd=ROOT,text=True).strip() for p in ("firmware/host","tools")}
+    from phase_fingerprints import PHASE2, fingerprint
+    payload["fingerprint_dependencies"]=fingerprint(PHASE2)
     digest=hashlib.sha256(b"".join(p for p in programs)).hexdigest()
     hashes={"status":"phase2_legacy_encoder_hashes","corpora":payload["corpora"],"baseline_sha256":digest,"after_sha256":digest,"unchanged":True,"source_tree":payload["source_tree"]}
     out=ROOT/"bench/results/isa_opcode_audit.json"; out.write_text(json.dumps(payload,indent=2,sort_keys=True)+"\n")

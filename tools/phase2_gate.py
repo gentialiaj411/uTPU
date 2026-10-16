@@ -3,6 +3,8 @@ from __future__ import annotations
 import json, subprocess, sys
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(ROOT/"tools"))
+from phase_fingerprints import PHASE2, fingerprint
 RESULT=ROOT/"bench/results/tiny_transformer_vec_isa.json"
 AUDIT=ROOT/"bench/results/isa_opcode_audit.json"; HASHES=ROOT/"bench/results/legacy_isa_hashes.json"
 HOST=ROOT/"build/host_suite/summary.json"
@@ -18,7 +20,7 @@ def main():
     if subprocess.run([sys.executable,"firmware/host/run_isa_rtl_bitmatch.py"],cwd=ROOT).returncode: bad.append("ISA/RTL bitmatch")
     if not RESULT.is_file(): bad.append("vector result missing")
     else:
-        r=json.loads(RESULT.read_text(encoding="utf-8")); source={p:subprocess.check_output(["git","rev-parse",f"HEAD:{p}"],cwd=ROOT,text=True).strip() for p in ("firmware/host","tools")}
+        r=json.loads(RESULT.read_text(encoding="utf-8")); source=fingerprint(PHASE2)
         if r.get("source_tree")!=source: bad.append("vector result source fingerprint")
         if r.get("sequences_used",0)<512: bad.append("fewer than 512 sequences")
         if r.get("rsqrt_lut_bin_coverage",{}).get("covered")!=192: bad.append("rsqrt coverage")

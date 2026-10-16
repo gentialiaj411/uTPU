@@ -8,6 +8,8 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tools"))
+from phase_fingerprints import PHASE1, fingerprint
 RESULTS = ROOT / "bench" / "results"
 HOST_SUMMARY = ROOT / "build" / "host_suite" / "summary.json"
 KNOWN_PREEXISTING_FAILURES = {
@@ -33,7 +35,7 @@ def load(path: Path):
 
 def main() -> int:
     failures: list[str] = []
-    source_tree = {path: subprocess.check_output(["git", "rev-parse", f"HEAD:{path}"], cwd=ROOT, text=True).strip() for path in ("firmware/host", "tools")}
+    source_tree = fingerprint(PHASE1)
     dirty = subprocess.check_output(["git", "status", "--porcelain", "--", "firmware/host", "tools"], cwd=ROOT, text=True).strip()
     divergence = load(RESULTS / "tiny_transformer_divergence.json")
     numerics = load(RESULTS / "tiny_transformer_numerics.json")

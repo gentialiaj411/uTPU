@@ -28,7 +28,9 @@ def get(sim, base, n, unsigned=False):
     return (a.astype(np.uint8) if unsigned else np.where(a >= 128, a-256, a).astype(np.int8))
 def record(sim, addr, kind, data): sim.buffer[addr:addr+8] = [kind, *data] + [0]*(7-len(data))
 def run(sim, program): sim.run_words(words(program + encodeHalt(cfg=CFG)), preserve_buffer=True)
-def source_tree(): return {p: subprocess.check_output(["git","rev-parse",f"HEAD:{p}"], cwd=ROOT, text=True).strip() for p in ("firmware/host", "tools")}
+def source_tree():
+    from phase_fingerprints import PHASE2, fingerprint
+    return fingerprint(PHASE2)
 def expword(ea, eb, eo): return [((eb&255)<<8)|(ea&255), eo&255]
 def make_sim(): return UTPUISASimulator(array_size=16,buffer_size=30000,cfg=CFG)
 def lut_bin(row):
