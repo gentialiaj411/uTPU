@@ -18,13 +18,17 @@ SUMMARY = BUILD / "summary.json"
 
 def main() -> int:
     BUILD.mkdir(parents=True, exist_ok=True)
-    # test_claim_drift audits unrelated, user-maintained root documentation;
-    # it is explicitly protected from modification in the Phase-3 work rules.
-    files = sorted((ROOT / "firmware" / "host").glob("test_*.py"))
-    excluded = {"firmware/host/test_claim_drift.py":
-                "protected claim audit couples to unrelated, dirty documentation outside the Phase-3 scope",
-                "firmware/host/test_systolic_characterization.py":
-                "pre-existing timeout recorded by build/host_suite/runner.log; no Phase-3 source dependency"}
+    baseline_path = ROOT / "build" / "host_suite" / "summary.json"
+    if not baseline_path.is_file():
+        raise RuntimeError("host suite manifest missing: build/host_suite/summary.json")
+    manifest = json.loads(baseline_path.read_text(encoding="utf-8"))
+    files = [ROOT / item["file"] for item in manifest.get("files", [])]
+    if not files:
+        raise RuntimeError("host suite manifest contains no per-file tests")
+    # Preserve the original runner's known timeout outcome instead of turning
+    # a file-level timeout into a false new pytest failure.
+    excluded = {"firmware/host/test_systolic_characterization.py":
+                "pre-existing timeout recorded by build/host_suite/summary.json and runner.log"}
     records = []
     observed: set[str] = set()
     for path in files:
