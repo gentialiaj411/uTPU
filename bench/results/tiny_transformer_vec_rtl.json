@@ -2,6 +2,143 @@
   "commands": [
     "python tools/run_phase3_evidence.py"
   ],
+  "decode_errors": {
+    "cases": 14,
+    "classes": {
+      "bad_record_kind": {
+        "cases": 1,
+        "checks": 51,
+        "command": "python tools/run_phase3_evidence.py --only decode",
+        "compared_bytes": 96,
+        "cycles": 69,
+        "mismatches": 0,
+        "passed": true
+      },
+      "illegal_flags": {
+        "cases": 1,
+        "checks": 51,
+        "command": "python tools/run_phase3_evidence.py --only decode",
+        "compared_bytes": 96,
+        "cycles": 41,
+        "mismatches": 0,
+        "passed": true
+      },
+      "invalid_signed_range": {
+        "cases": 1,
+        "checks": 51,
+        "command": "python tools/run_phase3_evidence.py --only decode",
+        "compared_bytes": 96,
+        "cycles": 69,
+        "mismatches": 0,
+        "passed": true
+      },
+      "pointer_extent": {
+        "cases": 1,
+        "checks": 51,
+        "command": "python tools/run_phase3_evidence.py --only decode",
+        "compared_bytes": 96,
+        "cycles": 69,
+        "mismatches": 0,
+        "passed": true
+      },
+      "prohibited_overlap": {
+        "cases": 1,
+        "checks": 51,
+        "command": "python tools/run_phase3_evidence.py --only decode",
+        "compared_bytes": 96,
+        "cycles": 69,
+        "mismatches": 0,
+        "passed": true
+      },
+      "reserved_record_bits": {
+        "cases": 1,
+        "checks": 51,
+        "command": "python tools/run_phase3_evidence.py --only decode",
+        "compared_bytes": 96,
+        "cycles": 69,
+        "mismatches": 0,
+        "passed": true
+      },
+      "reserved_subop": {
+        "cases": 1,
+        "checks": 51,
+        "command": "python tools/run_phase3_evidence.py --only decode",
+        "compared_bytes": 96,
+        "cycles": 41,
+        "mismatches": 0,
+        "passed": true
+      },
+      "softmax_head_id": {
+        "cases": 1,
+        "checks": 51,
+        "command": "python tools/run_phase3_evidence.py --only decode",
+        "compared_bytes": 96,
+        "cycles": 41,
+        "mismatches": 0,
+        "passed": true
+      },
+      "softmax_noncausal": {
+        "cases": 1,
+        "checks": 51,
+        "command": "python tools/run_phase3_evidence.py --only decode",
+        "compared_bytes": 96,
+        "cycles": 41,
+        "mismatches": 0,
+        "passed": true
+      },
+      "truncated_descriptor": {
+        "cases": 1,
+        "checks": 51,
+        "command": "python tools/run_phase3_evidence.py --only decode",
+        "compared_bytes": 96,
+        "cycles": 25,
+        "mismatches": 0,
+        "passed": true
+      },
+      "unknown_param_kind": {
+        "cases": 1,
+        "checks": 51,
+        "command": "python tools/run_phase3_evidence.py --only decode",
+        "compared_bytes": 96,
+        "cycles": 41,
+        "mismatches": 0,
+        "passed": true
+      },
+      "v1_shape_violation": {
+        "cases": 1,
+        "checks": 51,
+        "command": "python tools/run_phase3_evidence.py --only decode",
+        "compared_bytes": 96,
+        "cycles": 41,
+        "mismatches": 0,
+        "passed": true
+      },
+      "vector_unit_absent_escape": {
+        "cases": 1,
+        "checks": 35,
+        "command": "python tools/run_phase3_evidence.py --only decode",
+        "compared_bytes": 64,
+        "cycles": 24,
+        "descriptor_would_be_legacy_bstore": true,
+        "mismatches": 0,
+        "passed": true
+      },
+      "zero_length": {
+        "cases": 1,
+        "checks": 51,
+        "command": "python tools/run_phase3_evidence.py --only decode",
+        "compared_bytes": 96,
+        "cycles": 41,
+        "mismatches": 0,
+        "passed": true
+      }
+    },
+    "command": "python tools/run_phase3_evidence.py --only decode",
+    "compared_bytes": 1312,
+    "cycles": 681,
+    "mismatches": 0,
+    "passed": true
+  },
   "divider": {
     "cases": 2048,
     "command": "python firmware/host/run_restoring_divider_sim.py",
@@ -110,9 +247,9 @@
     "total": 192
   },
   "source_tree": {
-    "firmware/host": "4cb2e06e0583e6e2f11091f10b9f27ea3fbb0cc8",
-    "rtl": "ed0dd8c210056ada91062ae8ed218bf333c2ca4c",
-    "tools": "a2cc559b1f7ab3937279eb367d806da82782089b"
+    "firmware/host": "4767f989b5cda711cd9919496780419fee08bf6d",
+    "rtl": "a90f8776b21d3f1a7a9f81c79ca1cde5fbe767f2",
+    "tools": "4d5f608f18cd1c2d74455fae225dbbdc831f8e3e"
   },
   "status": "phase3_vector_rtl_incomplete",
   "trace_stages": {

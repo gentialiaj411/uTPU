@@ -906,7 +906,14 @@ module top #(
                 endcase
 
             VEC_FETCH_STATE:
-                next_state = VEC_FETCH_WAIT_STATE;
+                // A VEC escape consumes exactly five descriptor words.  Do
+                // not fetch past the uploaded program length: an absent word
+                // is a truncated descriptor, not an instruction-memory
+                // default value.
+                if (pc >= prog_len)
+                    next_state = HALT_STATE;
+                else
+                    next_state = VEC_FETCH_WAIT_STATE;
 
             VEC_FETCH_WAIT_STATE:
                 next_state = VEC_LATCH_STATE;
@@ -1428,6 +1435,11 @@ module top #(
                 run_residual_addr_stage <= 1'b0;
                 if (instruction == 16'h05A5) begin
                     vector_error_code <= VECTOR_UNIT_EN ? 8'h02 : 8'h01;
+                    // FETCH_BRAM_STATE has already advanced the program
+                    // counter while the synchronous instruction RAM result
+                    // was settling.  The descriptor reader owns the next
+                    // word, so rewind the speculative increment here.
+                    pc <= pc - 1'b1;
                     vec_desc_index <= '0;
                 end else case (opcode)
                     STORE_OP: begin
@@ -1497,9 +1509,13 @@ module top #(
             end
 
             VEC_FETCH_STATE: begin
-                bram_rd_addr <= pc[PC_WIDTH-1:0];
-                bram_rd_en   <= 1'b1;
-                pc           <= pc + 1'b1;
+                if (pc >= prog_len) begin
+                    vector_error_code <= 8'h03;
+                end else begin
+                    bram_rd_addr <= pc[PC_WIDTH-1:0];
+                    bram_rd_en   <= 1'b1;
+                    pc           <= pc + 1'b1;
+                end
             end
 
             VEC_LATCH_STATE: begin
