@@ -25,7 +25,9 @@ module vector_sequencer #(
                      NORM_NEWTON_T=38, NORM_NEWTON_R=39,
                      NORM_NEWTON_RNE=40, NORM_SCALE_MUL0=41,
                      NORM_SCALE_MUL1=42, NORM_SCALE_RNE=43,
-                     NORM_SCALE_SAT=44;
+                     NORM_SCALE_SAT=44, SOFT_MAX_INIT=45, SOFT_MAX=46,
+                     SOFT_EXP_ADDR=47, SOFT_EXP_READ=48, SOFT_EXP_SUM=49,
+                     SOFT_DIV_START=50, SOFT_DIV_WAIT=51, SOFT_DIV_PACK=52;
     logic [5:0] state;
     logic [15:0] record [0:7];
     logic signed [7:0] a [0:47], b [0:47], gamma [0:47], score [0:31];
@@ -45,6 +47,7 @@ module vector_sequencer #(
     logic [15:0] square_word;
     logic [5:0] norm_element;
     logic [15:0] rsqrt_q14 [0:191];
+    logic [15:0] exp_q15 [0:128];
     logic [31:0] norm_mean;
     logic [4:0] norm_exponent;
     logic [16:0] norm_mantissa;
@@ -55,14 +58,29 @@ module vector_sequencer #(
     logic signed [15:0] scale_ag;
     logic signed [63:0] scale_rounded;
     logic [7:0] norm_low_byte;
+    logic [5:0] soft_element;
+    logic signed [8:0] soft_max, soft_rel;
+    logic [7:0] soft_lut_index;
+    logic [21:0] soft_sum;
+    logic [15:0] soft_exp, soft_values [0:31];
+    logic [7:0] soft_low_byte, soft_byte;
+    logic divider_start, divider_busy, divider_done;
+    logic [23:0] divider_numerator, divider_quotient;
+    logic [21:0] divider_denominator;
 
     initial begin
 `ifdef SYNTHESIS
         $readmemh("rsqrt_q14.mem", rsqrt_q14);
+        $readmemh("exp_q15.mem", exp_q15);
 `else
         $readmemh("rtl/vector/rsqrt_q14.mem", rsqrt_q14);
+        $readmemh("rtl/vector/exp_q15.mem", exp_q15);
 `endif
     end
+    restoring_divider u_softmax_divider(
+        .clk(clk), .rst(rst), .start(divider_start), .numerator(divider_numerator),
+        .denominator(divider_denominator), .busy(divider_busy), .done(divider_done),
+        .quotient(divider_quotient));
 
     function automatic signed [63:0] rne_shift(input signed [63:0] v, input integer sh);
         reg signed [63:0] mag,q,rem,half;
@@ -108,6 +126,7 @@ module vector_sequencer #(
 
     always_comb begin
         buf_we=0; buf_re=0; buf_store_en=0; buf_addr=0; buf_wdata=0;
+        divider_start=0; divider_numerator=0; divider_denominator=soft_sum;
         case(state)
             PR: begin buf_re=1; buf_store_en=1; buf_addr=param+index; end
             GR: begin buf_re=1; buf_store_en=1; buf_addr=record[1]+index; end
@@ -116,7 +135,11 @@ module vector_sequencer #(
             SR: begin buf_re=1; buf_store_en=1; buf_addr=src0+row*16+index; end
             WRITE: begin buf_we=1; buf_store_en=1; buf_addr=dst+index; buf_wdata=add_word; end
             NWRITE: begin buf_we=1; buf_store_en=1; buf_addr=dst+row*24+(norm_element>>1); buf_wdata=norm_word; end
-            SWRITE: begin buf_we=1; buf_store_en=1; buf_addr=dst+row*16+index; buf_wdata=soft_word; end
+            SWRITE: begin buf_we=1; buf_store_en=1; buf_addr=dst+row*16+(soft_element>>1); buf_wdata=soft_word; end
+            SOFT_DIV_START: if(soft_element<valid_count) begin
+                divider_start=1;
+                divider_numerator=({soft_values[soft_element],8'b0}-soft_values[soft_element])+(soft_sum>>1);
+            end
             default: ;
         endcase
     end
@@ -265,9 +288,90 @@ module vector_sequencer #(
                     else begin row<=row+1; index<=0; square_sum<=0; state<=NAR; end
                 end else begin norm_element<=norm_element+1; state<=NORM_SCALE_MUL0; end
                 SR: state<=SW0; SW0: state<=SW1;
-                SW1: begin score[index*2]<=buf_rdata[7:0]; score[index*2+1]<=buf_rdata[15:8]; if(index==15) begin valid_count<=row+1; index<=0; state<=SWRITE; end else begin index<=index+1; state<=SR; end end
+                SW1: begin
+                    score[index*2]<=buf_rdata[7:0];
+                    score[index*2+1]<=buf_rdata[15:8];
+                    if(index==15) begin
+                        valid_count<=row+1;
+                        index<=0;
+                        state<=SOFT_MAX_INIT;
+                    end else begin
+                        index<=index+1;
+                        state<=SR;
+                    end
+                end
+                // Causal rows are reduced serially.  ``valid_count`` is the
+                // loop bound, so masked elements never reach either max or
+                // the EXP/SUM pass.
+                SOFT_MAX_INIT: begin
+                    soft_element<=0;
+                    soft_max<=-128;
+                    state<=SOFT_MAX;
+                end
+                SOFT_MAX: begin
+                    if ($signed(score[soft_element]) > soft_max)
+                        soft_max<=$signed(score[soft_element]);
+                    if(soft_element+1>=valid_count) begin
+                        soft_element<=0;
+                        soft_sum<=0;
+                        state<=SOFT_EXP_ADDR;
+                    end else soft_element<=soft_element+1;
+                end
+                // The subtract/clamp and lookup-address register keep the
+                // LUT path out of the accumulator cycle.
+                SOFT_EXP_ADDR: begin
+                    soft_rel<=$signed(score[soft_element])-soft_max;
+                    if (($signed(score[soft_element])-soft_max) < -128)
+                        soft_lut_index<=8'd128;
+                    else
+                        soft_lut_index<=soft_max-$signed(score[soft_element]);
+                    state<=SOFT_EXP_READ;
+                end
+                SOFT_EXP_READ: begin
+                    soft_exp<=exp_q15[soft_lut_index];
+                    state<=SOFT_EXP_SUM;
+                end
+                SOFT_EXP_SUM: begin
+                    soft_values[soft_element]<=soft_exp;
+                    soft_sum<=soft_sum+soft_exp;
+                    if(soft_element+1>=valid_count) begin
+                        soft_element<=0;
+                        state<=SOFT_DIV_START;
+                    end else begin
+                        soft_element<=soft_element+1;
+                        state<=SOFT_EXP_ADDR;
+                    end
+                end
+                // A quotient is retired only after the iterative divider
+                // reports done.  Masked positions bypass it with a zero.
+                SOFT_DIV_START: begin
+                    if(soft_element<valid_count) state<=SOFT_DIV_WAIT;
+                    else begin soft_byte<=0; state<=SOFT_DIV_PACK; end
+                end
+                SOFT_DIV_WAIT: if(divider_done) begin
+                    soft_byte<=divider_quotient[7:0];
+                    state<=SOFT_DIV_PACK;
+                end
+                SOFT_DIV_PACK: begin
+                    if(!soft_element[0]) begin
+                        soft_low_byte<=soft_byte;
+                        soft_element<=soft_element+1;
+                        state<=SOFT_DIV_START;
+                    end else begin
+                        soft_word<={soft_byte,soft_low_byte};
+                        state<=SWRITE;
+                    end
+                end
                 SWRITE: state<=SWW;
-                SWW: if(index==15) begin if(row==31) state<=FINISH; else begin row<=row+1; index<=0; state<=SR; end end else begin index<=index+1; state<=SWRITE; end
+                SWW: begin
+                    if(soft_element==31) begin
+                        if(row==31) state<=FINISH;
+                        else begin row<=row+1; index<=0; state<=SR; end
+                    end else begin
+                        soft_element<=soft_element+1;
+                        state<=SOFT_DIV_START;
+                    end
+                end
                 FINISH: begin busy<=0; done<=1; state<=IDLE; end
                 default: state<=IDLE;
             endcase

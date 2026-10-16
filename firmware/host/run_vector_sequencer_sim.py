@@ -48,7 +48,7 @@ endmodule
     tb_path.write_text(tb, encoding="utf-8")
     exe = BUILD / f"{name}.vvp"
     for cmd in ([str(IVERILOG), "-g2012", "-s", "tb", "-o", str(exe),
-                 "rtl/vector/vector_serial_alu.sv", "rtl/vector/vector_sequencer.sv", str(tb_path)],
+                 "rtl/vector/vector_serial_alu.sv", "rtl/vector/restoring_divider.sv", "rtl/vector/vector_sequencer.sv", str(tb_path)],
                 [str(VVP), str(exe)]):
         p = subprocess.run(cmd, cwd=ROOT, text=True, capture_output=True)
         if p.returncode:
@@ -100,7 +100,7 @@ $display("RMS_SUITE_RESULT 2000 %0d %0d",cycles,miss); $finish; end endmodule
 '''
     tb_path = BUILD / "rms_suite.sv"; tb_path.write_text(tb, encoding="utf-8")
     exe = BUILD / "rms_suite.vvp"
-    for cmd in ([str(IVERILOG), "-g2012", "-s", "tb", "-o", str(exe), "rtl/vector/vector_serial_alu.sv", "rtl/vector/vector_sequencer.sv", str(tb_path)], [str(VVP), str(exe)]):
+    for cmd in ([str(IVERILOG), "-g2012", "-s", "tb", "-o", str(exe), "rtl/vector/vector_serial_alu.sv", "rtl/vector/restoring_divider.sv", "rtl/vector/vector_sequencer.sv", str(tb_path)], [str(VVP), str(exe)]):
         proc = subprocess.run(cmd, cwd=ROOT, text=True, capture_output=True)
         if proc.returncode: raise RuntimeError(proc.stdout + proc.stderr)
     _, cases, cycles, misses = next(line for line in proc.stdout.splitlines() if line.startswith("RMS_SUITE_RESULT")).split()
