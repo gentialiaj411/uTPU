@@ -384,6 +384,158 @@ endmodule
     return payload
 
 
+def run_full_top_transition_matrix() -> dict:
+    """Exercise every legacy/VEC boundary through uploaded top.sv programs.
+
+    Each case is a separate normal instruction-BRAM upload. VEC=0 runs the
+    legacy-only projection; VEC=1 runs the same legacy sequence with the VEC
+    descriptors inserted at the named boundary. The unified buffer image is
+    compared word-for-word, excluding only the independently ISA-checked VEC
+    destination.
+    """
+    import isa_encoder as isa
+    import run_vector_sequencer_sim as seq
+    from isa_encoder import IsaConfig
+    from isa_simulator import UTPUISASimulator
+
+    build = ROOT / "build" / "phase3_transition_matrix"
+    build.mkdir(parents=True, exist_ok=True)
+    cfg = IsaConfig(address_width=12, compute_data_width=8, descriptor_isa=False)
+    vcfg = IsaConfig(address_width=12, compute_data_width=8, descriptor_isa=True,
+                     vector_unit=True)
+
+    def words(raw: bytes) -> list[int]:
+        return [int.from_bytes(raw[i:i + 2], "little") for i in range(0, len(raw), 2)]
+
+    ops = {
+        "FETCH top_half=1": words(isa.encodeFetch(1000, True, cfg)),
+        "FETCH top_half=0": words(isa.encodeFetch(1000, False, cfg)),
+        "LOAD weights": words(isa.encodeLoadWeights(700, cfg)),
+        "LOAD inputs": words(isa.encodeLoadInputs(800, cfg)),
+        "RUN": words(isa.encodeRun(1000, compute_en=False, quantize_en=True,
+                                   relu_en=False, cfg=cfg)),
+        "residual RUN": words(isa.encodeRun(1000, compute_en=False, quantize_en=True,
+                                            relu_en=False,
+                                            residual_en=True, residual_addr=900, cfg=cfg)),
+        "BSTORE multiword": words(isa.encodeBurstStore(1100, [0x1234, 0xabcd, 3, 4, 5, 6, 7, 8], cfg)),
+        "STORE": words(isa.encodeStoreValues(1200, [1, -2, 3, -4, 5, -6, 7, -8], cfg)),
+        "NOP": words(isa.encodeNop(cfg)),
+        "requant NOP bit3": [0x000d, 1, 0],
+        "EXT_ADDR FETCH two-word": words(isa.encodeFetch(1000, True, cfg)),
+        "EXT_ADDR LOAD two-word": words(isa.encodeLoadInputs(800, cfg)),
+        "EXT_ADDR RUN two-word": words(isa.encodeRun(1000, compute_en=False,
+                                                      quantize_en=True, relu_en=False, cfg=cfg)),
+        "EXT_ADDR BSTORE two-word": words(isa.encodeBurstStore(1100, [0x91, 0x92, 0x93], cfg)),
+    }
+    vec = words(isa.encode_vec_vadd_rq(3000, 2000, 2100, 48, cfg=vcfg))
+    names = ["X->VEC", "VEC->X", "X->VEC->X"]
+    cases: list[tuple[str, list[int], list[int]]] = []
+    for opname, xwords in ops.items():
+        cases.extend((f"{opname}:{pattern}",
+                      (xwords if pattern != "VEC->X" else []) +
+                      (vec if pattern == "X->VEC" else []) +
+                      (vec if pattern == "VEC->X" else []) +
+                      (vec if pattern == "X->VEC->X" else []) +
+                      (xwords if pattern in ("VEC->X", "X->VEC->X") else []) + [4],
+                      (xwords if pattern != "VEC->X" else []) +
+                      (xwords if pattern in ("VEC->X", "X->VEC->X") else []) + [4])
+                     for pattern in names)
+    cases += [("VEC->VEC", vec + vec + [4], [4]),
+              ("VEC first after upload", vec + [4], [4]),
+              ("VEC last before HALT", vec + [4], [4])]
+
+    initial = [0] * 4096
+    for addr in range(700, 850): initial[addr] = (addr * 29 + 7) & 0xffff
+    for i in range(0, 48, 2):
+        initial[2000 + i // 2] = ((i - 24) & 0xff) | (((i - 23) - 24 & 0xff) << 8)
+        initial[2024 + i // 2] = ((24 - i) & 0xff) | (((24 - (i + 1)) & 0xff) << 8)
+    initial[2100:2104] = [1, 2024, 0, 0]
+    initial[900:924] = initial[2024:2048]
+    initial_file = build / "initial.mem"
+    initial_file.write_text("\n".join(f"{v:04x}" for v in initial) + "\n", encoding="ascii")
+
+    oracle = UTPUISASimulator(array_size=8, buffer_size=4096, cfg=vcfg)
+    oracle.buffer[:4096] = initial
+    oracle.run_words(vec + [4], preserve_buffer=True)
+    vec_expected = [(3000 + i, int(oracle.buffer[3000 + i])) for i in range(48)]
+    expected_file = build / "vec_expected.mem"
+    expected_file.write_text("\n".join(f"{v:04x}" for _, v in vec_expected) + "\n", encoding="ascii")
+
+    tb = f'''module tb;
+logic clk=0,rst=0,rx=1; wire tx,led_rst; localparam integer FW=256,PW=8;
+reg [15:0] init[0:4095],prog[0:511],exp[0:47]; integer n,i,cycles; string pf; bit seen;
+`ifndef VEN
+`define VEN 0
+`endif
+top #(.ARRAY_SIZE(8),.BUFFER_SIZE(4096),.COMPUTE_DATA_WIDTH(8),.ACCUMULATOR_DATA_WIDTH(32),
+ .WEIGHT_REGION_WORDS(1024),.EXT_ADDR_EN(1),.PROG_DEPTH(512),.FIFO_WIDTH(FW),.MAX_BATCH_COUNT(4),
+ .QUANTIZER_PIPE_DEPTH(1),.VECTOR_UNIT_EN(`VEN)) dut(.clk(clk),.rst(rst),.rx(rx),.tx(tx),.led_rst(led_rst));
+always #5 clk=~clk;
+task push(input [7:0] b); @(posedge clk); dut.fifo_in.mem[dut.fifo_in.w_ptr[PW-1:0]]=b; dut.fifo_in.w_ptr=dut.fifo_in.w_ptr+1'b1; @(posedge clk); endtask
+initial begin cycles=0; if(!$value$plusargs("prog=%s",pf)) $fatal(1,"missing prog");
+ if(!$value$plusargs("n=%d",n)) $fatal(1,"missing n");
+ $readmemh("{initial_file.as_posix()}",init); $readmemh("{expected_file.as_posix()}",exp);
+ $readmemh(pf,prog,0,n-1); for(i=0;i<4096;i=i+1)dut.u_unified_buffer.bank_mem[i%32][i/32]=init[i];
+ rst=0; repeat(8) @(posedge clk); rst=1; repeat(8) @(posedge clk);
+ push(8'ha1);push(n[7:0]);push(n[15:8]);for(i=0;i<n;i=i+1)begin push(prog[i][7:0]);push(prog[i][15:8]);end
+ for(i=0;i<10000 && dut.current_state!=dut.WAIT_START_STATE;i=i+1)@(posedge clk);
+ if(dut.current_state!=dut.WAIT_START_STATE)$fatal(1,"upload timeout");push(8'ha2);
+ for(i=0;i<1000000 && dut.current_state!=dut.HALT_STATE;i=i+1)begin @(posedge clk);cycles=cycles+1;end
+ if(dut.current_state!=dut.HALT_STATE)$fatal(1,"execution timeout state=%0d pc=%0d",dut.current_state,dut.pc);
+ for(i=0;i<48;i=i+1)if(`VEN && dut.u_unified_buffer.bank_mem[(3000+i)%32][(3000+i)/32]!==exp[i][15:0])$display("VEC_BAD %0d",i);
+ $display("MATRIX_BEGIN"); for(i=0;i<4096;i=i+1)$display("MATRIX_MEM %04x",dut.u_unified_buffer.bank_mem[i%32][i/32]);
+ $display("MATRIX_END %0d",cycles);$finish;end
+endmodule
+'''
+    tbfile = build / "matrix.sv"
+    tbfile.write_text(tb, encoding="ascii")
+    executables = {}
+    for mode in (0, 1):
+        exe = build / f"matrix_{mode}.vvp"
+        cmd = [str(IVERILOG), "-g2012", "-DICARUS", f"-DVEN={mode}", "-s", "tb", "-o", str(exe), *FULL_TOP_SOURCES[:-1], str(tbfile)]
+        subprocess.run(cmd, cwd=ROOT, check=True, capture_output=True, text=True)
+        executables[mode] = exe
+
+    rows = {}
+    total_compared = total_mismatches = total_cycles = 0
+    vadd_addresses = set(range(3000, 3048))
+    case_results = {}
+    for index, (label, mixed_words, baseline_words) in enumerate(cases):
+        snapshots = {}
+        case_cycles = 0
+        for mode, program in ((0, baseline_words), (1, mixed_words)):
+            program_file = build / f"case_{index}_{mode}.mem"
+            program_file.write_text("\n".join(f"{w & 0xffff:04x}" for w in program) + "\n", encoding="ascii")
+            proc = subprocess.run([str(VVP), str(executables[mode]), f"+prog={program_file.as_posix()}", f"+n={len(program)}"], cwd=ROOT, check=True, capture_output=True, text=True)
+            (build / f"case_{index}_{mode}.log").write_text(proc.stdout + proc.stderr, encoding="utf-8")
+            output = proc.stdout + proc.stderr
+            image = [x.lower() for x in re.findall(r"MATRIX_MEM ([0-9a-fxz]{4})", output, re.IGNORECASE)]
+            if len(image) != 4096 or "VEC_BAD" in output:
+                raise RuntimeError(f"transition case {label} mode {mode} failed image_words={len(image)} vec_bad={'VEC_BAD' in output} stdout={len(proc.stdout)} stderr={len(proc.stderr)}: {output[-2000:]}")
+            cycles = int(re.search(r"MATRIX_END (\d+)", output).group(1))
+            snapshots[mode] = image
+            total_cycles += cycles
+            case_cycles += cycles
+        compared = [i for i in range(4096) if i not in vadd_addresses]
+        mismatches = sum(snapshots[0][i] != snapshots[1][i] for i in compared)
+        vector_checks = sum(snapshots[1][addr] != f"{value:04x}" for addr, value in vec_expected)
+        total_compared += len(compared) * 2
+        total_mismatches += mismatches + vector_checks
+        case_results[label] = {"cases": 1, "bytes_compared": len(compared) * 2,
+                               "mismatches": mismatches + vector_checks, "cycles": case_cycles,
+                               "passed": mismatches == 0 and vector_checks == 0,
+                               "command": "python tools/run_phase3_evidence.py --only transition_matrix",
+                               "legacy_ops": sorted(ops), "vector_bytes": 96}
+    result = {"cases": len(cases), "matrix": case_results, "compared_bytes": total_compared,
+              "legacy_bytes_compared": total_compared, "vector_bytes_compared": len(cases) * 96,
+              "mismatches": total_mismatches, "cycles": total_cycles,
+              "passed": total_mismatches == 0, "command": "python tools/run_phase3_evidence.py --only transition_matrix",
+              "boundary_patterns": names + ["VEC->VEC", "VEC first after upload", "VEC last before HALT"],
+              "operations": list(ops)}
+    if not result["passed"]: raise RuntimeError(f"transition matrix failed: {result}")
+    return result
+
+
 def run_dual_mode_regression() -> dict:
     """Run every globbed RTL TB in both top parameter modes and compare logs."""
     build = ROOT / "build" / "phase3_dual_mode"
@@ -585,7 +737,7 @@ def commanded(result: dict, command: str) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--only", choices=("vadd", "vpos", "rmsnorm", "softmax", "traces", "decode", "trace_full_top", "mixed", "dual_mode"))
+    parser.add_argument("--only", choices=("vadd", "vpos", "rmsnorm", "softmax", "traces", "decode", "trace_full_top", "mixed", "dual_mode", "transition_matrix"))
     only = parser.parse_args().only
     if only:
         suite = {
@@ -598,11 +750,17 @@ def main() -> int:
             "trace_full_top": run_full_top_trace_suite,
             "mixed": run_full_top_mixed_program,
             "dual_mode": run_dual_mode_regression,
+            "transition_matrix": run_full_top_transition_matrix,
         }[only]
         value = suite()
         if only == "dual_mode":
             payload = json.loads(RESULT.read_text(encoding="utf-8")) if RESULT.exists() else {}
             payload["dual_mode_regression"] = value
+            payload["source_tree"] = {p: fingerprint(p) for p in ("firmware/host", "rtl", "tools")}
+            RESULT.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        if only == "transition_matrix":
+            payload = json.loads(RESULT.read_text(encoding="utf-8")) if RESULT.exists() else {}
+            payload["transition_matrix"] = value
             payload["source_tree"] = {p: fingerprint(p) for p in ("firmware/host", "rtl", "tools")}
             RESULT.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         if only == "traces":
