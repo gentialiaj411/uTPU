@@ -288,9 +288,11 @@ def run_full_top_mixed_program() -> dict:
                                                relu_en=False, acc_clear_en=True, cfg=cfg))
         out += words_from_bytes(isa.encodeFetch(640, top_half=True, cfg=cfg))
         out += words_from_bytes(isa.encodeFetch(640, top_half=False, cfg=cfg))
-        out += words_from_bytes(isa.encodeRun(672, compute_en=True, quantize_en=True,
+        out += words_from_bytes(isa.encodeRun(704, compute_en=True, quantize_en=True,
                                                relu_en=False, acc_clear_en=True,
                                                residual_en=True, residual_addr=640, cfg=cfg))
+        out += words_from_bytes(isa.encodeFetch(704, top_half=True, cfg=cfg))
+        out += words_from_bytes(isa.encodeFetch(704, top_half=False, cfg=cfg))
         out.append(4)
         return out
 
@@ -305,7 +307,7 @@ def run_full_top_mixed_program() -> dict:
                          (512, np.zeros(64, dtype=np.uint16)),
                          (576, np.zeros(64, dtype=np.uint16)),
                          (640, np.zeros(64, dtype=np.uint16)),
-                         (672, np.zeros(64, dtype=np.uint16))):
+                         (704, np.zeros(64, dtype=np.uint16))):
         for i, value in enumerate(packed): memory[base + i] = int(value)
     memory[300:304] = [1, 128, 0, 0]
     in_file = build / "input.mem"
@@ -344,6 +346,8 @@ initial begin cycles=0;nbytes=0;miss=0;started=0;$readmemh("{in_file.as_posix()}
  waitstate(dut.WAIT_START_STATE,10000,seen);if(!seen)$fatal(1,"upload timeout");push(8'ha2);started=1;
  waitstate(dut.HALT_STATE,100000,seen);if(!seen)$fatal(1,"execution timeout pc=%0d state=%0d bcount=%0d bindex=%0d bfill=%0d",dut.pc,dut.current_state,dut.bstore_count,dut.bstore_index,dut.bstore_fill);
  for(i=0;i<24;i=i+1)if(dut.u_unified_buffer.bank_mem[(256+i)%32][(256+i)/32]!==expected_vec[i])miss=miss+1;
+ for(i=640;i<768;i=i+1)$display("MIXED_LEGACY_WORD %0d %04x",i,dut.u_unified_buffer.bank_mem[i%32][i/32]);
+ for(i=800;i<808;i=i+1)$display("MIXED_LEGACY_WORD %0d %04x",i,dut.u_unified_buffer.bank_mem[i%32][i/32]);
  $display("MIXED_RESULT %0d %0d %0d %0d %0d",VEN,nbytes,cycles,dut.perf_busy_status_word[63:56],miss);
  for(i=0;i<nbytes;i=i+1)$display("MIXED_BYTE %02x",actual[i]);
  $display("MIXED_VEC %h %h",dut.u_unified_buffer.bank_mem[256%32][256/32],dut.u_unified_buffer.bank_mem[280%32][280/32]);$finish;end
@@ -367,11 +371,17 @@ endmodule
         if not m: raise RuntimeError(proc.stdout + proc.stderr)
         byte_count, cycles, code, vm = int(m.group(1)), int(m.group(2)), int(m.group(3), 16), int(m.group(4))
         stream = [int(x, 16) for x in re.findall(r"MIXED_BYTE ([0-9a-fA-F]{2})", proc.stdout)]
-        result[str(ven)] = {"bytes": stream, "cycles": cycles, "status_code": code, "reported_bytes": byte_count, "vec_mismatches": vm}
+        legacy_words_out = [(int(a), int(b, 16)) for a, b in re.findall(r"MIXED_LEGACY_WORD (\d+) ([0-9a-fA-F]{4})", proc.stdout)]
+        result[str(ven)] = {"bytes": stream, "legacy_words": legacy_words_out, "cycles": cycles,
+                            "status_code": code, "reported_bytes": byte_count, "vec_mismatches": vm}
     mismatches = sum(a != b for a, b in zip(result["1"]["bytes"], result["0"]["bytes"])) + abs(len(result["1"]["bytes"]) - len(result["0"]["bytes"]))
+    mismatches += sum(a != b for a, b in zip(result["1"]["legacy_words"], result["0"]["legacy_words"]))
+    mismatches += abs(len(result["1"]["legacy_words"]) - len(result["0"]["legacy_words"]))
     vec_mismatches = result["1"]["vec_mismatches"] + int(result["1"]["status_code"] != 0)
-    payload = {"cases": 1, "legacy_bytes": min(len(result["0"]["bytes"]), len(result["1"]["bytes"])),
-               "legacy_bytes_vec0": len(result["0"]["bytes"]), "legacy_bytes_mixed": len(result["1"]["bytes"]),
+    legacy_bytes = min(len(result["0"]["legacy_words"]), len(result["1"]["legacy_words"])) * 2
+    payload = {"cases": 1, "legacy_bytes": legacy_bytes,
+               "legacy_bytes_vec0": len(result["0"]["legacy_words"]) * 2,
+               "legacy_bytes_mixed": len(result["1"]["legacy_words"]) * 2,
                "vec_bytes": len(expected_vec), "vec_bytes_compared": len(expected_vec),
                "mismatches": mismatches + vec_mismatches, "cycles": result["1"]["cycles"],
                "passed": mismatches == 0 and vec_mismatches == 0 and len(expected_vec) > 0,
@@ -412,34 +422,55 @@ def run_full_top_transition_matrix() -> dict:
         "FETCH top_half=0": words(isa.encodeFetch(1000, False, cfg)),
         "LOAD weights": words(isa.encodeLoadWeights(700, cfg)),
         "LOAD inputs": words(isa.encodeLoadInputs(800, cfg)),
-        "RUN": words(isa.encodeRun(1000, compute_en=False, quantize_en=True,
-                                   relu_en=False, cfg=cfg)),
-        "residual RUN": words(isa.encodeRun(1000, compute_en=False, quantize_en=True,
-                                            relu_en=False,
-                                            residual_en=True, residual_addr=900, cfg=cfg)),
+        "RUN": (words(isa.encodeLoadWeights(512, cfg)) + words(isa.encodeLoadInputs(576, cfg)) +
+                words(isa.encodeRun(640, compute_en=True, quantize_en=True, relu_en=False,
+                                    acc_clear_en=True, cfg=cfg)) +
+                words(isa.encodeFetch(640, True, cfg)) + words(isa.encodeFetch(640, False, cfg))),
+        "residual RUN": (words(isa.encodeLoadWeights(512, cfg)) + words(isa.encodeLoadInputs(576, cfg)) +
+                         words(isa.encodeRun(640, compute_en=True, quantize_en=True, relu_en=False,
+                                             acc_clear_en=True, cfg=cfg)) +
+                         words(isa.encodeFetch(640, True, cfg)) + words(isa.encodeFetch(640, False, cfg)) +
+                         words(isa.encodeRun(704, compute_en=True, quantize_en=True, relu_en=False,
+                                             residual_en=True, residual_addr=640, cfg=cfg)) +
+                         words(isa.encodeFetch(704, True, cfg)) + words(isa.encodeFetch(704, False, cfg))),
         "BSTORE multiword": words(isa.encodeBurstStore(1100, [0x1234, 0xabcd, 3, 4, 5, 6, 7, 8], cfg)),
         "STORE": words(isa.encodeStoreValues(1200, [1, -2, 3, -4, 5, -6, 7, -8], cfg)),
         "NOP": words(isa.encodeNop(cfg)),
         "requant NOP bit3": [0x000d, 1, 0],
         "EXT_ADDR FETCH two-word": words(isa.encodeFetch(1000, True, cfg)),
         "EXT_ADDR LOAD two-word": words(isa.encodeLoadInputs(800, cfg)),
-        "EXT_ADDR RUN two-word": words(isa.encodeRun(1000, compute_en=False,
-                                                      quantize_en=True, relu_en=False, cfg=cfg)),
+        "EXT_ADDR RUN two-word": (words(isa.encodeLoadWeights(512, cfg)) +
+                                  words(isa.encodeLoadInputs(576, cfg)) +
+                                  words(isa.encodeRun(640, compute_en=True, quantize_en=True,
+                                                      relu_en=False, acc_clear_en=True, cfg=cfg)) +
+                                  words(isa.encodeFetch(640, True, cfg)) + words(isa.encodeFetch(640, False, cfg))),
         "EXT_ADDR BSTORE two-word": words(isa.encodeBurstStore(1100, [0x91, 0x92, 0x93], cfg)),
+    }
+    after_ops = {
+        "RUN": (words(isa.encodeRun(704, compute_en=True, quantize_en=True, relu_en=False,
+                                    residual_en=True, residual_addr=640, cfg=cfg)) +
+                words(isa.encodeFetch(704, True, cfg)) + words(isa.encodeFetch(704, False, cfg))),
+        "EXT_ADDR RUN two-word": (words(isa.encodeRun(704, compute_en=True, quantize_en=True,
+                                                      relu_en=False, residual_en=True,
+                                                      residual_addr=640, cfg=cfg)) +
+                                  words(isa.encodeFetch(704, True, cfg)) + words(isa.encodeFetch(704, False, cfg))),
+        "residual RUN": (words(isa.encodeRun(704, compute_en=True, quantize_en=True, relu_en=False,
+                                             acc_clear_en=True, cfg=cfg)) +
+                         words(isa.encodeFetch(704, True, cfg)) + words(isa.encodeFetch(704, False, cfg))),
     }
     vec = words(isa.encode_vec_vadd_rq(3000, 2000, 2100, 48, cfg=vcfg))
     names = ["X->VEC", "VEC->X", "X->VEC->X"]
     cases: list[tuple[str, list[int], list[int]]] = []
     for opname, xwords in ops.items():
-        cases.extend((f"{opname}:{pattern}",
-                      (xwords if pattern != "VEC->X" else []) +
-                      (vec if pattern == "X->VEC" else []) +
-                      (vec if pattern == "VEC->X" else []) +
-                      (vec if pattern == "X->VEC->X" else []) +
-                      (xwords if pattern in ("VEC->X", "X->VEC->X") else []) + [4],
-                      (xwords if pattern != "VEC->X" else []) +
-                      (xwords if pattern in ("VEC->X", "X->VEC->X") else []) + [4])
-                     for pattern in names)
+        after = after_ops.get(opname, xwords)
+        for pattern in names:
+            before_words = xwords if pattern in ("X->VEC", "X->VEC->X") else []
+            after_words = after if pattern == "X->VEC->X" else (xwords if pattern == "VEC->X" else [])
+            mixed_words = before_words + (vec if pattern != "VEC->X" else []) + after_words + [4]
+            if pattern == "VEC->X": mixed_words = vec + xwords + [4]
+            legacy_words = before_words + (after if pattern == "X->VEC->X" else
+                                           (xwords if pattern == "VEC->X" else [])) + [4]
+            cases.append((f"{opname}:{pattern}", mixed_words, legacy_words))
     cases += [("VEC->VEC", vec + vec + [4], [4]),
               ("VEC first after upload", vec + [4], [4]),
               ("VEC last before HALT", vec + [4], [4])]
@@ -497,7 +528,7 @@ endmodule
         executables[mode] = exe
 
     rows = {}
-    total_compared = total_mismatches = total_cycles = 0
+    total_compared = total_output_bytes = total_vector_bytes = total_mismatches = total_cycles = 0
     vadd_addresses = set(range(3000, 3048))
     case_results = {}
     for index, (label, mixed_words, baseline_words) in enumerate(cases):
@@ -519,15 +550,23 @@ endmodule
         compared = [i for i in range(4096) if i not in vadd_addresses]
         mismatches = sum(snapshots[0][i] != snapshots[1][i] for i in compared)
         vector_checks = sum(snapshots[1][addr] != f"{value:04x}" for addr, value in vec_expected)
+        output_bytes = 2 * sum(snapshots[0][i] != f"{initial[i]:04x}"
+                               and re.fullmatch(r"[0-9a-f]{4}", snapshots[0][i]) is not None
+                               for i in compared)
+        vector_bytes = 48 * mixed_words.count(0x05A5)
         total_compared += len(compared) * 2
+        total_output_bytes += output_bytes
+        total_vector_bytes += vector_bytes
         total_mismatches += mismatches + vector_checks
         case_results[label] = {"cases": 1, "bytes_compared": len(compared) * 2,
                                "mismatches": mismatches + vector_checks, "cycles": case_cycles,
                                "passed": mismatches == 0 and vector_checks == 0,
                                "command": "python tools/run_phase3_evidence.py --only transition_matrix",
-                               "legacy_ops": sorted(ops), "vector_bytes": 96}
+                               "legacy_op": label.split(":", 1)[0], "legacy_output_bytes": output_bytes,
+                               "vector_bytes": vector_bytes}
     result = {"cases": len(cases), "matrix": case_results, "compared_bytes": total_compared,
-              "legacy_bytes_compared": total_compared, "vector_bytes_compared": len(cases) * 96,
+              "legacy_bytes_compared": total_output_bytes, "legacy_buffer_snapshot_bytes_compared": total_compared,
+              "vector_bytes_compared": total_vector_bytes,
               "mismatches": total_mismatches, "cycles": total_cycles,
               "passed": total_mismatches == 0, "command": "python tools/run_phase3_evidence.py --only transition_matrix",
               "boundary_patterns": names + ["VEC->VEC", "VEC first after upload", "VEC last before HALT"],
@@ -761,6 +800,15 @@ def main() -> int:
         if only == "transition_matrix":
             payload = json.loads(RESULT.read_text(encoding="utf-8")) if RESULT.exists() else {}
             payload["transition_matrix"] = value
+            payload["source_tree"] = {p: fingerprint(p) for p in ("firmware/host", "rtl", "tools")}
+            RESULT.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        if only in ("vadd", "vpos", "rmsnorm", "softmax"):
+            payload = json.loads(RESULT.read_text(encoding="utf-8")) if RESULT.exists() else {}
+            key = {"vadd": "vadd_rq_exhaustive", "vpos": "vpos_add_full_table",
+                   "rmsnorm": "rmsnorm_2000_rows", "softmax": "softmax_16000_rows"}[only]
+            payload.setdefault("per_op", {})[key] = commanded(value, f"python tools/run_phase3_evidence.py --only {only}")
+            if only == "rmsnorm":
+                payload["rsqrt_lut_bin_coverage"] = {"covered": value.get("rsqrt_lut_bin_coverage", 0), "total": 192}
             payload["source_tree"] = {p: fingerprint(p) for p in ("firmware/host", "rtl", "tools")}
             RESULT.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         if only == "traces":

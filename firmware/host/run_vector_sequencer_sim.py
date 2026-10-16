@@ -131,8 +131,10 @@ def run_vadd_exhaustive_suite() -> dict:
     # descriptor independently: this keeps reset/start sequencing exactly the
     # same as the production top integration and avoids a testbench shortcut.
     cases = mismatches = cycles = 0
+    tuple_cases = []
     chunk = 1536
     for tuple_index, (ea, eb, eo) in enumerate(tuples):
+        tuple_count = 0
         expected = sat(rne(aa.astype(np.int64), eo - ea) + rne(bb.astype(np.int64), eo - eb))
         for offset in range(0, len(aa), chunk):
             valid = min(chunk, len(aa) - offset)
@@ -143,8 +145,10 @@ def run_vadd_exhaustive_suite() -> dict:
                      {5000: 1, 5001: 1000, 5002: (ea & 255) | ((eb & 255) << 8), 5003: eo & 255})
             result = run_case(f"vadd_exhaustive_{tuple_index}_{offset}", 0, 2000, 100, 5000, chunk, words, pack(out))
             cases += valid; mismatches += result["mismatches"]; cycles += result["cycles"]
+            tuple_count += valid
+        tuple_cases.append({"ea": ea, "eb": eb, "eo": eo, "cases": tuple_count})
     return {"cases": cases, "compared_bytes": cases, "mismatches": mismatches, "cycles": cycles, "passed": mismatches == 0,
-            "exponent_tuples": [list(x) for x in tuples]}
+            "exponent_tuples": [list(x) for x in tuples], "tuple_cases": tuple_cases}
 
 
 def run_vpos_add_suite() -> dict:
