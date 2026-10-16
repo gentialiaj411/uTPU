@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-08-04T04:17:46.689060+00:00",
-  "git_sha": "47865fa",
+  "generated_at_utc": "2026-10-13T20:22:17.913669+00:00",
+  "git_sha": "883c314",
   "methodology": {
     "program": "fused MNIST MLP (FC1 finalize_no_fetch \u2192 FC2 logits FETCH only)",
     "tb": "rtl/tb/tb_mnist_utpu_program.sv with -DMNIST_ATTR -DMNIST_CASE_LIMIT=1",
@@ -59,14 +59,14 @@
     }
   },
   "comparison_to_isolated_gemm_64x64_b48": {
-    "gemm_total_program_cycles": 23002,
-    "gemm_result_fetch_pct": 0.26710720806886357,
+    "gemm_total_program_cycles": 18746,
+    "gemm_result_fetch_pct": 0.3277499199829297,
     "mnist_result_fetch_pct": 0.006966618287373005,
     "mnist_result_fetch_cycles": 24,
     "fetch_bytes_expected_case1": 6
   },
   "verdict": "result_fetch_harness_artifact_confirmed",
-  "verdict_reason": "MNIST result_fetch=0.6967% vs GEMM flagship 26.7107%; inter-layer activations stay in buffer \u2014 drain is harness-only for single GEMM.",
+  "verdict_reason": "MNIST result_fetch=0.6967% vs GEMM flagship 32.7750%; inter-layer activations stay in buffer \u2014 drain is harness-only for single GEMM.",
   "amdahl_part_a_multilayer": {
     "workload": "fused_mnist_case1_fast_uart_n16",
     "assumption": "Part A removes control micro-ops; bstore payloads and compute survive",
