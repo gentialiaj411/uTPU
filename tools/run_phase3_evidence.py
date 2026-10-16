@@ -31,6 +31,12 @@ def required(result: dict, name: str) -> dict:
     return result
 
 
+def commanded(result: dict, command: str) -> dict:
+    """Attach the executable producer command to a generated evidence row."""
+    result["command"] = command
+    return result
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--only", choices=("vadd", "vpos", "rmsnorm", "softmax", "traces"))
@@ -53,14 +59,20 @@ def main() -> int:
         return 0
     # These helper calls each compile/run an Icarus testbench against the
     # serialized production controller.  No values are reconstructed here.
-    vadd = required(run_vector_sequencer_sim.run_vadd_exhaustive_suite(), "vadd_rq")
-    vpos = required(run_vector_sequencer_sim.run_vpos_add_suite(), "vpos_add")
-    rms = required(run_vector_sequencer_sim.run_rmsnorm_suite(), "rmsnorm")
-    softmax = required(run_vector_sequencer_sim.run_softmax_suite(), "softmax")
-    divider = required(run_restoring_divider_sim.run_suite(), "divider")
+    vadd = commanded(required(run_vector_sequencer_sim.run_vadd_exhaustive_suite(), "vadd_rq"),
+                     "python tools/run_phase3_evidence.py --only vadd")
+    vpos = commanded(required(run_vector_sequencer_sim.run_vpos_add_suite(), "vpos_add"),
+                     "python tools/run_phase3_evidence.py --only vpos")
+    rms = commanded(required(run_vector_sequencer_sim.run_rmsnorm_suite(), "rmsnorm"),
+                    "python tools/run_phase3_evidence.py --only rmsnorm")
+    softmax = commanded(required(run_vector_sequencer_sim.run_softmax_suite(), "softmax"),
+                        "python tools/run_phase3_evidence.py --only softmax")
+    divider = commanded(required(run_restoring_divider_sim.run_suite(), "divider"),
+                        "python firmware/host/run_restoring_divider_sim.py")
     traces = run_vector_sequencer_sim.run_vector_stage_traces()
     for name, value in traces.items():
         required(value, name)
+        commanded(value, "python tools/run_phase3_evidence.py --only traces")
     payload = {
         "status": "phase3_vector_rtl_incomplete",
         "source_tree": {p: fingerprint(p) for p in ("firmware/host", "rtl", "tools")},
