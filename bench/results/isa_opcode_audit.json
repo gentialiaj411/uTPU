@@ -1,0 +1,160 @@
+{
+  "collisions": [],
+  "corpora": [
+    "blocked-FC",
+    "fused-MNIST",
+    "buffer-resident",
+    "CNN",
+    "attention-hybrid",
+    "batched-matmul"
+  ],
+  "descriptor_candidates": {
+    "tile_gemm_low_nibble": "0x8",
+    "tile_gemm_store_collision": false,
+    "vec_escape_seen_in_legacy": false,
+    "vec_escape_word": "0x05a5"
+  },
+  "fingerprint_dependencies": {
+    "blobs": {
+      "docs/transformer_on_utpu_design.md": "856e983bea85e47f70bbd1020d8a931672d2e9da",
+      "firmware/host/fixtures/tiny_transformer_integer_luts.json": "19cebf28bbb3b16d691e0bd19d847b396cf73ea1",
+      "firmware/host/isa_encoder.py": "44ea402b90e95b9fc91556b024472fd9ca05c303",
+      "firmware/host/isa_simulator.py": "3a70747561892de6108b6fe27ba651306408bbf0",
+      "firmware/host/test_buffer_resident_deployment.py": "dba5d43d5a42db37c72f8f6b9408607d6a2e913a",
+      "firmware/host/test_buffer_resident_lowering.py": "8ddf9efbe02d98df959b5cb5f2b1a15433971e7f",
+      "firmware/host/test_descriptor_isa_tile_gemm.py": "c9ef5ce0f90693c9464693526ced747fde6d81f2",
+      "firmware/host/test_isa_simulator.py": "287ad4faf21cdd034dbeffc49b97d5f14e636e25",
+      "firmware/host/test_tiny_transformer_vec_isa.py": "e56e3f3f69fb447b0e9c3785567bccae6fef57a9",
+      "tools/isa_opcode_audit.py": "59e3d163602f3157e9ffbcdc4c4ada349d4088e3",
+      "tools/phase_fingerprints.py": "bbce3f33b8116e97b9b78fcfa2fac619a221ea10",
+      "tools/run_tiny_transformer_vec_isa.py": "b36364484c766454e4a680f830ba207f96fc6c82"
+    },
+    "files": [
+      "firmware/host/isa_encoder.py",
+      "firmware/host/isa_simulator.py",
+      "tools/run_tiny_transformer_vec_isa.py",
+      "tools/isa_opcode_audit.py",
+      "tools/phase_fingerprints.py",
+      "firmware/host/test_tiny_transformer_vec_isa.py",
+      "firmware/host/test_isa_simulator.py",
+      "firmware/host/test_descriptor_isa_tile_gemm.py",
+      "firmware/host/test_buffer_resident_lowering.py",
+      "firmware/host/test_buffer_resident_deployment.py",
+      "docs/transformer_on_utpu_design.md",
+      "firmware/host/fixtures/tiny_transformer_integer_luts.json"
+    ]
+  },
+  "legacy_opcode_usage": {
+    "BSTORE": {
+      "encoder_bits": [
+        "7:15"
+      ],
+      "rtl_bits": [
+        "7:15"
+      ],
+      "rtl_lines": "1417-1428"
+    },
+    "DTYPE": {
+      "encoder_bits": [
+        3,
+        4,
+        5,
+        6,
+        "7:15"
+      ],
+      "rtl_bits": [],
+      "rtl_lines": "no 3-bit RTL opcode"
+    },
+    "FETCH": {
+      "encoder_bits": [
+        3
+      ],
+      "rtl_bits": [
+        3,
+        "7:15"
+      ],
+      "rtl_lines": "1341-1347"
+    },
+    "HALT": {
+      "encoder_bits": [],
+      "rtl_bits": [],
+      "rtl_lines": "670,1337"
+    },
+    "LOAD": {
+      "encoder_bits": [
+        3,
+        4,
+        "8:15"
+      ],
+      "rtl_bits": [
+        3,
+        4,
+        "8:15"
+      ],
+      "rtl_lines": "1371-1388"
+    },
+    "NOP": {
+      "encoder_bits": [
+        3,
+        4,
+        5,
+        "8:15"
+      ],
+      "rtl_bits": [
+        3,
+        5,
+        "8:15"
+      ],
+      "rtl_lines": "1389-1395"
+    },
+    "RUN": {
+      "encoder_bits": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        "8:15"
+      ],
+      "rtl_bits": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        "8:15"
+      ],
+      "rtl_lines": "1349-1369"
+    },
+    "STORE": {
+      "encoder_bits": [
+        4
+      ],
+      "rtl_bits": [
+        4
+      ],
+      "rtl_lines": "1337-1340"
+    }
+  },
+  "observed_first_words": [
+    0,
+    1,
+    3,
+    4,
+    5,
+    6,
+    9,
+    11,
+    16,
+    18,
+    122,
+    385,
+    387,
+    390,
+    393,
+    395,
+    402,
+    506
+  ],
+  "status": "phase2_opcode_audit"
+}

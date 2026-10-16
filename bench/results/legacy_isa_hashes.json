@@ -1,0 +1,44 @@
+{
+  "after_sha256": "bab3d1181f30a96eb3ffe85157534e4c84dac67b97d12e15dabeb9e0d0f13177",
+  "baseline_sha256": "bab3d1181f30a96eb3ffe85157534e4c84dac67b97d12e15dabeb9e0d0f13177",
+  "corpora": [
+    "blocked-FC",
+    "fused-MNIST",
+    "buffer-resident",
+    "CNN",
+    "attention-hybrid",
+    "batched-matmul"
+  ],
+  "fingerprint_dependencies": {
+    "blobs": {
+      "docs/transformer_on_utpu_design.md": "856e983bea85e47f70bbd1020d8a931672d2e9da",
+      "firmware/host/fixtures/tiny_transformer_integer_luts.json": "19cebf28bbb3b16d691e0bd19d847b396cf73ea1",
+      "firmware/host/isa_encoder.py": "44ea402b90e95b9fc91556b024472fd9ca05c303",
+      "firmware/host/isa_simulator.py": "3a70747561892de6108b6fe27ba651306408bbf0",
+      "firmware/host/test_buffer_resident_deployment.py": "dba5d43d5a42db37c72f8f6b9408607d6a2e913a",
+      "firmware/host/test_buffer_resident_lowering.py": "8ddf9efbe02d98df959b5cb5f2b1a15433971e7f",
+      "firmware/host/test_descriptor_isa_tile_gemm.py": "c9ef5ce0f90693c9464693526ced747fde6d81f2",
+      "firmware/host/test_isa_simulator.py": "287ad4faf21cdd034dbeffc49b97d5f14e636e25",
+      "firmware/host/test_tiny_transformer_vec_isa.py": "e56e3f3f69fb447b0e9c3785567bccae6fef57a9",
+      "tools/isa_opcode_audit.py": "59e3d163602f3157e9ffbcdc4c4ada349d4088e3",
+      "tools/phase_fingerprints.py": "bbce3f33b8116e97b9b78fcfa2fac619a221ea10",
+      "tools/run_tiny_transformer_vec_isa.py": "b36364484c766454e4a680f830ba207f96fc6c82"
+    },
+    "files": [
+      "firmware/host/isa_encoder.py",
+      "firmware/host/isa_simulator.py",
+      "tools/run_tiny_transformer_vec_isa.py",
+      "tools/isa_opcode_audit.py",
+      "tools/phase_fingerprints.py",
+      "firmware/host/test_tiny_transformer_vec_isa.py",
+      "firmware/host/test_isa_simulator.py",
+      "firmware/host/test_descriptor_isa_tile_gemm.py",
+      "firmware/host/test_buffer_resident_lowering.py",
+      "firmware/host/test_buffer_resident_deployment.py",
+      "docs/transformer_on_utpu_design.md",
+      "firmware/host/fixtures/tiny_transformer_integer_luts.json"
+    ]
+  },
+  "status": "phase2_legacy_encoder_hashes",
+  "unchanged": true
+}

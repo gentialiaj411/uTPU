@@ -16,8 +16,32 @@
     "leaky_relu negative branch"
   ],
   "source_tree": {
-    "firmware/host": "3e44255dc3d754096fa4011e520e4988112698dc",
-    "tools": "1bf203f97c9dc16a2870f1d8e6f927d0260cf8da"
+    "blobs": {
+      "firmware/host/fixtures/tiny_transformer_integer_luts.json": "19cebf28bbb3b16d691e0bd19d847b396cf73ea1",
+      "firmware/host/fixtures/tiny_transformer_split.json": "799b2ef72744b782ef29a9a92337656aab52ca5e",
+      "firmware/host/fixtures/tiny_transformer_vocab.json": "caedc5818933da3f3caaf345588002a8697e65e8",
+      "firmware/host/requantization.py": "33cc828f377181bbcce1ab05b4ea0cf92a6d47f0",
+      "firmware/host/run_tiny_transformer_divergence.py": "6f0442854beb603306af0a61e57e62587dc80339",
+      "firmware/host/run_tiny_transformer_numerics.py": "79d4c4c23eb4e5452af7944a429da4eb4b177ed7",
+      "firmware/host/tiny_transformer_export.py": "4adfb4763ae9e830b167d3634ebb1a9f233df5fb",
+      "firmware/host/tiny_transformer_model.py": "78a7a6484fe724c354e36e4d54583dc80011196d",
+      "firmware/host/tiny_transformer_reference.py": "40a6a83ab76b8c0f3becebe192b52d6b0a5c155a",
+      "tools/gen_tiny_transformer_luts.py": "d4899ccef84b502e30cff2d366a97a7db3c718e6",
+      "tools/phase_fingerprints.py": "bbce3f33b8116e97b9b78fcfa2fac619a221ea10"
+    },
+    "files": [
+      "firmware/host/run_tiny_transformer_numerics.py",
+      "firmware/host/run_tiny_transformer_divergence.py",
+      "firmware/host/tiny_transformer_model.py",
+      "firmware/host/tiny_transformer_reference.py",
+      "firmware/host/tiny_transformer_export.py",
+      "firmware/host/requantization.py",
+      "firmware/host/fixtures/tiny_transformer_integer_luts.json",
+      "firmware/host/fixtures/tiny_transformer_vocab.json",
+      "firmware/host/fixtures/tiny_transformer_split.json",
+      "tools/gen_tiny_transformer_luts.py",
+      "tools/phase_fingerprints.py"
+    ]
   },
   "stages": {
     "av": {
