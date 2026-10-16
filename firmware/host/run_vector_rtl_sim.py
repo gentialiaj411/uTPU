@@ -72,7 +72,7 @@ integer c,i,miss; initial begin strobe=63;$readmemh("{paths['a'].as_posix()}",am
     line=[x for x in p.stdout.splitlines() if x.startswith("VECTOR_RESULT")][-1].split()
     return {"cases":int(n),"compared_bytes":int(line[1]),"mismatches":int(line[2]),"passed":int(line[2])==0}
 
-def main():
+def legacy_direct_oracle_main():
     rng=np.random.default_rng(304); pairs=np.arange(-128,128,dtype=np.int8); aa,bb=np.meshgrid(pairs,pairs,indexing="ij"); aa=aa.reshape(-1);bb=bb.reshape(-1)
     va=[];vb=[];ve=[];eas=[];ebs=[];eos=[]
     for ea,eb,eo in [(-5,-5,-4),(-4,-1,0),(-31,-31,-30),(-31,31,31), (30,30,31)]:
@@ -104,4 +104,10 @@ def main():
     sm=run_tb("softmax",ss,np.zeros_like(ss),np.zeros_like(ss),oo,valid=valid,softmax=True)
     report={"per_op":{"vadd_rq":vadd,"vpos_add":vpos,"rmsnorm":rms_r,"softmax":sm},"rsqrt_lut_bin_coverage":{"covered":len(set(bins)),"bins":sorted(set(bins))}}
     print(json.dumps(report)); return 0 if all(x["mismatches"]==0 for x in report["per_op"].values()) else 1
+def main():
+    # The production path is the one-buffer-port FSM, not vector_alu's
+    # compatibility shell.  Preserve this command surface for automation.
+    from run_vector_sequencer_sim import main as sequencer_main
+    return sequencer_main()
+
 if __name__=="__main__": raise SystemExit(main())

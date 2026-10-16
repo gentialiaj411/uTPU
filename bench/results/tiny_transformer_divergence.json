@@ -16,65 +16,65 @@
     "leaky_relu negative branch"
   ],
   "source_tree": {
-    "firmware/host": "a74de3520817d1e3fb9fc6455e409d906b2423d5",
-    "tools": "064c63a942f3dd5c1b1194d4c8db0514ae6f3dd1"
+    "firmware/host": "a1b92e19303f6f24ca595938a2696a928c3d93a1",
+    "tools": "1bf203f97c9dc16a2870f1d8e6f927d0260cf8da"
   },
   "stages": {
     "av": {
-      "cosine": 0.9980612762597503,
+      "cosine": 0.9959847163015121,
       "integer_exponent": -4,
       "max_abs_code": 65,
-      "max_abs_error": 0.3821273446083069,
-      "pct_codes_in_neg1_zero_pos1": 8.219401041666668
+      "max_abs_error": 0.5151684284210205,
+      "pct_codes_in_neg1_zero_pos1": 8.064778645833332
     },
     "ffn1": {
-      "cosine": 0.9984062732458194,
+      "cosine": 0.9963631372694596,
       "integer_exponent": -3,
-      "max_abs_code": 89,
-      "max_abs_error": 0.6573199033737183,
-      "pct_codes_in_neg1_zero_pos1": 7.45849609375
+      "max_abs_code": 87,
+      "max_abs_error": 0.8458443880081177,
+      "pct_codes_in_neg1_zero_pos1": 7.489013671875
     },
     "ffn2": {
-      "cosine": 0.9993567920101544,
+      "cosine": 0.9983760762109434,
       "integer_exponent": -1,
       "max_abs_code": 93,
-      "max_abs_error": 1.9026031494140625,
-      "pct_codes_in_neg1_zero_pos1": 10.44921875
+      "max_abs_error": 2.435832977294922,
+      "pct_codes_in_neg1_zero_pos1": 11.051432291666668
     },
     "final_norm": {
-      "cosine": 0.9983740144198997,
+      "cosine": 0.9958691700104385,
       "integer_exponent": -5,
-      "max_abs_code": 93,
-      "max_abs_error": 0.27316519618034363,
-      "pct_codes_in_neg1_zero_pos1": 4.402669270833334
+      "max_abs_code": 95,
+      "max_abs_error": 0.5496404767036438,
+      "pct_codes_in_neg1_zero_pos1": 4.264322916666666
     },
     "k": {
-      "cosine": 0.9993558655709693,
+      "cosine": 0.9991631107545552,
       "integer_exponent": -4,
-      "max_abs_code": 121,
-      "max_abs_error": 0.24460864067077637,
-      "pct_codes_in_neg1_zero_pos1": 4.353841145833334
+      "max_abs_code": 120,
+      "max_abs_error": 0.27912425994873047,
+      "pct_codes_in_neg1_zero_pos1": 4.484049479166666
     },
     "leaky_relu": {
-      "cosine": 0.9981827839637193,
+      "cosine": 0.996327332534205,
       "integer_exponent": -3,
       "max_abs_code": 75,
-      "max_abs_error": 0.5958770513534546,
-      "pct_codes_in_neg1_zero_pos1": 17.356363932291664
+      "max_abs_error": 0.8286935091018677,
+      "pct_codes_in_neg1_zero_pos1": 17.3583984375
     },
     "logits": {
-      "cosine": 0.9978936217953184,
+      "cosine": 0.9952544400076001,
       "integer_exponent": -2,
-      "max_abs_code": 67,
-      "max_abs_error": 2.1017541885375977,
-      "pct_codes_in_neg1_zero_pos1": 4.453125
+      "max_abs_code": 68,
+      "max_abs_error": 3.007136344909668,
+      "pct_codes_in_neg1_zero_pos1": 4.6875
     },
     "out_proj": {
-      "cosine": 0.9979448686161937,
+      "cosine": 0.9956663738039349,
       "integer_exponent": -4,
       "max_abs_code": 93,
-      "max_abs_error": 0.5594360828399658,
-      "pct_codes_in_neg1_zero_pos1": 6.412760416666667
+      "max_abs_error": 0.5664689540863037,
+      "pct_codes_in_neg1_zero_pos1": 6.363932291666667
     },
     "pos_add": {
       "cosine": 0.9995870096494518,
@@ -84,25 +84,25 @@
       "pct_codes_in_neg1_zero_pos1": 5.696614583333334
     },
     "q": {
-      "cosine": 0.9993342266365461,
+      "cosine": 0.9991089491060559,
       "integer_exponent": -4,
-      "max_abs_code": 92,
-      "max_abs_error": 0.2061205506324768,
-      "pct_codes_in_neg1_zero_pos1": 5.1025390625
+      "max_abs_code": 93,
+      "max_abs_error": 0.26442933082580566,
+      "pct_codes_in_neg1_zero_pos1": 4.947916666666666
     },
     "residual1": {
-      "cosine": 0.998390003583808,
+      "cosine": 0.9968837312856472,
       "integer_exponent": -4,
-      "max_abs_code": 103,
-      "max_abs_error": 0.5577733516693115,
-      "pct_codes_in_neg1_zero_pos1": 4.817708333333334
+      "max_abs_code": 102,
+      "max_abs_error": 0.563676118850708,
+      "pct_codes_in_neg1_zero_pos1": 4.825846354166666
     },
     "residual2": {
-      "cosine": 0.9992266373902915,
+      "cosine": 0.9981566247771152,
       "integer_exponent": -1,
       "max_abs_code": 95,
-      "max_abs_error": 1.7039299011230469,
-      "pct_codes_in_neg1_zero_pos1": 10.050455729166668
+      "max_abs_error": 2.474151611328125,
+      "pct_codes_in_neg1_zero_pos1": 10.489908854166668
     },
     "rmsnorm1": {
       "cosine": 0.9992736946310738,
@@ -112,32 +112,32 @@
       "pct_codes_in_neg1_zero_pos1": 5.989583333333334
     },
     "rmsnorm2": {
-      "cosine": 0.9981803800703436,
+      "cosine": 0.9966193015689263,
       "integer_exponent": -4,
       "max_abs_code": 73,
-      "max_abs_error": 0.39473241567611694,
-      "pct_codes_in_neg1_zero_pos1": 5.607096354166666
+      "max_abs_error": 0.47462502121925354,
+      "pct_codes_in_neg1_zero_pos1": 5.5908203125
     },
     "scores": {
-      "cosine": 0.9992735722057169,
+      "cosine": 0.9991289420386888,
       "integer_exponent": -4,
       "max_abs_code": 128,
-      "max_abs_error": 0.690483570098877,
-      "pct_codes_in_neg1_zero_pos1": 2.030436197916667
+      "max_abs_error": 0.7163254022598267,
+      "pct_codes_in_neg1_zero_pos1": 2.042643229166667
     },
     "softmax_probs": {
-      "cosine": 0.9990733445497558,
+      "cosine": 0.9990003786863962,
       "integer_exponent": "p/255",
       "max_abs_code": 255,
-      "max_abs_error": 0.1161160400100783,
-      "pct_codes_in_neg1_zero_pos1": 84.17154947916666
+      "max_abs_error": 0.11224230621375286,
+      "pct_codes_in_neg1_zero_pos1": 84.16341145833334
     },
     "v": {
-      "cosine": 0.9990350810946691,
+      "cosine": 0.9986968888815434,
       "integer_exponent": -4,
       "max_abs_code": 70,
-      "max_abs_error": 0.22795188426971436,
-      "pct_codes_in_neg1_zero_pos1": 6.241861979166666
+      "max_abs_error": 0.2350679636001587,
+      "pct_codes_in_neg1_zero_pos1": 6.624348958333333
     }
   },
   "status": "phase1_export_scale_aware"

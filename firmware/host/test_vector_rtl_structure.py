@@ -12,3 +12,7 @@ def test_vector_datapath_has_no_combinational_element_loops():
         text = source.read_text(encoding="utf-8")
         for match in re.finditer(r"always_comb\s+begin(?P<body>.*?)\bend\b", text, re.S):
             assert not re.search(r"\bfor\s*\(", match.group("body")), source
+        # A vector source must not hide an element-wise cone in an always @*
+        # process or helper function either.  Registered FSM counters are the
+        # sole mechanism for progressing through rows.
+        assert not re.search(r"\bfor\s*\(", text), source

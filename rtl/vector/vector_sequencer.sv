@@ -27,7 +27,8 @@ module vector_sequencer #(
                      NORM_SCALE_MUL1=42, NORM_SCALE_RNE=43,
                      NORM_SCALE_SAT=44, SOFT_MAX_INIT=45, SOFT_MAX=46,
                      SOFT_EXP_ADDR=47, SOFT_EXP_READ=48, SOFT_EXP_SUM=49,
-                     SOFT_DIV_START=50, SOFT_DIV_WAIT=51, SOFT_DIV_PACK=52;
+                     SOFT_DIV_START=50, SOFT_DIV_WAIT=51, SOFT_DIV_PACK=52,
+                     NORM_LOG_INIT=53, NORM_LOG_SCAN=54;
     logic [5:0] state;
     logic [15:0] record [0:7];
     logic signed [7:0] a [0:47], b [0:47], gamma [0:47], score [0:31];
@@ -50,6 +51,7 @@ module vector_sequencer #(
     logic [15:0] exp_q15 [0:128];
     logic [31:0] norm_mean;
     logic [4:0] norm_exponent;
+    logic [4:0] norm_log_probe;
     logic [16:0] norm_mantissa;
     logic [7:0] norm_bin;
     logic signed [31:0] norm_r0, norm_t, norm_r1;
@@ -102,12 +104,26 @@ module vector_sequencer #(
             rne_div48=q;
         end
     endfunction
-    function automatic [4:0] even_log2(input [31:0] v);
-        integer bit_index;
+    function automatic [31:0] even_power_of_two(input [4:0] exponent);
         begin
-            even_log2=0;
-            for(bit_index=0;bit_index<31;bit_index=bit_index+1)
-                if(v>=(32'd1<<bit_index) && !bit_index[0]) even_log2=bit_index[4:0];
+            case (exponent)
+                30: even_power_of_two=32'h40000000;
+                28: even_power_of_two=32'h10000000;
+                26: even_power_of_two=32'h04000000;
+                24: even_power_of_two=32'h01000000;
+                22: even_power_of_two=32'h00400000;
+                20: even_power_of_two=32'h00100000;
+                18: even_power_of_two=32'h00040000;
+                16: even_power_of_two=32'h00010000;
+                14: even_power_of_two=32'h00004000;
+                12: even_power_of_two=32'h00001000;
+                10: even_power_of_two=32'h00000400;
+                 8: even_power_of_two=32'h00000100;
+                 6: even_power_of_two=32'h00000040;
+                 4: even_power_of_two=32'h00000010;
+                 2: even_power_of_two=32'h00000004;
+                default: even_power_of_two=32'h00000001;
+            endcase
         end
     endfunction
     function automatic range_ok(input [ADDRESS_SIZE-1:0] base, input [15:0] words);
@@ -208,14 +224,25 @@ module vector_sequencer #(
                     if(index==23) begin index<=0; state<=NORM_PREP; end
                     else begin index<=index+1; state<=NAR; end
                 end
-                NORM_PREP: begin norm_mean<=rne_div48(square_sum)+1; state<=NORM_LUT_ADDR; end
+                NORM_PREP: begin norm_mean<=rne_div48(square_sum)+1; state<=NORM_LOG_INIT; end
+                NORM_LOG_INIT: begin norm_log_probe<=30; state<=NORM_LOG_SCAN; end
+                // One descending threshold compare per cycle selects
+                // floor(log2(v)) rounded down to an even exponent.
+                NORM_LOG_SCAN: begin
+                    if(norm_mean>=even_power_of_two(norm_log_probe)) begin
+                        norm_exponent<=norm_log_probe;
+                        state<=NORM_LUT_ADDR;
+                    end else if(norm_log_probe==0) begin
+                        norm_exponent<=0;
+                        state<=NORM_LUT_ADDR;
+                    end else norm_log_probe<=norm_log_probe-2;
+                end
                 NORM_LUT_ADDR: begin
-                    norm_exponent<=even_log2(norm_mean);
-                    if(rne_shift($signed({1'b0,norm_mean})<<<14,even_log2(norm_mean))<16384)
+                    if(rne_shift($signed({1'b0,norm_mean})<<<14,norm_exponent)<16384)
                         norm_mantissa<=16384;
-                    else if(rne_shift($signed({1'b0,norm_mean})<<<14,even_log2(norm_mean))>65535)
+                    else if(rne_shift($signed({1'b0,norm_mean})<<<14,norm_exponent)>65535)
                         norm_mantissa<=65535;
-                    else norm_mantissa<=rne_shift($signed({1'b0,norm_mean})<<<14,even_log2(norm_mean));
+                    else norm_mantissa<=rne_shift($signed({1'b0,norm_mean})<<<14,norm_exponent);
                     state<=NORM_LUT_READ;
                 end
                 NORM_LUT_READ: begin

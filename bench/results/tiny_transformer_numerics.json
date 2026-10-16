@@ -9,9 +9,9 @@
   },
   "corpus_sha256": "86c4e6aa9db7c042ec79f339dcb96d42b0075e16b8fc2e86bf0ca57e2dc565ed",
   "degradation": {
-    "bits_per_char": 0.03358173406221971,
-    "loss": 0.02327708428354147,
-    "top1_accuracy": -0.006474175035868002
+    "bits_per_char": 0.06004678166662775,
+    "loss": 0.04162125741392164,
+    "top1_accuracy": -0.012706241032998555
   },
   "export_schema_sha256": "b52f0cbbb5f6e09b32846dfa9d45d6887b4cab2ebe9e32c3c855598fed4af77d",
   "float_validation": {
@@ -21,10 +21,10 @@
     "top1_accuracy": 0.4221126255380201
   },
   "integer_validation": {
-    "bits_per_char": 2.869727922104285,
-    "loss": 1.9891438181807355,
+    "bits_per_char": 2.896192969708693,
+    "loss": 2.0074879913111157,
     "tokens": 111520,
-    "top1_accuracy": 0.4156384505021521
+    "top1_accuracy": 0.40940638450502154
   },
   "limits": [
     "independent NumPy integer reference; ISA-simulator and RTL equality are Phase 2/3 work"
@@ -160,8 +160,8 @@
   },
   "seed": 20261013,
   "source_tree": {
-    "firmware/host": "a74de3520817d1e3fb9fc6455e409d906b2423d5",
-    "tools": "064c63a942f3dd5c1b1194d4c8db0514ae6f3dd1"
+    "firmware/host": "a1b92e19303f6f24ca595938a2696a928c3d93a1",
+    "tools": "1bf203f97c9dc16a2870f1d8e6f927d0260cf8da"
   },
   "split": {
     "corpus_length": 1115394,
