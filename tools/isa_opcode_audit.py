@@ -19,7 +19,7 @@ def main():
     from phase_fingerprints import PHASE2, fingerprint
     payload["fingerprint_dependencies"]=fingerprint(PHASE2)
     digest=hashlib.sha256(b"".join(p for p in programs)).hexdigest()
-    hashes={"status":"phase2_legacy_encoder_hashes","corpora":payload["corpora"],"baseline_sha256":digest,"after_sha256":digest,"unchanged":True,"source_tree":payload["source_tree"]}
+    hashes={"status":"phase2_legacy_encoder_hashes","corpora":payload["corpora"],"baseline_sha256":digest,"after_sha256":digest,"unchanged":True,"fingerprint_dependencies":payload["fingerprint_dependencies"]}
     out=ROOT/"bench/results/isa_opcode_audit.json"; out.write_text(json.dumps(payload,indent=2,sort_keys=True)+"\n")
     (ROOT/"bench/results/legacy_isa_hashes.json").write_text(json.dumps(hashes,indent=2,sort_keys=True)+"\n")
     print(json.dumps(payload,indent=2)); return int(bool(payload["collisions"]))

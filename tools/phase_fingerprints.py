@@ -9,7 +9,7 @@ PHASE1 = (
     "firmware/host/tiny_transformer_model.py", "firmware/host/tiny_transformer_reference.py",
     "firmware/host/tiny_transformer_export.py", "firmware/host/requantization.py",
     "firmware/host/fixtures/tiny_transformer_integer_luts.json", "firmware/host/fixtures/tiny_transformer_vocab.json",
-    "firmware/host/fixtures/tiny_transformer_split.json", "tools/gen_tiny_transformer_luts.py",
+    "firmware/host/fixtures/tiny_transformer_split.json", "tools/gen_tiny_transformer_luts.py", "tools/phase_fingerprints.py",
 )
 PHASE2 = (
     "firmware/host/isa_encoder.py", "firmware/host/isa_simulator.py", "tools/run_tiny_transformer_vec_isa.py",
