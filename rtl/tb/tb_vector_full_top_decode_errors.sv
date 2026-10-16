@@ -72,7 +72,7 @@ module tb_vector_full_top_decode_errors;
             for (i = 0; i < 256; i = i + 1) prog_image[i] = 16'h0004;
             for (i = 0; i < 256; i = i + 1) poke(i, 16'h5a5a);
             h = 16'h0809; // VADD, parameter kind 1
-            words = 6;
+            words = 7;
             expect_code = 8'h04;
             prog_image[0] = 16'h05a5;
             prog_image[1] = h;
@@ -126,7 +126,6 @@ module tb_vector_full_top_decode_errors;
             push_rx(8'ha2);
             wait_state(dut.HALT_STATE, 10000, halt_seen);
             check({name, " reached HALT"}, halt_seen);
-            $display("DECODE_STATUS %s code=%h expect=%h desc=%h,%h,%h,%h,%h", name, dut.perf_busy_status_word[63:56], code, dut.vec_desc[0], dut.vec_desc[1], dut.vec_desc[2], dut.vec_desc[3], dut.vec_desc[4]);
             check({name, " sticky perf/status code"}, dut.perf_busy_status_word[63:56] === code);
             for (i = 0; i < 48; i = i + 1)
                 check({name, " no output write"}, peek(100+i) === 16'h5a5a);

@@ -237,6 +237,7 @@ module top #(
     logic [63:0] perf_cycle_counter;
     logic [63:0] perf_busy_counter;
     logic [7:0]  vector_error_code;
+    logic vec_seen;
     logic [63:0] perf_program_count;
     // Program wall-clock: MAGIC_START -> HALT (excludes UART upload / post-HALT idle).
     logic [63:0] perf_program_cycle_counter;
@@ -469,6 +470,7 @@ module top #(
         WAIT_START_STATE,      // 5  wait for 0xA2
         FETCH_BRAM_STATE,      // 6  issue BRAM read at pc; pc++
         FETCH_BRAM_WAIT_STATE, // 7  latch bram_rd_data → instruction
+        FETCH_BRAM_LATCH_STATE,// additional response latch after VEC activation
         DECODE_STATE,          // 8
         STORE_FETCH_W2_STATE,  // 9  issue BRAM read for STORE word2; pc++
         STORE_FETCH_W3_STATE,  // 10 latch word2; issue BRAM read for word3; pc++
@@ -499,7 +501,8 @@ module top #(
         VEC_LATCH_STATE,          // latch descriptor word and advance
         VEC_VALIDATE_STATE,       // allow final descriptor word to settle
         VEC_START_STATE,
-        VEC_EXEC_STATE
+        VEC_EXEC_STATE,
+        VEC_RETURN_WAIT_STATE
     } state_e;
 
     state_e current_state, next_state;
@@ -742,6 +745,7 @@ module top #(
                 case (current_state)
                     FETCH_BRAM_STATE,
                     FETCH_BRAM_WAIT_STATE,
+                    FETCH_BRAM_LATCH_STATE,
                     DECODE_STATE:
                         perf_attr_fetch_decode <= perf_attr_fetch_decode + 1'b1;
                     STORE_FETCH_W2_STATE,
@@ -880,6 +884,12 @@ module top #(
                 next_state = FETCH_BRAM_WAIT_STATE;
 
             FETCH_BRAM_WAIT_STATE:
+                if (vec_seen)
+                    next_state = FETCH_BRAM_LATCH_STATE;
+                else
+                    next_state = DECODE_STATE;
+
+            FETCH_BRAM_LATCH_STATE:
                 next_state = DECODE_STATE;
 
             DECODE_STATE:
@@ -938,8 +948,11 @@ module top #(
                     if (vec_error)
                         next_state = HALT_STATE;
                     else
-                        next_state = FETCH_BRAM_STATE;
+                        next_state = VEC_RETURN_WAIT_STATE;
                 end
+
+            VEC_RETURN_WAIT_STATE:
+                next_state = FETCH_BRAM_STATE;
 
             // STORE multi-word fetch from BRAM
             STORE_FETCH_W2_STATE:
@@ -1204,6 +1217,7 @@ module top #(
                 perf_span_measuring <= 1'b0;
                 perf_compute_span_counter <= '0;
                 vector_error_code <= '0;
+                vec_seen <= 1'b0;
                 vec_start <= 1'b0;
                 vec_desc_index <= '0;
                 for (int vi = 0; vi < 5; vi++) vec_desc[vi] <= '0;
@@ -1416,6 +1430,19 @@ module top #(
 
             FETCH_BRAM_WAIT_STATE: begin
                 // bram_rd_data is valid this cycle (1-cycle BRAM latency)
+                if (!vec_seen) instruction <= bram_rd_data;
+                if (!vec_seen && perf_waiting_for_immediate_finalize) begin
+                    if (!(
+                        (opcode_e'(bram_rd_data[OPCODE_WIDTH-1:0]) == RUN_OP) &&
+                        (bram_rd_data[3] == 1'b0) &&
+                        (bram_rd_data[4] == 1'b1)
+                    ))
+                        perf_busy_active <= 1'b0;
+                    perf_waiting_for_immediate_finalize <= 1'b0;
+                end
+            end
+
+            FETCH_BRAM_LATCH_STATE: begin
                 instruction <= bram_rd_data;
                 if (perf_waiting_for_immediate_finalize) begin
                     if (!(
@@ -1435,10 +1462,11 @@ module top #(
                 run_residual_addr_stage <= 1'b0;
                 if (instruction == 16'h05A5) begin
                     vector_error_code <= VECTOR_UNIT_EN ? 8'h02 : 8'h01;
-                    // FETCH_BRAM_STATE has already advanced the program
-                    // counter while the synchronous instruction RAM result
-                    // was settling.  The descriptor reader owns the next
-                    // word, so rewind the speculative increment here.
+                    vec_seen <= 1'b1;
+                    // FETCH_BRAM_STATE speculatively advances PC while the
+                    // synchronous BRAM response settles. VEC owns the word
+                    // immediately following the escape, so undo that fetch
+                    // increment before beginning descriptor reads.
                     pc <= pc - 1'b1;
                     vec_desc_index <= '0;
                 end else case (opcode)
