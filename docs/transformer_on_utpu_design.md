@@ -1,7 +1,9 @@
 # Tiny decoder-only transformer on uTPU — Phase 0 design
 
-**Status:** design only.  No ISA, simulator, RTL, training, or benchmark code
-is introduced by this document.  The result is intentionally labelled
+**Version:** 1.1 (Phase 4a amendment).
+
+**Status:** v1.1 freezes the additive Phase-4a `VMATMUL` and `VLAYOUT` VEC
+subops and the hardware-floor LeakyReLU contract. The result remains
 **simulation-only until Phase 5**; board execution is not implied here.
 
 ## 1. Decision record and scope
@@ -49,7 +51,8 @@ static hardware utilization.  The start-point model would contain 108,800 INT8 w
 | buffer-resident weights | exists | Reuse the A5 buffer-fill protocol; model weights are not instruction payload. |
 | per-channel requant | exists | Reuse/extend the existing multiplier/shift record for every linear output tensor. |
 | same-scale residual add (`ACC_ADD`) | exists but insufficient | Extend to `VADD_RQ`: operands carry exponents and are requantized to an explicit common exponent before addition. |
-| batched/strided GEMM | extend | Extend descriptor `TILE_GEMM` to loop M/N/K tiles and carry batch/head strides.  This covers QKV, output/FFN linears, QK^T, AV, and tied logits. |
+| activation matmul | new VEC subop 4 | `VMATMUL` serializes QK^T and P*V using buffer activations, explicit B transpose addressing, causal bounds, and signedness flags. It does not alter the PE array. |
+| layout conversion | new VEC subop 5 | `VLAYOUT` serializes byte-preserving row-major/legacy-tile permutations at VEC/legacy handoffs. |
 | positional embedding add | new | `VPOS_ADD`: sequential positional-table read plus `VADD_RQ`; no host positional addition. |
 | RMSNorm | new | `VRMSNORM`: vector sum-of-squares, exact mean divide, LUT-seeded Newton rsqrt, gain, and requant. |
 | causal softmax | new | `VSOFTMAX`: causal mask, row max, exp LUT, and exact unsigned division. |
@@ -120,6 +123,15 @@ not regenerate values using their language math library.
 * Per-output-channel `(m, shift, e_out)` records are trained/exported with the
   model and checked by Phase 1.  No raw INT8 values at different exponents may
   be added.
+* LeakyReLU(0.25) is the legacy hardware rule: retain non-negative hidden
+  codes and replace a negative code `h` by `h >>> 2` (arithmetic floor).
+  This supersedes the earlier reference RNE-by-two spelling; it is the sole
+  Phase-4a numerical change.
+* `VMATMUL` uses the GEMM requantizer after each scalar dot: saturate its
+  signed INT32 accumulator to signed 25-bit, multiply by its unsigned 16-bit
+  scalar multiplier, arithmetic-right-shift by its `[0,31]` shift (floor),
+  then `sat8`. `a_unsigned`/`b_unsigned` select zero-extension before the
+  signed product; P*V uses unsigned A and signed B.
 
 ### 4.2 `VADD_RQ` and `VPOS_ADD`
 
@@ -198,7 +210,7 @@ legacy STORE header has low nibble `0x8`; RTL STORE also ignores bit 3.
 |---|---|---|
 | 0 | `[15:0]` | fixed escape `0x05A5` |
 | 1 | `[3:0]` | descriptor opcode `0x9` (`VEC`), consumed only after the escape |
-| 1 | `[7:4]` | subop: `0=VADD_RQ`, `1=VRMSNORM`, `2=VPOS_ADD`, `3=VSOFTMAX`; `4..15` are decode errors |
+| 1 | `[7:4]` | subop: `0=VADD_RQ`, `1=VRMSNORM`, `2=VPOS_ADD`, `3=VSOFTMAX`, `4=VMATMUL`, `5=VLAYOUT`; `6..15` are decode errors |
 | 1 | `[15:8]` | flags: bit 8 is `causal`; bits `[10:9]` are `head_id`; bits `[15:11]` are `param_kind` |
 | 2 | `[15:0]` | `dst`, a unified-buffer **word** address |
 | 3 | `[15:0]` | `src0`, a unified-buffer word address |
@@ -218,7 +230,8 @@ Each `word3` points to an eight-word record; unused words must be zero. Word
 0 is the record kind in `[3:0]` and reserved-zero in `[15:4]`. Signed
 exponents and shifts are eight-bit two's-complement fields; an encoded value
 outside its listed range is a decode error. Every pointer is a buffer-word
-address.
+address. Header `param_kind` must equal 1, 2, 3, 4, 5, or 6 respectively for
+the rows below; it is not inferred from the record.
 
 | Subop / kind | record words | Meaning |
 |---|---|---|
@@ -226,6 +239,8 @@ address.
 | VRMSNORM / 2 | 0,1,2 | word0 kind; word1 `gamma_base`; word2 `[7:0]=gamma_shift` in `[0,31]`, `[15:8]=output_requant_shift` and must equal zero in v1. Gamma is exactly 48 signed INT8 codes at `gamma_base`; the contractual output computation is Section 4.4. |
 | VPOS_ADD / 3 | 0,1,2,3 | word0 kind; word1 `position_base` for a packed `32x48` INT8 row-major table; word2 has `ea`/`eb` in low/high bytes; word3 low byte is `eo`, with the same exponent rules as VADD_RQ. |
 | VSOFTMAX / 4 | 0,1 | word0 kind; word1 `scratch_base` (reserved for the RTL implementation, must be a valid non-overlapping 1024-code region in v1). The frozen Q4.4 score and UINT8 probability formats need no exponent field. |
+| VMATMUL / 5 | 0..6 | word0 kind; word1 `b_base`; word2: `M-1[4:0]`, `K-1[9:5]`, `N-1[14:10]`, `transpose_b[15]`; word3: `a_row_stride[7:0]`, `b_row_stride[15:8]`, in code elements; word4 flags bit0 `a_unsigned`, bit1 `b_unsigned`, bit2 `causal`, all other bits zero; word5 scalar unsigned multiplier; word6 shift `[4:0]`; word7 zero. Dimensions are 1..32, every row stride is even and at least its logical row width. |
+| VLAYOUT / 6 | 0..3 | word0 kind; word1: `R-1[4:0]`, `C-1[12:5]` (R=1..32, C=1..256); word2 layout `mode[2:0]`, all upper bits zero; word3 source/destination row stride in code elements (`src[7:0]`, `dst[15:8]`); words4..7 zero. Strides are even and at least C. |
 
 ### 5.2 Subop shapes, aliasing, and decode errors
 
@@ -243,7 +258,25 @@ raise (never silently execute) for: VEC without both config flags; zero
 length; a truncated descriptor; an unknown/reserved subop or `param_kind`;
 nonzero reserved record bits/words; invalid signed ranges or pointer extent; a
 v1 shape violation; illegal flags; bad record kind; any prohibited overlap;
-or a VSOFTMAX `head_id > 2`/noncausal request.
+or a VSOFTMAX `head_id > 2`/noncausal request. VMATMUL accepts only header
+`causal` (header `head_id=0`, all other header flags zero); causal is legal
+for QK (`transpose_b=1`, `M=N`) or P*V (`a_unsigned=1`, `transpose_b=0`,
+`M=K`), with all dimensions at most 32. It computes
+`C[i,j]=requant(sum(k=0..K-1) A[i,k]*B[k,j])`, or, with transpose set,
+`B[j,k]`; causal rows write zero for `j>i`, and additionally bound the K loop
+to `i+1` for P*V (`a_unsigned=1`, `transpose_b=0`). VMATMUL forbids every
+source/destination/B/record overlap. VLAYOUT accepts no header flags and
+forbids overlap except the exact identity mode. Its modes are: 0 row-major
+`[R,C]` to legacy input tile stream, 1 legacy finalize tile stream to
+row-major, 2 row-major to legacy weight-tile stream, and 3 legacy input tile
+stream to row-major. For all modes element `(r,c)` occupies packed word
+`base + floor(index/2)`, low byte for even index and high byte for odd index;
+row-major index is `r*src_stride+c`. Legacy input index is
+`(floor(r/4)*C + c)*4 + (r%4)`; legacy finalize index is
+`(floor(c/8)*R + r)*8 + (c%8)`; legacy weight-tile index is
+`(floor(r/8)*C + c)*8 + (r%8)`. Unused batch lanes, incomplete 8-row/8-column
+tiles, and stride holes are explicitly written as zero. The inverse pairs
+are exact round trips on defined, unpadded elements.
 
 V1 GEMMs use existing unrolled tile control: the **11,520-word ESTIMATE** fits
 `BoardConfig.boolean_xc7s50().prog_depth == 32,768`. `TGEMM_LOOP` remains a
