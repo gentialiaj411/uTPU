@@ -183,7 +183,10 @@ def _integer_decoder(tokens: np.ndarray, state: dict[str, np.ndarray], schema: d
         hidden = _linear_i8(norm, state[p + "ff1.weight"], linears["ff1"])
         if capture_trace:
             trace["ffn1"] = hidden.copy()
-        hidden = np.where(hidden < 0, _rshift_rne(hidden, 2), hidden).astype(np.int8)
+        # The legacy RUN ReLU datapath is an arithmetic right shift: negative
+        # values therefore use floor(x / 4), not round-to-nearest-even.
+        # Keep the reference on that frozen hardware contract.
+        hidden = np.where(hidden < 0, hidden >> 2, hidden).astype(np.int8)
         if capture_trace:
             trace["leaky_relu"] = hidden.copy()
         ff = _linear_i8(hidden, state[p + "ff2.weight"], linears["ff2"])
