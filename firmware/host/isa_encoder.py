@@ -55,10 +55,14 @@ VEC_SUBOP_VADD_RQ = 0
 VEC_SUBOP_VRMSNORM = 1
 VEC_SUBOP_VPOS_ADD = 2
 VEC_SUBOP_VSOFTMAX = 3
+VEC_SUBOP_VMATMUL = 4
+VEC_SUBOP_VLAYOUT = 5
 VEC_PARAM_KIND_VADD_RQ = 1
 VEC_PARAM_KIND_VRMSNORM = 2
 VEC_PARAM_KIND_VPOS_ADD = 3
 VEC_PARAM_KIND_VSOFTMAX = 4
+VEC_PARAM_KIND_VMATMUL = 5
+VEC_PARAM_KIND_VLAYOUT = 6
 
 DTYPE_SUBOP_BUFFER_XFER = 0b00
 DTYPE_SUBOP_BARRIER = 0b01
@@ -653,6 +657,8 @@ _VEC_KIND_BY_SUBOP = {
     VEC_SUBOP_VRMSNORM: VEC_PARAM_KIND_VRMSNORM,
     VEC_SUBOP_VPOS_ADD: VEC_PARAM_KIND_VPOS_ADD,
     VEC_SUBOP_VSOFTMAX: VEC_PARAM_KIND_VSOFTMAX,
+    VEC_SUBOP_VMATMUL: VEC_PARAM_KIND_VMATMUL,
+    VEC_SUBOP_VLAYOUT: VEC_PARAM_KIND_VLAYOUT,
 }
 
 
@@ -686,8 +692,11 @@ def encodeVec(
     if subop == VEC_SUBOP_VSOFTMAX:
         if not causal or head_id > 2:
             raise ValueError("VSOFTMAX requires causal=True and head_id in [0, 2]")
+    elif subop == VEC_SUBOP_VMATMUL:
+        if head_id:
+            raise ValueError("VMATMUL reserves head_id=0")
     elif causal or head_id:
-        raise ValueError("only VSOFTMAX may carry causal/head_id flags")
+        raise ValueError("only VSOFTMAX/VMATMUL may carry causal flags")
     flags = (int(causal) & 1) | ((int(head_id) & 0x3) << 1) | ((expected_kind & 0x1F) << 3)
     header = OPCODE_VEC | ((subop & 0xF) << 4) | ((flags & 0xFF) << 8)
     return b"".join(
@@ -719,6 +728,18 @@ def encode_vec_vsoftmax(dst: int, src0: int, param_record: int, length: int = 10
     return encodeVec(subop=VEC_SUBOP_VSOFTMAX, dst=dst, src0=src0, param_record=param_record, length=length, causal=True, head_id=head_id, cfg=cfg)
 
 
+def encode_vec_vmatmul(dst: int, src0: int, param_record: int, length: int, *, causal: bool = False, cfg: Optional[IsaConfig] = None) -> bytes:
+    """Encode VEC subop 4; dimensions and signedness live in its record."""
+    return encodeVec(subop=VEC_SUBOP_VMATMUL, dst=dst, src0=src0,
+                     param_record=param_record, length=length, causal=causal, cfg=cfg)
+
+
+def encode_vec_vlayout(dst: int, src0: int, param_record: int, length: int, *, cfg: Optional[IsaConfig] = None) -> bytes:
+    """Encode VEC subop 5; layouts and strides live in its record."""
+    return encodeVec(subop=VEC_SUBOP_VLAYOUT, dst=dst, src0=src0,
+                     param_record=param_record, length=length, cfg=cfg)
+
+
 def decodeVecWords(words: Sequence[int], cfg: Optional[IsaConfig] = None) -> dict:
     """Decode and validate VEC header/word layout (buffer records are runtime-validated)."""
     cfg = _resolve_cfg(cfg)
@@ -741,8 +762,11 @@ def decodeVecWords(words: Sequence[int], cfg: Optional[IsaConfig] = None) -> dic
     if subop == VEC_SUBOP_VSOFTMAX:
         if not causal or head_id > 2:
             raise ValueError("VSOFTMAX requires causal=1 and head_id <= 2")
+    elif subop == VEC_SUBOP_VMATMUL:
+        if head_id:
+            raise ValueError("VMATMUL reserves head_id=0")
     elif causal or head_id:
-        raise ValueError("non-softmax VEC flags must have causal=0 and head_id=0")
+        raise ValueError("non-softmax/non-VMATMUL VEC flags must be zero")
     length = int(words[5]) & 0xFFFF
     if length == 0:
         raise ValueError("VEC zero length")

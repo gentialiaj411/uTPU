@@ -8,7 +8,7 @@ import pytest
 
 from isa_encoder import (
     IsaConfig, decodeVecWords, encodeFetch, encodeHalt, encodeLoadInputs, encodeLoadWeights, encodeRun, encodeBurstStore, encodeTileGemm, encode_vec_vadd_rq,
-    encode_vec_vpos_add, encode_vec_vrmsnorm, encode_vec_vsoftmax,
+    encode_vec_vpos_add, encode_vec_vrmsnorm, encode_vec_vsoftmax, encode_vec_vmatmul, encode_vec_vlayout,
 )
 from isa_simulator import UTPUISASimulator
 from tiny_transformer_reference import rmsnorm_i8, softmax_u8, vadd_rq
@@ -122,12 +122,62 @@ def test_vec_encode_decode_and_errors():
     assert [decodeVecWords(_words(item), cfg=CFG)["subop"] for item in encodings] == [0, 1, 2, 3]
     with pytest.raises(ValueError, match="VEC requires"):
         encode_vec_vadd_rq(DST, SRC0, PARAM, 48, cfg=IsaConfig(address_width=16, compute_data_width=8, descriptor_isa=True))
-    bad = _words(encodings[0]); bad[1] = (bad[1] & ~0xF0) | 0x40
+    bad = _words(encodings[0]); bad[1] = (bad[1] & ~0xF0) | 0x60
     with pytest.raises(ValueError, match="unknown/reserved"):
         decodeVecWords(bad, cfg=CFG)
     bad = _words(encodings[0]); bad[5] = 0
     with pytest.raises(ValueError, match="zero length"):
         decodeVecWords(bad, cfg=CFG)
+
+
+def _matmul_record(*, m, k, n, b_base, a_stride, b_stride, transpose=False,
+                   a_unsigned=False, b_unsigned=False, causal=False, multiplier=1, shift=0):
+    return [5, b_base, (m - 1) | ((k - 1) << 5) | ((n - 1) << 10) | (int(transpose) << 15),
+            a_stride | (b_stride << 8), int(a_unsigned) | (int(b_unsigned) << 1) | (int(causal) << 2),
+            multiplier, shift, 0]
+
+
+def test_vmatmul_signed_transpose_and_unsigned_causal_pv():
+    # QK^T uses signed A/B and masks upper-triangular entries.
+    q = np.array([[2, -1, 3, 1], [1, 2, -2, 0], [-1, 3, 1, 2], [2, 1, 0, -2]], dtype=np.int8)
+    k = np.array([[1, 1, 0, 2], [2, -1, 1, 0], [0, 3, -2, 1], [-1, 2, 2, 1]], dtype=np.int8)
+    def qk_setup(sim):
+        _put(sim, SRC0, q); _put(sim, AUX, k)
+        sim.buffer[PARAM:PARAM + 8] = _matmul_record(m=4, k=4, n=4, b_base=AUX, a_stride=4, b_stride=4, transpose=True, causal=True)
+    qk = _run(encode_vec_vmatmul(DST, SRC0, PARAM, 16, causal=True, cfg=CFG), qk_setup)
+    expected_qk = q.astype(np.int64) @ k.astype(np.int64).T
+    expected_qk[np.triu_indices(4, 1)] = 0
+    np.testing.assert_array_equal(_get(qk, DST, 16).reshape(4, 4), expected_qk.astype(np.int8))
+
+    # P*V must zero-extend probabilities above 127 and bounds K to i+1.
+    p = np.array([[255, 0, 0, 0], [128, 127, 0, 0], [1, 200, 54, 0], [10, 20, 30, 40]], dtype=np.uint8)
+    v = np.array([[1, -2], [2, 3], [-1, 4], [3, -4]], dtype=np.int8)
+    def pv_setup(sim):
+        _put(sim, SRC0, p); _put(sim, AUX, v)
+        sim.buffer[PARAM:PARAM + 8] = _matmul_record(m=4, k=4, n=2, b_base=AUX, a_stride=4, b_stride=2, a_unsigned=True, causal=True)
+    pv = _run(encode_vec_vmatmul(DST, SRC0, PARAM, 8, causal=True, cfg=CFG), pv_setup)
+    expected_pv = np.zeros((4, 2), dtype=np.int64)
+    for row in range(4): expected_pv[row] = p[row, :row + 1].astype(np.int64) @ v[:row + 1].astype(np.int64)
+    np.testing.assert_array_equal(_get(pv, DST, 8).reshape(4, 2), np.clip(expected_pv, -128, 127).astype(np.int8))
+
+
+def test_vlayout_round_trip_and_descriptor_errors():
+    source = np.arange(-8, 8, dtype=np.int8).reshape(4, 4)
+    record0 = [6, (4 - 1) | ((4 - 1) << 5), 0, 4 | (4 << 8), 0, 0, 0, 0]
+    record3 = [6, (4 - 1) | ((4 - 1) << 5), 3, 4 | (4 << 8), 0, 0, 0, 0]
+    def setup(sim):
+        _put(sim, SRC0, source)
+        sim.buffer[PARAM:PARAM + 8] = record0
+        sim.buffer[PARAM + 8:PARAM + 16] = record3
+    program = (encode_vec_vlayout(AUX, SRC0, PARAM, 16, cfg=CFG) +
+               encode_vec_vlayout(DST, AUX, PARAM + 8, 16, cfg=CFG))
+    sim = _run(program, setup)
+    np.testing.assert_array_equal(_get(sim, DST, 16).reshape(4, 4), source)
+    bad = _matmul_record(m=2, k=2, n=2, b_base=AUX, a_stride=2, b_stride=2, causal=True)
+    def bad_setup(sim):
+        _put(sim, SRC0, np.ones(4, np.int8)); _put(sim, AUX, np.ones(4, np.int8)); sim.buffer[PARAM:PARAM + 8] = bad
+    with pytest.raises(ValueError, match="illegal VMATMUL causal"):
+        _run(encode_vec_vmatmul(DST, SRC0, PARAM, 4, causal=True, cfg=CFG), bad_setup)
 
 
 def test_mixed_vector_and_legacy_fetch_top_half_stays_fetch():

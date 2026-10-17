@@ -52,10 +52,14 @@ from isa_encoder import (
     VEC_SUBOP_VRMSNORM,
     VEC_SUBOP_VPOS_ADD,
     VEC_SUBOP_VSOFTMAX,
+    VEC_SUBOP_VMATMUL,
+    VEC_SUBOP_VLAYOUT,
     VEC_PARAM_KIND_VADD_RQ,
     VEC_PARAM_KIND_VRMSNORM,
     VEC_PARAM_KIND_VPOS_ADD,
     VEC_PARAM_KIND_VSOFTMAX,
+    VEC_PARAM_KIND_VMATMUL,
+    VEC_PARAM_KIND_VLAYOUT,
     decodeTileGemmWords,
     decodeVecWords,
 )
@@ -575,6 +579,105 @@ class UTPUISASimulator:
     def _vec_i8(value: int) -> int:
         return _sign_extend(int(value) & 0xFF, 8)
 
+    def _vec_code_at(self, pe_id: int, base: int, element: int, *, unsigned: bool = False) -> int:
+        """Read one packed VEC code without imposing an even-length range."""
+        if element < 0:
+            raise ValueError("negative VEC element index")
+        word = self._read_word(pe_id, int(base) + (int(element) >> 1))
+        value = (word >> (8 * (int(element) & 1))) & 0xFF
+        return value if unsigned else _sign_extend(value, 8)
+
+    def _vec_set_code_at(self, pe_id: int, base: int, element: int, value: int) -> None:
+        if element < 0 or not -128 <= int(value) <= 255:
+            raise ValueError("VEC byte output outside representable range")
+        address = int(base) + (int(element) >> 1)
+        previous = self._read_word(pe_id, address)
+        shift = 8 * (int(element) & 1)
+        self._write_word(pe_id, address, (previous & ~(0xFF << shift)) | ((int(value) & 0xFF) << shift))
+
+    def _vec_matmul(self, pe_id: int, desc: dict) -> None:
+        """Subop 4: serialized activation matmul, independent of PE state."""
+        record = self._vec_record(pe_id, int(desc["param_record"]), VEC_PARAM_KIND_VMATMUL)
+        if record[7] or (record[4] & ~0x7) or (record[6] & ~0x1F):
+            raise ValueError("VMATMUL parameter record has nonzero reserved bits")
+        m = (record[2] & 0x1F) + 1
+        k = ((record[2] >> 5) & 0x1F) + 1
+        n = ((record[2] >> 10) & 0x1F) + 1
+        transpose_b = bool(record[2] & 0x8000)
+        a_stride, b_stride = record[3] & 0xFF, (record[3] >> 8) & 0xFF
+        a_unsigned, b_unsigned, causal_record = bool(record[4] & 1), bool(record[4] & 2), bool(record[4] & 4)
+        causal = bool(desc["causal"])
+        if causal != causal_record:
+            raise ValueError("VMATMUL descriptor/record causal mismatch")
+        if a_stride < k or b_stride < (k if transpose_b else n) or (a_stride & 1) or (b_stride & 1):
+            raise ValueError("VMATMUL invalid row strides")
+        if int(desc["length"]) != m * n or (m * n) & 1:
+            raise ValueError("VMATMUL length must equal an even M*N")
+        if causal and not ((transpose_b and m == n) or (a_unsigned and not transpose_b and m == k)):
+            raise ValueError("illegal VMATMUL causal/transpose/signedness combination")
+        b_base, dst, src0, param = int(record[1]), int(desc["dst"]), int(desc["src0"]), int(desc["param_record"])
+        a_elements, b_rows = m * a_stride, (n if transpose_b else k)
+        b_elements = b_rows * b_stride
+        c_elements = m * n
+        a_range = self._vec_check_range(src0, a_elements if not (a_elements & 1) else a_elements + 1, "VMATMUL A")
+        b_range = self._vec_check_range(b_base, b_elements if not (b_elements & 1) else b_elements + 1, "VMATMUL B")
+        c_range = self._vec_check_range(dst, c_elements, "VMATMUL C")
+        record_range = (param, param + 8)
+        for left, right, label in ((a_range, b_range, "A/B"), (a_range, c_range, "A/C"),
+                                   (b_range, c_range, "B/C"), (a_range, record_range, "A/record"),
+                                   (b_range, record_range, "B/record"), (c_range, record_range, "C/record")):
+            self._vec_no_partial_overlap(left, right, allow_exact=False, label="VMATMUL " + label)
+        out = np.zeros((m, n), dtype=np.int64)
+        for row in range(m):
+            for col in range(n):
+                if causal and transpose_b and col > row:
+                    continue
+                limit = row + 1 if causal and a_unsigned and not transpose_b else k
+                acc = 0
+                for inner in range(limit):
+                    av = self._vec_code_at(pe_id, src0, row * a_stride + inner, unsigned=a_unsigned)
+                    b_index = col * b_stride + inner if transpose_b else inner * b_stride + col
+                    bv = self._vec_code_at(pe_id, b_base, b_index, unsigned=b_unsigned)
+                    acc += av * bv
+                out[row, col] = requantize_value(acc, multiplier=int(record[5]),
+                                                  right_shift=int(record[6] & 0x1F), out_width=8)
+        self._vec_write_codes(pe_id, dst, out.reshape(-1))
+
+    def _vec_layout(self, pe_id: int, desc: dict) -> None:
+        """Subop 5: scalar, byte-exact permutations between frozen layouts."""
+        record = self._vec_record(pe_id, int(desc["param_record"]), VEC_PARAM_KIND_VLAYOUT)
+        if any(record[index] for index in range(4, 8)) or (record[1] & 0xE000) or (record[2] & ~0x7):
+            raise ValueError("VLAYOUT parameter record has nonzero reserved bits")
+        rows, cols = (record[1] & 0x1F) + 1, ((record[1] >> 5) & 0xFF) + 1
+        mode, src_stride, dst_stride = record[2] & 0x7, record[3] & 0xFF, (record[3] >> 8) & 0xFF
+        if mode > 3 or src_stride < cols or dst_stride < cols or (src_stride & 1) or (dst_stride & 1):
+            raise ValueError("VLAYOUT invalid mode or stride")
+        if int(desc["length"]) != rows * cols or (rows * cols) & 1:
+            raise ValueError("VLAYOUT length must equal even R*C")
+        src0, dst, param = int(desc["src0"]), int(desc["dst"]), int(desc["param_record"])
+        groups4, groups8 = (rows + 3) // 4, (rows + 7) // 8
+        col8 = (cols + 7) // 8
+        def rm(r: int, c: int, stride: int) -> int: return r * stride + c
+        def lin(r: int, c: int) -> int: return ((r // 4) * cols + c) * 4 + (r % 4)
+        def lfin(r: int, c: int) -> int: return ((c // 8) * rows + r) * 8 + (c % 8)
+        def wt(r: int, c: int) -> int: return ((r // 8) * cols + c) * 8 + (r % 8)
+        source_extent = {0: rows * src_stride, 1: col8 * rows * 8, 2: rows * src_stride, 3: groups4 * cols * 4}[mode]
+        dest_extent = {0: groups4 * cols * 4, 1: rows * dst_stride, 2: groups8 * cols * 8, 3: rows * dst_stride}[mode]
+        src_range = self._vec_check_range(src0, source_extent if not (source_extent & 1) else source_extent + 1, "VLAYOUT source")
+        dst_range = self._vec_check_range(dst, dest_extent if not (dest_extent & 1) else dest_extent + 1, "VLAYOUT destination")
+        self._vec_no_partial_overlap(src_range, dst_range, allow_exact=False, label="VLAYOUT source/destination")
+        self._vec_no_partial_overlap(src_range, (param, param + 8), allow_exact=False, label="VLAYOUT source/record")
+        self._vec_no_partial_overlap(dst_range, (param, param + 8), allow_exact=False, label="VLAYOUT destination/record")
+        for index in range(dest_extent):
+            self._vec_set_code_at(pe_id, dst, index, 0)
+        for r in range(rows):
+            for c in range(cols):
+                src_index, dst_index = ((rm(r, c, src_stride), lin(r, c)) if mode == 0 else
+                                        (lfin(r, c), rm(r, c, dst_stride)) if mode == 1 else
+                                        (rm(r, c, src_stride), wt(r, c)) if mode == 2 else
+                                        (lin(r, c), rm(r, c, dst_stride)))
+                self._vec_set_code_at(pe_id, dst, dst_index, self._vec_code_at(pe_id, src0, src_index))
+
     def _execute_vec(self, pe_id: int, desc: dict) -> None:
         if self.cfg.compute_data_width != 8:
             raise ValueError("VEC v1 requires compute_data_width=8")
@@ -582,6 +685,12 @@ class UTPUISASimulator:
         dst, src0, record_addr = int(desc["dst"]), int(desc["src0"]), int(desc["param_record"])
         if length % 2:
             raise ValueError("VEC v1 length must be even")
+        if subop == VEC_SUBOP_VMATMUL:
+            self._vec_matmul(pe_id, desc)
+            return
+        if subop == VEC_SUBOP_VLAYOUT:
+            self._vec_layout(pe_id, desc)
+            return
         if subop in (VEC_SUBOP_VADD_RQ, VEC_SUBOP_VRMSNORM) and not (48 <= length <= 1536 and length % 48 == 0):
             raise ValueError("VEC v1 add/norm length must be 48*n, 1<=n<=32")
         if subop == VEC_SUBOP_VPOS_ADD and length != 1536:
