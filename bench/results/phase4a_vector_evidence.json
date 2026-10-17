@@ -1,0 +1,15 @@
+{
+  "status": "passed",
+  "command": "python tools/run_phase4a_evidence.py",
+  "matmul": {
+    "cases": 1,
+    "mismatches": 0,
+    "cycles": 446
+  },
+  "layout": {
+    "cases": 1,
+    "mismatches": 0,
+    "cycles": 350
+  },
+  "full_top": true
+}
