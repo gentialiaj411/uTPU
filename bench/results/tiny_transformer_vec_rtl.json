@@ -1346,7 +1346,7 @@
     "total": 192
   },
   "source_tree": {
-    "firmware/host": "3b02a04c90b4d544cc12da1361a00b0ca1388f3c",
+    "firmware/host": "f5d2a0823ac3d94ff3b2b67dafd5bdd3b4c23a36",
     "rtl": "e7fbf86b6d40ee29b6895d876ff777a17c449c30",
     "tools": "a20d45ac920bbc9ab9d3aa66b173b83a5495e48b"
   },
