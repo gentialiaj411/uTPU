@@ -17,6 +17,9 @@ class Map:
     token:int=0; pos:int=1728; qkv:int=2496; out:int=5952; ff1:int=7104; ff2:int=11712
     gamma:int=16320; records:int=16392; x:int=16968; r:int=17736; qkv_a:int=18504; score:int=20808; head:int=21832; nextx:int=22088; hidden:int=22856; vec:int=25928; scratch:int=26256
 M=Map()
+R_POS,R_RES1,R_RES2,R_N1,R_N2,R_FINAL,R_SOFT=range(M.records,M.records+56,8)
+R_QK0,R_QK1,R_QK2,R_AV0,R_AV1,R_AV2=range(M.records+56,M.records+104,8)
+R_LIN48,R_LFIN144,R_LFIN48,R_LFIN192,R_LOAD48,R_LOAD192=range(M.records+104,M.records+152,8)
 
 def _words(blob:bytes)->list[int]: return list(struct.unpack('<'+'H'*(len(blob)//2),blob))
 def _pack(values:np.ndarray)->list[int]:
@@ -33,7 +36,8 @@ def _vec(subop,dst,src,param,length,*,causal=False,head=0):
     if subop==3:return funcs[subop](dst,src,param,length,head_id=head,cfg=CFG)
     if subop==4:return funcs[subop](dst,src,param,length,causal=causal,cfg=CFG)
     return funcs[subop](dst,src,param,length,cfg=CFG)
-def _record_mat(b,m,k,n,tr,au,ca,mult,shift): return [5,b,(m-1)|((k-1)<<5)|((n-1)<<10)|(int(tr)<<15),k|((k if tr else n)<<8),int(au)|(int(ca)<<2),mult,shift,0]
+def _record_mat(b,m,k,n,tr,au,ca,mult,shift,astride=None,bstride=None):
+    return [5,b,(m-1)|((k-1)<<5)|((n-1)<<10)|(int(tr)<<15),(astride or k)|((bstride or (k if tr else n))<<8),int(au)|(int(ca)<<2),mult,shift,0]
 
 def build_weight_image(state:dict[str,np.ndarray], schema:dict[str,Any])->list[int]:
     """Static A5 image: tiled linear weights plus VEC tables/records."""
@@ -47,6 +51,16 @@ def build_weight_image(state:dict[str,np.ndarray], schema:dict[str,Any])->list[i
         q=schema['residuals'][key];rec += [kind,aux,((q['eb']&255)<<8)|(q['ea']&255),q['eo']&255,0,0,0,0]
     for off,key in ((0,'n1'),(1,'n2'),(2,'final')): rec += [2,M.gamma+off*24,schema['norms'][key]['gamma_shift'],0,0,0,0,0]
     rec += [4,M.scratch,0,0,0,0,0,0]
+    score, av=schema['linears']['scores'],schema['linears']['av']
+    for h in range(3):
+        q,k=M.qkv_a+h*8,M.qkv_a+24+h*8
+        rec += _record_mat(k,32,16,32,True,False,True,score['multipliers'][0],score['right_shifts'][0],144,144)
+    for h in range(3):
+        v=M.qkv_a+48+h*8
+        rec += _record_mat(v,32,32,16,False,True,True,av['multipliers'][0],av['right_shifts'][0],32,144)
+    # RM->physical legacy LOAD (mode6) and LFIN->RM (mode1) descriptors.
+    for rows,cols,mode in ((32,48,6),(32,144,1),(32,48,1),(32,192,1),(32,48,6),(32,192,6)):
+        rec += [6,(rows-1)|((cols-1)<<5),mode,cols|(cols<<8),0,0,0,0]
     write(M.records,rec)
     return image
 

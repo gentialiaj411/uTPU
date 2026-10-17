@@ -109,6 +109,7 @@ module vector_sequencer #(
                 0,2: lay_src_index=lay_r*lay_src_stride+lay_c;
                 1: lay_src_index=lay_lfin_index(lay_r,lay_c,lay_rows);
                 3: lay_src_index=lay_lin_index(lay_r,lay_c,lay_cols);
+                4,5: lay_src_index=lay_r*lay_src_stride+lay_c;
                 default: lay_src_index=lay_load_index(lay_r,lay_c,lay_cols);
             endcase
         end
@@ -282,7 +283,7 @@ module vector_sequencer #(
                           (causal && !((record[2][15] && (record[2][4:0]==record[2][14:10])) ||
                                        (record[4][0] && !record[2][15] && (record[2][4:0]==record[2][9:5])))))) ||
                         (subop==LAYOUT && (record[0]!=16'd6 || (record[1]&16'he000)!=0 ||
-                          (record[2]&16'hfff8)!=0 || record[2][2:0]==3'd4 || record[2][2:0]==3'd5 ||
+                          (record[2]&16'hfff8)!=0 ||
                           ((record[2][2:0]==3'd6 || record[2][2:0]==3'd7) && ((record[1][4:0]+1)%4!=0 || (((record[1]>>5)&8'hff)+1)%8!=0)) ||
                           record[3][7:0] < (((record[1]>>5)&8'hff)+1) || record[3][15:8] < (((record[1]>>5)&8'hff)+1) ||
                           record[3][0] || record[3][8] || record[4]!=0 || record[5]!=0 || record[6]!=0 || record[7]!=0))) begin
@@ -298,7 +299,7 @@ module vector_sequencer #(
                         lay_rows<=record[1][4:0]+1; lay_cols<=record[1][12:5]+1; lay_mode<=record[2][2:0];
                         lay_src_stride<=record[3][7:0]; lay_dst_stride<=record[3][15:8]; lay_r<=0; lay_c<=0; lay_zero_word<=0;
                         if(record[2][2:0]==0) lay_dest_words<=((((record[1][4:0]+1+3)/4)*((record[1][12:5]+1))*4+1)>>1);
-                        else if(record[2][2:0]==1 || record[2][2:0]==3 || record[2][2:0]==7) lay_dest_words<=(((record[1][4:0]+1)*record[3][15:8]+1)>>1);
+                        else if(record[2][2:0]==1 || record[2][2:0]==3 || record[2][2:0]==4 || record[2][2:0]==5 || record[2][2:0]==7) lay_dest_words<=(((record[1][4:0]+1)*record[3][15:8]+1)>>1);
                         else lay_dest_words<=((((record[1][4:0]+1+7)/8)*(record[1][12:5]+1)*8+1)>>1);
                         state<=LAY_ZERO;
                     end else state<=AR;
