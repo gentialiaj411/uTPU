@@ -650,7 +650,7 @@ class UTPUISASimulator:
             raise ValueError("VLAYOUT parameter record has nonzero reserved bits")
         rows, cols = (record[1] & 0x1F) + 1, ((record[1] >> 5) & 0xFF) + 1
         mode, src_stride, dst_stride = record[2] & 0x7, record[3] & 0xFF, (record[3] >> 8) & 0xFF
-        if mode > 3 or src_stride < cols or dst_stride < cols or (src_stride & 1) or (dst_stride & 1):
+        if mode > 7 or src_stride < cols or dst_stride < cols or (src_stride & 1) or (dst_stride & 1):
             raise ValueError("VLAYOUT invalid mode or stride")
         if int(desc["length"]) != rows * cols or (rows * cols) & 1:
             raise ValueError("VLAYOUT length must equal even R*C")
@@ -661,8 +661,13 @@ class UTPUISASimulator:
         def lin(r: int, c: int) -> int: return ((r // 4) * cols + c) * 4 + (r % 4)
         def lfin(r: int, c: int) -> int: return ((c // 8) * rows + r) * 8 + (c % 8)
         def wt(r: int, c: int) -> int: return ((r // 8) * cols + c) * 8 + (r % 8)
-        source_extent = {0: rows * src_stride, 1: col8 * rows * 8, 2: rows * src_stride, 3: groups4 * cols * 4}[mode]
-        dest_extent = {0: groups4 * cols * 4, 1: rows * dst_stride, 2: groups8 * cols * 8, 3: rows * dst_stride}[mode]
+        def legacy_load(r: int, c: int) -> int: return (r // 4) * cols * 4 + (c // 8) * 32 + (r % 4) * 8 + (c % 8)
+        if mode in (6, 7) and (cols % 8 or rows % 4):
+            raise ValueError("VLAYOUT legacy-load mode requires R multiple of 4 and C multiple of 8")
+        source_extent = {0: rows * src_stride, 1: col8 * rows * 8, 2: rows * src_stride, 3: groups4 * cols * 4,
+                         6: rows * src_stride, 7: groups4 * cols * 4}[mode]
+        dest_extent = {0: groups4 * cols * 4, 1: rows * dst_stride, 2: groups8 * cols * 8, 3: rows * dst_stride,
+                       6: groups4 * cols * 4, 7: rows * dst_stride}[mode]
         src_range = self._vec_check_range(src0, source_extent if not (source_extent & 1) else source_extent + 1, "VLAYOUT source")
         dst_range = self._vec_check_range(dst, dest_extent if not (dest_extent & 1) else dest_extent + 1, "VLAYOUT destination")
         self._vec_no_partial_overlap(src_range, dst_range, allow_exact=False, label="VLAYOUT source/destination")
@@ -675,7 +680,9 @@ class UTPUISASimulator:
                 src_index, dst_index = ((rm(r, c, src_stride), lin(r, c)) if mode == 0 else
                                         (lfin(r, c), rm(r, c, dst_stride)) if mode == 1 else
                                         (rm(r, c, src_stride), wt(r, c)) if mode == 2 else
-                                        (lin(r, c), rm(r, c, dst_stride)))
+                                        (lin(r, c), rm(r, c, dst_stride)) if mode == 3 else
+                                        (rm(r, c, src_stride), legacy_load(r, c)) if mode == 6 else
+                                        (legacy_load(r, c), rm(r, c, dst_stride)))
                 self._vec_set_code_at(pe_id, dst, dst_index, self._vec_code_at(pe_id, src0, src_index))
 
     def _execute_vec(self, pe_id: int, desc: dict) -> None:

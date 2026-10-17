@@ -269,7 +269,9 @@ source/destination/B/record overlap. VLAYOUT accepts no header flags and
 forbids overlap except the exact identity mode. Its modes are: 0 row-major
 `[R,C]` to legacy input tile stream, 1 legacy finalize tile stream to
 row-major, 2 row-major to legacy weight-tile stream, and 3 legacy input tile
-stream to row-major. For all modes element `(r,c)` occupies packed word
+stream to row-major. Modes 6 and 7 are row-major to/from the physical legacy
+`LOAD` stream and require `R%4==0,C%8==0`; its index is
+`floor(r/4)*C*4 + floor(c/8)*32 + (r%4)*8 + (c%8)`. For all modes element `(r,c)` occupies packed word
 `base + floor(index/2)`, low byte for even index and high byte for odd index;
 row-major index is `r*src_stride+c`. Legacy input index is
 `(floor(r/4)*C + c)*4 + (r%4)`; legacy finalize index is

@@ -180,6 +180,17 @@ def test_vlayout_round_trip_and_descriptor_errors():
         _run(encode_vec_vmatmul(DST, SRC0, PARAM, 4, causal=True, cfg=CFG), bad_setup)
 
 
+def test_vlayout_legacy_load_stream_round_trip():
+    """Modes 6/7 match the real B=4, eight-K-lane legacy LOAD ordering."""
+    source = np.arange(-16, 16, dtype=np.int8).reshape(4, 8)
+    record6 = [6, (4 - 1) | ((8 - 1) << 5), 6, 8 | (8 << 8), 0, 0, 0, 0]
+    record7 = [6, (4 - 1) | ((8 - 1) << 5), 7, 8 | (8 << 8), 0, 0, 0, 0]
+    def setup(sim):
+        _put(sim, SRC0, source); sim.buffer[PARAM:PARAM + 8] = record6; sim.buffer[PARAM + 8:PARAM + 16] = record7
+    sim = _run(encode_vec_vlayout(AUX, SRC0, PARAM, 32, cfg=CFG) + encode_vec_vlayout(DST, AUX, PARAM + 8, 32, cfg=CFG), setup)
+    np.testing.assert_array_equal(_get(sim, DST, 32).reshape(4, 8), source)
+
+
 def test_mixed_vector_and_legacy_fetch_top_half_stays_fetch():
     """The VEC escape, not low nibble 0x9, owns descriptor dispatch."""
     def setup(sim):
