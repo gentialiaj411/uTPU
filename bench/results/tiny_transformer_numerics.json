@@ -9,9 +9,9 @@
   },
   "corpus_sha256": "86c4e6aa9db7c042ec79f339dcb96d42b0075e16b8fc2e86bf0ca57e2dc565ed",
   "degradation": {
-    "bits_per_char": 0.06004678166662775,
-    "loss": 0.04162125741392164,
-    "top1_accuracy": -0.012706241032998555
+    "bits_per_char": 0.06801877811628838,
+    "loss": 0.0471470242764378,
+    "top1_accuracy": -0.012015781922525115
   },
   "export_schema_sha256": "b52f0cbbb5f6e09b32846dfa9d45d6887b4cab2ebe9e32c3c855598fed4af77d",
   "float_validation": {
@@ -21,10 +21,10 @@
     "top1_accuracy": 0.4221126255380201
   },
   "integer_validation": {
-    "bits_per_char": 2.896192969708693,
-    "loss": 2.0074879913111157,
+    "bits_per_char": 2.904164966158354,
+    "loss": 2.013013758173632,
     "tokens": 111520,
-    "top1_accuracy": 0.40940638450502154
+    "top1_accuracy": 0.410096843615495
   },
   "limits": [
     "independent NumPy integer reference; ISA-simulator and RTL equality are Phase 2/3 work"
@@ -169,7 +169,7 @@
       "firmware/host/run_tiny_transformer_numerics.py": "79d4c4c23eb4e5452af7944a429da4eb4b177ed7",
       "firmware/host/tiny_transformer_export.py": "4adfb4763ae9e830b167d3634ebb1a9f233df5fb",
       "firmware/host/tiny_transformer_model.py": "78a7a6484fe724c354e36e4d54583dc80011196d",
-      "firmware/host/tiny_transformer_reference.py": "40a6a83ab76b8c0f3becebe192b52d6b0a5c155a",
+      "firmware/host/tiny_transformer_reference.py": "b3af8254db05a5d6a4e258f73bf763c3b11ce53a",
       "tools/gen_tiny_transformer_luts.py": "d4899ccef84b502e30cff2d366a97a7db3c718e6",
       "tools/phase_fingerprints.py": "bbce3f33b8116e97b9b78fcfa2fac619a221ea10"
     },

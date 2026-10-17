@@ -25,7 +25,7 @@
       "firmware/host/run_tiny_transformer_numerics.py": "79d4c4c23eb4e5452af7944a429da4eb4b177ed7",
       "firmware/host/tiny_transformer_export.py": "4adfb4763ae9e830b167d3634ebb1a9f233df5fb",
       "firmware/host/tiny_transformer_model.py": "78a7a6484fe724c354e36e4d54583dc80011196d",
-      "firmware/host/tiny_transformer_reference.py": "40a6a83ab76b8c0f3becebe192b52d6b0a5c155a",
+      "firmware/host/tiny_transformer_reference.py": "b3af8254db05a5d6a4e258f73bf763c3b11ce53a",
       "tools/gen_tiny_transformer_luts.py": "d4899ccef84b502e30cff2d366a97a7db3c718e6",
       "tools/phase_fingerprints.py": "bbce3f33b8116e97b9b78fcfa2fac619a221ea10"
     },
@@ -59,16 +59,16 @@
       "pct_codes_in_neg1_zero_pos1": 7.489013671875
     },
     "ffn2": {
-      "cosine": 0.9983760762109434,
+      "cosine": 0.9974850184186915,
       "integer_exponent": -1,
       "max_abs_code": 93,
       "max_abs_error": 2.435832977294922,
-      "pct_codes_in_neg1_zero_pos1": 11.051432291666668
+      "pct_codes_in_neg1_zero_pos1": 11.271158854166668
     },
     "final_norm": {
-      "cosine": 0.9958691700104385,
+      "cosine": 0.9941224051504672,
       "integer_exponent": -5,
-      "max_abs_code": 95,
+      "max_abs_code": 94,
       "max_abs_error": 0.5496404767036438,
       "pct_codes_in_neg1_zero_pos1": 4.264322916666666
     },
@@ -80,18 +80,18 @@
       "pct_codes_in_neg1_zero_pos1": 4.484049479166666
     },
     "leaky_relu": {
-      "cosine": 0.996327332534205,
+      "cosine": 0.9957157274293112,
       "integer_exponent": -3,
       "max_abs_code": 75,
       "max_abs_error": 0.8286935091018677,
-      "pct_codes_in_neg1_zero_pos1": 17.3583984375
+      "pct_codes_in_neg1_zero_pos1": 14.921061197916666
     },
     "logits": {
-      "cosine": 0.9952544400076001,
+      "cosine": 0.9937868257077744,
       "integer_exponent": -2,
-      "max_abs_code": 68,
-      "max_abs_error": 3.007136344909668,
-      "pct_codes_in_neg1_zero_pos1": 4.6875
+      "max_abs_code": 69,
+      "max_abs_error": 3.2443530559539795,
+      "pct_codes_in_neg1_zero_pos1": 4.7956730769230775
     },
     "out_proj": {
       "cosine": 0.9956663738039349,
@@ -122,11 +122,11 @@
       "pct_codes_in_neg1_zero_pos1": 4.825846354166666
     },
     "residual2": {
-      "cosine": 0.9981566247771152,
+      "cosine": 0.9973957996829457,
       "integer_exponent": -1,
       "max_abs_code": 95,
-      "max_abs_error": 2.474151611328125,
-      "pct_codes_in_neg1_zero_pos1": 10.489908854166668
+      "max_abs_error": 2.700140953063965,
+      "pct_codes_in_neg1_zero_pos1": 10.579427083333332
     },
     "rmsnorm1": {
       "cosine": 0.9992736946310738,
