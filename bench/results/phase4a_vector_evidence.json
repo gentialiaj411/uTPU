@@ -1,15 +1,42 @@
 {
-  "status": "passed",
   "command": "python tools/run_phase4a_evidence.py",
-  "matmul": {
+  "full_top": {
     "cases": 1,
+    "cycles": 125,
     "mismatches": 0,
-    "cycles": 446
+    "passed": true
   },
   "layout": {
-    "cases": 1,
+    "cases": 20,
     "mismatches": 0,
-    "cycles": 350
+    "passed": true,
+    "round_trips": 5,
+    "tails_and_padding": true
   },
-  "full_top": true
+  "matmul": {
+    "edge_cases": [
+      "max_magnitude",
+      "K=1",
+      "M=N=1",
+      "causal_row_0"
+    ],
+    "families": 14,
+    "rtl": {
+      "cases": 2048,
+      "compared_bytes": 8192,
+      "cycles": 194569,
+      "mismatches": 0,
+      "passed": true
+    },
+    "sim_cases": 2048
+  },
+  "reference_score_av": {
+    "av_cases": 24,
+    "mismatches": 0,
+    "passed": true,
+    "score_cases": 24,
+    "sequences": 8
+  },
+  "seed": 4104,
+  "status": "passed"
 }
