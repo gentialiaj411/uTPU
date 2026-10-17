@@ -86,7 +86,7 @@ module tb_vector_full_top_decode_errors;
             case (id)
                 0: begin prog_image[5] = 0; expect_code = 8'h03; end // zero length
                 1: begin words = 3; expect_code = 8'h03; end // truncated descriptor
-                2: begin prog_image[1] = 16'h2849; expect_code = 8'h03; end // reserved subop
+                2: begin prog_image[1] = 16'h3869; expect_code = 8'h03; end // reserved subop
                 3: begin prog_image[1] = 16'h1009; expect_code = 8'h03; end // param kind
                 4: begin poke(300, 16'h0011); end // reserved record bit
                 5: begin poke(302, 16'h0020); end // exponent outside [-31,31]

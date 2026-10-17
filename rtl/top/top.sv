@@ -201,12 +201,14 @@ module top #(
     logic vec_header_invalid;
     always_comb begin
         vec_header_invalid = (vec_desc[0][3:0] != 4'h9) ||
-            (vec_desc[4] == 0) || (vec_desc[0][7:4] > 4'd3) ||
+            (vec_desc[4] == 0) || (vec_desc[0][7:4] > 4'd5) ||
             (vec_desc[0][15:11] != (vec_desc[0][7:4] + 1'b1));
         if (!vec_header_invalid) begin
             if (vec_desc[0][7:4] == 4'd3) begin
                 if (!vec_desc[0][8] || vec_desc[0][10:9] > 2 || vec_desc[4] != 1024)
                     vec_header_invalid = 1'b1;
+            end else if (vec_desc[0][7:4] == 4'd4) begin
+                if (vec_desc[0][10:9] != 0) vec_header_invalid = 1'b1;
             end else begin
                 if (vec_desc[0][10:8] != 0) vec_header_invalid = 1'b1;
                 if ((vec_desc[0][7:4] == 4'd2 && vec_desc[4] != 1536) ||
@@ -417,7 +419,7 @@ module top #(
     generate
         if (VECTOR_UNIT_EN) begin: g_vector_unit
             vector_sequencer #(.ADDRESS_SIZE(ADDRESS_SIZE), .BUFFER_WORDS(BUFFER_SIZE)) u_vector_sequencer (
-                .clk(clk), .rst(rst_int), .start(vec_start), .subop(vec_desc[0][7:4]),
+                .clk(clk), .rst(rst_int), .start(vec_start), .subop(vec_desc[0][7:4]), .causal(vec_desc[0][8]),
                 .dst(vec_desc[1][ADDRESS_SIZE-1:0]), .src0(vec_desc[2][ADDRESS_SIZE-1:0]),
                 .param(vec_desc[3][ADDRESS_SIZE-1:0]), .length(vec_desc[4]),
                 .buf_rdata(buffer_to_controller), .busy(vec_busy), .done(vec_done), .error(vec_error),

@@ -5,15 +5,15 @@ module vector_sequencer #(
     parameter BUFFER_WORDS = 32768
 ) (
     input logic clk, input logic rst, input logic start,
-    input logic [3:0] subop, input logic [ADDRESS_SIZE-1:0] dst, src0, param,
+    input logic [3:0] subop, input logic causal, input logic [ADDRESS_SIZE-1:0] dst, src0, param,
     input logic [15:0] length, input logic [15:0] buf_rdata,
     output logic busy, done, error,
     output logic buf_we, buf_re, buf_store_en,
     output logic [ADDRESS_SIZE-1:0] buf_addr,
     output logic [15:0] buf_wdata
 );
-    localparam [3:0] ADD=0, NORM=1, POS=2, SOFT=3;
-    localparam [5:0] IDLE=0, PR=1, PW0=2, PW1=3, CHECK=4,
+    localparam [3:0] ADD=0, NORM=1, POS=2, SOFT=3, MAT=4, LAYOUT=5;
+    localparam [6:0] IDLE=0, PR=1, PW0=2, PW1=3, CHECK=4,
                      GR=5, GW0=6, GW1=7, AR=8, AW0=9, AW1=10,
                      BR=11, BW0=12, BW1=13, WRITE=14, WW=15,
                      NAR=16, NAW0=17, NAW1=18, NWRITE=19, NWW=20,
@@ -28,8 +28,13 @@ module vector_sequencer #(
                      NORM_SCALE_RNE=44, NORM_SCALE_SAT=45, SOFT_MAX_INIT=46,
                      SOFT_MAX=47, SOFT_EXP_ADDR=48, SOFT_EXP_READ=49,
                      SOFT_EXP_SUM=50, SOFT_DIV_START=51, SOFT_DIV_WAIT=52,
-                     SOFT_DIV_PACK=53, NORM_LOG_INIT=54, NORM_LOG_SCAN=55;
-    logic [5:0] state;
+                     SOFT_DIV_PACK=53, NORM_LOG_INIT=54, NORM_LOG_SCAN=55,
+                     MAT_A=56, MAT_AW0=57, MAT_AW1=58, MAT_B=59, MAT_BW0=60,
+                     MAT_BW1=61, MAT_ACC=62, MAT_OUT_READ=63, MAT_OUT_WAIT0=64,
+                     MAT_OUT_WAIT1=65, MAT_WRITE=66, LAY_ZERO=67, LAY_READ=68,
+                     LAY_READ_WAIT0=69, LAY_READ_WAIT1=70, LAY_OUT_READ=71,
+                     LAY_OUT_WAIT0=72, LAY_OUT_WAIT1=73, LAY_WRITE=74;
+    logic [6:0] state;
     logic [15:0] record [0:7];
     logic signed [7:0] a [0:47], b [0:47], gamma [0:47], score [0:31];
     logic [15:0] norm_word, soft_word;
@@ -69,6 +74,58 @@ module vector_sequencer #(
     logic divider_start, divider_busy, divider_done;
     logic [23:0] divider_numerator, divider_quotient;
     logic [21:0] divider_denominator;
+    logic [5:0] mat_m, mat_kdim, mat_n, mat_i, mat_j, mat_k;
+    logic [7:0] mat_a_stride, mat_b_stride;
+    logic mat_transpose, mat_a_unsigned, mat_b_unsigned, mat_causal;
+    logic signed [8:0] mat_a_value, mat_b_value;
+    logic signed [31:0] mat_acc;
+    logic signed [7:0] mat_result;
+    logic [15:0] mat_out_word;
+    logic [5:0] lay_rows;
+    logic [8:0] lay_cols, lay_r, lay_c;
+    logic [7:0] lay_src_stride, lay_dst_stride;
+    logic [2:0] lay_mode;
+    logic [31:0] lay_zero_word, lay_dest_words;
+    logic signed [7:0] lay_value;
+    logic [15:0] lay_out_word;
+
+    function automatic [31:0] lay_lin_index(input [5:0] r, input [8:0] c, input [8:0] cols);
+        begin lay_lin_index=((r/4)*cols+c)*4+(r%4); end
+    endfunction
+    function automatic [31:0] lay_lfin_index(input [5:0] r, input [8:0] c, input [5:0] rows);
+        begin lay_lfin_index=((c/8)*rows+r)*8+(c%8); end
+    endfunction
+    function automatic [31:0] lay_wt_index(input [5:0] r, input [8:0] c, input [8:0] cols);
+        begin lay_wt_index=((r/8)*cols+c)*8+(r%8); end
+    endfunction
+    function automatic [31:0] lay_src_index;
+        begin
+            case(lay_mode)
+                0,2: lay_src_index=lay_r*lay_src_stride+lay_c;
+                1: lay_src_index=lay_lfin_index(lay_r,lay_c,lay_rows);
+                default: lay_src_index=lay_lin_index(lay_r,lay_c,lay_cols);
+            endcase
+        end
+    endfunction
+    function automatic [31:0] lay_dst_index;
+        begin
+            case(lay_mode)
+                0: lay_dst_index=lay_lin_index(lay_r,lay_c,lay_cols);
+                1,3: lay_dst_index=lay_r*lay_dst_stride+lay_c;
+                default: lay_dst_index=lay_wt_index(lay_r,lay_c,lay_cols);
+            endcase
+        end
+    endfunction
+    function automatic signed [7:0] mat_requant(input signed [31:0] value, input [15:0] mult, input [4:0] sh);
+        reg signed [63:0] clipped, product, shifted;
+        begin
+            if(value>32'sd8388607) clipped=32'sd8388607;
+            else if(value<-32'sd8388608) clipped=-32'sd8388608;
+            else clipped=value;
+            product=clipped*$signed({1'b0,mult}); shifted=product >>> sh;
+            mat_requant=sat8(shifted);
+        end
+    endfunction
 
     initial begin
 `ifdef SYNTHESIS
@@ -152,6 +209,20 @@ module vector_sequencer #(
             WRITE: begin buf_we=1; buf_store_en=1; buf_addr=dst+index; buf_wdata=add_word; end
             NWRITE: begin buf_we=1; buf_store_en=1; buf_addr=dst+row*24+(norm_element>>1); buf_wdata=norm_word; end
             SWRITE: begin buf_we=1; buf_store_en=1; buf_addr=dst+row*16+(soft_element>>1); buf_wdata=soft_word; end
+            MAT_A: begin buf_re=1; buf_store_en=1;
+                buf_addr=src0+((mat_i*mat_a_stride+mat_k)>>1); end
+            MAT_B: begin buf_re=1; buf_store_en=1;
+                if(mat_transpose) buf_addr=record[1]+((mat_j*mat_b_stride+mat_k)>>1);
+                else buf_addr=record[1]+((mat_k*mat_b_stride+mat_j)>>1);
+            end
+            MAT_OUT_READ: begin buf_re=1; buf_store_en=1;
+                buf_addr=dst+((mat_i*mat_n+mat_j)>>1); end
+            MAT_WRITE: begin buf_we=1; buf_store_en=1;
+                buf_addr=dst+((mat_i*mat_n+mat_j)>>1); buf_wdata=mat_out_word; end
+            LAY_ZERO: begin buf_we=1; buf_store_en=1; buf_addr=dst+lay_zero_word; buf_wdata=0; end
+            LAY_READ: begin buf_re=1; buf_store_en=1; buf_addr=src0+(lay_src_index()>>1); end
+            LAY_OUT_READ: begin buf_re=1; buf_store_en=1; buf_addr=dst+(lay_dst_index()>>1); end
+            LAY_WRITE: begin buf_we=1; buf_store_en=1; buf_addr=dst+(lay_dst_index()>>1); buf_wdata=lay_out_word; end
             SOFT_DIV_START: if(soft_element<valid_count) begin
                 divider_start=1;
                 divider_numerator=({soft_values[soft_element],8'b0}-soft_values[soft_element])+(soft_sum>>1);
@@ -195,9 +266,32 @@ module vector_sequencer #(
                           $signed(record[3][7:0]) < $signed(record[2][7:0]) || $signed(record[3][7:0]) < $signed(record[2][15:8]))) ||
                         (subop==SOFT && (record[0]!=16'd4 || record[2]!=0 || record[3]!=0 || record[4]!=0 ||
                           record[5]!=0 || record[6]!=0 || record[7]!=0 || !range_ok(record[1],16'd512) ||
-                          overlap(dst,words_total,record[1],16'd512) || overlap(src0,words_total,record[1],16'd512)))) begin
+                          overlap(dst,words_total,record[1],16'd512) || overlap(src0,words_total,record[1],16'd512))) ||
+                        (subop==MAT && (record[0]!=16'd5 || record[7]!=0 || (record[4]&16'hfff8)!=0 ||
+                          (record[6]&16'hffe0)!=0 || record[3][7:0] < (((record[2]>>5)&5'h1f)+1) ||
+                          record[3][15:8] < ((record[2][15] ? ((record[2]>>5)&5'h1f) : ((record[2]>>10)&5'h1f))+1) ||
+                          record[3][0] || record[3][8] || (causal != record[4][2]) ||
+                          (causal && !((record[2][15] && (record[2][4:0]==record[2][14:10])) ||
+                                       (record[4][0] && !record[2][15] && (record[2][4:0]==record[2][9:5])))))) ||
+                        (subop==LAYOUT && (record[0]!=16'd6 || (record[1]&16'he000)!=0 || (record[2]&16'hfff8)!=0 ||
+                          record[3][7:0] < (((record[1]>>5)&8'hff)+1) || record[3][15:8] < (((record[1]>>5)&8'hff)+1) ||
+                          record[3][0] || record[3][8] || record[4]!=0 || record[5]!=0 || record[6]!=0 || record[7]!=0))) begin
                         error<=1; state<=FINISH;
-                    end else if(subop==NORM) state<=GR; else if(subop==SOFT) state<=SR; else state<=AR;
+                    end else if(subop==NORM) state<=GR;
+                    else if(subop==SOFT) state<=SR;
+                    else if(subop==MAT) begin
+                        mat_m<=record[2][4:0]+1; mat_kdim<=record[2][9:5]+1; mat_n<=record[2][14:10]+1;
+                        mat_a_stride<=record[3][7:0]; mat_b_stride<=record[3][15:8]; mat_transpose<=record[2][15];
+                        mat_a_unsigned<=record[4][0]; mat_b_unsigned<=record[4][1]; mat_causal<=record[4][2];
+                        mat_i<=0; mat_j<=0; mat_k<=0; mat_acc<=0; state<=MAT_A;
+                    end else if(subop==LAYOUT) begin
+                        lay_rows<=record[1][4:0]+1; lay_cols<=record[1][12:5]+1; lay_mode<=record[2][2:0];
+                        lay_src_stride<=record[3][7:0]; lay_dst_stride<=record[3][15:8]; lay_r<=0; lay_c<=0; lay_zero_word<=0;
+                        if(record[2][2:0]==0) lay_dest_words<=((((record[1][4:0]+1+3)/4)*((record[1][12:5]+1))*4+1)>>1);
+                        else if(record[2][2:0]==1 || record[2][2:0]==3) lay_dest_words<=(((record[1][4:0]+1)*record[3][15:8]+1)>>1);
+                        else lay_dest_words<=((((record[1][4:0]+1+7)/8)*(record[1][12:5]+1)*8+1)>>1);
+                        state<=LAY_ZERO;
+                    end else state<=AR;
                 end
                 GR: state<=GW0; GW0: state<=GW1;
                 GW1: begin gamma[index*2]<=buf_rdata[7:0]; gamma[index*2+1]<=buf_rdata[15:8]; if(index==23) begin index<=0; state<=NAR; end else begin index<=index+1; state<=GR; end end
@@ -409,6 +503,73 @@ module vector_sequencer #(
                         soft_element<=soft_element+1;
                         state<=SOFT_DIV_START;
                     end
+                end
+                // VMATMUL is deliberately scalar: a and b are read through
+                // the existing single buffer port, then one product retires.
+                MAT_A: state<=MAT_AW0;
+                MAT_AW0: state<=MAT_AW1;
+                MAT_AW1: begin
+                    if(mat_a_unsigned) mat_a_value<={1'b0,((mat_i*mat_a_stride+mat_k)&1) ? buf_rdata[15:8] : buf_rdata[7:0]};
+                    else mat_a_value<=$signed(((mat_i*mat_a_stride+mat_k)&1) ? buf_rdata[15:8] : buf_rdata[7:0]);
+                    state<=MAT_B;
+                end
+                MAT_B: state<=MAT_BW0;
+                MAT_BW0: state<=MAT_BW1;
+                MAT_BW1: begin
+                    if(mat_b_unsigned) mat_b_value<={1'b0,(((mat_transpose ? mat_j*mat_b_stride+mat_k : mat_k*mat_b_stride+mat_j)&1)) ? buf_rdata[15:8] : buf_rdata[7:0]};
+                    else mat_b_value<=$signed((((mat_transpose ? mat_j*mat_b_stride+mat_k : mat_k*mat_b_stride+mat_j)&1)) ? buf_rdata[15:8] : buf_rdata[7:0]);
+                    state<=MAT_ACC;
+                end
+                MAT_ACC: begin
+                    if(mat_causal && mat_transpose && mat_j>mat_i) begin
+                        mat_result<=0; state<=MAT_OUT_READ;
+                    end else if(mat_k+1>=((mat_causal && mat_a_unsigned && !mat_transpose) ? mat_i+1 : mat_kdim)) begin
+                        mat_result<=mat_requant(mat_acc+mat_a_value*mat_b_value,record[5],record[6][4:0]);
+                        mat_acc<=0; state<=MAT_OUT_READ;
+                    end else begin
+                        mat_acc<=mat_acc+mat_a_value*mat_b_value; mat_k<=mat_k+1; state<=MAT_A;
+                    end
+                end
+                MAT_OUT_READ: state<=MAT_OUT_WAIT0;
+                MAT_OUT_WAIT0: state<=MAT_OUT_WAIT1;
+                MAT_OUT_WAIT1: begin
+                    if((mat_i*mat_n+mat_j)&1) mat_out_word<={mat_result,buf_rdata[7:0]};
+                    else mat_out_word<={buf_rdata[15:8],mat_result};
+                    state<=MAT_WRITE;
+                end
+                MAT_WRITE: begin
+                    mat_k<=0; mat_acc<=0;
+                    if(mat_j+1>=mat_n) begin
+                        mat_j<=0;
+                        if(mat_i+1>=mat_m) state<=FINISH;
+                        else begin mat_i<=mat_i+1; state<=MAT_A; end
+                    end else begin mat_j<=mat_j+1; state<=MAT_A; end
+                end
+                // VLAYOUT clears the complete destination (including tile
+                // padding) then copies one code per pass through the port.
+                LAY_ZERO: begin
+                    if(lay_zero_word+1>=lay_dest_words) begin lay_r<=0; lay_c<=0; state<=LAY_READ; end
+                    else lay_zero_word<=lay_zero_word+1;
+                end
+                LAY_READ: state<=LAY_READ_WAIT0;
+                LAY_READ_WAIT0: state<=LAY_READ_WAIT1;
+                LAY_READ_WAIT1: begin
+                    lay_value<=$signed((lay_src_index()&1) ? buf_rdata[15:8] : buf_rdata[7:0]);
+                    state<=LAY_OUT_READ;
+                end
+                LAY_OUT_READ: state<=LAY_OUT_WAIT0;
+                LAY_OUT_WAIT0: state<=LAY_OUT_WAIT1;
+                LAY_OUT_WAIT1: begin
+                    if(lay_dst_index()&1) lay_out_word<={lay_value,buf_rdata[7:0]};
+                    else lay_out_word<={buf_rdata[15:8],lay_value};
+                    state<=LAY_WRITE;
+                end
+                LAY_WRITE: begin
+                    if(lay_c+1>=lay_cols) begin
+                        lay_c<=0;
+                        if(lay_r+1>=lay_rows) state<=FINISH;
+                        else begin lay_r<=lay_r+1; state<=LAY_READ; end
+                    end else begin lay_c<=lay_c+1; state<=LAY_READ; end
                 end
                 FINISH: begin busy<=0; done<=1; state<=IDLE; end
                 default: state<=IDLE;
