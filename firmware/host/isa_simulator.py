@@ -623,10 +623,21 @@ class UTPUISASimulator:
         b_range = self._vec_check_range(b_base, b_elements if not (b_elements & 1) else b_elements + 1, "VMATMUL B")
         c_range = self._vec_check_range(dst, c_elements, "VMATMUL C")
         record_range = (param, param + 8)
-        for left, right, label in ((a_range, b_range, "A/B"), (a_range, c_range, "A/C"),
-                                   (b_range, c_range, "B/C"), (a_range, record_range, "A/record"),
-                                   (b_range, record_range, "B/record"), (c_range, record_range, "C/record")):
-            self._vec_no_partial_overlap(left, right, allow_exact=False, label="VMATMUL " + label)
+        # Strided Q/K/V views can share the enclosing QKV allocation while
+        # referring to disjoint byte lanes.  Range-only alias checks reject
+        # that legal descriptor form, so check the actual addressed words.
+        a_words = {src0 + ((row * a_stride + inner) >> 1)
+                   for row in range(m) for inner in range(k)}
+        b_words = {b_base + (((col * b_stride + inner) if transpose_b else
+                              (inner * b_stride + col)) >> 1)
+                   for col in range(n) for inner in range(k)}
+        c_words = {dst + (index >> 1) for index in range(c_elements)}
+        record_words = set(range(param, param + 8))
+        for left, right, label in ((a_words, b_words, "A/B"), (a_words, c_words, "A/C"),
+                                   (b_words, c_words, "B/C"), (a_words, record_words, "A/record"),
+                                   (b_words, record_words, "B/record"), (c_words, record_words, "C/record")):
+            if left & right:
+                raise ValueError(f"illegal VEC overlap: VMATMUL {label}")
         out = np.zeros((m, n), dtype=np.int64)
         for row in range(m):
             for col in range(n):
@@ -662,12 +673,15 @@ class UTPUISASimulator:
         def lfin(r: int, c: int) -> int: return ((c // 8) * rows + r) * 8 + (c % 8)
         def wt(r: int, c: int) -> int: return ((r // 8) * cols + c) * 8 + (r % 8)
         def legacy_load(r: int, c: int) -> int: return (r // 4) * cols * 4 + (c // 8) * 32 + (r % 4) * 8 + (c % 8)
-        if mode in (6, 7) and (cols % 8 or rows % 4):
+        def head_major(r: int, c: int) -> int: return (c // 16) * rows * 16 + r * 16 + (c % 16)
+        if mode in (4, 5, 6, 7) and (cols % 8 or rows % 4):
             raise ValueError("VLAYOUT legacy-load mode requires R multiple of 4 and C multiple of 8")
+        if mode == 4 and (rows != 32 or cols != 48):
+            raise ValueError("VLAYOUT head merge mode requires the frozen 32x48 tensor")
         source_extent = {0: rows * src_stride, 1: col8 * rows * 8, 2: rows * src_stride, 3: groups4 * cols * 4,
-                         4: rows * src_stride, 5: rows * src_stride, 6: rows * src_stride, 7: groups4 * cols * 4}[mode]
+                         4: rows * src_stride, 5: col8 * rows * 8, 6: rows * src_stride, 7: groups4 * cols * 4}[mode]
         dest_extent = {0: groups4 * cols * 4, 1: rows * dst_stride, 2: groups8 * cols * 8, 3: rows * dst_stride,
-                       4: rows * dst_stride, 5: rows * dst_stride, 6: groups4 * cols * 4, 7: rows * dst_stride}[mode]
+                       4: groups4 * cols * 4, 5: groups4 * cols * 4, 6: groups4 * cols * 4, 7: rows * dst_stride}[mode]
         src_range = self._vec_check_range(src0, source_extent if not (source_extent & 1) else source_extent + 1, "VLAYOUT source")
         dst_range = self._vec_check_range(dst, dest_extent if not (dest_extent & 1) else dest_extent + 1, "VLAYOUT destination")
         self._vec_no_partial_overlap(src_range, dst_range, allow_exact=False, label="VLAYOUT source/destination")
@@ -681,7 +695,8 @@ class UTPUISASimulator:
                                         (lfin(r, c), rm(r, c, dst_stride)) if mode == 1 else
                                         (rm(r, c, src_stride), wt(r, c)) if mode == 2 else
                                         (lin(r, c), rm(r, c, dst_stride)) if mode == 3 else
-                                        (rm(r, c, src_stride), rm(r, c, dst_stride)) if mode in (4, 5) else
+                                        (head_major(r, c), legacy_load(r, c)) if mode == 4 else
+                                        (lfin(r, c), legacy_load(r, c)) if mode == 5 else
                                         (rm(r, c, src_stride), legacy_load(r, c)) if mode == 6 else
                                         (legacy_load(r, c), rm(r, c, dst_stride)))
                 self._vec_set_code_at(pe_id, dst, dst_index, self._vec_code_at(pe_id, src0, src_index))

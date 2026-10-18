@@ -24,11 +24,13 @@ The immutable allocation is unchanged: tied LM `0..1727`, learned positions
 `11712..16319`, gamma vectors `16320..16391`, and VEC records `16392..16967`.
 It is 16,968 words, below `WEIGHT_REGION_WORDS=27,648`.
 
-Mutable allocation: `X=16968..17735`, `R=17736..18503`,
-`QKV=18504..20807`, score/probability one head `20808..21831`, head result
-`21832..22087`, `nextX=22088..22855`, hidden `22856..25927`, records/logits
-`25928..26255`, softmax scratch `26256..26767`. Peak is 26,768 words, below
-`BUFFER_SIZE=32,768`.
+Mutable allocation: `X=16968..17735`, `R=17736..18503`, QKV legacy output
+`18504..20807`, score/probability one head `20808..21319`, temporary legacy
+output `21320..22087`, head-major AV `22088..22855`, hidden legacy output
+`22856..25927`, records `25928..26255`, softmax scratch `26256..26767`, QKV
+row-major `26768..29071`, residual/output row-major `29072..29839`, FFN-down
+legacy output `29840..30607`, and padded LM logits `30608..31759`. Peak is
+31,760 words, below `BUFFER_SIZE=32,768`.
 
 ## Exact lowering
 
@@ -46,18 +48,18 @@ with exactly that contract. `VLAYOUT` and every VEC operation are six words.
 | rmsnorm1 | `VEC VRMSNORM(R,X,n1_rec,1536)` | X -> R (RM) | 6 |
 | VEC→legacy #1 | `VEC VLAYOUT(QKV,R,rm_to_legacy_load_32x48,1536)` | R RM -> QKV physical legacy LOAD stream | 6 |
 | Q/K/V projection | `LGEMM(32,48,144)` | LIN(R), QKV weights -> QKV LFIN | 5,778 |
-| legacy→VEC #2 | `VEC VLAYOUT(QKV,QKV,legacy_load_to_rm_32x144,4608)` | QKV legacy LOAD stream -> QKV RM views Q/K/V | 6 |
+| legacy→VEC #2 | `VEC VLAYOUT(QKV_R,QKV_L,lfin_to_rm_32x144,4608)` | QKV legacy finalize -> non-overlapping RM views Q/K/V | 6 |
 | QK^T, heads 0..2 | `VEC VMATMUL(score,Q_h,qk_rec_h,1024,causal=1)` | Q `[32,16]`, K `[32,16]` transpose -> score `[32,32]` Q4.4 | 18 |
 | causal softmax | `VEC VSOFTMAX(score,score,soft_rec,1024,causal=1,head=h)` | score -> UINT8 P in place; scratch `26256..26767` | 18 |
 | P·V, heads 0..2 | `VEC VMATMUL(head_h,score,pv_rec_h,512,causal=1)` | unsigned P `[32,32]`, signed V `[32,16]` -> head `[32,16]` | 18 |
-| head concat / VEC→legacy #3 | `VEC VLAYOUT(head,head,rm_to_legacy_load_32x48,1536)` | three head RM views concatenate -> physical legacy LOAD head stream | 6 |
+| head concat / VEC→legacy #3 | `VEC VLAYOUT(R,head_major,head_merge_to_legacy_load_32x48,1536)` | head-major VMATMUL output -> physical legacy LOAD head stream | 6 |
 | output projection | `LGEMM(32,48,48)` | LIN head, Wo -> nextX LFIN | 1,926 |
-| legacy→VEC #4 + residual1 | `VLAYOUT(nextX,nextX,legacy_load_to_rm_32x48,1536); VADD_RQ(nextX,nextX,res1_rec,1536)` | projected nextX + preserved X -> nextX RM | 12 |
+| legacy→VEC #4 + residual1 | `VLAYOUT(nextX_R,nextX_L,lfin_to_rm_32x48,1536); VADD_RQ(nextX_R,X,res1_rec,1536)` | projected nextX + preserved X -> nextX RM | 12 |
 | rmsnorm2 | `VEC VRMSNORM(X,nextX,n2_rec,1536)` | nextX -> X RM | 6 |
 | VEC→legacy #5 | `VEC VLAYOUT(hidden,X,rm_to_legacy_load_32x48,1536)` | X RM -> hidden physical legacy LOAD stream | 6 |
 | FFN up + LeakyReLU | `LGEMM(32,48,192,relu=1)` | LIN X, W1 -> hidden LFIN | 7,704 |
-| FFN down | `LGEMM(32,192,48)` | hidden LFIN directly reused as legacy input (B=4 lanes/padding agree), W2 -> X LFIN | 7,110 |
-| legacy→VEC #6 + residual2 | `VLAYOUT(X,X,legacy_load_to_rm_32x48,1536); VADD_RQ(X,X,res2_rec,1536)` | FFN X + nextX -> X RM | 12 |
+| FFN LFIN→legacy LOAD + FFN down | `VLAYOUT(X,hidden,lfin_to_legacy_load_32x192,6144); LGEMM(32,192,48)` | explicit physical handoff, W2 -> FFN-down LFIN | 7,116 |
+| legacy→VEC #6 + residual2 | `VLAYOUT(R,ffn2_L,lfin_to_rm_32x48,1536); VADD_RQ(R,nextX_R,res2_rec,1536)` | FFN X + nextX -> X RM | 12 |
 | final norm | `VEC VRMSNORM(R,X,final_rec,1536)` | X -> R RM | 6 |
 | VEC→legacy #7 | `VEC VLAYOUT(logits,R,rm_to_legacy_load_32x48,1536)` | final norm -> LM physical legacy LOAD stream | 6 |
 | tied LM head | `LGEMM(32,48,72)` | LIN R, tied LM weights -> logits LFIN; host decodes LFIN and ignores padded 7 channels | 2,889 |
@@ -69,8 +71,9 @@ not a VEC boundary: B=4 `LFIN[32,192]` has its live four lanes first in each
 the lowering selects that existing tile stride rather than copying it.
 
 The previous unrolled estimate was 35,866 words, including 10,404 words for
-legacy QK/AV. VMATMUL replaces those with 36 words and the seven VLAYOUTs add
-42 words: `35,866 - 10,404 + 36 + 42 = 25,540` words. This fits the Boolean
+legacy QK/AV. VMATMUL replaces those with 36 words and eight VLAYOUTs add
+48 words, including the required LFIN-to-physical FFN handoff:
+`35,866 - 10,404 + 36 + 48 = 25,546` words. This fits the Boolean
 profile's `PROG_DEPTH=65,536`; the profile is intentionally raised to 64K so
 the conservative legacy image and future instrumentation also fit.
 
@@ -113,5 +116,8 @@ flag are decode errors before a write.
   byte lanes.
 * The LM head's padded 72-output legacy result remains LFIN until host readout;
   no gratuitous final VLAYOUT is emitted.
-* `PROG_DEPTH` is 65,536 for the Boolean profile: the conservative unrolled
-  control image exceeds 32K even though the current VMATMUL estimate fits.
+* VLAYOUT mode 4 is the fixed head-major AV merge to physical legacy LOAD and
+  mode 5 is LFIN-to-physical legacy LOAD. They avoid prohibited in-place
+  conversions and retain the frozen legacy PE datapath.
+* The measured program is 25,546 words, leaving a 22% margin to 32,768;
+  Phase 4 restores `PROG_DEPTH=32768` after its required re-synthesis.

@@ -46,13 +46,21 @@ mem[100]={{a[k*4+1],a[k*4]}};mem[101]={{a[k*4+3],a[k*4+2]}};mem[200]={{b[k*4+1],
 
 def layouts():
  rng=np.random.default_rng(4105);cases=mis=rounds=0;mode_cases={str(x):0 for x in range(8)}
- for r,c in ((1,2),(3,6),(5,10),(9,14),(31,30)):
+ for r,c in ((1,2),(3,6),(5,10),(7,18),(9,14),(16,24),(31,30)):
   stride=c+2+(c&1);src=rng.integers(-128,128,(r,stride),dtype=np.int8);src[:,c:]=0
-  for mode in range(6):
+  for mode in range(4):
    m=[0]*32768;put(m,100,src);m[3000:3008]=[6,(r-1)|((c-1)<<5),mode,stride|(stride<<8),0,0,0,0];s=UTPUISASimulator(array_size=8,buffer_size=32768,cfg=CFG);s.buffer[:]=m;s.run_words(words(encode_vec_vlayout(900,100,3000,r*c,cfg=CFG)+encodeHalt(cfg=CFG)),preserve_buffer=True);cases+=1
    mode_cases[str(mode)]+=1
   # Defined LIN inverse plus tails/stride holes has to be a true identity.
   m=[0]*32768;put(m,100,src);m[3000:3008]=[6,(r-1)|((c-1)<<5),0,stride|(stride<<8),0,0,0,0];m[3008:3016]=[6,(r-1)|((c-1)<<5),3,stride|(stride<<8),0,0,0,0];s=UTPUISASimulator(array_size=8,buffer_size=32768,cfg=CFG);s.buffer[:]=m;s.run_words(words(encode_vec_vlayout(900,100,3000,r*c,cfg=CFG)+encode_vec_vlayout(1600,900,3008,r*c,cfg=CFG)+encodeHalt(cfg=CFG)),preserve_buffer=True);mis+=int(np.count_nonzero(np.asarray(s.buffer[1600:1600+(r*stride+1)//2])!=np.asarray(pack(src))));rounds+=1
+ # Mode 4 verifies the VMATMUL head-major concatenate path; mode 5 verifies
+ # the LFIN->physical legacy-LOAD FFN handoff.  Decode each physical result
+ # through mode 7 so these are real byte-for-byte round trips.
+ head=rng.integers(-128,128,(3,32,16),dtype=np.int8);m=[0]*32768;put(m,100,head.reshape(-1));m[7000:7008]=[6,(32-1)|((48-1)<<5),4,48|(48<<8),0,0,0,0];m[7008:7016]=[6,(32-1)|((48-1)<<5),7,48|(48<<8),0,0,0,0];s=UTPUISASimulator(array_size=8,buffer_size=32768,cfg=CFG);s.buffer[:]=m;s.run_words(words(encode_vec_vlayout(2500,100,7000,1536,cfg=CFG)+encode_vec_vlayout(5000,2500,7008,1536,cfg=CFG)+encodeHalt(cfg=CFG)),preserve_buffer=True);got=np.frombuffer(np.asarray(s.buffer[5000:5000+768],dtype='<u2').tobytes(),dtype=np.int8).reshape(32,48);want=head.transpose(1,0,2).reshape(32,48);mis+=int(np.count_nonzero(got!=want));cases+=2;rounds+=1;mode_cases['4']+=1
+ lfin=rng.integers(-128,128,(32,192),dtype=np.int8);packed=np.zeros(32*192,dtype=np.int8)
+ for rr in range(32):
+  for cc in range(192): packed[((cc//8)*32+rr)*8+(cc%8)]=lfin[rr,cc]
+ m=[0]*32768;put(m,100,packed);m[7100:7108]=[6,(32-1)|((192-1)<<5),5,192|(192<<8),0,0,0,0];m[7108:7116]=[6,(32-1)|((192-1)<<5),7,192|(192<<8),0,0,0,0];s=UTPUISASimulator(array_size=8,buffer_size=32768,cfg=CFG);s.buffer[:]=m;s.run_words(words(encode_vec_vlayout(4000,100,7100,6144,cfg=CFG)+encode_vec_vlayout(8000,4000,7108,6144,cfg=CFG)+encodeHalt(cfg=CFG)),preserve_buffer=True);got=np.frombuffer(np.asarray(s.buffer[8000:8000+3072],dtype='<u2').tobytes(),dtype=np.int8).reshape(32,192);mis+=int(np.count_nonzero(got!=lfin));cases+=2;rounds+=1;mode_cases['5']+=1
  # Modes 6/7 are the only physical legacy-LOAD boundary maps.  These shapes
  # cover every byte lane, two tile groups, and the 32x48 transformer shape.
  for r,c in ((4,8),(8,16),(32,48)):

@@ -108,13 +108,19 @@ module vector_sequencer #(
     function automatic [31:0] lay_load_index(input [5:0] r, input [8:0] c, input [8:0] cols);
         begin lay_load_index=(r/4)*cols*4+(c/8)*32+(r%4)*8+(c%8); end
     endfunction
+    // Fixed v1 attention merge: VMATMUL writes [head][row][Dh=16], while
+    // legacy LOAD consumes the merged [row][H*Dh=48] physical stream.
+    function automatic [31:0] lay_head_index(input [5:0] r, input [8:0] c, input [5:0] rows);
+        begin lay_head_index=(c/16)*rows*16+r*16+(c%16); end
+    endfunction
     function automatic [31:0] lay_src_index;
         begin
             case(lay_mode)
                 0,2: lay_src_index=lay_r*lay_src_stride+lay_c;
                 1: lay_src_index=lay_lfin_index(lay_r,lay_c,lay_rows);
                 3: lay_src_index=lay_lin_index(lay_r,lay_c,lay_cols);
-                4,5: lay_src_index=lay_r*lay_src_stride+lay_c;
+                4: lay_src_index=lay_head_index(lay_r,lay_c,lay_rows);
+                5: lay_src_index=lay_lfin_index(lay_r,lay_c,lay_rows);
                 default: lay_src_index=lay_load_index(lay_r,lay_c,lay_cols);
             endcase
         end
@@ -125,6 +131,7 @@ module vector_sequencer #(
                 0: lay_dst_index=lay_lin_index(lay_r,lay_c,lay_cols);
                 1,3: lay_dst_index=lay_r*lay_dst_stride+lay_c;
                 2: lay_dst_index=lay_wt_index(lay_r,lay_c,lay_cols);
+                4,5: lay_dst_index=lay_load_index(lay_r,lay_c,lay_cols);
                 6: lay_dst_index=lay_load_index(lay_r,lay_c,lay_cols);
                 default: lay_dst_index=lay_r*lay_dst_stride+lay_c;
             endcase
@@ -278,7 +285,8 @@ module vector_sequencer #(
                                        (record[4][0] && !record[2][15] && (record[2][4:0]==record[2][9:5])))))) ||
                         (subop==LAYOUT && (record[0]!=16'd6 || (record[1]&16'he000)!=0 ||
                           (record[2]&16'hfff8)!=0 ||
-                          ((record[2][2:0]==3'd6 || record[2][2:0]==3'd7) && ((record[1][4:0]+1)%4!=0 || (((record[1]>>5)&8'hff)+1)%8!=0)) ||
+                          ((record[2][2:0]>=3'd4) && ((record[1][4:0]+1)%4!=0 || (((record[1]>>5)&8'hff)+1)%8!=0)) ||
+                          (record[2][2:0]==3'd4 && ((record[1][4:0]+1)!=32 || (((record[1]>>5)&8'hff)+1)!=48)) ||
                           record[3][7:0] < (((record[1]>>5)&8'hff)+1) || record[3][15:8] < (((record[1]>>5)&8'hff)+1) ||
                           record[3][0] || record[3][8] || record[4]!=0 || record[5]!=0 || record[6]!=0 || record[7]!=0))) begin
                         error<=1; state<=FINISH;
@@ -293,7 +301,7 @@ module vector_sequencer #(
                         lay_rows<=record[1][4:0]+1; lay_cols<=record[1][12:5]+1; lay_mode<=record[2][2:0];
                         lay_src_stride<=record[3][7:0]; lay_dst_stride<=record[3][15:8]; lay_r<=0; lay_c<=0; lay_zero_word<=0;
                         if(record[2][2:0]==0) lay_dest_words<=((((record[1][4:0]+1+3)/4)*((record[1][12:5]+1))*4+1)>>1);
-                        else if(record[2][2:0]==1 || record[2][2:0]==3 || record[2][2:0]==4 || record[2][2:0]==5 || record[2][2:0]==7) lay_dest_words<=(((record[1][4:0]+1)*record[3][15:8]+1)>>1);
+                        else if(record[2][2:0]==1 || record[2][2:0]==3 || record[2][2:0]==7) lay_dest_words<=(((record[1][4:0]+1)*record[3][15:8]+1)>>1);
                         else lay_dest_words<=((((record[1][4:0]+1+7)/8)*(record[1][12:5]+1)*8+1)>>1);
                         state<=LAY_ZERO;
                     end else state<=AR;

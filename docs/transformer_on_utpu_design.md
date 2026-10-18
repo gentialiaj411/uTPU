@@ -270,6 +270,9 @@ forbids overlap except the exact identity mode. Its modes are: 0 row-major
 `[R,C]` to historical four-lane `LIN` staging (it is **not** a physical
 legacy-`LOAD` layout), 1 legacy finalize tile stream to row-major, 2
 row-major to legacy weight-tile stream, and 3 historical `LIN` to row-major.
+Mode 4 merges the fixed v1 `[head=3,row=32,Dh=16]` VMATMUL output into the
+physical legacy-`LOAD` stream for `[row=32,D=48]`; mode 5 maps a legacy
+finalize stream directly to that physical `LOAD` stream for the FFN handoff.
 Modes 6 and 7 are row-major to/from the physical legacy
 `LOAD` stream and require `R%4==0,C%8==0`; its index is
 `floor(r/4)*C*4 + floor(c/8)*32 + (r%4)*8 + (c%8)`. For all modes element `(r,c)` occupies packed word
