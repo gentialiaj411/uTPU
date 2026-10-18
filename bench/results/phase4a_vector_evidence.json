@@ -54,21 +54,21 @@
     "passed": true
   },
   "layout": {
-    "cases": 36,
+    "cases": 38,
     "mismatches": 0,
     "mode_cases": {
-      "0": 5,
-      "1": 5,
-      "2": 5,
-      "3": 5,
-      "4": 5,
-      "5": 5,
+      "0": 7,
+      "1": 7,
+      "2": 7,
+      "3": 7,
+      "4": 1,
+      "5": 1,
       "6": 3,
       "7": 3
     },
     "passed": true,
     "physical_legacy_load_round_trips": 3,
-    "round_trips": 8,
+    "round_trips": 12,
     "tails_and_padding": true
   },
   "matmul": {
