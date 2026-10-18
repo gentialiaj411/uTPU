@@ -49,7 +49,7 @@
   },
   "full_top": {
     "cases": 1,
-    "cycles": 125,
+    "cycles": 144,
     "mismatches": 0,
     "passed": true
   },
@@ -82,7 +82,7 @@
     "rtl": {
       "cases": 2048,
       "compared_bytes": 8192,
-      "cycles": 194569,
+      "cycles": 240212,
       "mismatches": 0,
       "passed": true
     },

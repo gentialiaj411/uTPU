@@ -18,6 +18,14 @@ def head_blob(path: str) -> str:
                                    text=True).strip()
 
 
+def read_vivado_log(path: Path) -> str:
+    """Read PowerShell Tee-Object output regardless of its UTF-16 encoding."""
+    data = path.read_bytes()
+    if data.startswith((b"\xff\xfe", b"\xfe\xff")) or data.count(b"\x00") > len(data) // 4:
+        return data.decode("utf-16", errors="replace")
+    return data.decode("utf-8", errors="replace")
+
+
 def read_report(prefix: str) -> dict:
     util = (REPORTS / f"{prefix}_utilization.rpt").read_text(encoding="utf-8", errors="replace")
     timing = (REPORTS / f"{prefix}_timing_summary.rpt").read_text(encoding="utf-8", errors="replace")
@@ -61,7 +69,7 @@ def read_report(prefix: str) -> dict:
 
 def main() -> int:
     for mode in ("0", "1"):
-        log = (ROOT / "build" / f"boolean_vec{mode}_vivado.log").read_text(encoding="utf-8", errors="replace")
+        log = read_vivado_log(ROOT / "build" / f"boolean_vec{mode}_vivado.log")
         if "impl_1 PROGRESS=100% STATUS=route_design Complete!" not in log or "DSS_DONE" not in log:
             raise ValueError(f"VEC={mode} full implementation did not complete")
     vec0 = read_report("boolean_vec0")

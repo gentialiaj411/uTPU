@@ -30,10 +30,12 @@ module vector_sequencer #(
                      SOFT_EXP_SUM=50, SOFT_DIV_START=51, SOFT_DIV_WAIT=52,
                      SOFT_DIV_PACK=53, NORM_LOG_INIT=54, NORM_LOG_SCAN=55,
                      MAT_A=56, MAT_AW0=57, MAT_AW1=58, MAT_B=59, MAT_BW0=60,
-                     MAT_BW1=61, MAT_ACC=62, MAT_OUT_READ=63, MAT_OUT_WAIT0=64,
-                     MAT_OUT_WAIT1=65, MAT_WRITE=66, LAY_ZERO=67, LAY_READ=68,
-                     LAY_READ_WAIT0=69, LAY_READ_WAIT1=70, LAY_OUT_READ=71,
-                     LAY_OUT_WAIT0=72, LAY_OUT_WAIT1=73, LAY_WRITE=74;
+                     MAT_BW1=61, MAT_MUL=62, MAT_ACC=63, MAT_CLIP=64,
+                     MAT_SCALE_MUL=65, MAT_SHIFT=66, MAT_SAT=67, MAT_OUT_READ=68,
+                     MAT_OUT_WAIT0=69, MAT_OUT_WAIT1=70, MAT_WRITE=71,
+                     LAY_ZERO=72, LAY_READ=73, LAY_READ_WAIT0=74,
+                     LAY_READ_WAIT1=75, LAY_OUT_READ=76, LAY_OUT_WAIT0=77,
+                     LAY_OUT_WAIT1=78, LAY_WRITE=79;
     logic [6:0] state;
     logic [15:0] record [0:7];
     logic signed [7:0] a [0:47], b [0:47], gamma [0:47], score [0:31];
@@ -79,6 +81,9 @@ module vector_sequencer #(
     logic mat_transpose, mat_a_unsigned, mat_b_unsigned, mat_causal;
     logic signed [8:0] mat_a_value, mat_b_value;
     logic signed [31:0] mat_acc;
+    logic signed [31:0] mat_product;
+    logic signed [31:0] mat_clipped;
+    logic signed [63:0] mat_scaled, mat_shifted;
     logic signed [7:0] mat_result;
     logic [15:0] mat_out_word;
     logic [5:0] lay_rows;
@@ -125,17 +130,6 @@ module vector_sequencer #(
             endcase
         end
     endfunction
-    function automatic signed [7:0] mat_requant(input signed [31:0] value, input [15:0] mult, input [4:0] sh);
-        reg signed [63:0] clipped, product, shifted;
-        begin
-            if(value>32'sd8388607) clipped=32'sd8388607;
-            else if(value<-32'sd8388608) clipped=-32'sd8388608;
-            else clipped=value;
-            product=clipped*$signed({1'b0,mult}); shifted=product >>> sh;
-            mat_requant=sat8(shifted);
-        end
-    endfunction
-
     initial begin
 `ifdef SYNTHESIS
         $readmemh("rsqrt_q14.mem", rsqrt_q14);
@@ -515,8 +509,9 @@ module vector_sequencer #(
                         state<=SOFT_DIV_START;
                     end
                 end
-                // VMATMUL is deliberately scalar: a and b are read through
-                // the existing single buffer port, then one product retires.
+                // VMATMUL is deliberately scalar: buffer operands, multiply,
+                // accumulation, and requantization each retire in a distinct
+                // register stage.  This keeps every stage to one wide operator.
                 MAT_A: state<=MAT_AW0;
                 MAT_AW0: state<=MAT_AW1;
                 MAT_AW1: begin
@@ -529,18 +524,27 @@ module vector_sequencer #(
                 MAT_BW1: begin
                     if(mat_b_unsigned) mat_b_value<={1'b0,(((mat_transpose ? mat_j*mat_b_stride+mat_k : mat_k*mat_b_stride+mat_j)&1)) ? buf_rdata[15:8] : buf_rdata[7:0]};
                     else mat_b_value<=$signed((((mat_transpose ? mat_j*mat_b_stride+mat_k : mat_k*mat_b_stride+mat_j)&1)) ? buf_rdata[15:8] : buf_rdata[7:0]);
-                    state<=MAT_ACC;
+                    state<=MAT_MUL;
                 end
+                MAT_MUL: begin mat_product<=mat_a_value*mat_b_value; state<=MAT_ACC; end
                 MAT_ACC: begin
                     if(mat_causal && mat_transpose && mat_j>mat_i) begin
                         mat_result<=0; state<=MAT_OUT_READ;
                     end else if(mat_k+1>=((mat_causal && mat_a_unsigned && !mat_transpose) ? mat_i+1 : mat_kdim)) begin
-                        mat_result<=mat_requant(mat_acc+mat_a_value*mat_b_value,record[5],record[6][4:0]);
-                        mat_acc<=0; state<=MAT_OUT_READ;
+                        mat_acc<=mat_acc+mat_product; state<=MAT_CLIP;
                     end else begin
-                        mat_acc<=mat_acc+mat_a_value*mat_b_value; mat_k<=mat_k+1; state<=MAT_A;
+                        mat_acc<=mat_acc+mat_product; mat_k<=mat_k+1; state<=MAT_A;
                     end
                 end
+                MAT_CLIP: begin
+                    if(mat_acc>32'sd8388607) mat_clipped<=32'sd8388607;
+                    else if(mat_acc<-32'sd8388608) mat_clipped<=-32'sd8388608;
+                    else mat_clipped<=mat_acc;
+                    state<=MAT_SCALE_MUL;
+                end
+                MAT_SCALE_MUL: begin mat_scaled<=mat_clipped*$signed({1'b0,record[5]}); state<=MAT_SHIFT; end
+                MAT_SHIFT: begin mat_shifted<=mat_scaled >>> record[6][4:0]; state<=MAT_SAT; end
+                MAT_SAT: begin mat_result<=sat8(mat_shifted); mat_acc<=0; state<=MAT_OUT_READ; end
                 MAT_OUT_READ: state<=MAT_OUT_WAIT0;
                 MAT_OUT_WAIT0: state<=MAT_OUT_WAIT1;
                 MAT_OUT_WAIT1: begin
