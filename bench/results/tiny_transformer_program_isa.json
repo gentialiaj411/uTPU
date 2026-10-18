@@ -1,0 +1,104 @@
+{
+  "buffer_peak_words": 31760,
+  "command": "python firmware/host/run_tiny_transformer_program_isa.py",
+  "metric_scope": "full contiguous validation reference; 512 ISA windows are stage/logit bit-exact",
+  "metrics": {
+    "bits_per_char": 2.904164966158354,
+    "loss": 2.013013758173632,
+    "tokens": 111520,
+    "top1_accuracy": 0.410096843615495
+  },
+  "program_sha256": "fa4fc2fd752cfef33da1d9d52007d4792f2929f14234ed2879a7c88526269ff2",
+  "program_words": 25546,
+  "sequences": 512,
+  "stages": {
+    "av_head0": {
+      "compared_elements": 262144,
+      "mismatches": 0
+    },
+    "av_head1": {
+      "compared_elements": 262144,
+      "mismatches": 0
+    },
+    "av_head2": {
+      "compared_elements": 262144,
+      "mismatches": 0
+    },
+    "ffn1_leaky_relu": {
+      "compared_elements": 3145728,
+      "mismatches": 0
+    },
+    "ffn2": {
+      "compared_elements": 786432,
+      "mismatches": 0
+    },
+    "final_norm": {
+      "compared_elements": 786432,
+      "mismatches": 0
+    },
+    "logits": {
+      "compared_elements": 1064960,
+      "mismatches": 0
+    },
+    "out_proj": {
+      "compared_elements": 786432,
+      "mismatches": 0
+    },
+    "pos_add": {
+      "compared_elements": 786432,
+      "mismatches": 0
+    },
+    "qkv_to_rm": {
+      "compared_elements": 2359296,
+      "mismatches": 0
+    },
+    "residual1": {
+      "compared_elements": 786432,
+      "mismatches": 0
+    },
+    "residual2": {
+      "compared_elements": 786432,
+      "mismatches": 0
+    },
+    "rmsnorm1": {
+      "compared_elements": 786432,
+      "mismatches": 0
+    },
+    "rmsnorm2": {
+      "compared_elements": 786432,
+      "mismatches": 0
+    },
+    "scores_head0": {
+      "compared_elements": 524288,
+      "mismatches": 0
+    },
+    "scores_head1": {
+      "compared_elements": 524288,
+      "mismatches": 0
+    },
+    "scores_head2": {
+      "compared_elements": 524288,
+      "mismatches": 0
+    },
+    "softmax_head0": {
+      "compared_elements": 524288,
+      "mismatches": 0
+    },
+    "softmax_head1": {
+      "compared_elements": 524288,
+      "mismatches": 0
+    },
+    "softmax_head2": {
+      "compared_elements": 524288,
+      "mismatches": 0
+    }
+  },
+  "status": "passed",
+  "subset_metrics": {
+    "bits_per_char": 2.853718788690937,
+    "tokens": 16384,
+    "top1_accuracy": 0.41400146484375
+  },
+  "weight_sha256": "902c5dc43f2208fe78e3b9caea4c09e3071ebf84bf5afd80a21cb0aa24eef82c",
+  "weight_words": 16968
+}
