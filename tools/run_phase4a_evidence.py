@@ -85,13 +85,36 @@ def full_top():
  if not z or int(z.group(1)):raise RuntimeError(o)
  return {'cases':1,'mismatches':0,'cycles':int(z.group(2)),'passed':True}
 
+def decode_errors():
+ """Execute malformed subop-4/5 descriptors; each must fail before writes."""
+ out={}
+ def check(name,subop,record,*,dst=300,length=4,causal=False):
+  m=[0]*32768;put(m,100,np.array([1,2,3,4],np.int8));put(m,200,np.array([1,2,3,4],np.int8));m[400:408]=record
+  blob=(encode_vec_vmatmul(dst,100,400,length,causal=causal,cfg=CFG) if subop==4 else encode_vec_vlayout(dst,100,400,length,cfg=CFG))+encodeHalt(cfg=CFG)
+  try:
+   s=UTPUISASimulator(array_size=8,buffer_size=32768,cfg=CFG);s.buffer[:]=m;s.run_words(words(blob),preserve_buffer=True);out[name]={'passed':False,'mismatches':1}
+  except ValueError: out[name]={'passed':True,'mismatches':0}
+ valid=rec(False,False,False,False)
+ bad=valid.copy();bad[0]=6;check('matmul_bad_record_kind',4,bad)
+ bad=valid.copy();bad[7]=1;check('matmul_reserved_record_bits',4,bad)
+ bad=valid.copy();bad[3]=0x0101;check('matmul_invalid_stride',4,bad)
+ bad=valid.copy();bad[4]=4;check('matmul_illegal_causal_shape',4,bad,causal=True)
+ check('matmul_prohibited_overlap',4,valid,dst=100)
+ layout=[6,0x0021,0,0x0202,0,0,0,0]
+ bad=layout.copy();bad[0]=5;check('layout_bad_record_kind',5,bad)
+ bad=layout.copy();bad[4]=1;check('layout_reserved_record_bits',5,bad)
+ bad=layout.copy();bad[3]=0x0101;check('layout_invalid_stride',5,bad)
+ bad=[6,0x0022,6,0x0202,0,0,0,0];check('layout_physical_shape',5,bad,length=6)
+ check('layout_prohibited_overlap',5,layout,dst=100)
+ return {'classes':out,'cases':len(out),'mismatches':sum(x['mismatches'] for x in out.values()),'passed':all(x['passed'] for x in out.values())}
+
 def main():
  rng=np.random.default_rng(4104);families=[(tr,au,bu,False)for tr in(0,1)for au in(0,1)for bu in(0,1)]+[(1,au,bu,True)for au in(0,1)for bu in(0,1)]+[(0,1,bu,True)for bu in(0,1)];cases=[]
  for i in range(2048):
   tr,au,bu,ca=families[i%len(families)];a=rng.integers(0 if au else -128,256 if au else 128,(2,2),dtype=np.uint8 if au else np.int8);b=rng.integers(0 if bu else -128,256 if bu else 128,(2,2),dtype=np.uint8 if bu else np.int8)
   if i==0:a=np.array([[127,-128],[127,-128]],np.int8);b=np.array([[127,-128],[-128,127]],np.int8);tr,au,bu,ca=1,0,0,1
   cases.append((a.view(np.int8),b.view(np.int8),tr,au,bu,ca,run_sim(a,b,tr,au,bu,ca)))
- rtl=rtl_matmul(cases);lay=layouts();ref=reference_stages();top=full_top();out={'status':'passed','command':'python tools/run_phase4a_evidence.py','seed':4104,'matmul':{'sim_cases':len(cases),'rtl':rtl,'families':len(families),'edge_cases':['max_magnitude','K=1','M=N=1','causal_row_0']},'layout':lay,'reference_score_av':ref,'full_top':top}
- if any((rtl['mismatches'],lay['mismatches'],ref['mismatches'],top['mismatches'])):out['status']='failed'
+ rtl=rtl_matmul(cases);lay=layouts();ref=reference_stages();top=full_top();dec=decode_errors();out={'status':'passed','command':'python tools/run_phase4a_evidence.py','seed':4104,'matmul':{'sim_cases':len(cases),'rtl':rtl,'families':len(families),'edge_cases':['max_magnitude','K=1','M=N=1','causal_row_0']},'layout':lay,'reference_score_av':ref,'full_top':top,'decode_errors':dec}
+ if any((rtl['mismatches'],lay['mismatches'],ref['mismatches'],top['mismatches'],dec['mismatches'])):out['status']='failed'
  (ROOT/'bench/results/phase4a_vector_evidence.json').write_text(json.dumps(out,indent=2,sort_keys=True)+'\n');print(json.dumps(out,sort_keys=True));return int(out['status']!='passed')
 if __name__=='__main__':raise SystemExit(main())

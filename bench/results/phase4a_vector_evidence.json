@@ -1,5 +1,52 @@
 {
   "command": "python tools/run_phase4a_evidence.py",
+  "decode_errors": {
+    "cases": 10,
+    "classes": {
+      "layout_bad_record_kind": {
+        "mismatches": 0,
+        "passed": true
+      },
+      "layout_invalid_stride": {
+        "mismatches": 0,
+        "passed": true
+      },
+      "layout_physical_shape": {
+        "mismatches": 0,
+        "passed": true
+      },
+      "layout_prohibited_overlap": {
+        "mismatches": 0,
+        "passed": true
+      },
+      "layout_reserved_record_bits": {
+        "mismatches": 0,
+        "passed": true
+      },
+      "matmul_bad_record_kind": {
+        "mismatches": 0,
+        "passed": true
+      },
+      "matmul_illegal_causal_shape": {
+        "mismatches": 0,
+        "passed": true
+      },
+      "matmul_invalid_stride": {
+        "mismatches": 0,
+        "passed": true
+      },
+      "matmul_prohibited_overlap": {
+        "mismatches": 0,
+        "passed": true
+      },
+      "matmul_reserved_record_bits": {
+        "mismatches": 0,
+        "passed": true
+      }
+    },
+    "mismatches": 0,
+    "passed": true
+  },
   "full_top": {
     "cases": 1,
     "cycles": 125,
