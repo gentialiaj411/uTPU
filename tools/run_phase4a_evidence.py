@@ -45,20 +45,28 @@ mem[100]={{a[k*4+1],a[k*4]}};mem[101]={{a[k*4+3],a[k*4+2]}};mem[200]={{b[k*4+1],
  c,cy,mis=map(int,z.groups());return {'cases':c,'compared_bytes':c*4,'mismatches':mis,'cycles':cy,'passed':mis==0}
 
 def layouts():
- rng=np.random.default_rng(4105);cases=mis=rounds=0
+ rng=np.random.default_rng(4105);cases=mis=rounds=0;mode_cases={str(x):0 for x in range(8)}
  for r,c in ((1,2),(3,6),(5,10),(9,14),(31,30)):
   stride=c+2+(c&1);src=rng.integers(-128,128,(r,stride),dtype=np.int8);src[:,c:]=0
-  for mode in range(4):
+  for mode in range(6):
    m=[0]*32768;put(m,100,src);m[3000:3008]=[6,(r-1)|((c-1)<<5),mode,stride|(stride<<8),0,0,0,0];s=UTPUISASimulator(array_size=8,buffer_size=32768,cfg=CFG);s.buffer[:]=m;s.run_words(words(encode_vec_vlayout(900,100,3000,r*c,cfg=CFG)+encodeHalt(cfg=CFG)),preserve_buffer=True);cases+=1
+   mode_cases[str(mode)]+=1
   # Defined LIN inverse plus tails/stride holes has to be a true identity.
   m=[0]*32768;put(m,100,src);m[3000:3008]=[6,(r-1)|((c-1)<<5),0,stride|(stride<<8),0,0,0,0];m[3008:3016]=[6,(r-1)|((c-1)<<5),3,stride|(stride<<8),0,0,0,0];s=UTPUISASimulator(array_size=8,buffer_size=32768,cfg=CFG);s.buffer[:]=m;s.run_words(words(encode_vec_vlayout(900,100,3000,r*c,cfg=CFG)+encode_vec_vlayout(1600,900,3008,r*c,cfg=CFG)+encodeHalt(cfg=CFG)),preserve_buffer=True);mis+=int(np.count_nonzero(np.asarray(s.buffer[1600:1600+(r*stride+1)//2])!=np.asarray(pack(src))));rounds+=1
- return {'cases':cases,'round_trips':rounds,'mismatches':mis,'tails_and_padding':True,'passed':mis==0}
+ # Modes 6/7 are the only physical legacy-LOAD boundary maps.  These shapes
+ # cover every byte lane, two tile groups, and the 32x48 transformer shape.
+ for r,c in ((4,8),(8,16),(32,48)):
+  src=rng.integers(-128,128,(r,c),dtype=np.int8);m=[0]*32768;put(m,100,src)
+  m[12000:12008]=[6,(r-1)|((c-1)<<5),6,c|(c<<8),0,0,0,0];m[12008:12016]=[6,(r-1)|((c-1)<<5),7,c|(c<<8),0,0,0,0]
+  s=UTPUISASimulator(array_size=8,buffer_size=32768,cfg=CFG);s.buffer[:]=m;s.run_words(words(encode_vec_vlayout(2500,100,12000,r*c,cfg=CFG)+encode_vec_vlayout(5000,2500,12008,r*c,cfg=CFG)+encodeHalt(cfg=CFG)),preserve_buffer=True)
+  got=np.frombuffer(np.asarray(s.buffer[5000:5000+r*c//2],dtype='<u2').tobytes(),dtype=np.int8).reshape(r,c);mis+=int(np.count_nonzero(got!=src));cases+=2;rounds+=1;mode_cases['6']+=1;mode_cases['7']+=1
+ return {'cases':cases,'mode_cases':mode_cases,'round_trips':rounds,'mismatches':mis,'tails_and_padding':True,'physical_legacy_load_round_trips':3,'passed':mis==0}
 
 def reference_stages():
  import torch
  ck=torch.load(ROOT/'bench/results/tiny_transformer_numerics.pt',map_location='cpu',weights_only=False);schema,state,cfg=ck['export_schema'],ck['qstate'],TinyTransformerConfig(**ck['config'])
  chars=json.loads((HOST/'fixtures/tiny_transformer_vocab.json').read_text())['characters'];data=np.asarray([chars.index(x) for x in (ROOT/'build/tiny_transformer/input.txt').read_text(encoding='utf-8')],np.int64);start=json.loads((HOST/'fixtures/tiny_transformer_split.json').read_text())['validation_start'];score=av=mis=0
- for q in range(8):
+ for q in range(512):
   t=integer_decoder_trace(data[start+q*32:start+(q+1)*32],state,schema,cfg)
   for h in range(3):
    for a,b,tr,au,want,kind in ((t['q'][0,h],t['k'][0,h],True,False,t['scores'][0,h],'scores'),(t['softmax_probs'][0,h],t['v'][0,h],False,True,t['av'][0,:,h*16:(h+1)*16],'av')):
@@ -66,7 +74,7 @@ def reference_stages():
     if tr:exp[np.triu_indices(32,1)]=0;score+=1
     else:av+=1
     mis+=int(np.count_nonzero(got!=exp))
- return {'sequences':8,'score_cases':score,'av_cases':av,'mismatches':mis,'passed':mis==0}
+ return {'sequences':512,'score_cases':score,'av_cases':av,'mismatches':mis,'passed':mis==0}
 
 def full_top():
  # Full production top dispatch, separately from the sequencer-only corpus.

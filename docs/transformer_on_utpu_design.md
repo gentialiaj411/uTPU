@@ -267,9 +267,10 @@ for QK (`transpose_b=1`, `M=N`) or P*V (`a_unsigned=1`, `transpose_b=0`,
 to `i+1` for P*V (`a_unsigned=1`, `transpose_b=0`). VMATMUL forbids every
 source/destination/B/record overlap. VLAYOUT accepts no header flags and
 forbids overlap except the exact identity mode. Its modes are: 0 row-major
-`[R,C]` to legacy input tile stream, 1 legacy finalize tile stream to
-row-major, 2 row-major to legacy weight-tile stream, and 3 legacy input tile
-stream to row-major. Modes 6 and 7 are row-major to/from the physical legacy
+`[R,C]` to historical four-lane `LIN` staging (it is **not** a physical
+legacy-`LOAD` layout), 1 legacy finalize tile stream to row-major, 2
+row-major to legacy weight-tile stream, and 3 historical `LIN` to row-major.
+Modes 6 and 7 are row-major to/from the physical legacy
 `LOAD` stream and require `R%4==0,C%8==0`; its index is
 `floor(r/4)*C*4 + floor(c/8)*32 + (r%4)*8 + (c%8)`. For all modes element `(r,c)` occupies packed word
 `base + floor(index/2)`, low byte for even index and high byte for odd index;
