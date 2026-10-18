@@ -143,9 +143,9 @@ class BoardConfig:
             # The INT8 196->256->10 network needs 27,648 tiled weight words:
             # 25,600 for 200x256 FC1 and 2,048 for padded 16x256 FC2.
             # The 32,768-word buffer leaves 5,120 words for activation scratch.
-            # FC1 control is 29,057 words, so 32,768 is the smallest power-of-2
-            # instruction depth that admits it.
-            prog_depth=32768,
+            # The transformer lowering has a 35,866-word legacy control image;
+            # retain the 64K profile so it remains uploadable after vector work.
+            prog_depth=65536,
             buffer_size=32768,
             array_size=8,
             data_width_bits=8,
@@ -154,7 +154,7 @@ class BoardConfig:
             notes=(
                 "Real Digital Boolean, xc7s50csga324-1: N=8 INT8, "
                 "BUFFER_SIZE=32768, WEIGHT_REGION_WORDS=27648, "
-                "PROG_DEPTH=32768, MAX_BATCH_COUNT=4. Existing Artix sweeps "
+                "PROG_DEPTH=65536, MAX_BATCH_COUNT=4. Existing Artix sweeps "
                 "show 33 BRAM36 at PROG_DEPTH=32768/BUFFER_SIZE=4096; "
                 "memory-bit extrapolation estimates about 46/75 BRAM36 "
                 "(29-tile margin) for this point. "

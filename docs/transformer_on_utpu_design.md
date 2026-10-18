@@ -281,7 +281,7 @@ tiles, and stride holes are explicitly written as zero. The inverse pairs
 are exact round trips on defined, unpadded elements.
 
 V1 GEMMs use existing unrolled tile control: the **11,520-word ESTIMATE** fits
-`BoardConfig.boolean_xc7s50().prog_depth == 32,768`. `TGEMM_LOOP` remains a
+`BoardConfig.boolean_xc7s50().prog_depth == 65,536`. `TGEMM_LOOP` remains a
 future control-size optimization, not a v1 ISA extension.
 
 ## 6. Unified-buffer map and execution reuse
@@ -319,7 +319,7 @@ four LUTs), 120 DSP slices, and 2,700 Kb BRAM
 | Resource | Boolean limit | Proposed v1 | Basis / status |
 |---|---:|---:|---|
 | model weights | 337,500 B BRAM capacity | 33,936 B | Calculated parameter count; fits in 9.5% of raw BRAM capacity. |
-| Boolean profile | 32,768 buffer words / 32,768 program words | 26,256 live buffer words / 11,520 control words | Calculated v1 map/control estimate; source profile `BoardConfig.boolean_xc7s50`. |
+| Boolean profile | 32,768 buffer words / 65,536 program words | 26,256 live buffer words / 11,520 control words | Calculated v1 map/control estimate; source profile `BoardConfig.boolean_xc7s50`. |
 | BRAM36 total | 75 | 46 | **ESTIMATE** from the existing Boolean profile’s memory-bit extrapolation in `buffer_resident_deployment._boolean_bram_estimate`; XC7S50 synthesis is still required. |
 | control program | 32,768 words | 11,520 words | **ESTIMATE**: existing unrolled tile control, no loop descriptor.  Phase 4 must emit and measure it. |
 | exp + rsqrt LUTs | 75 BRAM36 total device | <=1 BRAM36 | **ESTIMATE**: 129x16 + 192x16 = 642 B; allocated as one conservative RAMB36-equivalent. |

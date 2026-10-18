@@ -4,10 +4,11 @@ set part xc7s50csga324-1
 set period 20.0
 set name phase3_vector_ooc
 create_project -force $name [file join $root build vivado_$name] -part $part
-set files [list \
-  [file join $root rtl vector vector_sequencer.sv] \
-  [file join $root rtl vector vector_serial_alu.sv] \
-  [file join $root rtl vector restoring_divider.sv]]
+# Deliberately compile the entire vector implementation directory.  Keeping a
+# hand-maintained subset here made the former OOC report blind to new vector
+# sources (notably vector_alu.sv).
+set files [lsort [glob -nocomplain [file join $root rtl vector *.sv]]]
+if {[llength $files] == 0} { error "no rtl/vector/*.sv sources found" }
 read_verilog -sv $files
 synth_design -top vector_sequencer -part $part -flatten_hierarchy rebuilt
 create_clock -name vector_clk -period $period [get_ports clk]

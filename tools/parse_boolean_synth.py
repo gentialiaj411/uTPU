@@ -3,12 +3,19 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 REPORTS = ROOT / "build" / "reports"
 OUT = ROOT / "bench" / "results" / "boolean_vec_unit_synth.json"
 PART = "xc7s50csga324-1"
+
+
+def head_blob(path: str) -> str:
+    """Return the committed HEAD blob, not a worktree checksum."""
+    return subprocess.check_output(["git", "rev-parse", f"HEAD:{path}"], cwd=ROOT,
+                                   text=True).strip()
 
 
 def read_report(prefix: str) -> dict:
@@ -71,7 +78,11 @@ def main() -> int:
                                     "whs_ns": float(ooc.group(2)),
                                     "report": "build/reports/vector_ooc_timing.rpt"},
                "modes": {"0": vec0, "1": vec1},
-               "delta": {key: vec1[key] - vec0[key] for key in ("lut", "ff", "bram", "dsp")}}
+               "delta": {key: vec1[key] - vec0[key] for key in ("lut", "ff", "bram", "dsp")},
+               "rtl_head_blobs": {path: head_blob(path) for path in
+                   ["rtl/top/top.sv", "rtl/top/top_board.sv",
+                    *[p.relative_to(ROOT).as_posix() for p in sorted((ROOT / "rtl/vector").glob("*.sv"))]]},
+               "command": "powershell -ExecutionPolicy Bypass -File tools/run_boolean_synth.ps1"}
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps(payload, sort_keys=True))
