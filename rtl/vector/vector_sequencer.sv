@@ -39,7 +39,10 @@ module vector_sequencer #(
                      LAY_WRITE=81, MAT_WRITE_COMMIT=82,
                      PR_WAIT2=83, GR_WAIT2=84, AR_WAIT2=85, BR_WAIT2=86,
                      NAR_WAIT2=87, SR_WAIT2=88, MAT_A_WAIT2=89,
-                     MAT_B_WAIT2=90, MAT_OUT_WAIT2=91;
+                     MAT_B_WAIT2=90, MAT_OUT_WAIT2=91,
+                     NORM_MEAN_ADD=92, NORM_LOG_DECIDE=93,
+                     NORM_MANT_RNE=94, NORM_MANT_SAT=95,
+                     NORM_NEWTON_T_RNE=96, NORM_NEWTON_RNE_INPUT=97;
     logic [6:0] state;
     logic buf_we_c, buf_re_c, buf_store_en_c;
     logic [ADDRESS_SIZE-1:0] buf_addr_c;
@@ -58,6 +61,7 @@ module vector_sequencer #(
     logic signed [9:0] add_lo, add_hi, rounded_lo, rounded_hi;
     logic [15:0] add_word;
     logic [31:0] square_sum;
+    logic [31:0] norm_mean_div;
     logic [15:0] words_total;
     logic [15:0] square_word;
     logic [5:0] norm_element;
@@ -66,10 +70,23 @@ module vector_sequencer #(
     logic [31:0] norm_mean;
     logic [4:0] norm_exponent;
     logic [4:0] norm_log_probe;
+    logic [31:0] norm_log_threshold;
+    logic norm_log_ge;
     logic [16:0] norm_mantissa;
+    logic [63:0] norm_mantissa_shift_c, norm_mantissa_input_c;
+    logic [63:0] norm_mantissa_shift_q, norm_mantissa_rounded;
+    logic norm_mantissa_guard_q, norm_mantissa_sticky_q, norm_mantissa_lsb_q;
+    logic [63:0] norm_mantissa_guard_input_c;
     logic [7:0] norm_bin;
     logic signed [31:0] norm_r0, norm_t, norm_r1;
     logic signed [47:0] newton_mul0, newton_mul1;
+    logic signed [47:0] newton_t_rounded;
+    logic signed [47:0] newton_t_shifted_q;
+    logic signed [63:0] newton_r_shifted_q;
+    logic newton_t_neg_q, newton_t_guard_q, newton_t_sticky_q, newton_t_lsb_q;
+    logic newton_r_neg_q, newton_r_guard_q, newton_r_sticky_q, newton_r_lsb_q;
+    logic [47:0] newton_t_abs_c, newton_t_shift_c;
+    logic [63:0] newton_r_abs_c, newton_r_shift_c;
     logic signed [63:0] newton_product;
     // RMSNorm scale bound: |int8*int8|*r1_q14 <= 16129*16384 < 2^29.
     // Signed 32 bits therefore cover every RMSNorm suite extreme; the
@@ -279,6 +296,24 @@ module vector_sequencer #(
         end
     end
 
+    // RMSNorm statistics are deliberately staged: one barrel shift captures
+    // quotient/guard/sticky/LSB, the next state performs the RNE add, and the
+    // third state clamps the mantissa.  The shift amount is formed once here.
+    always_comb begin
+        norm_mantissa_input_c = ({32'd0,norm_mean} << 14);
+        norm_mantissa_shift_c = norm_mantissa_input_c >> norm_exponent;
+        norm_mantissa_guard_input_c = 64'd0;
+        if (norm_exponent != 0)
+            norm_mantissa_guard_input_c = norm_mantissa_input_c >> (norm_exponent-1);
+
+        if (newton_mul1[47]) newton_t_abs_c = -newton_mul1;
+        else newton_t_abs_c = newton_mul1;
+        newton_t_shift_c = newton_t_abs_c >> 28;
+        if (newton_product[63]) newton_r_abs_c = -newton_product;
+        else newton_r_abs_c = newton_product;
+        newton_r_shift_c = newton_r_abs_c >> 15;
+    end
+
     // Single register stage on the complete vector buffer interface.
     always_ff @(posedge clk) begin
         if (rst) begin
@@ -380,25 +415,41 @@ module vector_sequencer #(
                     if(index==23) begin index<=0; state<=NORM_PREP; end
                     else begin index<=index+1; state<=NAR; end
                 end
-                NORM_PREP: begin norm_mean<=rne_div48(square_sum)+1; state<=NORM_LOG_INIT; end
+                NORM_PREP: begin norm_mean_div<=rne_div48(square_sum); state<=NORM_MEAN_ADD; end
+                NORM_MEAN_ADD: begin norm_mean<=norm_mean_div+1; state<=NORM_LOG_INIT; end
                 NORM_LOG_INIT: begin norm_log_probe<=30; state<=NORM_LOG_SCAN; end
                 // One descending threshold compare per cycle selects
                 // floor(log2(v)) rounded down to an even exponent.
                 NORM_LOG_SCAN: begin
-                    if(norm_mean>=even_power_of_two(norm_log_probe)) begin
+                    norm_log_threshold<=even_power_of_two(norm_log_probe);
+                    state<=NORM_LOG_DECIDE;
+                end
+                NORM_LOG_DECIDE: begin
+                    if(norm_mean>=norm_log_threshold) begin
                         norm_exponent<=norm_log_probe;
                         state<=NORM_LUT_ADDR;
                     end else if(norm_log_probe==0) begin
                         norm_exponent<=0;
                         state<=NORM_LUT_ADDR;
-                    end else norm_log_probe<=norm_log_probe-2;
+                    end else begin norm_log_probe<=norm_log_probe-2; state<=NORM_LOG_SCAN; end
                 end
                 NORM_LUT_ADDR: begin
-                    if(rne_shift($signed({1'b0,norm_mean})<<<14,norm_exponent)<16384)
-                        norm_mantissa<=16384;
-                    else if(rne_shift($signed({1'b0,norm_mean})<<<14,norm_exponent)>65535)
-                        norm_mantissa<=65535;
-                    else norm_mantissa<=rne_shift($signed({1'b0,norm_mean})<<<14,norm_exponent);
+                    norm_mantissa_shift_q<=norm_mantissa_shift_c;
+                    norm_mantissa_guard_q<=norm_exponent!=0 && norm_mantissa_guard_input_c[0];
+                    norm_mantissa_sticky_q<=norm_exponent>1 &&
+                        |(norm_mantissa_input_c & ((64'h1 << (norm_exponent-1))-1));
+                    norm_mantissa_lsb_q<=norm_mantissa_shift_c[0];
+                    state<=NORM_MANT_RNE;
+                end
+                NORM_MANT_RNE: begin
+                    norm_mantissa_rounded<=norm_mantissa_shift_q+
+                        ((norm_mantissa_guard_q && (norm_mantissa_sticky_q || norm_mantissa_lsb_q)) ? 64'd1 : 64'd0);
+                    state<=NORM_MANT_SAT;
+                end
+                NORM_MANT_SAT: begin
+                    if(norm_mantissa_rounded<64'd16384) norm_mantissa<=16384;
+                    else if(norm_mantissa_rounded>64'd65535) norm_mantissa<=65535;
+                    else norm_mantissa<=norm_mantissa_rounded[16:0];
                     state<=NORM_LUT_READ;
                 end
                 NORM_LUT_READ: begin
@@ -414,13 +465,36 @@ module vector_sequencer #(
                     newton_mul1<=newton_mul0*norm_r0;
                     state<=NORM_NEWTON_T;
                 end
-                NORM_NEWTON_T: begin norm_t<=rne_shift(newton_mul1,28); state<=NORM_NEWTON_R; end
+                NORM_NEWTON_T: begin
+                    newton_t_shifted_q<=newton_t_shift_c;
+                    newton_t_neg_q<=newton_mul1[47];
+                    newton_t_guard_q<=newton_mul1[47] ? newton_t_abs_c[27] : newton_mul1[27];
+                    newton_t_sticky_q<=newton_mul1[47] ? |newton_t_abs_c[26:0] : |newton_mul1[26:0];
+                    newton_t_lsb_q<=newton_t_shift_c[0];
+                    state<=NORM_NEWTON_T_RNE;
+                end
+                NORM_NEWTON_T_RNE: begin
+                    norm_t<=newton_t_neg_q
+                        ? -$signed(newton_t_shifted_q + ((newton_t_guard_q && (newton_t_sticky_q || newton_t_lsb_q)) ? 48'd1 : 48'd0))
+                        : $signed(newton_t_shifted_q + ((newton_t_guard_q && (newton_t_sticky_q || newton_t_lsb_q)) ? 48'd1 : 48'd0));
+                    state<=NORM_NEWTON_R;
+                end
                 NORM_NEWTON_R: begin
                     newton_product<=norm_r0*(49152-norm_t);
+                    state<=NORM_NEWTON_RNE_INPUT;
+                end
+                NORM_NEWTON_RNE_INPUT: begin
+                    newton_r_shifted_q<=newton_r_shift_c;
+                    newton_r_neg_q<=newton_product[63];
+                    newton_r_guard_q<=newton_product[63] ? newton_r_abs_c[14] : newton_product[14];
+                    newton_r_sticky_q<=newton_product[63] ? |newton_r_abs_c[13:0] : |newton_product[13:0];
+                    newton_r_lsb_q<=newton_r_shift_c[0];
                     state<=NORM_NEWTON_RNE;
                 end
                 NORM_NEWTON_RNE: begin
-                    norm_r1<=rne_shift(newton_product,15);
+                    norm_r1<=newton_r_neg_q
+                        ? -$signed(newton_r_shifted_q + ((newton_r_guard_q && (newton_r_sticky_q || newton_r_lsb_q)) ? 64'd1 : 64'd0))
+                        : $signed(newton_r_shifted_q + ((newton_r_guard_q && (newton_r_sticky_q || newton_r_lsb_q)) ? 64'd1 : 64'd0));
                     norm_element<=0;
                     state<=NORM_SCALE_MUL0;
                 end
