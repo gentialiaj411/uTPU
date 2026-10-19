@@ -244,9 +244,9 @@ module top #(
     logic [63:0] perf_busy_counter;
     logic [7:0]  vector_error_code;
     logic vec_seen;
+    logic vec_return_prefetched;
     // Set only when DECODE receives a post-VEC instruction from the explicit
     // return prefetch rather than the regular BRAM fetch cadence.
-    logic vec_return_prefetched;
     logic [63:0] perf_program_count;
     // Program wall-clock: MAGIC_START -> HALT (excludes UART upload / post-HALT idle).
     logic [63:0] perf_program_cycle_counter;
@@ -978,10 +978,7 @@ module top #(
                 // already completely present in bram_rd_data.  Decode those
                 // directly; ordinary legacy opcodes retain the established
                 // fetch cadence below.
-                if (bram_rd_data == 16'h05A5 ||
-                    (EXT_ADDR_EN &&
-                     opcode_e'(bram_rd_data[OPCODE_WIDTH-1:0]) == NOP &&
-                     bram_rd_data[3]))
+                if (bram_rd_data == 16'h05A5)
                     next_state = DECODE_STATE;
                 else
                     next_state = FETCH_BRAM_STATE;
