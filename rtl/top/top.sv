@@ -244,6 +244,9 @@ module top #(
     logic [63:0] perf_busy_counter;
     logic [7:0]  vector_error_code;
     logic vec_seen;
+    // Set only when DECODE receives a post-VEC instruction from the explicit
+    // return prefetch rather than the regular BRAM fetch cadence.
+    logic vec_return_prefetched;
     logic [63:0] perf_program_count;
     // Program wall-clock: MAGIC_START -> HALT (excludes UART upload / post-HALT idle).
     logic [63:0] perf_program_cycle_counter;
@@ -971,10 +974,11 @@ module top #(
                 next_state = VEC_RETURN_FETCH_LATCH_STATE;
 
             VEC_RETURN_FETCH_LATCH_STATE:
-                if (bram_rd_data == 16'h05A5)
-                    next_state = DECODE_STATE;
-                else
-                    next_state = FETCH_BRAM_STATE;
+                // VEC_RETURN_FETCH_LATCH has already fetched and latched the
+                // first following instruction.  It must always be decoded:
+                // taking FETCH here discarded every non-VEC instruction after
+                // a vector op, misaligning VEC -> legacy transitions.
+                next_state = DECODE_STATE;
 
             // STORE multi-word fetch from BRAM
             STORE_FETCH_W2_STATE:
@@ -1240,6 +1244,7 @@ module top #(
                 perf_compute_span_counter <= '0;
                 vector_error_code <= '0;
                 vec_seen <= 1'b0;
+                vec_return_prefetched <= 1'b0;
                 vec_start <= 1'b0;
                 vec_desc_index <= '0;
                 for (int vi = 0; vi < 5; vi++) vec_desc[vi] <= '0;
@@ -1484,14 +1489,16 @@ module top #(
                 run_residual_addr_stage <= 1'b0;
                 if (instruction == 16'h05A5) begin
                     vector_error_code <= VECTOR_UNIT_EN ? 8'h02 : 8'h01;
-                    // The first fetch after upload may have a stale BRAM
-                    // response in flight. Rewind that one speculative fetch
-                    // only; subsequent fetches use the settled response
-                    // latch and PC already points at the descriptor.
-                    if (!vec_seen) pc <= pc - 1'b1;
+                    // A normal fetch needs one rewind for the descriptor
+                    // reader's synchronous cadence.  The return-prefetch
+                    // path has already positioned PC at descriptor word 0.
+                    if (!vec_return_prefetched) pc <= pc - 1'b1;
+                    vec_return_prefetched <= 1'b0;
                     vec_seen <= 1'b1;
                     vec_desc_index <= '0;
-                end else case (opcode)
+                end else begin
+                    vec_return_prefetched <= 1'b0;
+                    case (opcode)
                     STORE_OP: begin
                         address_indicator <= instruction[4];
                     end
@@ -1555,7 +1562,8 @@ module top #(
                         end
                     end
                     default: ;
-                endcase
+                    endcase
+                end
             end
 
             VEC_FETCH_STATE: begin
@@ -1598,6 +1606,7 @@ module top #(
 
             VEC_RETURN_FETCH_LATCH_STATE: begin
                 instruction <= bram_rd_data;
+                vec_return_prefetched <= 1'b1;
             end
 
             // -----------------------------------------------------------------
