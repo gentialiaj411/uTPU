@@ -16,11 +16,11 @@
   },
   "fingerprint_dependencies": {
     "blobs": {
-      "docs/transformer_on_utpu_design.md": "bcf36380d7b301b1e978802df619358ccc2869ea",
+      "docs/transformer_on_utpu_design.md": "d10588697f80ab3384c14a4929bbe7e8f7a03dea",
       "firmware/host/fixtures/tiny_transformer_integer_luts.json": "19cebf28bbb3b16d691e0bd19d847b396cf73ea1",
       "firmware/host/isa_encoder.py": "7f3d4f418479f74a231053b4a370653a513dcebc",
-      "firmware/host/isa_simulator.py": "7e549b81b16c392ce6496ad9e0a47807fb920a6d",
-      "firmware/host/test_buffer_resident_deployment.py": "07c505aec43e998bad7cf6883142e2ea52a76360",
+      "firmware/host/isa_simulator.py": "a2ed32477f2bde6550b12fc5e9137eb8241487c6",
+      "firmware/host/test_buffer_resident_deployment.py": "dba5d43d5a42db37c72f8f6b9408607d6a2e913a",
       "firmware/host/test_buffer_resident_lowering.py": "8ddf9efbe02d98df959b5cb5f2b1a15433971e7f",
       "firmware/host/test_descriptor_isa_tile_gemm.py": "c9ef5ce0f90693c9464693526ced747fde6d81f2",
       "firmware/host/test_isa_simulator.py": "287ad4faf21cdd034dbeffc49b97d5f14e636e25",

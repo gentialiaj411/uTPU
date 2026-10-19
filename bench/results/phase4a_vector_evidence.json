@@ -47,9 +47,18 @@
     "mismatches": 0,
     "passed": true
   },
+  "f4_legacy_gemm": {
+    "cases": 1,
+    "cycles": 835,
+    "isa_mismatches": 0,
+    "numpy_mismatches": 0,
+    "passed": true,
+    "rtl_mismatches": 0,
+    "shape": "4x8x8"
+  },
   "full_top": {
     "cases": 1,
-    "cycles": 144,
+    "cycles": 174,
     "mismatches": 0,
     "passed": true
   },
@@ -82,7 +91,7 @@
     "rtl": {
       "cases": 2048,
       "compared_bytes": 8192,
-      "cycles": 240212,
+      "cycles": 303410,
       "mismatches": 0,
       "passed": true
     },
