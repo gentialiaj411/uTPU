@@ -116,7 +116,7 @@ module vector_sequencer #(
     function automatic [31:0] lay_src_index;
         begin
             case(lay_mode)
-                0,2: lay_src_index=lay_r*lay_src_stride+lay_c;
+                0,2,6: lay_src_index=lay_r*lay_src_stride+lay_c;
                 1: lay_src_index=lay_lfin_index(lay_r,lay_c,lay_rows);
                 3: lay_src_index=lay_lin_index(lay_r,lay_c,lay_cols);
                 4: lay_src_index=lay_head_index(lay_r,lay_c,lay_rows);

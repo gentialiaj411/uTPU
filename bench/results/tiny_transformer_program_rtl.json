@@ -1,0 +1,18 @@
+{
+  "a5_weight_fill": false,
+  "command": "python firmware/host/run_tiny_transformer_program_rtl.py",
+  "cycles_per_sequence": 905642.875,
+  "milliseconds_at_50mhz": 18.1128575,
+  "bytes_compared": 9216,
+  "mismatches": 0,
+  "scope": "direct unified-buffer preload; A5 replay remains separately required",
+  "sequences": 8,
+  "stages": {
+    "logits": {
+      "bytes_compared": 9216,
+      "cases": 8,
+      "mismatches": 0
+    }
+  },
+  "status": "passed"
+}
