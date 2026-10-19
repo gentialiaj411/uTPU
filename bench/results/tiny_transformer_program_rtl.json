@@ -1,17 +1,18 @@
 {
-  "a5_sequences": 0,
-  "a5_weight_fill": false,
-  "bytes_compared": 1152,
+  "a5_cycles_per_byte": 3.9999116113255355,
+  "a5_sequences": 1,
+  "a5_weight_fill": true,
+  "bytes_compared": 9216,
   "command": "python firmware/host/run_tiny_transformer_program_rtl.py",
-  "cycles_per_sequence": 1067854.0,
-  "milliseconds_at_50mhz": 21.35708,
+  "cycles_per_sequence": 1067858.875,
+  "milliseconds_at_50mhz": 21.3571775,
   "mismatches": 0,
-  "scope": "direct unified-buffer preload; A5 replay remains separately required",
-  "sequences": 1,
+  "scope": "sequence 0 weights filled through UART MAGIC_BUF_FILL (A5) using a backpressured byte-level FIFO injector that bypasses the UART PHY; remaining sequences use direct preload; Phase 5 adds bit-level UART simulation",
+  "sequences": 8,
   "stages": {
     "logits": {
-      "bytes_compared": 1152,
-      "cases": 1,
+      "bytes_compared": 9216,
+      "cases": 8,
       "mismatches": 0
     }
   },
