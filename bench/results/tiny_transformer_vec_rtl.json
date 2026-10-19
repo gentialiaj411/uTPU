@@ -10,7 +10,7 @@
         "checks": 51,
         "command": "python tools/run_phase3_evidence.py --only decode",
         "compared_bytes": 96,
-        "cycles": 79,
+        "cycles": 81,
         "mismatches": 0,
         "passed": true
       },
@@ -28,7 +28,7 @@
         "checks": 51,
         "command": "python tools/run_phase3_evidence.py --only decode",
         "compared_bytes": 96,
-        "cycles": 79,
+        "cycles": 81,
         "mismatches": 0,
         "passed": true
       },
@@ -37,7 +37,7 @@
         "checks": 51,
         "command": "python tools/run_phase3_evidence.py --only decode",
         "compared_bytes": 96,
-        "cycles": 79,
+        "cycles": 81,
         "mismatches": 0,
         "passed": true
       },
@@ -46,7 +46,7 @@
         "checks": 51,
         "command": "python tools/run_phase3_evidence.py --only decode",
         "compared_bytes": 96,
-        "cycles": 79,
+        "cycles": 81,
         "mismatches": 0,
         "passed": true
       },
@@ -55,7 +55,7 @@
         "checks": 51,
         "command": "python tools/run_phase3_evidence.py --only decode",
         "compared_bytes": 96,
-        "cycles": 79,
+        "cycles": 81,
         "mismatches": 0,
         "passed": true
       },
@@ -135,7 +135,7 @@
     },
     "command": "python tools/run_phase3_evidence.py --only decode",
     "compared_bytes": 1312,
-    "cycles": 745,
+    "cycles": 755,
     "mismatches": 0,
     "passed": true
   },
@@ -1390,7 +1390,7 @@
     "cases": 8,
     "command": "python tools/run_phase3_evidence.py --only trace_full_top",
     "compared_bytes": 98304,
-    "cycles": 1117084,
+    "cycles": 1117228,
     "execution": "full top instruction BRAM -> escape -> descriptor -> vector unit -> unified buffer",
     "mismatches": 0,
     "passed": true,
@@ -1398,63 +1398,63 @@
       "final_norm": {
         "cases": 8,
         "compared_bytes": 12288,
-        "cycles": 121444,
+        "cycles": 121460,
         "mismatches": 0,
         "passed": true
       },
       "pos_add": {
         "cases": 8,
         "compared_bytes": 12288,
-        "cycles": 86480,
+        "cycles": 86496,
         "mismatches": 0,
         "passed": true
       },
       "residual1": {
         "cases": 8,
         "compared_bytes": 12288,
-        "cycles": 86480,
+        "cycles": 86496,
         "mismatches": 0,
         "passed": true
       },
       "residual2": {
         "cases": 8,
         "compared_bytes": 12288,
-        "cycles": 86480,
+        "cycles": 86496,
         "mismatches": 0,
         "passed": true
       },
       "rmsnorm1": {
         "cases": 8,
         "compared_bytes": 12288,
-        "cycles": 121044,
+        "cycles": 121060,
         "mismatches": 0,
         "passed": true
       },
       "rmsnorm2": {
         "cases": 8,
         "compared_bytes": 12288,
-        "cycles": 121524,
+        "cycles": 121540,
         "mismatches": 0,
         "passed": true
       },
       "softmax_head0": {
         "cases": 8,
         "compared_bytes": 8192,
-        "cycles": 164176,
+        "cycles": 164192,
         "mismatches": 0,
         "passed": true
       },
       "softmax_head1": {
         "cases": 8,
         "compared_bytes": 8192,
-        "cycles": 164176,
+        "cycles": 164192,
         "mismatches": 0,
         "passed": true
       },
       "softmax_head2": {
         "cases": 8,
         "compared_bytes": 8192,
-        "cycles": 164176,
+        "cycles": 164192,
         "mismatches": 0,
         "passed": true
       }
