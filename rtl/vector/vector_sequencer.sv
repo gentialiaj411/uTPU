@@ -42,7 +42,8 @@ module vector_sequencer #(
                      MAT_B_WAIT2=90, MAT_OUT_WAIT2=91,
                      NORM_MEAN_ADD=92, NORM_LOG_DECIDE=93,
                      NORM_MANT_RNE=94, NORM_MANT_SAT=95,
-                     NORM_NEWTON_T_RNE=96, NORM_NEWTON_RNE_INPUT=97;
+                     NORM_NEWTON_T_RNE=96, NORM_NEWTON_RNE_INPUT=97,
+                     CHECK_A=98, CHECK_B=99;
     logic [6:0] state;
     logic buf_we_c, buf_re_c, buf_store_en_c;
     logic [ADDRESS_SIZE-1:0] buf_addr_c;
@@ -63,6 +64,8 @@ module vector_sequencer #(
     logic [31:0] square_sum;
     logic [31:0] norm_mean_div;
     logic [15:0] words_total;
+    logic [15:0] rows_total;
+    logic validation_error_q, validation_error_a_c, validation_error_b_c, validation_error_c_c;
     logic [15:0] square_word;
     logic [5:0] norm_element;
     logic [15:0] rsqrt_q14 [0:191];
@@ -314,6 +317,52 @@ module vector_sequencer #(
         newton_r_shift_c = newton_r_abs_c >> 15;
     end
 
+    // Decode validation is registered in three groups.  This keeps the
+    // twenty range/overlap predicates out of one carry chain while preserving
+    // the original single error outcome and routing behavior.
+    always_comb begin
+        validation_error_a_c = !range_ok(dst,words_total) || !range_ok(src0,words_total) ||
+            !range_ok(param,16'd8) ||
+            (overlap(dst,words_total,src0,words_total) && dst!=src0) ||
+            overlap(dst,words_total,param,16'd8) || overlap(src0,words_total,param,16'd8);
+        validation_error_b_c =
+            (subop==NORM && (record[0]!=16'd2 || (record[2]&16'hff00)!=0 ||
+              record[3]!=0 || record[4]!=0 || record[5]!=0 || record[6]!=0 || record[7]!=0 ||
+              record[2][7:0]>31 || !range_ok(record[1],16'd24) ||
+              overlap(dst,words_total,record[1],16'd24) || overlap(src0,words_total,record[1],16'd24))) ||
+            (subop==ADD && (record[0]!=16'd1 || (record[3]&16'hff00)!=0 ||
+              record[4]!=0 || record[5]!=0 || record[6]!=0 || record[7]!=0 ||
+              !range_ok(record[1],words_total) ||
+              (overlap(dst,words_total,record[1],words_total) && dst!=record[1]) ||
+              !exp_ok(record[2][7:0]) || !exp_ok(record[2][15:8]) || !exp_ok(record[3][7:0]) ||
+              $signed(record[3][7:0]) < $signed(record[2][7:0]) ||
+              $signed(record[3][7:0]) < $signed(record[2][15:8]))) ||
+            (subop==POS && (record[0]!=16'd3 || (record[3]&16'hff00)!=0 ||
+              record[4]!=0 || record[5]!=0 || record[6]!=0 || record[7]!=0 ||
+              !range_ok(record[1],16'd768) || overlap(dst,words_total,record[1],16'd768) ||
+              overlap(src0,words_total,record[1],16'd768) || !exp_ok(record[2][7:0]) ||
+              !exp_ok(record[2][15:8]) || !exp_ok(record[3][7:0]) ||
+              $signed(record[3][7:0]) < $signed(record[2][7:0]) ||
+              $signed(record[3][7:0]) < $signed(record[2][15:8])));
+        validation_error_c_c =
+            (subop==SOFT && (record[0]!=16'd4 || record[2]!=0 || record[3]!=0 || record[4]!=0 ||
+              record[5]!=0 || record[6]!=0 || record[7]!=0 || !range_ok(record[1],16'd512) ||
+              overlap(dst,words_total,record[1],16'd512) || overlap(src0,words_total,record[1],16'd512))) ||
+            (subop==MAT && (record[0]!=16'd5 || record[7]!=0 || (record[4]&16'hfff8)!=0 ||
+              (record[6]&16'hffe0)!=0 || record[3][7:0] < (((record[2]>>5)&5'h1f)+1) ||
+              record[3][15:8] < ((record[2][15] ? ((record[2]>>5)&5'h1f) : ((record[2]>>10)&5'h1f))+1) ||
+              record[3][0] || record[3][8] || (causal != record[4][2]) ||
+              (causal && !((record[2][15] && (record[2][4:0]==record[2][14:10])) ||
+                           (record[4][0] && !record[2][15] && (record[2][4:0]==record[2][9:5])))))) ||
+            (subop==LAYOUT && (record[0]!=16'd6 || (record[1]&16'he000)!=0 ||
+              (record[2]&16'hfff8)!=0 ||
+              ((record[2][2:0]>=3'd4) && ((record[1][4:0]+1)%4!=0 || (((record[1]>>5)&8'hff)+1)%8!=0)) ||
+              (record[2][2:0]==3'd4 && ((record[1][4:0]+1)!=32 || (((record[1]>>5)&8'hff)+1)!=48)) ||
+              record[3][7:0] < (((record[1]>>5)&8'hff)+1) ||
+              record[3][15:8] < (((record[1]>>5)&8'hff)+1) || record[3][0] || record[3][8] ||
+              record[4]!=0 || record[5]!=0 || record[6]!=0 || record[7]!=0));
+    end
+
     // Single register stage on the complete vector buffer interface.
     always_ff @(posedge clk) begin
         if (rst) begin
@@ -326,55 +375,21 @@ module vector_sequencer #(
     end
 
     always_ff @(posedge clk) begin
-        if(rst) begin state<=IDLE; busy<=0; done<=0; error<=0; index<=0; row<=0; end
+        if(rst) begin state<=IDLE; busy<=0; done<=0; error<=0; index<=0; row<=0; validation_error_q<=0; end
         else begin
             done<=0;
             case(state)
-                IDLE: if(start) begin busy<=1; error<=0; index<=0; row<=0; square_sum<=0; words_total<=length>>1; state<=PR; end
+                IDLE: if(start) begin busy<=1; error<=0; index<=0; row<=0; square_sum<=0; words_total<=length>>1; rows_total<=(length>>1)/24; state<=PR; end
                 PR: state<=PW0; PW0: state<=PW1; PW1: state<=PR_WAIT2;
                 PR_WAIT2: begin record[index]<=buf_rdata; if(index==7) begin index<=0; state<=CHECK; end else begin index<=index+1; state<=PR; end end
                 CHECK: begin
                     ea<=record[2][7:0]; eb<=record[2][15:8]; eo<=record[3][7:0]; gamma_shift<=record[2][5:0];
-                    // This is deliberately the runtime validation equivalent
-                    // of isa_simulator._execute_vec: no malformed record may
-                    // begin a buffer write.
-                    if (!range_ok(dst,words_total) || !range_ok(src0,words_total) ||
-                        !range_ok(param,16'd8) ||
-                        (overlap(dst,words_total,src0,words_total) && dst!=src0) ||
-                        overlap(dst,words_total,param,16'd8) || overlap(src0,words_total,param,16'd8) ||
-                        (subop==NORM && (record[0]!=16'd2 || (record[2]&16'hff00)!=0 ||
-                          record[3]!=0 || record[4]!=0 || record[5]!=0 || record[6]!=0 || record[7]!=0 ||
-                          record[2][7:0]>31 || !range_ok(record[1],16'd24) ||
-                          overlap(dst,words_total,record[1],16'd24) || overlap(src0,words_total,record[1],16'd24))) ||
-                        (subop==ADD && (record[0]!=16'd1 || (record[3]&16'hff00)!=0 ||
-                          record[4]!=0 || record[5]!=0 || record[6]!=0 || record[7]!=0 ||
-                          !range_ok(record[1],words_total) ||
-                          (overlap(dst,words_total,record[1],words_total) && dst!=record[1]) ||
-                          !exp_ok(record[2][7:0]) || !exp_ok(record[2][15:8]) || !exp_ok(record[3][7:0]) ||
-                          $signed(record[3][7:0]) < $signed(record[2][7:0]) || $signed(record[3][7:0]) < $signed(record[2][15:8]))) ||
-                        (subop==POS && (record[0]!=16'd3 || (record[3]&16'hff00)!=0 ||
-                          record[4]!=0 || record[5]!=0 || record[6]!=0 || record[7]!=0 ||
-                          !range_ok(record[1],16'd768) || overlap(dst,words_total,record[1],16'd768) ||
-                          overlap(src0,words_total,record[1],16'd768) || !exp_ok(record[2][7:0]) ||
-                          !exp_ok(record[2][15:8]) || !exp_ok(record[3][7:0]) ||
-                          $signed(record[3][7:0]) < $signed(record[2][7:0]) || $signed(record[3][7:0]) < $signed(record[2][15:8]))) ||
-                        (subop==SOFT && (record[0]!=16'd4 || record[2]!=0 || record[3]!=0 || record[4]!=0 ||
-                          record[5]!=0 || record[6]!=0 || record[7]!=0 || !range_ok(record[1],16'd512) ||
-                          overlap(dst,words_total,record[1],16'd512) || overlap(src0,words_total,record[1],16'd512))) ||
-                        (subop==MAT && (record[0]!=16'd5 || record[7]!=0 || (record[4]&16'hfff8)!=0 ||
-                          (record[6]&16'hffe0)!=0 || record[3][7:0] < (((record[2]>>5)&5'h1f)+1) ||
-                          record[3][15:8] < ((record[2][15] ? ((record[2]>>5)&5'h1f) : ((record[2]>>10)&5'h1f))+1) ||
-                          record[3][0] || record[3][8] || (causal != record[4][2]) ||
-                          (causal && !((record[2][15] && (record[2][4:0]==record[2][14:10])) ||
-                                       (record[4][0] && !record[2][15] && (record[2][4:0]==record[2][9:5])))))) ||
-                        (subop==LAYOUT && (record[0]!=16'd6 || (record[1]&16'he000)!=0 ||
-                          (record[2]&16'hfff8)!=0 ||
-                          ((record[2][2:0]>=3'd4) && ((record[1][4:0]+1)%4!=0 || (((record[1]>>5)&8'hff)+1)%8!=0)) ||
-                          (record[2][2:0]==3'd4 && ((record[1][4:0]+1)!=32 || (((record[1]>>5)&8'hff)+1)!=48)) ||
-                          record[3][7:0] < (((record[1]>>5)&8'hff)+1) || record[3][15:8] < (((record[1]>>5)&8'hff)+1) ||
-                          record[3][0] || record[3][8] || record[4]!=0 || record[5]!=0 || record[6]!=0 || record[7]!=0))) begin
-                        error<=1; state<=FINISH;
-                    end else if(subop==NORM) state<=GR;
+                    validation_error_q<=0; state<=CHECK_A;
+                end
+                CHECK_A: begin validation_error_q<=validation_error_a_c; state<=CHECK_B; end
+                CHECK_B: begin
+                    if(validation_error_q|validation_error_b_c|validation_error_c_c) begin error<=1; state<=FINISH; end
+                    else if(subop==NORM) state<=GR;
                     else if(subop==SOFT) state<=SR;
                     else if(subop==MAT) begin
                         mat_m<=record[2][4:0]+1; mat_kdim<=record[2][9:5]+1; mat_n<=record[2][14:10]+1;
@@ -559,7 +574,7 @@ module vector_sequencer #(
                 WW: if(index+1>=words_total) begin state<=FINISH; end else begin index<=index+1; state<=AR; end
                 NWRITE: state<=NWW;
                 NWW: if(norm_element==47) begin
-                    if(row+1>=words_total/24) state<=FINISH;
+                    if(row+1>=rows_total) state<=FINISH;
                     else begin row<=row+1; index<=0; square_sum<=0; state<=NAR; end
                 end else begin norm_element<=norm_element+1; state<=NORM_SCALE_MUL0; end
                 SR: state<=SW0; SW0: state<=SW1; SW1: state<=SR_WAIT2;
