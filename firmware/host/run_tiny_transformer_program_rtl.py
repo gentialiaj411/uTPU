@@ -30,7 +30,10 @@ def main()->int:
  # Backpressure can make the byte stream substantially slower than the raw
  # byte count; retain a byte-count-derived bound with generous protocol
  # headroom, rather than a fixed wall-clock constant.
- tb.write_text(tb.read_text().replace('a5_timeout=a5_bytes*64', 'a5_timeout=a5_bytes*512'))
+ # The byte-level FIFO injector bypasses UART framing.  Its measured fill rate is
+ # about 256 cycles/byte; 400 cycles/byte gives margin, while real 115200-baud
+ # hardware is much slower (about 4,340 cycles/byte), so this is not a PHY limit.
+ tb.write_text(tb.read_text().replace('a5_timeout=a5_bytes*64', 'a5_timeout=a5_bytes*400'))
  # The Icarus unified-buffer model has its own time-zero initializer.  Load
  # the direct-preload image only after it has settled and reset is released;
  # otherwise initialization order can silently replace the image with zeros.

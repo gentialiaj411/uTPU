@@ -70,9 +70,18 @@ module vector_sequencer #(
     logic [7:0] norm_bin;
     logic signed [31:0] norm_r0, norm_t, norm_r1;
     logic signed [47:0] newton_mul0, newton_mul1;
-    logic signed [63:0] newton_product, scale_product, scale_round_input;
+    logic signed [63:0] newton_product;
+    // RMSNorm scale bound: |int8*int8|*r1_q14 <= 16129*16384 < 2^29.
+    // Signed 32 bits therefore cover every RMSNorm suite extreme; the
+    // maximum RNE shift is 14+31+(30/2)=60.
+    logic signed [31:0] scale_product, scale_round_input;
     logic signed [15:0] scale_ag;
-    logic signed [63:0] scale_rounded;
+    logic signed [31:0] scale_rounded;
+    logic [5:0] scale_shift_amt;
+    logic [31:0] scale_abs_c, scale_shifted_c;
+    logic scale_neg_c, scale_guard_c, scale_sticky_c, scale_lsb_c;
+    logic scale_neg_q, scale_guard_q, scale_sticky_q, scale_lsb_q;
+    logic [31:0] scale_shifted_q;
     logic [7:0] norm_low_byte;
     logic [5:0] soft_element;
     logic signed [8:0] soft_max, soft_rel;
@@ -251,6 +260,25 @@ module vector_sequencer #(
         endcase
     end
 
+    // First half of the staged RMSNorm RNE: barrel shift and capture the
+    // exact guard/sticky/LSB bits needed for round-to-nearest-even.
+    always_comb begin
+        scale_shift_amt = 6'(14 + gamma_shift + (norm_exponent >> 1));
+        scale_neg_c = scale_product[31];
+        scale_abs_c = scale_neg_c ? -scale_product : scale_product;
+        scale_shifted_c = scale_shift_amt >= 32 ? 32'd0 : (scale_abs_c >> scale_shift_amt);
+        scale_guard_c = 1'b0;
+        scale_sticky_c = 1'b0;
+        scale_lsb_c = (scale_shift_amt < 32) ? scale_shifted_c[0] : 1'b0;
+        if (scale_shift_amt != 0 && scale_shift_amt <= 32) begin
+            scale_guard_c = scale_abs_c[scale_shift_amt-1];
+            if (scale_shift_amt > 1)
+                scale_sticky_c = |(scale_abs_c & ((32'h1 << (scale_shift_amt-1))-1));
+        end else if (scale_shift_amt > 32) begin
+            scale_sticky_c = |scale_abs_c;
+        end
+    end
+
     // Single register stage on the complete vector buffer interface.
     always_ff @(posedge clk) begin
         if (rst) begin
@@ -410,10 +438,17 @@ module vector_sequencer #(
                 // the vector unit's critical 52-level path.
                 NORM_SCALE_RNE_INPUT: begin
                     scale_round_input<=scale_product;
+                    scale_neg_q<=scale_neg_c;
+                    scale_shifted_q<=scale_shifted_c;
+                    scale_guard_q<=scale_guard_c;
+                    scale_sticky_q<=scale_sticky_c;
+                    scale_lsb_q<=scale_lsb_c;
                     state<=NORM_SCALE_RNE;
                 end
                 NORM_SCALE_RNE: begin
-                    scale_rounded<=rne_shift(scale_round_input,14+gamma_shift+(norm_exponent>>1));
+                    scale_rounded<=scale_neg_q
+                        ? -$signed(scale_shifted_q + ((scale_guard_q && (scale_sticky_q || scale_lsb_q)) ? 32'd1 : 32'd0))
+                        : $signed(scale_shifted_q + ((scale_guard_q && (scale_sticky_q || scale_lsb_q)) ? 32'd1 : 32'd0));
                     state<=NORM_SCALE_SAT;
                 end
                 NORM_SCALE_SAT: begin
