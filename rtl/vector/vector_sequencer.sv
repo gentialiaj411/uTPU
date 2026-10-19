@@ -35,7 +35,7 @@ module vector_sequencer #(
                      MAT_OUT_WAIT0=69, MAT_OUT_WAIT1=70, MAT_WRITE=71,
                      LAY_ZERO=72, LAY_READ=73, LAY_READ_WAIT0=74,
                      LAY_READ_WAIT1=75, LAY_OUT_READ=76, LAY_OUT_WAIT0=77,
-                     LAY_OUT_WAIT1=78, LAY_WRITE=79;
+                     LAY_OUT_WAIT1=78, LAY_WRITE=79, MAT_WRITE_COMMIT=80;
     logic [6:0] state;
     logic [15:0] record [0:7];
     logic signed [7:0] a [0:47], b [0:47], gamma [0:47], score [0:31];
@@ -86,6 +86,8 @@ module vector_sequencer #(
     logic signed [63:0] mat_scaled, mat_shifted;
     logic signed [7:0] mat_result;
     logic [15:0] mat_out_word;
+    logic [ADDRESS_SIZE-1:0] mat_write_addr_q;
+    logic [15:0] mat_write_data_q;
     logic [5:0] lay_rows;
     logic [8:0] lay_cols, lay_r, lay_c;
     logic [7:0] lay_src_stride, lay_dst_stride;
@@ -227,8 +229,9 @@ module vector_sequencer #(
             end
             MAT_OUT_READ: begin buf_re=1; buf_store_en=1;
                 buf_addr=dst+((mat_i*mat_n+mat_j)>>1); end
-            MAT_WRITE: begin buf_we=1; buf_store_en=1;
-                buf_addr=dst+((mat_i*mat_n+mat_j)>>1); buf_wdata=mat_out_word; end
+            MAT_WRITE: begin end
+            MAT_WRITE_COMMIT: begin buf_we=1; buf_store_en=1;
+                buf_addr=mat_write_addr_q; buf_wdata=mat_write_data_q; end
             LAY_ZERO: begin buf_we=1; buf_store_en=1; buf_addr=dst+lay_zero_word; buf_wdata=0; end
             LAY_READ: begin buf_re=1; buf_store_en=1; buf_addr=src0+(lay_src_index()>>1); end
             LAY_OUT_READ: begin buf_re=1; buf_store_en=1; buf_addr=dst+(lay_dst_index()>>1); end
@@ -561,6 +564,11 @@ module vector_sequencer #(
                     state<=MAT_WRITE;
                 end
                 MAT_WRITE: begin
+                    mat_write_addr_q<=dst+((mat_i*mat_n+mat_j)>>1);
+                    mat_write_data_q<=mat_out_word;
+                    state<=MAT_WRITE_COMMIT;
+                end
+                MAT_WRITE_COMMIT: begin
                     mat_k<=0; mat_acc<=0;
                     if(mat_j+1>=mat_n) begin
                         mat_j<=0;
