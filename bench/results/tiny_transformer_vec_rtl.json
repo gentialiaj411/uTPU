@@ -1382,7 +1382,7 @@
   },
   "source_tree": {
     "firmware/host": "9f778ef2f386a697b5ddb5c8d02a733eb8caa847",
-    "rtl": "7b36e039ff9e695eaad89b7d97f14babf46aa141",
+    "rtl": "8dbb5cb2fdf5ae6a6f9725ade75b8f4bdccfd47c",
     "tools": "0fe817a12ebd93f4ef62e4051629f809bca1467d"
   },
   "status": "phase3_vector_rtl_incomplete",
@@ -1390,7 +1390,7 @@
     "cases": 8,
     "command": "python tools/run_phase3_evidence.py --only trace_full_top",
     "compared_bytes": 98304,
-    "cycles": 1104294,
+    "cycles": 1117084,
     "execution": "full top instruction BRAM -> escape -> descriptor -> vector unit -> unified buffer",
     "mismatches": 0,
     "passed": true,
@@ -1398,7 +1398,7 @@
       "final_norm": {
         "cases": 8,
         "compared_bytes": 12288,
-        "cycles": 117090,
+        "cycles": 121444,
         "mismatches": 0,
         "passed": true
       },
@@ -1426,14 +1426,14 @@
       "rmsnorm1": {
         "cases": 8,
         "compared_bytes": 12288,
-        "cycles": 116946,
+        "cycles": 121044,
         "mismatches": 0,
         "passed": true
       },
       "rmsnorm2": {
         "cases": 8,
         "compared_bytes": 12288,
-        "cycles": 117186,
+        "cycles": 121524,
         "mismatches": 0,
         "passed": true
       },
