@@ -44,7 +44,9 @@ always #5 clk=~clk;
 always @(posedge clk) begin if(buf_re) buf_rdata<=mem[buf_addr]; if(buf_we) mem[buf_addr]<=buf_wdata; end
 initial begin for(i=0;i<32768;i=i+1) mem[i]=0; buf_rdata=0; {init}
   repeat(3) @(posedge clk); rst=0; @(negedge clk); start=1; repeat(2) @(posedge clk); @(negedge clk); start=0; cycles=0;
-  while(!done && cycles<20000) begin @(posedge clk); cycles=cycles+1; end
+  // The registered vector buffer interface adds one read-boundary cycle per
+  // serialized access; retain a finite timeout with headroom for that cost.
+  while(!done && cycles<40000) begin @(posedge clk); cycles=cycles+1; end
   miss=0; if(error || !done) miss=miss+1; {checks}
   $display("SEQ_RESULT {name} %0d %0d",cycles,miss); $finish; end
 endmodule

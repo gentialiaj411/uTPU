@@ -34,9 +34,16 @@ module vector_sequencer #(
                      MAT_SCALE_MUL=65, MAT_SHIFT=66, MAT_SAT=67, MAT_OUT_READ=68,
                      MAT_OUT_WAIT0=69, MAT_OUT_WAIT1=70, MAT_WRITE=71,
                      LAY_ZERO=72, LAY_READ=73, LAY_READ_WAIT0=74,
-                     LAY_READ_WAIT1=75, LAY_OUT_READ=76, LAY_OUT_WAIT0=77,
-                     LAY_OUT_WAIT1=78, LAY_WRITE=79, MAT_WRITE_COMMIT=80;
+                     LAY_READ_WAIT1=75, LAY_READ_WAIT2=76, LAY_OUT_READ=77,
+                     LAY_OUT_WAIT0=78, LAY_OUT_WAIT1=79, LAY_OUT_WAIT2=80,
+                     LAY_WRITE=81, MAT_WRITE_COMMIT=82,
+                     PR_WAIT2=83, GR_WAIT2=84, AR_WAIT2=85, BR_WAIT2=86,
+                     NAR_WAIT2=87, SR_WAIT2=88, MAT_A_WAIT2=89,
+                     MAT_B_WAIT2=90, MAT_OUT_WAIT2=91;
     logic [6:0] state;
+    logic buf_we_c, buf_re_c, buf_store_en_c;
+    logic [ADDRESS_SIZE-1:0] buf_addr_c;
+    logic [15:0] buf_wdata_c;
     logic [15:0] record [0:7];
     logic signed [7:0] a [0:47], b [0:47], gamma [0:47], score [0:31];
     logic [15:0] norm_word, soft_word;
@@ -210,32 +217,32 @@ module vector_sequencer #(
     endfunction
 
     always_comb begin
-        buf_we=0; buf_re=0; buf_store_en=0; buf_addr=0; buf_wdata=0;
+        buf_we_c=0; buf_re_c=0; buf_store_en_c=0; buf_addr_c=0; buf_wdata_c=0;
         divider_start=0; divider_numerator=0; divider_denominator=soft_sum;
         case(state)
-            PR: begin buf_re=1; buf_store_en=1; buf_addr=param+index; end
-            GR: begin buf_re=1; buf_store_en=1; buf_addr=record[1]+index; end
-            AR, NAR: begin buf_re=1; buf_store_en=1; buf_addr=src0 + ((subop==NORM) ? row*24+index : index); end
-            BR: begin buf_re=1; buf_store_en=1; buf_addr=(subop==POS ? record[1] : record[1])+index; end
-            SR: begin buf_re=1; buf_store_en=1; buf_addr=src0+row*16+index; end
-            WRITE: begin buf_we=1; buf_store_en=1; buf_addr=dst+index; buf_wdata=add_word; end
-            NWRITE: begin buf_we=1; buf_store_en=1; buf_addr=dst+row*24+(norm_element>>1); buf_wdata=norm_word; end
-            SWRITE: begin buf_we=1; buf_store_en=1; buf_addr=dst+row*16+(soft_element>>1); buf_wdata=soft_word; end
-            MAT_A: begin buf_re=1; buf_store_en=1;
-                buf_addr=src0+((mat_i*mat_a_stride+mat_k)>>1); end
-            MAT_B: begin buf_re=1; buf_store_en=1;
-                if(mat_transpose) buf_addr=record[1]+((mat_j*mat_b_stride+mat_k)>>1);
-                else buf_addr=record[1]+((mat_k*mat_b_stride+mat_j)>>1);
+            PR: begin buf_re_c=1; buf_store_en_c=1; buf_addr_c=param+index; end
+            GR: begin buf_re_c=1; buf_store_en_c=1; buf_addr_c=record[1]+index; end
+            AR, NAR: begin buf_re_c=1; buf_store_en_c=1; buf_addr_c=src0 + ((subop==NORM) ? row*24+index : index); end
+            BR: begin buf_re_c=1; buf_store_en_c=1; buf_addr_c=(subop==POS ? record[1] : record[1])+index; end
+            SR: begin buf_re_c=1; buf_store_en_c=1; buf_addr_c=src0+row*16+index; end
+            WRITE: begin buf_we_c=1; buf_store_en_c=1; buf_addr_c=dst+index; buf_wdata_c=add_word; end
+            NWRITE: begin buf_we_c=1; buf_store_en_c=1; buf_addr_c=dst+row*24+(norm_element>>1); buf_wdata_c=norm_word; end
+            SWRITE: begin buf_we_c=1; buf_store_en_c=1; buf_addr_c=dst+row*16+(soft_element>>1); buf_wdata_c=soft_word; end
+            MAT_A: begin buf_re_c=1; buf_store_en_c=1;
+                buf_addr_c=src0+((mat_i*mat_a_stride+mat_k)>>1); end
+            MAT_B: begin buf_re_c=1; buf_store_en_c=1;
+                if(mat_transpose) buf_addr_c=record[1]+((mat_j*mat_b_stride+mat_k)>>1);
+                else buf_addr_c=record[1]+((mat_k*mat_b_stride+mat_j)>>1);
             end
-            MAT_OUT_READ: begin buf_re=1; buf_store_en=1;
-                buf_addr=dst+((mat_i*mat_n+mat_j)>>1); end
+            MAT_OUT_READ: begin buf_re_c=1; buf_store_en_c=1;
+                buf_addr_c=dst+((mat_i*mat_n+mat_j)>>1); end
             MAT_WRITE: begin end
-            MAT_WRITE_COMMIT: begin buf_we=1; buf_store_en=1;
-                buf_addr=mat_write_addr_q; buf_wdata=mat_write_data_q; end
-            LAY_ZERO: begin buf_we=1; buf_store_en=1; buf_addr=dst+lay_zero_word; buf_wdata=0; end
-            LAY_READ: begin buf_re=1; buf_store_en=1; buf_addr=src0+(lay_src_index()>>1); end
-            LAY_OUT_READ: begin buf_re=1; buf_store_en=1; buf_addr=dst+(lay_dst_index()>>1); end
-            LAY_WRITE: begin buf_we=1; buf_store_en=1; buf_addr=dst+(lay_dst_index()>>1); buf_wdata=lay_out_word; end
+            MAT_WRITE_COMMIT: begin buf_we_c=1; buf_store_en_c=1;
+                buf_addr_c=mat_write_addr_q; buf_wdata_c=mat_write_data_q; end
+            LAY_ZERO: begin buf_we_c=1; buf_store_en_c=1; buf_addr_c=dst+lay_zero_word; buf_wdata_c=0; end
+            LAY_READ: begin buf_re_c=1; buf_store_en_c=1; buf_addr_c=src0+(lay_src_index()>>1); end
+            LAY_OUT_READ: begin buf_re_c=1; buf_store_en_c=1; buf_addr_c=dst+(lay_dst_index()>>1); end
+            LAY_WRITE: begin buf_we_c=1; buf_store_en_c=1; buf_addr_c=dst+(lay_dst_index()>>1); buf_wdata_c=lay_out_word; end
             SOFT_DIV_START: if(soft_element<valid_count) begin
                 divider_start=1;
                 divider_numerator=({soft_values[soft_element],8'b0}-soft_values[soft_element])+(soft_sum>>1);
@@ -244,14 +251,25 @@ module vector_sequencer #(
         endcase
     end
 
+    // Single register stage on the complete vector buffer interface.
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            buf_we <= 1'b0; buf_re <= 1'b0; buf_store_en <= 1'b0;
+            buf_addr <= '0; buf_wdata <= '0;
+        end else begin
+            buf_we <= buf_we_c; buf_re <= buf_re_c; buf_store_en <= buf_store_en_c;
+            buf_addr <= buf_addr_c; buf_wdata <= buf_wdata_c;
+        end
+    end
+
     always_ff @(posedge clk) begin
         if(rst) begin state<=IDLE; busy<=0; done<=0; error<=0; index<=0; row<=0; end
         else begin
             done<=0;
             case(state)
                 IDLE: if(start) begin busy<=1; error<=0; index<=0; row<=0; square_sum<=0; words_total<=length>>1; state<=PR; end
-                PR: state<=PW0; PW0: state<=PW1;
-                PW1: begin record[index]<=buf_rdata; if(index==7) begin index<=0; state<=CHECK; end else begin index<=index+1; state<=PR; end end
+                PR: state<=PW0; PW0: state<=PW1; PW1: state<=PR_WAIT2;
+                PR_WAIT2: begin record[index]<=buf_rdata; if(index==7) begin index<=0; state<=CHECK; end else begin index<=index+1; state<=PR; end end
                 CHECK: begin
                     ea<=record[2][7:0]; eb<=record[2][15:8]; eo<=record[3][7:0]; gamma_shift<=record[2][5:0];
                     // This is deliberately the runtime validation equivalent
@@ -309,12 +327,12 @@ module vector_sequencer #(
                         state<=LAY_ZERO;
                     end else state<=AR;
                 end
-                GR: state<=GW0; GW0: state<=GW1;
-                GW1: begin gamma[index*2]<=buf_rdata[7:0]; gamma[index*2+1]<=buf_rdata[15:8]; if(index==23) begin index<=0; state<=NAR; end else begin index<=index+1; state<=GR; end end
-                AR: state<=AW0; AW0: state<=AW1;
-                AW1: begin word_a<=buf_rdata; if(subop==NORM) state<=NORM_SUM_LO; else state<=BR; end
-                NAR: state<=NAW0; NAW0: state<=NAW1;
-                NAW1: begin
+                GR: state<=GW0; GW0: state<=GW1; GW1: state<=GR_WAIT2;
+                GR_WAIT2: begin gamma[index*2]<=buf_rdata[7:0]; gamma[index*2+1]<=buf_rdata[15:8]; if(index==23) begin index<=0; state<=NAR; end else begin index<=index+1; state<=GR; end end
+                AR: state<=AW0; AW0: state<=AW1; AW1: state<=AR_WAIT2;
+                AR_WAIT2: begin word_a<=buf_rdata; if(subop==NORM) state<=NORM_SUM_LO; else state<=BR; end
+                NAR: state<=NAW0; NAW0: state<=NAW1; NAW1: state<=NAR_WAIT2;
+                NAR_WAIT2: begin
                     a[index*2]<=buf_rdata[7:0]; a[index*2+1]<=buf_rdata[15:8];
                     square_word<=buf_rdata;
                     state<=NORM_SUM_LO;
@@ -408,8 +426,8 @@ module vector_sequencer #(
                         state<=NWRITE;
                     end
                 end
-                BR: state<=BW0; BW0: state<=BW1;
-                BW1: begin word_b<=buf_rdata; state<=ALIGN_PIPE; end
+                BR: state<=BW0; BW0: state<=BW1; BW1: state<=BR_WAIT2;
+                BR_WAIT2: begin word_b<=buf_rdata; state<=ALIGN_PIPE; end
                 // Align, add, and saturation are separate registers so the
                 // VADD/VPOS write path has no element-wide combinational cone.
                 ALIGN_PIPE: begin
@@ -435,8 +453,8 @@ module vector_sequencer #(
                     if(row+1>=words_total/24) state<=FINISH;
                     else begin row<=row+1; index<=0; square_sum<=0; state<=NAR; end
                 end else begin norm_element<=norm_element+1; state<=NORM_SCALE_MUL0; end
-                SR: state<=SW0; SW0: state<=SW1;
-                SW1: begin
+                SR: state<=SW0; SW0: state<=SW1; SW1: state<=SR_WAIT2;
+                SR_WAIT2: begin
                     score[index*2]<=buf_rdata[7:0];
                     score[index*2+1]<=buf_rdata[15:8];
                     if(index==15) begin
@@ -524,15 +542,15 @@ module vector_sequencer #(
                 // accumulation, and requantization each retire in a distinct
                 // register stage.  This keeps every stage to one wide operator.
                 MAT_A: state<=MAT_AW0;
-                MAT_AW0: state<=MAT_AW1;
-                MAT_AW1: begin
+                MAT_AW0: state<=MAT_AW1; MAT_AW1: state<=MAT_A_WAIT2;
+                MAT_A_WAIT2: begin
                     if(mat_a_unsigned) mat_a_value<={1'b0,((mat_i*mat_a_stride+mat_k)&1) ? buf_rdata[15:8] : buf_rdata[7:0]};
                     else mat_a_value<=$signed(((mat_i*mat_a_stride+mat_k)&1) ? buf_rdata[15:8] : buf_rdata[7:0]);
                     state<=MAT_B;
                 end
                 MAT_B: state<=MAT_BW0;
-                MAT_BW0: state<=MAT_BW1;
-                MAT_BW1: begin
+                MAT_BW0: state<=MAT_BW1; MAT_BW1: state<=MAT_B_WAIT2;
+                MAT_B_WAIT2: begin
                     if(mat_b_unsigned) mat_b_value<={1'b0,(((mat_transpose ? mat_j*mat_b_stride+mat_k : mat_k*mat_b_stride+mat_j)&1)) ? buf_rdata[15:8] : buf_rdata[7:0]};
                     else mat_b_value<=$signed((((mat_transpose ? mat_j*mat_b_stride+mat_k : mat_k*mat_b_stride+mat_j)&1)) ? buf_rdata[15:8] : buf_rdata[7:0]);
                     state<=MAT_MUL;
@@ -557,8 +575,8 @@ module vector_sequencer #(
                 MAT_SHIFT: begin mat_shifted<=mat_scaled >>> record[6][4:0]; state<=MAT_SAT; end
                 MAT_SAT: begin mat_result<=sat8(mat_shifted); mat_acc<=0; state<=MAT_OUT_READ; end
                 MAT_OUT_READ: state<=MAT_OUT_WAIT0;
-                MAT_OUT_WAIT0: state<=MAT_OUT_WAIT1;
-                MAT_OUT_WAIT1: begin
+                MAT_OUT_WAIT0: state<=MAT_OUT_WAIT1; MAT_OUT_WAIT1: state<=MAT_OUT_WAIT2;
+                MAT_OUT_WAIT2: begin
                     if((mat_i*mat_n+mat_j)&1) mat_out_word<={mat_result,buf_rdata[7:0]};
                     else mat_out_word<={buf_rdata[15:8],mat_result};
                     state<=MAT_WRITE;
@@ -583,14 +601,14 @@ module vector_sequencer #(
                     else lay_zero_word<=lay_zero_word+1;
                 end
                 LAY_READ: state<=LAY_READ_WAIT0;
-                LAY_READ_WAIT0: state<=LAY_READ_WAIT1;
-                LAY_READ_WAIT1: begin
+                LAY_READ_WAIT0: state<=LAY_READ_WAIT1; LAY_READ_WAIT1: state<=LAY_READ_WAIT2;
+                LAY_READ_WAIT2: begin
                     lay_value<=$signed((lay_src_index()&1) ? buf_rdata[15:8] : buf_rdata[7:0]);
                     state<=LAY_OUT_READ;
                 end
                 LAY_OUT_READ: state<=LAY_OUT_WAIT0;
-                LAY_OUT_WAIT0: state<=LAY_OUT_WAIT1;
-                LAY_OUT_WAIT1: begin
+                LAY_OUT_WAIT0: state<=LAY_OUT_WAIT1; LAY_OUT_WAIT1: state<=LAY_OUT_WAIT2;
+                LAY_OUT_WAIT2: begin
                     if(lay_dst_index()&1) lay_out_word<={lay_value,buf_rdata[7:0]};
                     else lay_out_word<={buf_rdata[15:8],lay_value};
                     state<=LAY_WRITE;
