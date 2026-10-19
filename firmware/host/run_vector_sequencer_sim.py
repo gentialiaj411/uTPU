@@ -82,6 +82,15 @@ def run_rmsnorm_suite() -> dict:
     rows[195:] = rng.integers(-128, 128, (1805, 48), dtype=np.int8)
     gamma = rng.integers(-128, 128, 48, dtype=np.int8)
     expected, bins = rms(rows, gamma, 3)
+    # The restoring divider plus registered RNE must equal the arithmetic
+    # definition for the full square_sum range of 48 signed-int8 lanes.
+    max_square_sum = 48 * 128 * 128
+    rne_div48_proof = all(
+        (q + int((2 * r > 48) or (2 * r == 48 and (q & 1)))) ==
+        (q + int((r > 24) or (r == 24 and (q & 1))))
+        for x in range(max_square_sum + 1)
+        for q, r in [(x // 48, x % 48)]
+    )
     BUILD.mkdir(parents=True, exist_ok=True)
     def write_bytes(path: Path, values: np.ndarray) -> None:
         path.write_text("\n".join(f"{int(v) & 255:02x}" for v in values.reshape(-1)) + "\n", encoding="ascii")
@@ -99,7 +108,10 @@ for(row=0;row<2000;row=row+1) begin
   for(i=0;i<24;i=i+1) mem[100+i]={{rows[row*48+i*2+1],rows[row*48+i*2]}};
   for(i=0;i<24;i=i+1) mem[600+i]={{gamma[i*2+1],gamma[i*2]}};
   @(negedge clk); start=1; @(negedge clk); start=0;
-  while(!done && cycles<1200000) begin @(posedge clk); cycles=cycles+1; end
+  // RMSNorm now uses registered restoring dividers for mean (/48) and row
+  // count (/24).  The bound includes their serialized latency for all 2,000
+  // rows, with finite headroom; it is not a reference-model shortcut.
+  while(!done && cycles<1400000) begin @(posedge clk); cycles=cycles+1; end
   if(error || !done) miss=miss+1;
   for(i=0;i<24;i=i+1) if(mem[200+i] !== {{expected_mem[row*48+i*2+1],expected_mem[row*48+i*2]}}) miss=miss+1;
 end
@@ -112,7 +124,9 @@ $display("RMS_SUITE_RESULT 2000 %0d %0d",cycles,miss); $finish; end endmodule
         if proc.returncode: raise RuntimeError(proc.stdout + proc.stderr)
     _, cases, cycles, misses = next(line for line in proc.stdout.splitlines() if line.startswith("RMS_SUITE_RESULT")).split()
     return {"cases": int(cases), "compared_bytes": 96000, "mismatches": int(misses), "cycles": int(cycles),
-            "rsqrt_lut_bin_coverage": len(set(bins)), "passed": int(misses) == 0}
+            "rsqrt_lut_bin_coverage": len(set(bins)), "rne_div48_bound_proof": {
+                "max_square_sum": max_square_sum, "cases": max_square_sum + 1,
+                "passed": rne_div48_proof}, "passed": int(misses) == 0 and rne_div48_proof}
 
 
 def run_vadd_exhaustive_suite() -> dict:

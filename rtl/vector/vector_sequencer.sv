@@ -43,7 +43,8 @@ module vector_sequencer #(
                      NORM_MEAN_ADD=92, NORM_LOG_DECIDE=93,
                      NORM_MANT_RNE=94, NORM_MANT_SAT=95,
                      NORM_NEWTON_T_RNE=96, NORM_NEWTON_RNE_INPUT=97,
-                     CHECK_A=98, CHECK_B=99;
+                     CHECK_A=98, CHECK_B=99, NORM_MEAN_DIV_WAIT=101,
+                     NORM_MEAN_RNE=102, NORM_ROWS_WAIT=103;
     logic [6:0] state;
     logic buf_we_c, buf_re_c, buf_store_en_c;
     logic [ADDRESS_SIZE-1:0] buf_addr_c;
@@ -66,6 +67,14 @@ module vector_sequencer #(
     logic [15:0] words_total;
     logic [15:0] rows_total;
     logic validation_error_q, validation_error_a_c, validation_error_b_c, validation_error_c_c;
+    logic norm_divider_start, norm_divider_busy, norm_divider_done;
+    logic [31:0] norm_divider_quotient, norm_divider_numerator;
+    logic [5:0] norm_divider_denominator;
+    logic rows_divider_start, rows_divider_busy, rows_divider_done;
+    logic [15:0] rows_divider_quotient;
+    logic [15:0] rows_divider_numerator;
+    logic [4:0] rows_divider_denominator;
+    logic [31:0] norm_div_remainder;
     logic [15:0] square_word;
     logic [5:0] norm_element;
     logic [15:0] rsqrt_q14 [0:191];
@@ -188,6 +197,14 @@ module vector_sequencer #(
         .clk(clk), .rst(rst), .start(divider_start), .numerator(divider_numerator),
         .denominator(divider_denominator), .busy(divider_busy), .done(divider_done),
         .quotient(divider_quotient));
+    restoring_divider #(.NUM_WIDTH(32),.DEN_WIDTH(6)) u_norm_mean_divider(
+        .clk(clk), .rst(rst), .start(norm_divider_start), .numerator(norm_divider_numerator),
+        .denominator(norm_divider_denominator), .busy(norm_divider_busy), .done(norm_divider_done),
+        .quotient(norm_divider_quotient));
+    restoring_divider #(.NUM_WIDTH(16),.DEN_WIDTH(5)) u_norm_rows_divider(
+        .clk(clk), .rst(rst), .start(rows_divider_start), .numerator(rows_divider_numerator),
+        .denominator(rows_divider_denominator), .busy(rows_divider_busy), .done(rows_divider_done),
+        .quotient(rows_divider_quotient));
 
     function automatic signed [63:0] rne_shift(input signed [63:0] v, input integer sh);
         reg signed [63:0] mag,q,rem,half;
@@ -200,14 +217,6 @@ module vector_sequencer #(
     endfunction
     function automatic signed [7:0] sat8(input signed [63:0] v);
         if(v>127) sat8=127; else if(v < -128) sat8=-128; else sat8=v[7:0];
-    endfunction
-    function automatic [31:0] rne_div48(input [31:0] v);
-        reg [31:0] q, rem;
-        begin
-            q=v/48; rem=v%48;
-            if((2*rem>48)||((2*rem==48)&&q[0])) q=q+1;
-            rne_div48=q;
-        end
     endfunction
     function automatic [31:0] even_power_of_two(input [4:0] exponent);
         begin
@@ -248,6 +257,8 @@ module vector_sequencer #(
     always_comb begin
         buf_we_c=0; buf_re_c=0; buf_store_en_c=0; buf_addr_c=0; buf_wdata_c=0;
         divider_start=0; divider_numerator=0; divider_denominator=soft_sum;
+        norm_divider_start=0; norm_divider_numerator=square_sum; norm_divider_denominator=6'd48;
+        rows_divider_start=0; rows_divider_numerator=words_total; rows_divider_denominator=5'd24;
         case(state)
             PR: begin buf_re_c=1; buf_store_en_c=1; buf_addr_c=param+index; end
             GR: begin buf_re_c=1; buf_store_en_c=1; buf_addr_c=record[1]+index; end
@@ -276,6 +287,9 @@ module vector_sequencer #(
                 divider_start=1;
                 divider_numerator=({soft_values[soft_element],8'b0}-soft_values[soft_element])+(soft_sum>>1);
             end
+            NORM_PREP: norm_divider_start=1;
+            CHECK_B: if(!validation_error_q && !validation_error_b_c && !validation_error_c_c && subop==NORM)
+                rows_divider_start=1;
             default: ;
         endcase
     end
@@ -379,7 +393,7 @@ module vector_sequencer #(
         else begin
             done<=0;
             case(state)
-                IDLE: if(start) begin busy<=1; error<=0; index<=0; row<=0; square_sum<=0; words_total<=length>>1; rows_total<=(length>>1)/24; state<=PR; end
+                IDLE: if(start) begin busy<=1; error<=0; index<=0; row<=0; square_sum<=0; words_total<=length>>1; rows_total<=0; state<=PR; end
                 PR: state<=PW0; PW0: state<=PW1; PW1: state<=PR_WAIT2;
                 PR_WAIT2: begin record[index]<=buf_rdata; if(index==7) begin index<=0; state<=CHECK; end else begin index<=index+1; state<=PR; end end
                 CHECK: begin
@@ -389,7 +403,7 @@ module vector_sequencer #(
                 CHECK_A: begin validation_error_q<=validation_error_a_c; state<=CHECK_B; end
                 CHECK_B: begin
                     if(validation_error_q|validation_error_b_c|validation_error_c_c) begin error<=1; state<=FINISH; end
-                    else if(subop==NORM) state<=GR;
+                    else if(subop==NORM) state<=NORM_ROWS_WAIT;
                     else if(subop==SOFT) state<=SR;
                     else if(subop==MAT) begin
                         mat_m<=record[2][4:0]+1; mat_kdim<=record[2][9:5]+1; mat_n<=record[2][14:10]+1;
@@ -430,8 +444,19 @@ module vector_sequencer #(
                     if(index==23) begin index<=0; state<=NORM_PREP; end
                     else begin index<=index+1; state<=NAR; end
                 end
-                NORM_PREP: begin norm_mean_div<=rne_div48(square_sum); state<=NORM_MEAN_ADD; end
-                NORM_MEAN_ADD: begin norm_mean<=norm_mean_div+1; state<=NORM_LOG_INIT; end
+                NORM_ROWS_WAIT: if(rows_divider_done) begin rows_total<=rows_divider_quotient; state<=GR; end
+                NORM_PREP: state<=NORM_MEAN_DIV_WAIT;
+                NORM_MEAN_DIV_WAIT: if(norm_divider_done) begin
+                    norm_mean_div<=norm_divider_quotient;
+                    norm_div_remainder<=square_sum-(norm_divider_quotient*32'd48);
+                    state<=NORM_MEAN_RNE;
+                end
+                NORM_MEAN_RNE: begin
+                    norm_mean<=norm_mean_div+1+
+                        (((norm_div_remainder<<1)>32'd48) ||
+                         (((norm_div_remainder<<1)==32'd48) && norm_mean_div[0]));
+                    state<=NORM_LOG_INIT;
+                end
                 NORM_LOG_INIT: begin norm_log_probe<=30; state<=NORM_LOG_SCAN; end
                 // One descending threshold compare per cycle selects
                 // floor(log2(v)) rounded down to an even exponent.
