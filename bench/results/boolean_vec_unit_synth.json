@@ -1,55 +1,64 @@
 {
   "clock_period_pin_ns": 10.0,
+  "command": "powershell -ExecutionPolicy Bypass -File tools/run_boolean_synth.ps1",
   "core_clock_hz": 50000000,
   "delta": {
     "bram": 1.0,
-    "dsp": 10,
-    "ff": 1859,
-    "lut": 4481
+    "dsp": 12,
+    "ff": 2556,
+    "lut": 3837
   },
   "modes": {
     "0": {
       "bram": 33.0,
       "core_clock_name": "mmcm_clk",
       "dsp": 72,
-      "ff": 8665,
-      "lut": 17553,
+      "ff": 8685,
+      "lut": 17850,
       "part": "xc7s50csga324-1",
       "timing_report": "build/reports/boolean_vec0_timing_summary.rpt",
       "top": "top_board",
       "utilization_report": "build/reports/boolean_vec0_utilization.rpt",
-      "whs_ns": 0.02,
-      "wns_ns": 3.977,
+      "whs_ns": 0.028,
+      "wns_ns": 4.733,
       "worst_path": {
-        "endpoint": "u_top/u_unified_buffer/gen_bram[2].u_bank_bram/xpm_memory_base_inst/gen_wr_a.gen_byte_narrow.for_mem_cols[1].mem_reg/DIADI[4]",
-        "startpoint": "u_top/buffer_store_count_reg[1]/C"
+        "endpoint": "u_top/perf_attr_bstore_reg[10]/R",
+        "startpoint": "u_top/fifo_in/mem_reg/CLKBWRCLK"
       }
     },
     "1": {
       "bram": 34.0,
       "core_clock_name": "mmcm_clk",
-      "dsp": 82,
-      "ff": 10524,
-      "lut": 22034,
+      "dsp": 84,
+      "ff": 11241,
+      "lut": 21687,
       "part": "xc7s50csga324-1",
       "timing_report": "build/reports/boolean_vec1_timing_summary.rpt",
       "top": "top_board",
       "utilization_report": "build/reports/boolean_vec1_utilization.rpt",
-      "whs_ns": 0.023,
-      "wns_ns": 0.218,
+      "whs_ns": 0.006,
+      "wns_ns": 3.303,
       "worst_path": {
-        "endpoint": "u_top/g_vector_unit.u_vector_sequencer/scale_rounded_reg[62]/D",
-        "startpoint": "u_top/g_vector_unit.u_vector_sequencer/scale_product_reg[0]/C"
+        "endpoint": "u_top/u_unified_buffer/gen_bram[12].u_bank_bram/xpm_memory_base_inst/gen_wr_a.gen_byte_narrow.for_mem_cols[1].mem_reg/DIADI[6]",
+        "startpoint": "u_top/vec_start_reg/C"
       }
     }
   },
   "part": "xc7s50csga324-1",
+  "rtl_head_blobs": {
+    "rtl/top/top.sv": "f7efe59cad9f5c1db25fbaa5a2cdcdf26eb7dc19",
+    "rtl/top/top_board.sv": "24e79d74413fcc2286d1abbd62e9ee1cfd586962",
+    "rtl/vector/restoring_divider.sv": "dce96f24e13ac235a0b3fd3fdeb4ecfaace96da7",
+    "rtl/vector/vector_alu.sv": "9ec2173d304b20b0955e508a926bb3dd4a772ca7",
+    "rtl/vector/vector_sequencer.sv": "2f3bc3bbc41c83f6e098baa7824b5e4694cfdf82",
+    "rtl/vector/vector_serial_alu.sv": "313fac580ac9910aed29c4c20f81f7513d29f5c3"
+  },
   "status": "ok",
   "top": "top_board",
   "vector_unit_ooc": {
     "clock_period_ns": 20.0,
     "report": "build/reports/vector_ooc_timing.rpt",
-    "whs_ns": 0.072,
-    "wns_ns": 1.231
+    "whs_ns": 0.07,
+    "wns_ns": 6.89
   }
 }
