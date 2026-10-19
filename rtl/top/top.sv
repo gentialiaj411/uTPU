@@ -974,11 +974,17 @@ module top #(
                 next_state = VEC_RETURN_FETCH_LATCH_STATE;
 
             VEC_RETURN_FETCH_LATCH_STATE:
-                // VEC_RETURN_FETCH_LATCH has already fetched and latched the
-                // first following instruction.  It must always be decoded:
-                // taking FETCH here discarded every non-VEC instruction after
-                // a vector op, misaligning VEC -> legacy transitions.
-                next_state = DECODE_STATE;
+                // A following VEC escape and extended requant header are
+                // already completely present in bram_rd_data.  Decode those
+                // directly; ordinary legacy opcodes retain the established
+                // fetch cadence below.
+                if (bram_rd_data == 16'h05A5 ||
+                    (EXT_ADDR_EN &&
+                     opcode_e'(bram_rd_data[OPCODE_WIDTH-1:0]) == NOP &&
+                     bram_rd_data[3]))
+                    next_state = DECODE_STATE;
+                else
+                    next_state = FETCH_BRAM_STATE;
 
             // STORE multi-word fetch from BRAM
             STORE_FETCH_W2_STATE:
