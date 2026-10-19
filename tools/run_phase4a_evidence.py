@@ -6,7 +6,9 @@ import numpy as np
 
 ROOT=Path(__file__).resolve().parents[1]; HOST=ROOT/'firmware'/'host'; BUILD=ROOT/'build'/'phase4a'
 sys.path.insert(0,str(HOST))
-from isa_encoder import IsaConfig, encodeHalt, encode_vec_vlayout, encode_vec_vmatmul
+from isa_encoder import (IsaConfig, encodeHalt, encodeLoadInputs, encodeLoadWeights, encodeNop,
+                         encodeRequantParamsVector, encodeRun, encode_vec_vlayout,
+                         encode_vec_vmatmul)
 from isa_simulator import UTPUISASimulator
 from run_phase3_evidence import FULL_TOP_SOURCES, IVERILOG, VVP
 from tiny_transformer_reference import TinyTransformerConfig, integer_decoder_trace
@@ -93,6 +95,26 @@ def full_top():
  if not z or int(z.group(1)):raise RuntimeError(o)
  return {'cases':1,'mismatches':0,'cycles':int(z.group(2)),'passed':True}
 
+def f4_legacy_gemm():
+ """Physical VLAYOUT 6/7 boundary around a real legacy 4x8-by-8x8 GEMM."""
+ rng=np.random.default_rng(4106);x=rng.integers(-3,4,(4,8),dtype=np.int8);w=rng.integers(-3,4,(8,8),dtype=np.int8)
+ m=[0]*32768;put(m,100,x);m[900:908]=[6,0x00e3,6,0x0808,0,0,0,0];m[908:916]=[6,0x00e3,7,0x0808,0,0,0,0]
+ # The legacy load map consumes one 8x8 tile, rows are output channels.
+ wt=[]
+ for row in w: wt.extend(row)
+ put(m,1000,np.asarray(wt,np.int8))
+ pg=words(encode_vec_vlayout(300,100,900,32,cfg=CFG)+encodeNop(cfg=CFG)+encodeRequantParamsVector([1]*8,[0]*8,cfg=CFG)+encodeLoadWeights(1000,cfg=CFG)+encodeLoadInputs(300,batch_count=4,cfg=CFG)+encodeRun(500,compute_en=True,quantize_en=False,relu_en=False,acc_clear_en=True,batch_count=4,cfg=CFG)+encodeRun(500,compute_en=False,quantize_en=True,relu_en=False,batch_count=4,cfg=CFG)+encode_vec_vlayout(700,500,908,32,cfg=CFG)+encodeHalt(cfg=CFG))
+ want=np.clip(x.astype(np.int32)@w.astype(np.int32).T,-128,127).astype(np.int8)
+ s=UTPUISASimulator(array_size=8,buffer_size=32768,cfg=CFG);s.buffer[:]=m;s.run_words(pg,preserve_buffer=True)
+ isa=np.frombuffer(np.asarray(s.buffer[700:716],dtype='<u2').tobytes(),dtype=np.int8).reshape(4,8);isa_mis=int(np.count_nonzero(isa!=want))
+ BUILD.mkdir(parents=True,exist_ok=True);ip,pp,ep=[BUILD/f'f4_{z}.mem' for z in ('input','prog','expect')]
+ ip.write_text('\n'.join(f'{v:04x}' for v in m)+'\n');pp.write_text('\n'.join(f'{v:04x}' for v in pg)+'\n');ep.write_text('\n'.join(f'{((int(s.buffer[700+i])&65535)<<16)|(700+i):08x}' for i in range(16))+'\n')
+ tb=BUILD/'f4_full.sv';tb.write_text(f'''module tb;logic clk=0,rst=0,rx=1;wire tx,led_rst;integer i,c,miss;reg[15:0]m[0:32767],p[0:{len(pg)-1}];reg[31:0]e[0:15];top #(.ARRAY_SIZE(8),.BUFFER_SIZE(32768),.COMPUTE_DATA_WIDTH(8),.ACCUMULATOR_DATA_WIDTH(32),.EXT_ADDR_EN(1),.PROG_DEPTH(1024),.FIFO_WIDTH(256),.MAX_BATCH_COUNT(4),.QUANTIZER_PIPE_DEPTH(1),.VECTOR_UNIT_EN(1))d(.clk(clk),.rst(rst),.rx(rx),.tx(tx),.led_rst(led_rst));always #5 clk=~clk;task push(input[7:0]v);@(posedge clk);d.fifo_in.mem[d.fifo_in.w_ptr[7:0]]=v;d.fifo_in.w_ptr=d.fifo_in.w_ptr+1;repeat(4)@(posedge clk);endtask initial begin $readmemh("{ip.as_posix()}",m);$readmemh("{pp.as_posix()}",p);$readmemh("{ep.as_posix()}",e);repeat(8)@(posedge clk);rst=1;repeat(8)@(posedge clk);for(i=0;i<32768;i=i+1)d.u_unified_buffer.bank_mem[i%32][i/32]=m[i];push(8'ha1);push({len(pg)});push(0);for(i=0;i<{len(pg)};i=i+1)begin push(p[i][7:0]);push(p[i][15:8]);end for(c=0;c<10000&&d.current_state!=d.WAIT_START_STATE;c=c+1)@(posedge clk);if(d.current_state!=d.WAIT_START_STATE)$fatal(1,"upload");push(8'ha2);for(c=0;c<200000&&d.current_state!=d.HALT_STATE;c=c+1)@(posedge clk);if(d.current_state!=d.HALT_STATE)$fatal(1,"run");miss=0;for(i=0;i<16;i=i+1)if(d.u_unified_buffer.bank_mem[e[i][15:0]%32][e[i][15:0]/32]!==e[i][31:16])miss=miss+1;$display("P4A_F4 %0d %0d",miss,c);$finish;end endmodule''')
+ tb.write_text(tb.read_text().replace('repeat(4)@(posedge clk)', 'repeat(8)@(posedge clk)'))
+ exe=BUILD/'f4_full.vvp';subprocess.run([str(IVERILOG),'-g2012','-DICARUS','-s','tb','-o',str(exe),*FULL_TOP_SOURCES[:-1],str(tb)],cwd=ROOT,check=True,capture_output=True,text=True);o=subprocess.check_output([str(VVP),str(exe)],cwd=ROOT,text=True);z=re.search(r'P4A_F4 (\d+) (\d+)',o)
+ if not z: raise RuntimeError(o)
+ rtl_mis=int(z.group(1));return {'cases':1,'shape':'4x8x8','numpy_mismatches':isa_mis,'isa_mismatches':isa_mis,'rtl_mismatches':rtl_mis,'cycles':int(z.group(2)),'passed':isa_mis==0 and rtl_mis==0}
+
 def decode_errors():
  """Execute malformed subop-4/5 descriptors; each must fail before writes."""
  out={}
@@ -122,7 +144,7 @@ def main():
   tr,au,bu,ca=families[i%len(families)];a=rng.integers(0 if au else -128,256 if au else 128,(2,2),dtype=np.uint8 if au else np.int8);b=rng.integers(0 if bu else -128,256 if bu else 128,(2,2),dtype=np.uint8 if bu else np.int8)
   if i==0:a=np.array([[127,-128],[127,-128]],np.int8);b=np.array([[127,-128],[-128,127]],np.int8);tr,au,bu,ca=1,0,0,1
   cases.append((a.view(np.int8),b.view(np.int8),tr,au,bu,ca,run_sim(a,b,tr,au,bu,ca)))
- rtl=rtl_matmul(cases);lay=layouts();ref=reference_stages();top=full_top();dec=decode_errors();out={'status':'passed','command':'python tools/run_phase4a_evidence.py','seed':4104,'matmul':{'sim_cases':len(cases),'rtl':rtl,'families':len(families),'edge_cases':['max_magnitude','K=1','M=N=1','causal_row_0']},'layout':lay,'reference_score_av':ref,'full_top':top,'decode_errors':dec}
- if any((rtl['mismatches'],lay['mismatches'],ref['mismatches'],top['mismatches'],dec['mismatches'])):out['status']='failed'
+ rtl=rtl_matmul(cases);lay=layouts();ref=reference_stages();top=full_top();f4=f4_legacy_gemm();dec=decode_errors();out={'status':'passed','command':'python tools/run_phase4a_evidence.py','seed':4104,'matmul':{'sim_cases':len(cases),'rtl':rtl,'families':len(families),'edge_cases':['max_magnitude','K=1','M=N=1','causal_row_0']},'layout':lay,'reference_score_av':ref,'full_top':top,'f4_legacy_gemm':f4,'decode_errors':dec}
+ if any((rtl['mismatches'],lay['mismatches'],ref['mismatches'],top['mismatches'],not f4['passed'],dec['mismatches'])):out['status']='failed'
  (ROOT/'bench/results/phase4a_vector_evidence.json').write_text(json.dumps(out,indent=2,sort_keys=True)+'\n');print(json.dumps(out,sort_keys=True));return int(out['status']!='passed')
 if __name__=='__main__':raise SystemExit(main())

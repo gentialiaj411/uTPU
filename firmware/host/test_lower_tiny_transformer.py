@@ -25,7 +25,7 @@ def test_complete_program_is_deterministic_and_within_32k(exported) -> None:
     first = build_program(exported["qstate"], exported["export_schema"])
     second = build_program(exported["qstate"], exported["export_schema"])
     assert first == second
-    assert len(first) == 25_546
+    assert len(first) == 25_551
     assert len(first) <= 32_768
     assert first[-1] == 4  # HALT
 

@@ -33,6 +33,10 @@ def main():
   ref=r.get('reference_score_av',{})
   if ref.get('sequences',0)<512 or ref.get('score_cases',0)<1536 or ref.get('av_cases',0)<1536:bad.append('reference score/AV coverage')
   if r.get('full_top',{}).get('cases',0)<1:bad.append('full-top VMATMUL coverage')
+  f4=r.get('f4_legacy_gemm',{})
+  if (f4.get('cases',0)<1 or f4.get('shape')!='4x8x8' or not f4.get('passed') or
+      any(f4.get(k,1)!=0 for k in ('numpy_mismatches','isa_mismatches','rtl_mismatches'))):
+   bad.append('F4 VLAYOUT/legacy-GEMM boundary proof')
   dec=r.get('decode_errors',{});classes=dec.get('classes',{})
   required={'matmul_bad_record_kind','matmul_reserved_record_bits','matmul_invalid_stride','matmul_illegal_causal_shape','matmul_prohibited_overlap','layout_bad_record_kind','layout_reserved_record_bits','layout_invalid_stride','layout_physical_shape','layout_prohibited_overlap'}
   if not required.issubset(classes) or dec.get('mismatches',1)!=0 or not dec.get('passed'):bad.append('VMATMUL/VLAYOUT decode-error coverage')

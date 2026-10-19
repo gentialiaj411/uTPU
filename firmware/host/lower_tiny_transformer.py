@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any
 import numpy as np
 from isa_encoder import (IsaConfig, encodeHalt, encodeLoadInputs, encodeLoadWeights,
-                         encodeRequantParamsVector, encodeRun, encode_vec_vadd_rq,
+                         encodeNop, encodeRequantParamsVector, encodeRun, encode_vec_vadd_rq,
                          encode_vec_vlayout, encode_vec_vmatmul, encode_vec_vpos_add,
                          encode_vec_vrmsnorm, encode_vec_vsoftmax)
 
@@ -83,7 +83,7 @@ def build_program_stages(state:dict[str,np.ndarray], schema:dict[str,Any])->list
     # populated below for QK/AV and each boundary layout at M.vec.
     at=begin();emit(_vec(2,M.x,M.x,R_POS,1536));end('pos_add',at)
     at=begin();emit(_vec(1,M.r,M.x,R_N1,1536));end('rmsnorm1',at)
-    at=begin();emit(_vec(5,M.out_l,M.r,R_RM_LOAD_48_QKV,1536));end('norm1_to_qkv_load',at)
+    at=begin();emit(_vec(5,M.out_l,M.r,R_RM_LOAD_48_QKV,1536));emit(encodeNop(cfg=CFG));end('norm1_to_qkv_load',at)
     # The legacy GEMM body is emitted per B=4 group/output tile.  QPARAM is
     # intentionally outside the group loop, avoiding 8x duplicated records.
     def linear(weight_base, weight, in_base, out_base, in_cols, out_cols, line, relu=False):
@@ -101,19 +101,19 @@ def build_program_stages(state:dict[str,np.ndarray], schema:dict[str,Any])->list
         at=begin();emit(_vec(4,M.score,M.qkv_r+h*8,R_QK0+h*8,1024,causal=True));end(f'scores_head{h}',at)
         at=begin();emit(_vec(3,M.score,M.score,R_SOFT,1024,causal=True,head=h));end(f'softmax_head{h}',at)
         at=begin();emit(_vec(4,M.head+h*256,M.score,R_AV0+h*8,512,causal=True));end(f'av_head{h}',at)
-    at=begin();emit(_vec(5,M.r,M.head,R_RM_LOAD_48_OUT,1536));end('heads_to_out_load',at)
+    at=begin();emit(_vec(5,M.r,M.head,R_RM_LOAD_48_OUT,1536));emit(encodeNop(cfg=CFG));end('heads_to_out_load',at)
     at=begin();linear(M.out,state['blocks.0.out.weight'],M.r,M.out_l,48,48,schema['linears']['out']);end('out_proj',at)
     at=begin();emit(_vec(5,M.out_r,M.out_l,R_LFIN_RM_48_OUT,1536));end('out_to_rm',at)
     at=begin();emit(_vec(0,M.out_r,M.x,R_RES1,1536));end('residual1',at)
     at=begin();emit(_vec(1,M.r,M.out_r,R_N2,1536));end('rmsnorm2',at)
-    at=begin();emit(_vec(5,M.x,M.r,R_RM_LOAD_48_FF,1536));end('norm2_to_ff_load',at)
+    at=begin();emit(_vec(5,M.x,M.r,R_RM_LOAD_48_FF,1536));emit(encodeNop(cfg=CFG));end('norm2_to_ff_load',at)
     at=begin();linear(M.ff1,state['blocks.0.ff1.weight'],M.x,M.hidden_l,48,192,schema['linears']['ff1'],relu=True);end('ffn1_leaky_relu',at)
-    at=begin();emit(_vec(5,M.x,M.hidden_l,R_LFIN_LOAD_192,6144));end('ffn1_to_ff2_load',at)
+    at=begin();emit(_vec(5,M.x,M.hidden_l,R_LFIN_LOAD_192,6144));emit(encodeNop(cfg=CFG));end('ffn1_to_ff2_load',at)
     at=begin();linear(M.ff2,state['blocks.0.ff2.weight'],M.x,M.ffn2_l,192,48,schema['linears']['ff2']);end('ffn2',at)
     at=begin();emit(_vec(5,M.r,M.ffn2_l,R_LFIN_RM_48_FF,1536));end('ffn2_to_rm',at)
     at=begin();emit(_vec(0,M.r,M.out_r,R_RES2,1536));end('residual2',at)
     at=begin();emit(_vec(1,M.out_l,M.r,R_FINAL,1536));end('final_norm',at)
-    at=begin();emit(_vec(5,M.x,M.out_l,R_RM_LOAD_48_LM,1536));end('final_to_lm_load',at)
+    at=begin();emit(_vec(5,M.x,M.out_l,R_RM_LOAD_48_LM,1536));emit(encodeNop(cfg=CFG));end('final_to_lm_load',at)
     at=begin();linear(M.token,state['token.weight'],M.x,M.logits_l,48,72,schema['linears']['logits']);end('logits',at)
     return stages
 

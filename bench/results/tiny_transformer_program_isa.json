@@ -8,8 +8,8 @@
     "tokens": 111520,
     "top1_accuracy": 0.410096843615495
   },
-  "program_sha256": "fa4fc2fd752cfef33da1d9d52007d4792f2929f14234ed2879a7c88526269ff2",
-  "program_words": 25546,
+  "program_sha256": "114692f5d73e934d9188cc46109a0a03c1aec68e1df464eb29bfa4e221b5273b",
+  "program_words": 25551,
   "sequences": 512,
   "stages": {
     "av_head0": {
