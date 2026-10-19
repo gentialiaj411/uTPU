@@ -24,7 +24,7 @@ if (-not $Vivado) {
 
 $Common = @("part", "xc7s50csga324-1", "top", "top_board", "ARRAY_SIZE", "8",
             "COMPUTE_DATA_WIDTH", "8", "MAX_BATCH_COUNT", "4", "clock_period", "10",
-            "CORE_CLK_HZ", "50000000", "PROG_DEPTH", "65536", "BUFFER_SIZE", "32768",
+            "CORE_CLK_HZ", "50000000", "PROG_DEPTH", "32768", "BUFFER_SIZE", "32768",
             "WEIGHT_REGION_WORDS", "27648")
 foreach ($Mode in 0,1) {
     $Prefix = "boolean_vec$Mode"

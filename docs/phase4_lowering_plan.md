@@ -74,8 +74,9 @@ The previous unrolled estimate was 35,866 words, including 10,404 words for
 legacy QK/AV. VMATMUL replaces those with 36 words and eight VLAYOUTs add
 48 words, including the required LFIN-to-physical FFN handoff:
 `35,866 - 10,404 + 41 + 48 = 25,551` words. This fits the Boolean
-profile's `PROG_DEPTH=65,536`; the profile is intentionally raised to 64K so
-the conservative legacy image and future instrumentation also fit.
+profile's fixed `PROG_DEPTH=32,768`, leaving 7,217 instruction words of
+headroom. The 32K profile is the shipping decision; future instrumentation
+must remain within that budget or use a separately named profile.
 
 ## VMATMUL records and legality
 
@@ -120,4 +121,5 @@ flag are decode errors before a write.
   mode 5 is LFIN-to-physical legacy LOAD. They avoid prohibited in-place
   conversions and retain the frozen legacy PE datapath.
 * The measured program is 25,551 words, leaving a 22% margin to 32,768;
-  Phase 4 restores `PROG_DEPTH=32768` after its required re-synthesis.
+  Boolean Phase 4 uses `PROG_DEPTH=32768` in both the host profile and the
+  synthesis script.

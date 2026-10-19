@@ -20,7 +20,7 @@ from isa_simulator import UTPUISASimulator
 def test_boolean_profile_reserves_tiled_int8_mnist_weights_and_fits_estimate():
     board = BoardConfig.boolean_xc7s50()
     assert board.buffer_size == 32768
-    assert board.prog_depth == 65536
+    assert board.prog_depth == 32768
     assert board.weight_region_words == 27648
     assert board.max_batch_count == 4
     assert board.weight_region_words <= board.buffer_size
