@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "tinyllamas_revision": "0bd21da7698eaf29a0d7de3992de8a46ef624add",
+  "llama2c_revision": "350e04fe35433e6d2941dce5a1f53308f87058eb",
+  "tinystories_revision": "f54c09fd23315a6f9c86f9dc80f725de7d8f9c64",
+  "downloads": [
+    {
+      "path": "stories260K/stories260K.bin",
+      "url": "https://huggingface.co/karpathy/tinyllamas/resolve/0bd21da7698eaf29a0d7de3992de8a46ef624add/stories260K/stories260K.bin",
+      "sha256": "b0a507e7ad0f626624f17112325e66691f9076d622e1d3274d103d00299f2696"
+    },
+    {
+      "path": "stories260K/tok512.bin",
+      "url": "https://huggingface.co/karpathy/tinyllamas/resolve/0bd21da7698eaf29a0d7de3992de8a46ef624add/stories260K/tok512.bin",
+      "sha256": "037cb335abb25d1fa9e8ecae30ed2a3a8ace9302862ebcdc05d51a6bbb10c312"
+    },
+    {
+      "path": "stories15M.bin",
+      "url": "https://huggingface.co/karpathy/tinyllamas/resolve/0bd21da7698eaf29a0d7de3992de8a46ef624add/stories15M.bin",
+      "sha256": "cd590644d963867a2b6e5a1107f51fad663c41d79c149fbecbbb1f95fa81f49a"
+    },
+    {
+      "path": "tokenizer.bin",
+      "url": "https://raw.githubusercontent.com/karpathy/llama2.c/350e04fe35433e6d2941dce5a1f53308f87058eb/tokenizer.bin",
+      "sha256": "50a52ef822ee9e83de5ce9d0be0a025a773d019437f58b5ff9dcafb063ece361"
+    },
+    {
+      "path": "TinyStories-valid.txt",
+      "url": "https://huggingface.co/datasets/roneneldan/TinyStories/resolve/f54c09fd23315a6f9c86f9dc80f725de7d8f9c64/TinyStories-valid.txt",
+      "sha256": "94e431816c4cce81ff71e4408ff8d3bda9a42e8d2663986697c3954288cb38b4"
+    }
+  ],
+  "eval_slice": {
+    "source_path": "TinyStories-valid.txt",
+    "path": "eval_slice.txt",
+    "bytes": 1048576,
+    "sha256": "ae55d9eb37d0e99c6e1051dbeb212f51b6c1d2d98858fccd81f5676bee92a4e7"
+  },
+  "note": "karpathy/tinyllamas does not publish tokenizer.bin at its pinned revision; the 15M tokenizer is the pinned official karpathy/llama2.c tokenizer.bin used by run.c."
+}

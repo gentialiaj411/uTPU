@@ -40,6 +40,9 @@ weights/
 *.bin
 *.pth
 
+# Reproducible llama2.c model/data downloads (see tools/llama2c/manifest.json)
+models/llama2c/
+
 # Root-level compiled experiments
 /a.out
 /assembler
