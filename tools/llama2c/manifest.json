@@ -28,6 +28,12 @@
       "path": "TinyStories-valid.txt",
       "url": "https://huggingface.co/datasets/roneneldan/TinyStories/resolve/f54c09fd23315a6f9c86f9dc80f725de7d8f9c64/TinyStories-valid.txt",
       "sha256": "94e431816c4cce81ff71e4408ff8d3bda9a42e8d2663986697c3954288cb38b4"
+    },
+    {
+      "path": "TinyStories-train.slice.txt",
+      "url": "https://huggingface.co/datasets/roneneldan/TinyStories/resolve/f54c09fd23315a6f9c86f9dc80f725de7d8f9c64/TinyStories-train.txt",
+      "range": "bytes=0-1048575",
+      "sha256": "1c00f67921651ecf58c88044983fa9fe93ce4b3a372d2633bfc1d1de9dd3710a"
     }
   ],
   "eval_slice": {

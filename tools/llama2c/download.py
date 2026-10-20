@@ -20,12 +20,22 @@ def sha256(path: Path) -> str:
     return h.hexdigest()
 
 
-def fetch(url: str, path: Path) -> None:
+def fetch(url: str, path: Path, byte_range: str | None = None) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.exists():
         return
     tmp = path.with_suffix(path.suffix + ".partial")
-    urllib.request.urlretrieve(url, tmp)
+    request = urllib.request.Request(url, headers={"Range": byte_range} if byte_range else {})
+    with urllib.request.urlopen(request) as response, tmp.open("wb") as output:
+        if byte_range:
+            begin, end = (int(item) for item in byte_range.removeprefix("bytes=").split("-"))
+            expected = end - begin + 1
+            payload = response.read(expected + 1)
+            if len(payload) != expected:
+                raise RuntimeError(f"server did not honor {byte_range}: received {len(payload)} bytes")
+            output.write(payload)
+        else:
+            output.write(response.read())
     tmp.replace(path)
 
 
@@ -33,7 +43,7 @@ def main() -> None:
     spec = json.loads(MANIFEST.read_text(encoding="utf-8"))
     for item in spec["downloads"]:
         path = OUT / item["path"]
-        fetch(item["url"], path)
+        fetch(item["url"], path, item.get("range"))
         got = sha256(path)
         if item["sha256"] and got != item["sha256"]:
             raise RuntimeError(f"sha256 mismatch for {path}: {got}")

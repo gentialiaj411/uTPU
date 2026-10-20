@@ -1,0 +1,52 @@
+"""Shared integer arithmetic contract. This module intentionally has no floats."""
+
+from __future__ import annotations
+
+import numpy as np
+
+I32_MAX = (1 << 31) - 1
+
+
+def rshift_rne(value, shift):
+    """Signed right shift, round-to-nearest with ties to even."""
+    x = np.asarray(value, dtype=np.int64)
+    s = np.asarray(shift, dtype=np.int64)
+    if np.any(s < 0):
+        raise ValueError("right shift must be nonnegative")
+    safe = np.maximum(s, 1)
+    mag = np.abs(x)
+    q = np.right_shift(mag, safe)
+    rem = mag - np.left_shift(q, safe)
+    half = np.left_shift(np.ones_like(safe), safe - 1)
+    inc = (rem > half) | ((rem == half) & ((q & 1) != 0))
+    rounded = q + inc
+    signed = np.where(x < 0, -rounded, rounded)
+    return np.where(s == 0, x, signed)
+
+
+def div_rne(numerator, denominator):
+    """Signed integer division, round-to-nearest with ties to even."""
+    n = np.asarray(numerator, dtype=np.int64)
+    d = np.asarray(denominator, dtype=np.int64)
+    if np.any(d <= 0):
+        raise ValueError("denominator must be positive")
+    mag = np.abs(n)
+    q, rem = np.divmod(mag, d)
+    inc = (rem * 2 > d) | ((rem * 2 == d) & ((q & 1) != 0))
+    return np.where(n < 0, -(q + inc), q + inc)
+
+
+def requant(value, multiplier, shift, lo=-128, hi=127, dtype=np.int8):
+    product = np.asarray(value, dtype=np.int64) * np.asarray(multiplier, dtype=np.int64)
+    return np.clip(rshift_rne(product, shift), lo, hi).astype(dtype)
+
+
+def checked_matmul(a, w, k_bound, weight_bound):
+    """INT32 dot product after a contractual worst-case overflow proof."""
+    bound = int(k_bound) * 127 * int(weight_bound)
+    assert bound <= I32_MAX, (k_bound, bound)
+    lhs = np.asarray(a, dtype=np.int32)
+    rhs = np.asarray(w, dtype=np.int32)
+    out = lhs @ rhs.T
+    assert out.dtype == np.int32
+    return out

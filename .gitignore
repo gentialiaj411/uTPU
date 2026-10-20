@@ -7,6 +7,7 @@
 *.wdb
 *.dbg
 *.mem
+!firmware/host/numerics_v2/luts/*.mem
 *.rtti
 *.xdbg
 *.sdb
