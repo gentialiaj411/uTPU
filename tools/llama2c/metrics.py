@@ -86,7 +86,9 @@ def evaluate(name: str, checkpoint: Path, tokenizer_path: Path, device: str) -> 
     ids = tokenize_eval(tok, ROOT / "models/llama2c/eval_slice.txt")
     model = load_torch_model(ref, device)
     nll, count = teacher_forced(model, ids, ref.config.seq_len, device)
-    return {"name": name, "eval_tokens": count, "mean_nll": nll, "perplexity": math.exp(nll),
+    return {"name": name, "eval_tokens": count,
+            "protocol": f"non-overlapping {ref.config.seq_len}-token windows",
+            "mean_nll": nll, "perplexity": math.exp(nll),
             "pytorch_parity_64_tokens": verify(str(checkpoint)),
             "greedy_agreement": {"prompts": 64, "tokens_per_prompt": 128,
               "identical_tokens_pct_vs_float": 100.0, "first_divergence_position": None,
@@ -109,8 +111,7 @@ def main() -> None:
            "eval": {"dataset": "roneneldan/TinyStories", "split": "validation",
            "revision": "f54c09fd23315a6f9c86f9dc80f725de7d8f9c64", "slice_bytes": slice_path.stat().st_size,
            "slice_sha256": hashlib.sha256(slice_path.read_bytes()).hexdigest(),
-           "tokenization": "llama2.c tinystories.py process_shard: strip + BOS per story + no EOS",
-           "protocol": "non-overlapping 512-token windows"},
+           "tokenization": "llama2.c tinystories.py process_shard: strip + BOS per story + no EOS"},
            "models": rows}
     target = ROOT / args.output
     target.parent.mkdir(parents=True, exist_ok=True)

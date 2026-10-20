@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at_utc": "2026-10-20T15:27:34.120517+00:00",
+  "generated_at_utc": "2026-10-20T15:30:29.415431+00:00",
   "device": "cuda",
   "float_evaluator": "pinned llama2.c model.py after NumPy parity gate",
   "eval": {
@@ -9,13 +9,13 @@
     "revision": "f54c09fd23315a6f9c86f9dc80f725de7d8f9c64",
     "slice_bytes": 1048576,
     "slice_sha256": "ae55d9eb37d0e99c6e1051dbeb212f51b6c1d2d98858fccd81f5676bee92a4e7",
-    "tokenization": "llama2.c tinystories.py process_shard: strip + BOS per story + no EOS",
-    "protocol": "non-overlapping 512-token windows"
+    "tokenization": "llama2.c tinystories.py process_shard: strip + BOS per story + no EOS"
   },
   "models": [
     {
       "name": "stories260K",
       "eval_tokens": 50000,
+      "protocol": "non-overlapping 512-token windows",
       "mean_nll": 1.2455144396972657,
       "perplexity": 3.4747218744954096,
       "pytorch_parity_64_tokens": {
@@ -35,6 +35,7 @@
     {
       "name": "stories15M",
       "eval_tokens": 50000,
+      "protocol": "non-overlapping 256-token windows",
       "mean_nll": 1.0064579299926757,
       "perplexity": 2.7358931072039208,
       "pytorch_parity_64_tokens": {
