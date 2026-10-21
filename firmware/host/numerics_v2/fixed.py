@@ -5,6 +5,8 @@ from __future__ import annotations
 import numpy as np
 
 I32_MAX = (1 << 31) - 1
+RECIP_SHIFT = 24
+INV127_Q24 = 132104
 
 
 def rshift_rne(value, shift):
@@ -34,6 +36,21 @@ def div_rne(numerator, denominator):
     q, rem = np.divmod(mag, d)
     inc = (rem * 2 > d) | ((rem * 2 == d) & ((q & 1) != 0))
     return np.where(n < 0, -(q + inc), q + inc)
+
+
+def reciprocal_rne(target, denominator):
+    """One Q24 reciprocal divide: RNE((target << 24) / denominator)."""
+    return div_rne(np.asarray(target, dtype=np.int64) << RECIP_SHIFT, denominator)
+
+
+def mul_recip(value, reciprocal):
+    """Per-element reciprocal application: RNE(value * reciprocal / 2^24)."""
+    return rshift_rne(np.asarray(value, dtype=np.int64) * np.asarray(reciprocal, dtype=np.int64), RECIP_SHIFT)
+
+
+def div127(value):
+    """Constant division by 127 using a Q24 reciprocal multiply and shift."""
+    return mul_recip(value, INV127_Q24)
 
 
 def requant(value, multiplier, shift, lo=-128, hi=127, dtype=np.int8):

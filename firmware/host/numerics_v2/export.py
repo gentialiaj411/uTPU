@@ -66,7 +66,7 @@ def export_model(reference, scales, bits=8, group_size=32, improved=False):
     c = reference.config
     embedding_scale = scales["x"]
     embedding = np.clip(np.rint(np.asarray(reference.token_embedding) / embedding_scale), -128, 127).astype(np.int8)
-    gamma_fraction_bits = 13
+    gamma_fraction_bits = 12
     gamma_att = np.clip(np.rint(np.asarray(reference.rms_att) * (1 << gamma_fraction_bits)), 0, 65535).astype(np.uint16)
     gamma_ffn = np.clip(np.rint(np.asarray(reference.rms_ffn) * (1 << gamma_fraction_bits)), 0, 65535).astype(np.uint16)
     gamma_final = np.clip(np.rint(np.asarray(reference.rms_final) * (1 << gamma_fraction_bits)), 0, 65535).astype(np.uint16)
@@ -111,6 +111,7 @@ def export_runq_model(reference, calibration_scales, bits=8, group_size=32, impr
     code, scale_multiplier = _adaptive_rows(reference.token_embedding, scales["x"])
     exported["embedding"] = code
     exported["embedding_scale_multiplier"] = scale_multiplier
+    exported["embedding_scale_shift"] = 7
     exported["silu_index_multiplier"], exported["silu_index_shift"] = multiplier_shift(scales["h1"] * 64.0)
     exported["swiglu_multiplier"], exported["swiglu_shift"] = multiplier_shift(
         scales["h1"] * scales["h3"] / scales["hidden"])

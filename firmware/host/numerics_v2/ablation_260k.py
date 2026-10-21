@@ -49,8 +49,8 @@ class DiagnosticModel:
             self.layers.append({name: weight(getattr(reference, name)[i]) for name in ("wq", "wk", "wv", "wo", "w1", "w2", "w3")})
         self.wcls = weight(reference.wcls)
         luts = json.loads((Path(__file__).with_name("luts") / "luts.json").read_text(encoding="utf-8"))
-        self.rope_cos = torch.tensor(luts["rope_cos_q15"]["values"], device=device).float() / 32768.0
-        self.rope_sin = torch.tensor(luts["rope_sin_q15"]["values"], device=device).float() / 32768.0
+        self.rope_cos = torch.tensor(luts["rope_cos_q15_h8"]["values"], device=device).float() / 32768.0
+        self.rope_sin = torch.tensor(luts["rope_sin_q15_h8"]["values"], device=device).float() / 32768.0
         self.silu_lut = torch.tensor(luts["silu_i8"]["values"], device=device).float() * scales["silu"]
         # The ablation freezes the pre-fix 1/16, [-8, 0] exp table even after
         # the production LUT is regenerated at higher resolution.

@@ -157,7 +157,7 @@ def main():
     int8_ppl = baseline[0]["perplexity"]
     large = any(row["perplexity"] - int8_ppl > 0.25 or row["teacher_forced_top1_agreement_pct"] < 90.0 for row in baseline[1:])
     improved = [evaluate_config(reference, scales, ids, prompts, golden, float_windows, 4, group, True) for group in (32, 64, 128)] if large else []
-    result = {"schema_version": 2, "generated_at_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
+    result = {"schema_version": 3, "generated_at_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
               "model": "stories260K", "checkpoint_sha256": hashlib.sha256(checkpoint.read_bytes()).hexdigest(),
               "eval": {"tokens": 50000, "slice_sha256": "ae55d9eb37d0e99c6e1051dbeb212f51b6c1d2d98858fccd81f5676bee92a4e7"},
               "calibration": calibration["metadata"], "configs": baseline,
@@ -165,12 +165,20 @@ def main():
                   "int8": {"perplexity": 4.096857063361471},
                   "int4_g32_maxabs": {"perplexity": 5.079092740660963},
                   "note": "Chunk-2 committed baseline; it predates teacher-forced top-1 and KL fields"},
+              "pre_hardware_ops_results": {
+                  "commit": "8cf34da", "int8": {"perplexity": 3.487334187827818,
+                  "teacher_forced_top1_agreement_pct": 97.124, "logit_kl_float_to_candidate": 0.003241212505391732},
+                  "int4_g32_maxabs": {"perplexity": 4.098266212488597, "teacher_forced_top1_agreement_pct": 80.16},
+                  "int4_g32_mse": {"perplexity": 3.959200381646341, "teacher_forced_top1_agreement_pct": 82.474}},
               "ablation_pre_fix": {"rows": ablation_rows, "ranking_by_kl_reduction": ablation_ranking},
               "quality_target": {**target, "float_perplexity": float_row["perplexity"], "passed": True},
-              "activation_path": {"scheme": "runtime max-abs INT8, code=RNE(value*128/peak), scale=(peak_multiplier, right_shift=7)",
+              "activation_path": {"scheme": "runtime max-abs INT8, reciprocal=RNE((127<<24)/peak), code=RNE(value*reciprocal/2^24)",
+                                  "reciprocal_shift": 24,
                                   "matmul_group_size": 64, "kv_group_size": "one 8-element KV head",
                                   "attention_value_group_size": 16,
                                   "calibration_base_guard_bits": 8, "weight_group_size_int8": 64},
+              "rmsnorm_hardware": {"sequence": "sum_squares -> scalar RNE mean divide -> exact integer sqrt -> scalar Q24 reciprocal divide -> elementwise multiply/RNE shift",
+                                   "per_element_divides": 0},
               "int4_loss_large_rule": "ppl delta vs INT8 > 0.25 or teacher-forced top-1 agreement < 90%",
               "int4_loss_large": large, "improvement": {"name": "MSE-optimal clipping per group", "configs": improved}}
     args.output.parent.mkdir(parents=True, exist_ok=True)

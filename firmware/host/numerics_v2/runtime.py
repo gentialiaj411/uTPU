@@ -12,7 +12,7 @@ from pathlib import Path
 
 import numpy as np
 
-from .fixed import checked_matmul, div_rne, requant, rshift_rne
+from .fixed import checked_matmul, div_rne, mul_recip, reciprocal_rne, requant, rshift_rne
 
 
 def _linear(x, record):
@@ -33,7 +33,8 @@ def _rmsnorm(x, gamma, gamma_fraction_bits, out_multiplier, out_shift):
     square_sum = int(np.sum(np.asarray(x, dtype=np.int32) ** 2, dtype=np.int32))
     mean = int(div_rne(square_sum, x.size)) + 1
     root_q15 = max(1, math.isqrt(mean << 30))
-    normalized_q15 = div_rne(np.asarray(x, dtype=np.int64) << 30, root_q15)
+    reciprocal = reciprocal_rne(1 << 30, root_q15)
+    normalized_q15 = mul_recip(x, reciprocal)
     combined = rshift_rne(normalized_q15 * np.asarray(gamma, dtype=np.int64), gamma_fraction_bits)
     return requant(combined, out_multiplier, out_shift)
 
@@ -43,7 +44,8 @@ def _rmsnorm_rows(x, gamma, gamma_fraction_bits, out_multiplier, out_shift):
     square_sum = np.sum(values ** 2, axis=-1, dtype=np.int32)
     mean = div_rne(square_sum, values.shape[-1]).astype(np.int64) + 1
     roots_q15 = np.fromiter((max(1, math.isqrt(int(item) << 30)) for item in mean.reshape(-1)), dtype=np.int64).reshape(mean.shape)
-    normalized_q15 = div_rne(values.astype(np.int64) << 30, roots_q15[..., None])
+    reciprocal = reciprocal_rne(1 << 30, roots_q15)
+    normalized_q15 = mul_recip(values, reciprocal[..., None])
     combined = rshift_rne(normalized_q15 * np.asarray(gamma, dtype=np.int64), gamma_fraction_bits)
     return requant(combined, out_multiplier, out_shift)
 
@@ -68,8 +70,9 @@ class IntegerLlama:
         self.residual_shift = np.asarray(export["residual_shift"], dtype=np.int64)
         folder = Path(lut_dir)
         luts = json.loads((folder / "luts.json").read_text(encoding="utf-8"))
-        self.rope_cos = np.asarray(luts["rope_cos_q15"]["values"], dtype=np.int16)
-        self.rope_sin = np.asarray(luts["rope_sin_q15"]["values"], dtype=np.int16)
+        head_size = int(self.cfg["head_size"])
+        self.rope_cos = np.asarray(luts[f"rope_cos_q15_h{head_size}"]["values"], dtype=np.int16)
+        self.rope_sin = np.asarray(luts[f"rope_sin_q15_h{head_size}"]["values"], dtype=np.int16)
         self.silu = np.asarray(luts["silu_i8"]["values"], dtype=np.int8)
         self.exp = np.asarray(luts["exp_q15"]["values"], dtype=np.uint16)
         layers, seq, kv = int(self.cfg["n_layers"]), int(self.cfg["seq_len"]), int(self.cfg["kv_dim"])
@@ -92,7 +95,8 @@ class IntegerLlama:
         delta = np.clip(score.astype(np.int16) - int(np.max(score)), -128, 0)
         exponent = self.exp[(-delta).astype(np.int16)].astype(np.int32)
         total = int(np.sum(exponent, dtype=np.int32))
-        return div_rne(exponent.astype(np.int64) * 32767, total).astype(np.int16)
+        reciprocal = reciprocal_rne(32767, total)
+        return mul_recip(exponent, reciprocal).astype(np.int16)
 
     def _rope_sequence(self, vector):
         pair = vector.reshape(vector.shape[0], -1, 2).astype(np.int32)
@@ -128,7 +132,8 @@ class IntegerLlama:
                 exponent = self.exp[(-delta).astype(np.int16)].astype(np.int32)
                 exponent[causal] = 0
                 total = np.sum(exponent, axis=1, dtype=np.int32)
-                probability = div_rne(exponent.astype(np.int64) * 32767, total[:, None]).astype(np.int32)
+                reciprocal = reciprocal_rne(32767, total)
+                probability = mul_recip(exponent, reciprocal[:, None]).astype(np.int32)
                 assert ids.size * 32767 * 127 <= (1 << 31) - 1
                 av = probability @ v[:, begin:end].astype(np.int32)
                 assert av.dtype == np.int32

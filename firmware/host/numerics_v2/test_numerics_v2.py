@@ -4,7 +4,7 @@ from pathlib import Path
 
 import numpy as np
 
-from firmware.host.numerics_v2.fixed import rshift_rne
+from firmware.host.numerics_v2.fixed import mul_recip, reciprocal_rne, rshift_rne
 from firmware.host.numerics_v2.export import accumulator_bounds, export_model, export_runq_model
 from firmware.host.numerics_v2.runtime import IntegerLlama
 from firmware.host.numerics_v2.runq_runtime import RunQIntegerLlama
@@ -25,6 +25,12 @@ def test_integer_forward_sources_have_no_float_constants_or_float_dtypes():
 def test_rne_signed_ties_to_even():
     values = np.asarray([-7, -6, -5, -3, -2, -1, 1, 2, 3, 5, 6, 7])
     assert rshift_rne(values, 1).tolist() == [-4, -3, -2, -2, -1, 0, 0, 1, 2, 2, 3, 4]
+
+
+def test_q24_reciprocal_uses_one_divide_then_elementwise_multiply_shift():
+    values = np.asarray([-1000, -7, 0, 7, 1000], dtype=np.int64)
+    reciprocal = reciprocal_rne(127, 1000)
+    assert mul_recip(values, reciprocal).tolist() == [-127, -1, 0, 1, 127]
 
 
 def test_lut_metadata_and_mem_depths():
@@ -66,11 +72,27 @@ def test_runq_vector_teacher_forcing_is_bit_exact_with_cached_decode():
     assert np.array_equal(expected, vector)
 
 
+def test_chunked_integer_logits_and_argmax_match_full_classifier():
+    reference = Llama2CModel(ROOT / "models/llama2c/stories260K/stories260K.bin")
+    scales = json.loads((HERE / "calibration_260k.json").read_text(encoding="utf-8"))["activation_scales"]
+    exported = export_runq_model(reference, scales, 8, 64)
+    exported.pop("dynamic_base_scales")
+    ids = [1, 10, 20, 30]
+    full_model = RunQIntegerLlama(exported, HERE / "luts")
+    full = full_model.forward_sequence(ids)
+    chunk_model = RunQIntegerLlama(exported, HERE / "luts")
+    chunked = np.concatenate([values for _, values in chunk_model.forward_sequence_logits_chunks(ids, 73)], axis=-1)
+    assert np.array_equal(full, chunked)
+    decode = RunQIntegerLlama(exported, HERE / "luts")
+    predicted = [decode.forward_argmax(token, pos, 73) for pos, token in enumerate(ids)]
+    assert predicted == np.argmax(full, axis=1).tolist()
+
+
 def test_rms_gamma_format_covers_checkpoint_without_saturation():
     reference = Llama2CModel(ROOT / "models/llama2c/stories260K/stories260K.bin")
     scales = json.loads((HERE / "calibration_260k.json").read_text(encoding="utf-8"))["activation_scales"]
     exported = export_runq_model(reference, scales, 8, 64)
-    assert exported["gamma_fraction_bits"] == 13
+    assert exported["gamma_fraction_bits"] == 12
     assert int(np.max(exported["gamma_final"])) < 65535
 
 
