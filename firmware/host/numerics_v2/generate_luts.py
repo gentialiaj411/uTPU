@@ -32,13 +32,19 @@ def generate(output: Path, silu_input_scale: float, silu_output_scale: float):
     code = np.arange(-128, 128, dtype=np.float64)
     real = code * silu_input_scale
     silu = np.clip(np.rint((real / (1.0 + np.exp(-real))) / silu_output_scale), -128, 127).astype(np.int8)
-    # Input score code has scale 1/16; index is -clamp(score-max,-128,0).
-    exp = np.clip(np.rint(np.exp(-np.arange(129) / 16.0) * 32767.0), 0, 32767).astype(np.uint16)
+    # Runtime SiLU keeps the dynamic input magnitude: sigmoid is looked up in
+    # Q15, then multiplied by the original INT32 activation.  Values outside
+    # [-8, 8] use the asymptotes 0 and 1 in hardware.
+    sigmoid_x = np.arange(-512, 513, dtype=np.float64) / 64.0
+    sigmoid = np.clip(np.rint((1.0 / (1.0 + np.exp(-sigmoid_x))) * 32767.0), 0, 32767).astype(np.uint16)
+    # Stable-softmax delta has scale 1/64 over [-16, 0].
+    exp = np.clip(np.rint(np.exp(-np.arange(1025) / 64.0) * 32767.0), 0, 32767).astype(np.uint16)
     data = {
         "rope_cos_q15": _record(16, True, cos.shape, cos, "position 0..511 x RoPE pair 0..3"),
         "rope_sin_q15": _record(16, True, sin.shape, sin, "position 0..511 x RoPE pair 0..3"),
         "silu_i8": _record(8, True, silu.shape, silu, {"input_code": [-128, 127], "input_scale": silu_input_scale, "output_scale": silu_output_scale}),
-        "exp_q15": _record(16, False, exp.shape, exp, "exp(-index/16), index 0..128"),
+        "sigmoid_q15": _record(16, False, sigmoid.shape, sigmoid, {"input": [-8.0, 8.0], "step": 0.015625, "outside": "0 below, 32767 above"}),
+        "exp_q15": _record(16, False, exp.shape, exp, "exp(-index/64), index 0..1024"),
     }
     (output / "luts.json").write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
     for name, record in data.items():

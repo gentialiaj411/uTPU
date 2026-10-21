@@ -29,22 +29,22 @@ def _linear(x, record):
     return np.clip(out, -128, 127).astype(np.int8)
 
 
-def _rmsnorm(x, gamma, out_multiplier, out_shift):
+def _rmsnorm(x, gamma, gamma_fraction_bits, out_multiplier, out_shift):
     square_sum = int(np.sum(np.asarray(x, dtype=np.int32) ** 2, dtype=np.int32))
     mean = int(div_rne(square_sum, x.size)) + 1
     root_q15 = max(1, math.isqrt(mean << 30))
     normalized_q15 = div_rne(np.asarray(x, dtype=np.int64) << 30, root_q15)
-    combined = rshift_rne(normalized_q15 * np.asarray(gamma, dtype=np.int64), 14)
+    combined = rshift_rne(normalized_q15 * np.asarray(gamma, dtype=np.int64), gamma_fraction_bits)
     return requant(combined, out_multiplier, out_shift)
 
 
-def _rmsnorm_rows(x, gamma, out_multiplier, out_shift):
+def _rmsnorm_rows(x, gamma, gamma_fraction_bits, out_multiplier, out_shift):
     values = np.asarray(x, dtype=np.int32)
     square_sum = np.sum(values ** 2, axis=-1, dtype=np.int32)
     mean = div_rne(square_sum, values.shape[-1]).astype(np.int64) + 1
     roots_q15 = np.fromiter((max(1, math.isqrt(int(item) << 30)) for item in mean.reshape(-1)), dtype=np.int64).reshape(mean.shape)
     normalized_q15 = div_rne(values.astype(np.int64) << 30, roots_q15[..., None])
-    combined = rshift_rne(normalized_q15 * np.asarray(gamma, dtype=np.int64), 14)
+    combined = rshift_rne(normalized_q15 * np.asarray(gamma, dtype=np.int64), gamma_fraction_bits)
     return requant(combined, out_multiplier, out_shift)
 
 
@@ -55,6 +55,7 @@ class IntegerLlama:
         self.gamma_att = export["gamma_att"]
         self.gamma_ffn = export["gamma_ffn"]
         self.gamma_final = export["gamma_final"]
+        self.gamma_fraction_bits = int(export["gamma_fraction_bits"])
         self.layers = export["layers"]
         self.classifier = export["classifier"]
         self.norm_multiplier = int(export["norm_multiplier"])
@@ -112,7 +113,7 @@ class IntegerLlama:
         x = self.embedding[ids].copy()
         causal = np.triu(np.ones((ids.size, ids.size), dtype=np.bool_), 1)
         for layer_id, layer in enumerate(self.layers):
-            norm = _rmsnorm_rows(x, self.gamma_att[layer_id], self.norm_multiplier, self.norm_shift)
+            norm = _rmsnorm_rows(x, self.gamma_att[layer_id], self.gamma_fraction_bits, self.norm_multiplier, self.norm_shift)
             q = self._rope_sequence(_linear(norm, layer["wq"]))
             k = self._rope_sequence(_linear(norm, layer["wk"]))
             v = _linear(norm, layer["wv"])
@@ -134,14 +135,14 @@ class IntegerLlama:
                 heads_out[:, head * head_size:(head + 1) * head_size] = np.clip(rshift_rne(av, 15), -128, 127).astype(np.int8)
             branch = _linear(heads_out, layer["wo"])
             x = requant(x.astype(np.int32) + branch.astype(np.int32), self.residual_multiplier[0], self.residual_shift[0])
-            norm = _rmsnorm_rows(x, self.gamma_ffn[layer_id], self.norm_multiplier, self.norm_shift)
+            norm = _rmsnorm_rows(x, self.gamma_ffn[layer_id], self.gamma_fraction_bits, self.norm_multiplier, self.norm_shift)
             h1 = _linear(norm, layer["w1"])
             h3 = _linear(norm, layer["w3"])
             silu = self.silu[h1.astype(np.int16) + 128]
             hidden = requant(silu.astype(np.int32) * h3.astype(np.int32), self.swiglu_multiplier, self.swiglu_shift)
             branch = _linear(hidden, layer["w2"])
             x = requant(x.astype(np.int32) + branch.astype(np.int32), self.residual_multiplier[1], self.residual_shift[1])
-        norm = _rmsnorm_rows(x, self.gamma_final, self.norm_multiplier, self.norm_shift)
+        norm = _rmsnorm_rows(x, self.gamma_final, self.gamma_fraction_bits, self.norm_multiplier, self.norm_shift)
         return _linear(norm, self.classifier)
 
     def forward(self, token, position):
@@ -150,7 +151,7 @@ class IntegerLlama:
         kv_mul = heads // kv_heads
         x = self.embedding[int(token)].copy()
         for layer_id, layer in enumerate(self.layers):
-            norm = _rmsnorm(x, self.gamma_att[layer_id], self.norm_multiplier, self.norm_shift)
+            norm = _rmsnorm(x, self.gamma_att[layer_id], self.gamma_fraction_bits, self.norm_multiplier, self.norm_shift)
             q = self._rope(_linear(norm, layer["wq"]), position)
             k = self._rope(_linear(norm, layer["wk"]), position)
             v = _linear(norm, layer["wv"])
@@ -169,12 +170,12 @@ class IntegerLlama:
                 heads_out[head * head_size:(head + 1) * head_size] = np.clip(rshift_rne(av, 15), -128, 127).astype(np.int8)
             branch = _linear(heads_out, layer["wo"])
             x = requant(x.astype(np.int32) + branch.astype(np.int32), self.residual_multiplier[0], self.residual_shift[0])
-            norm = _rmsnorm(x, self.gamma_ffn[layer_id], self.norm_multiplier, self.norm_shift)
+            norm = _rmsnorm(x, self.gamma_ffn[layer_id], self.gamma_fraction_bits, self.norm_multiplier, self.norm_shift)
             h1 = _linear(norm, layer["w1"])
             h3 = _linear(norm, layer["w3"])
             silu = self.silu[h1.astype(np.int16) + 128]
             hidden = requant(silu.astype(np.int32) * h3.astype(np.int32), self.swiglu_multiplier, self.swiglu_shift)
             branch = _linear(hidden, layer["w2"])
             x = requant(x.astype(np.int32) + branch.astype(np.int32), self.residual_multiplier[1], self.residual_shift[1])
-        norm = _rmsnorm(x, self.gamma_final, self.norm_multiplier, self.norm_shift)
+        norm = _rmsnorm(x, self.gamma_final, self.gamma_fraction_bits, self.norm_multiplier, self.norm_shift)
         return _linear(norm, self.classifier)

@@ -45,7 +45,7 @@ def quantized_linear(weight, input_scale, output_scale, bits, group_size, improv
     value = np.asarray(weight, dtype=np.float32)
     out, width = value.shape
     qmax = 127 if bits == 8 else 7
-    size = width if bits == 8 else group_size
+    size = group_size
     ranges = [(start, min(start + size, width)) for start in range(0, width, size)]
     codes = np.empty_like(value, dtype=np.int8)
     multipliers = np.empty((out, len(ranges)), dtype=np.int64)
@@ -66,9 +66,10 @@ def export_model(reference, scales, bits=8, group_size=32, improved=False):
     c = reference.config
     embedding_scale = scales["x"]
     embedding = np.clip(np.rint(np.asarray(reference.token_embedding) / embedding_scale), -128, 127).astype(np.int8)
-    gamma_att = np.clip(np.rint(np.asarray(reference.rms_att) * (1 << 14)), -32768, 32767).astype(np.int16)
-    gamma_ffn = np.clip(np.rint(np.asarray(reference.rms_ffn) * (1 << 14)), -32768, 32767).astype(np.int16)
-    gamma_final = np.clip(np.rint(np.asarray(reference.rms_final) * (1 << 14)), -32768, 32767).astype(np.int16)
+    gamma_fraction_bits = 13
+    gamma_att = np.clip(np.rint(np.asarray(reference.rms_att) * (1 << gamma_fraction_bits)), 0, 65535).astype(np.uint16)
+    gamma_ffn = np.clip(np.rint(np.asarray(reference.rms_ffn) * (1 << gamma_fraction_bits)), 0, 65535).astype(np.uint16)
+    gamma_final = np.clip(np.rint(np.asarray(reference.rms_final) * (1 << gamma_fraction_bits)), 0, 65535).astype(np.uint16)
     layers = []
     for layer in range(c.n_layers):
         layers.append({
@@ -82,7 +83,7 @@ def export_model(reference, scales, bits=8, group_size=32, improved=False):
         })
     classifier = quantized_linear(reference.wcls, scales["norm"], scales["logits"], bits, group_size, improved)
     norm_mult, norm_shift = multiplier_shift(1.0 / ((1 << 15) * scales["norm"]))
-    score_mult, score_shift = multiplier_shift(scales["q"] * scales["k"] / math.sqrt(c.head_size) * 16.0)
+    score_mult, score_shift = multiplier_shift(scales["q"] * scales["k"] / math.sqrt(c.head_size) * 64.0)
     swiglu_mult, swiglu_shift = multiplier_shift(scales["silu"] * scales["h3"] / scales["hidden"])
     one_mult, one_shift = multiplier_shift(1.0)
     return {"config": {"dim": c.dim, "hidden_dim": c.hidden_dim, "n_layers": c.n_layers,
@@ -91,16 +92,38 @@ def export_model(reference, scales, bits=8, group_size=32, improved=False):
             "embedding": embedding, "gamma_att": gamma_att, "gamma_ffn": gamma_ffn,
             "gamma_final": gamma_final, "layers": layers, "classifier": classifier,
             "norm_multiplier": norm_mult, "norm_shift": norm_shift,
+            "gamma_fraction_bits": gamma_fraction_bits,
             "score_multiplier": score_mult, "score_shift": score_shift,
             "swiglu_multiplier": swiglu_mult, "swiglu_shift": swiglu_shift,
             "residual_multiplier": [one_mult, one_mult], "residual_shift": [one_shift, one_shift]}
 
 
+def _adaptive_rows(values, base_scale):
+    raw = np.rint(np.asarray(values, dtype=np.float64) / base_scale).astype(np.int64)
+    peak = np.maximum(1, np.max(np.abs(raw), axis=-1)).astype(np.int32)
+    code = np.clip(np.rint(raw * 128.0 / peak[..., None]), -128, 127).astype(np.int8)
+    return code, peak
+
+
+def export_runq_model(reference, calibration_scales, bits=8, group_size=32, improved=False):
+    scales = {name: value / 256.0 for name, value in calibration_scales.items()}
+    exported = export_model(reference, scales, bits, group_size, improved)
+    code, scale_multiplier = _adaptive_rows(reference.token_embedding, scales["x"])
+    exported["embedding"] = code
+    exported["embedding_scale_multiplier"] = scale_multiplier
+    exported["silu_index_multiplier"], exported["silu_index_shift"] = multiplier_shift(scales["h1"] * 64.0)
+    exported["swiglu_multiplier"], exported["swiglu_shift"] = multiplier_shift(
+        scales["h1"] * scales["h3"] / scales["hidden"])
+    exported["rms_epsilon_x"] = max(1, int(round(1.0e-5 / (scales["x"] * scales["x"]))))
+    exported["dynamic_base_scales"] = scales
+    return exported
+
+
 def accumulator_bounds(reference, bits, group_size):
     qmax = 127 if bits == 8 else 7
-    weight_k = reference.config.dim if bits == 8 else min(group_size, reference.config.dim)
+    weight_k = min(group_size, reference.config.dim)
     dims = {"qkv/wo/w1/w3/classifier": weight_k,
-            "w2": min(group_size if bits == 4 else reference.config.hidden_dim, reference.config.hidden_dim),
+            "w2": min(group_size, reference.config.hidden_dim),
             }
     result = {name: {"K": int(k), "max_abs_a": 127, "max_abs_w": qmax,
                    "worst_case": int(k * 127 * qmax), "fits_int32": k * 127 * qmax <= (1 << 31) - 1}
