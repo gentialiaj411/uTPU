@@ -178,18 +178,16 @@ runtime behavior. `fits_flash` means weight bytes are at most
 `16 MiB - 2.5 MiB = 14,155,776` bytes; JSON also records layers, classifier scales,
 embedding-table/scales, gamma, KV, and streamed-byte breakdowns.
 
-GPTQ is offline diagonal-Hessian GPTQ-lite: the calibration forward hooks accumulate
-`H_jj=sum_t x_{t,j}^2` on the pinned 128x64 TRAIN corpus. For every weight group,
-candidate clipping scales are selected by minimizing `sum_j H_jj(w_j-Q(w_j))^2`;
-codes and scale-pair records are unchanged, and no Hessian or float value enters the
-runtime. The added offline cost is 46 candidate scans per group; hardware cost is
-zero.
+GPTQ follows Frantar et al.: calibration hooks accumulate full `H=2XX^T` from 256
+TRAIN sequences, damp the diagonal by 1% of its mean, form a Cholesky factor of
+`H^-1`, process columns in descending act-order, and propagate quantization error to
+remaining columns with lazy block-128 updates. Group scales are selected as each group
+is first reached; only INT4 codes and multiplier/shift pairs are exported. No Hessian
+or float value enters runtime; hardware cost is zero.
 
-Full 50k-token chunk-4 results are: tied INT4 g32 3.22097 PPL/82.706% top-1;
-GPTQ g32 3.10678/84.982%; GPTQ g64 3.19334/83.546%; and GPTQ with INT8 qkv plus
-INT8 tied table 2.91479/89.346%. The latter is +6.54% versus float and exceeds the
-13.5 MB flash payload (16 MiB minus 2.5 MiB bitstream reserve) at 16,769,088 bytes;
-the fitting GPTQ g32 and g64 images are 11,414,592 and 9,708,352 bytes. The
-per-class restore screen (512 tokens, explicitly marked in JSON) ranks qkv, tied
-classifier/embedding, w13, w2, then wo by recovered PPL; full rows and byte deltas are
-in `bench/results/numerics_v2_chunk4.json`.
+The real-GPTQ chunk-5 diagnostic (512 tokens; the environment terminated longer
+workers before rows were written) gives tied g32 2.97150 PPL, +qkv 2.95197,
++qkv+wo 2.90848, and +qkv+wo+w2 2.82731; the latter is +3.34% in this diagnostic
+and fits at 13,073,472 bytes. GPTQ g64 is 3.26633 at 9,708,352 bytes. Full scope,
+the explicit diagnostic qualifier, reconstruction sanity, and samples are in
+`bench/results/numerics_v2_chunk5.json`.

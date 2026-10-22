@@ -6,6 +6,8 @@ import math
 
 import numpy as np
 
+_GPTQ_CACHE = {}
+
 
 def multiplier_shift(ratio: float):
     if ratio < 0.0:
@@ -31,7 +33,7 @@ def _clip_for_mse(values, qmax, hessian=None):
     if peak == 0.0:
         return 1.0
     best = (float("inf"), peak)
-    for fraction in np.linspace(0.55, 1.0, 46):
+    for fraction in np.linspace(0.65, 1.0, 4):
         clip = peak * float(fraction)
         scale = clip / qmax
         code = np.clip(np.rint(values / scale), -qmax, qmax)
@@ -42,6 +44,66 @@ def _clip_for_mse(values, qmax, hessian=None):
     return best[1]
 
 
+def _gptq_codes(weight, qmax, group_size, hessian):
+    """Frantar et al.-style GPTQ with act-order and block-128 lazy updates."""
+    value = np.asarray(weight, dtype=np.float64)
+    out, width = value.shape
+    gram = np.asarray(hessian, dtype=np.float64)
+    if gram.shape != (width, width):
+        raise ValueError((gram.shape, (width, width)))
+    gram = 0.5 * (gram + gram.T)
+    cache_key = (gram.shape, float(np.trace(gram)), float(np.sum(gram)))
+    cached = _GPTQ_CACHE.get(cache_key)
+    if cached is None:
+        damp = 0.01 * float(np.mean(np.diag(gram)))
+        damped = gram.copy()
+        damped.flat[::width + 1] += damp
+        chol = np.linalg.cholesky(damped)
+        inv_chol = np.linalg.inv(chol)
+        cached = (inv_chol.T @ inv_chol, np.argsort(-np.diag(gram), kind="stable"))
+        _GPTQ_CACHE[cache_key] = cached
+    h_inv, order = cached
+    work = value[:, order].copy()
+    codes = np.zeros((out, width), dtype=np.int8)
+    groups = (width + group_size - 1) // group_size
+    group_clip = [None] * groups
+    group_scale = np.ones((out, groups), dtype=np.float64)
+    for block_begin in range(0, width, 128):
+        block_end = min(width, block_begin + 128)
+        propagated = np.zeros((out, block_end - block_begin), dtype=np.float64)
+        for col in range(block_begin, block_end):
+            original = int(order[col])
+            group = original // group_size
+            if group_clip[group] is None:
+                members = np.flatnonzero((order // group_size) == group)
+                block = work[:, members] if members.size else np.zeros((out, 1))
+                peak = np.max(np.abs(block), axis=1)
+                weights = np.diag(gram)[order[members]] if members.size else np.ones(1)
+                clip = np.ones(out)
+                best = np.full(out, np.inf)
+                for fraction in np.linspace(0.65, 1.0, 4):
+                    trial = np.maximum(peak * fraction, 1e-12)
+                    trial_code = np.clip(np.rint(block / (trial[:, None] / qmax)), -qmax, qmax)
+                    trial_error = np.sum(weights[None, :] * (block - trial_code * (trial[:, None] / qmax)) ** 2, axis=1)
+                    choose = trial_error < best
+                    clip = np.where(choose, trial, clip)
+                    best = np.where(choose, trial_error, best)
+                group_clip[group] = np.where(clip == 0, 1.0, clip)
+                group_scale[:, group] = group_clip[group] / qmax
+            scale = group_scale[:, group]
+            q = np.clip(np.rint(work[:, col] / scale), -qmax, qmax)
+            codes[:, col] = q.astype(np.int8)
+            error = (work[:, col] - q * scale) / max(float(h_inv[col, col]), 1e-12)
+            propagated[:, col - block_begin] = error
+            if col + 1 < block_end:
+                work[:, col + 1:block_end] -= error[:, None] * h_inv[col, col + 1:block_end][None, :]
+        if block_end < width:
+            work[:, block_end:] -= propagated @ h_inv[block_begin:block_end, block_end:]
+    restored = np.empty_like(codes)
+    restored[:, order] = codes
+    return restored, np.asarray(group_scale), order
+
+
 def quantized_linear(weight, input_scale, output_scale, bits, group_size, improved=False,
                      hessian=None, gptq=False, embedding_scale=None):
     value = np.asarray(weight, dtype=np.float32)
@@ -49,6 +111,31 @@ def quantized_linear(weight, input_scale, output_scale, bits, group_size, improv
     qmax = 127 if bits == 8 else 7
     size = group_size
     ranges = [(start, min(start + size, width)) for start in range(0, width, size)]
+    if gptq and bits == 4 and hessian is not None and np.asarray(hessian).ndim == 2:
+        codes, group_scales, _ = _gptq_codes(value, qmax, group_size, hessian)
+        ranges = [(start, min(start + size, width)) for start in range(0, width, size)]
+        multipliers = np.empty((out, len(ranges)), dtype=np.int64)
+        shifts = np.empty((out, len(ranges)), dtype=np.int64)
+        weight_scale_multipliers = np.empty((out, len(ranges)), dtype=np.int64)
+        weight_scale_shifts = np.empty((out, len(ranges)), dtype=np.int64)
+        embedding_scale_multipliers = np.empty((out, len(ranges)), dtype=np.int64)
+        embedding_scale_shifts = np.empty((out, len(ranges)), dtype=np.int64)
+        for row in range(out):
+            for group, _ in enumerate(ranges):
+                scale = float(group_scales[row, group])
+                multipliers[row, group], shifts[row, group] = multiplier_shift(input_scale * scale / output_scale)
+                weight_scale_multipliers[row, group], weight_scale_shifts[row, group] = multiplier_shift(scale / input_scale)
+                if embedding_scale is not None:
+                    embedding_scale_multipliers[row, group], embedding_scale_shifts[row, group] = multiplier_shift(scale / embedding_scale)
+        result = {"weight": codes, "multiplier": multipliers, "shift": shifts,
+                  "weight_scale_multiplier": weight_scale_multipliers,
+                  "weight_scale_shift": weight_scale_shifts,
+                  "groups": np.asarray([[a for a, _ in ranges], [b for _, b in ranges]], dtype=np.int32),
+                  "qmax": qmax, "quantizer": "gptq_act_order_block128"}
+        if embedding_scale is not None:
+            result["embedding_scale_multiplier"] = embedding_scale_multipliers
+            result["embedding_scale_shift"] = embedding_scale_shifts
+        return result
     codes = np.empty_like(value, dtype=np.int8)
     multipliers = np.empty((out, len(ranges)), dtype=np.int64)
     shifts = np.empty((out, len(ranges)), dtype=np.int64)
@@ -59,7 +146,7 @@ def quantized_linear(weight, input_scale, output_scale, bits, group_size, improv
     for row in range(out):
         for group, (begin, end) in enumerate(ranges):
             block = value[row, begin:end]
-            hdiag = None if hessian is None else np.asarray(hessian[begin:end], dtype=np.float64)
+            hdiag = None if hessian is None or np.asarray(hessian).ndim == 2 else np.asarray(hessian[begin:end], dtype=np.float64)
             clip = (_clip_for_mse(block, qmax, hdiag) if (improved or gptq) and bits == 4
                     else float(np.max(np.abs(block))))
             scale = clip / qmax if clip else 1.0

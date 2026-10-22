@@ -1,0 +1,502 @@
+{
+  "schema_version": 1,
+  "generated_at_utc": "2026-10-22T19:17:09.575444+00:00",
+  "model": "stories15M",
+  "float_perplexity": 2.735893,
+  "eval_tokens": 512,
+  "eval_scope": "512-token diagnostic after full-GPTQ workers were resource-terminated; not a 50k claim",
+  "configs": [
+    {
+      "name": "baseline_int4_g32",
+      "weight_bits": 4,
+      "group_size": 32,
+      "gptq": true,
+      "mixed_precision": {},
+      "accumulator_bounds": {
+        "qkv/wo/w1/w3/classifier": {
+          "K": 32,
+          "max_abs_a": 127,
+          "max_abs_w": 7,
+          "worst_case": 28448,
+          "fits_int32": true
+        },
+        "w2": {
+          "K": 32,
+          "max_abs_a": 127,
+          "max_abs_w": 7,
+          "worst_case": 28448,
+          "fits_int32": true
+        },
+        "attention_score": {
+          "K": 48,
+          "max_abs_a": 127,
+          "max_abs_w": 127,
+          "worst_case": 774192,
+          "fits_int32": true
+        },
+        "attention_value": {
+          "K": 256,
+          "max_abs_a": 32767,
+          "max_abs_w": 127,
+          "worst_case": 1065320704,
+          "fits_int32": true
+        }
+      },
+      "hardware_budget": {
+        "weight_bytes_including_scales": 11414592,
+        "kv_cache_bytes_seq256_including_scales": 958464,
+        "bytes_streamed_per_token": 9974781,
+        "estimated_tokens_per_second": {
+          "25_MBps": 2.5063206901484856,
+          "50_MBps": 5.012641380296971,
+          "100_MBps": 10.025282760593942
+        },
+        "fits_flash": true,
+        "flash_limit_bytes": 14155776,
+        "byte_breakdown": {
+          "layers": 3919104,
+          "classifier_scales": 1440000,
+          "embedding_table_and_scales": 6048000,
+          "gamma": 7488
+        },
+        "embedding_classifier_tied": true,
+        "estimate_assumption": "bandwidth-only QSPI limit; decimal MB/s; no compute/command overhead"
+      },
+      "eval_tokens": 512,
+      "mean_nll": 1.089065432569687,
+      "perplexity": 2.971495711371185,
+      "teacher_forced_top1_agreement_pct": 86.1328125,
+      "logit_kl_float_to_candidate": 0.11580548434832204,
+      "logit_chunk_size": 4096,
+      "delta_vs_float_pct": 8.611546992926456,
+      "summary": {
+        "config": "baseline_int4_g32",
+        "ppl": 2.971495711371185,
+        "delta_vs_float_pct": 8.611546992926456,
+        "top1_pct": 86.1328125,
+        "flash_bytes": 11414592,
+        "fits_flash": true,
+        "streamed_bytes_per_token": 9974781,
+        "tok_s_25_50": [
+          2.5063206901484856,
+          5.012641380296971
+        ]
+      }
+    },
+    {
+      "name": "gptq_g64",
+      "weight_bits": 4,
+      "group_size": 64,
+      "gptq": true,
+      "mixed_precision": {},
+      "accumulator_bounds": {
+        "qkv/wo/w1/w3/classifier": {
+          "K": 64,
+          "max_abs_a": 127,
+          "max_abs_w": 7,
+          "worst_case": 56896,
+          "fits_int32": true
+        },
+        "w2": {
+          "K": 64,
+          "max_abs_a": 127,
+          "max_abs_w": 7,
+          "worst_case": 56896,
+          "fits_int32": true
+        },
+        "attention_score": {
+          "K": 48,
+          "max_abs_a": 127,
+          "max_abs_w": 127,
+          "worst_case": 774192,
+          "fits_int32": true
+        },
+        "attention_value": {
+          "K": 256,
+          "max_abs_a": 32767,
+          "max_abs_w": 127,
+          "worst_case": 1065320704,
+          "fits_int32": true
+        }
+      },
+      "hardware_budget": {
+        "weight_bytes_including_scales": 9708352,
+        "kv_cache_bytes_seq256_including_scales": 958464,
+        "bytes_streamed_per_token": 8908521,
+        "estimated_tokens_per_second": {
+          "25_MBps": 2.8063019663982383,
+          "50_MBps": 5.6126039327964765,
+          "100_MBps": 11.225207865592953
+        },
+        "fits_flash": true,
+        "flash_limit_bytes": 14155776,
+        "byte_breakdown": {
+          "layers": 3492864,
+          "classifier_scales": 800000,
+          "embedding_table_and_scales": 5408000,
+          "gamma": 7488
+        },
+        "embedding_classifier_tied": true,
+        "estimate_assumption": "bandwidth-only QSPI limit; decimal MB/s; no compute/command overhead"
+      },
+      "eval_tokens": 512,
+      "mean_nll": 1.1836679865448252,
+      "perplexity": 3.2663331228483816,
+      "teacher_forced_top1_agreement_pct": 82.8125,
+      "logit_kl_float_to_candidate": 0.17394478577079048,
+      "logit_chunk_size": 4096,
+      "delta_vs_float_pct": 19.388189627605378,
+      "summary": {
+        "config": "gptq_g64",
+        "ppl": 3.2663331228483816,
+        "delta_vs_float_pct": 19.388189627605378,
+        "top1_pct": 82.8125,
+        "flash_bytes": 9708352,
+        "fits_flash": true,
+        "streamed_bytes_per_token": 8908521,
+        "tok_s_25_50": [
+          2.8063019663982383,
+          5.6126039327964765
+        ]
+      }
+    },
+    {
+      "name": "gptq_qkv_int8_g32",
+      "weight_bits": 4,
+      "group_size": 32,
+      "gptq": true,
+      "mixed_precision": {
+        "qkv": 8
+      },
+      "accumulator_bounds": {
+        "qkv/wo/w1/w3/classifier": {
+          "K": 32,
+          "max_abs_a": 127,
+          "max_abs_w": 7,
+          "worst_case": 28448,
+          "fits_int32": true
+        },
+        "w2": {
+          "K": 32,
+          "max_abs_a": 127,
+          "max_abs_w": 7,
+          "worst_case": 28448,
+          "fits_int32": true
+        },
+        "attention_score": {
+          "K": 48,
+          "max_abs_a": 127,
+          "max_abs_w": 127,
+          "worst_case": 774192,
+          "fits_int32": true
+        },
+        "attention_value": {
+          "K": 256,
+          "max_abs_a": 32767,
+          "max_abs_w": 127,
+          "worst_case": 1065320704,
+          "fits_int32": true
+        }
+      },
+      "hardware_budget": {
+        "weight_bytes_including_scales": 12161088,
+        "kv_cache_bytes_seq256_including_scales": 958464,
+        "bytes_streamed_per_token": 10721277,
+        "estimated_tokens_per_second": {
+          "25_MBps": 2.331811779510967,
+          "50_MBps": 4.663623559021934,
+          "100_MBps": 9.327247118043868
+        },
+        "fits_flash": true,
+        "flash_limit_bytes": 14155776,
+        "byte_breakdown": {
+          "layers": 4665600,
+          "classifier_scales": 1440000,
+          "embedding_table_and_scales": 6048000,
+          "gamma": 7488
+        },
+        "embedding_classifier_tied": true,
+        "estimate_assumption": "bandwidth-only QSPI limit; decimal MB/s; no compute/command overhead"
+      },
+      "eval_tokens": 512,
+      "mean_nll": 1.0824740589757067,
+      "perplexity": 2.9519738815205883,
+      "teacher_forced_top1_agreement_pct": 88.0859375,
+      "logit_kl_float_to_candidate": 0.08759772120656781,
+      "logit_chunk_size": 4096,
+      "delta_vs_float_pct": 7.898001914570063,
+      "summary": {
+        "config": "gptq_qkv_int8_g32",
+        "ppl": 2.9519738815205883,
+        "delta_vs_float_pct": 7.898001914570063,
+        "top1_pct": 88.0859375,
+        "flash_bytes": 12161088,
+        "fits_flash": true,
+        "streamed_bytes_per_token": 10721277,
+        "tok_s_25_50": [
+          2.331811779510967,
+          4.663623559021934
+        ]
+      }
+    },
+    {
+      "name": "gptq_qkv_wo_int8_g32",
+      "weight_bits": 4,
+      "group_size": 32,
+      "gptq": true,
+      "mixed_precision": {
+        "qkv": 8,
+        "wo": 8
+      },
+      "accumulator_bounds": {
+        "qkv/wo/w1/w3/classifier": {
+          "K": 32,
+          "max_abs_a": 127,
+          "max_abs_w": 7,
+          "worst_case": 28448,
+          "fits_int32": true
+        },
+        "w2": {
+          "K": 32,
+          "max_abs_a": 127,
+          "max_abs_w": 7,
+          "worst_case": 28448,
+          "fits_int32": true
+        },
+        "attention_score": {
+          "K": 48,
+          "max_abs_a": 127,
+          "max_abs_w": 127,
+          "worst_case": 774192,
+          "fits_int32": true
+        },
+        "attention_value": {
+          "K": 256,
+          "max_abs_a": 32767,
+          "max_abs_w": 127,
+          "worst_case": 1065320704,
+          "fits_int32": true
+        }
+      },
+      "hardware_budget": {
+        "weight_bytes_including_scales": 12409920,
+        "kv_cache_bytes_seq256_including_scales": 958464,
+        "bytes_streamed_per_token": 10970109,
+        "estimated_tokens_per_second": {
+          "25_MBps": 2.278919926866725,
+          "50_MBps": 4.55783985373345,
+          "100_MBps": 9.1156797074669
+        },
+        "fits_flash": true,
+        "flash_limit_bytes": 14155776,
+        "byte_breakdown": {
+          "layers": 4914432,
+          "classifier_scales": 1440000,
+          "embedding_table_and_scales": 6048000,
+          "gamma": 7488
+        },
+        "embedding_classifier_tied": true,
+        "estimate_assumption": "bandwidth-only QSPI limit; decimal MB/s; no compute/command overhead"
+      },
+      "eval_tokens": 512,
+      "mean_nll": 1.0676293349326595,
+      "perplexity": 2.9084762974619185,
+      "teacher_forced_top1_agreement_pct": 89.2578125,
+      "logit_kl_float_to_candidate": 0.07412645945937521,
+      "logit_chunk_size": 4096,
+      "delta_vs_float_pct": 6.308115758252186,
+      "summary": {
+        "config": "gptq_qkv_wo_int8_g32",
+        "ppl": 2.9084762974619185,
+        "delta_vs_float_pct": 6.308115758252186,
+        "top1_pct": 89.2578125,
+        "flash_bytes": 12409920,
+        "fits_flash": true,
+        "streamed_bytes_per_token": 10970109,
+        "tok_s_25_50": [
+          2.278919926866725,
+          4.55783985373345
+        ]
+      }
+    },
+    {
+      "name": "gptq_qkv_wo_w2_int8_g32",
+      "weight_bits": 4,
+      "group_size": 32,
+      "gptq": true,
+      "mixed_precision": {
+        "qkv": 8,
+        "wo": 8,
+        "w2": 8
+      },
+      "accumulator_bounds": {
+        "qkv/wo/w1/w3/classifier": {
+          "K": 32,
+          "max_abs_a": 127,
+          "max_abs_w": 7,
+          "worst_case": 28448,
+          "fits_int32": true
+        },
+        "w2": {
+          "K": 32,
+          "max_abs_a": 127,
+          "max_abs_w": 7,
+          "worst_case": 28448,
+          "fits_int32": true
+        },
+        "attention_score": {
+          "K": 48,
+          "max_abs_a": 127,
+          "max_abs_w": 127,
+          "worst_case": 774192,
+          "fits_int32": true
+        },
+        "attention_value": {
+          "K": 256,
+          "max_abs_a": 32767,
+          "max_abs_w": 127,
+          "worst_case": 1065320704,
+          "fits_int32": true
+        }
+      },
+      "hardware_budget": {
+        "weight_bytes_including_scales": 13073472,
+        "kv_cache_bytes_seq256_including_scales": 958464,
+        "bytes_streamed_per_token": 11633661,
+        "estimated_tokens_per_second": {
+          "25_MBps": 2.1489366073156164,
+          "50_MBps": 4.297873214631233,
+          "100_MBps": 8.595746429262466
+        },
+        "fits_flash": true,
+        "flash_limit_bytes": 14155776,
+        "byte_breakdown": {
+          "layers": 5577984,
+          "classifier_scales": 1440000,
+          "embedding_table_and_scales": 6048000,
+          "gamma": 7488
+        },
+        "embedding_classifier_tied": true,
+        "estimate_assumption": "bandwidth-only QSPI limit; decimal MB/s; no compute/command overhead"
+      },
+      "eval_tokens": 512,
+      "mean_nll": 1.0393272895264123,
+      "perplexity": 2.8273144104564865,
+      "teacher_forced_top1_agreement_pct": 89.6484375,
+      "logit_kl_float_to_candidate": 0.05403344565880747,
+      "logit_chunk_size": 4096,
+      "delta_vs_float_pct": 3.341556502995058,
+      "summary": {
+        "config": "gptq_qkv_wo_w2_int8_g32",
+        "ppl": 2.8273144104564865,
+        "delta_vs_float_pct": 3.341556502995058,
+        "top1_pct": 89.6484375,
+        "flash_bytes": 13073472,
+        "fits_flash": true,
+        "streamed_bytes_per_token": 11633661,
+        "tok_s_25_50": [
+          2.1489366073156164,
+          4.297873214631233
+        ]
+      }
+    }
+  ],
+  "summary_table": [
+    {
+      "config": "baseline_int4_g32",
+      "ppl": 2.971495711371185,
+      "delta_vs_float_pct": 8.611546992926456,
+      "top1_pct": 86.1328125,
+      "flash_bytes": 11414592,
+      "fits_flash": true,
+      "streamed_bytes_per_token": 9974781,
+      "tok_s_25_50": [
+        2.5063206901484856,
+        5.012641380296971
+      ]
+    },
+    {
+      "config": "gptq_g64",
+      "ppl": 3.2663331228483816,
+      "delta_vs_float_pct": 19.388189627605378,
+      "top1_pct": 82.8125,
+      "flash_bytes": 9708352,
+      "fits_flash": true,
+      "streamed_bytes_per_token": 8908521,
+      "tok_s_25_50": [
+        2.8063019663982383,
+        5.6126039327964765
+      ]
+    },
+    {
+      "config": "gptq_qkv_int8_g32",
+      "ppl": 2.9519738815205883,
+      "delta_vs_float_pct": 7.898001914570063,
+      "top1_pct": 88.0859375,
+      "flash_bytes": 12161088,
+      "fits_flash": true,
+      "streamed_bytes_per_token": 10721277,
+      "tok_s_25_50": [
+        2.331811779510967,
+        4.663623559021934
+      ]
+    },
+    {
+      "config": "gptq_qkv_wo_int8_g32",
+      "ppl": 2.9084762974619185,
+      "delta_vs_float_pct": 6.308115758252186,
+      "top1_pct": 89.2578125,
+      "flash_bytes": 12409920,
+      "fits_flash": true,
+      "streamed_bytes_per_token": 10970109,
+      "tok_s_25_50": [
+        2.278919926866725,
+        4.55783985373345
+      ]
+    },
+    {
+      "config": "gptq_qkv_wo_w2_int8_g32",
+      "ppl": 2.8273144104564865,
+      "delta_vs_float_pct": 3.341556502995058,
+      "top1_pct": 89.6484375,
+      "flash_bytes": 13073472,
+      "fits_flash": true,
+      "streamed_bytes_per_token": 11633661,
+      "tok_s_25_50": [
+        2.1489366073156164,
+        4.297873214631233
+      ]
+    }
+  ],
+  "gptq_sanity": {
+    "rtn_weighted_reconstruction_error": 5368491.806753313,
+    "gptq_weighted_reconstruction_error": 5323541.003295122,
+    "gptq_lower_than_rtn": true
+  },
+  "samples": [
+    {
+      "prompt": "\n<s>\nSpot. Spot saw the",
+      "float": "\n<s>\nSpot. Spot saw the sun shining in the sky. He wanted to go outside and play. Spot's mom said, \"No, Spot. It's too hot outside. You might get too hot.\" Spot was sad. He wanted to play.\nSpot's",
+      "integer": "\n<s>\nSpot. Spot saw the big, bright sun in the sky. He was so happy that he wanted to go outside and play. Spot ran out of the house and into the garden. He saw a big, red ball in the grass. Spot ran over to it and started to play with it"
+    },
+    {
+      "prompt": "climb. She climbed trees,",
+      "float": "climb. She climbed trees, rocks, and even her own bed. One day, she saw a big, scary dog. The dog barked and growled at her. Lily was scared and didn't know what to do.\nSuddenly, a kind man came and",
+      "integer": "climb. She climbed trees, climbed trees, and even climbed trees. She was so happy when she finally reached the top of the tree. She looked down and saw her mom waiting for her.\n\"Mom, I did it!\" Lily shouted.\n\"I'm so proud"
+    },
+    {
+      "prompt": "?\"\nRoxy told Billy about",
+      "float": "?\"\nRoxy told Billy about the big, red ball. Billy said, \"I can help you get the ball!\" So, they went to the big, red ball together. Billy pushed the ball with his strong legs, and the ball rolled away.\nRoxy and Billy played with the big,",
+      "integer": "?\"\nRoxy told Billy about the big, red ball. Billy said, \"I have an idea! Let's go to the park and find the ball.\" They went to the park and found the big, red ball. Billy threw the ball high in the sky, and it went up, up,"
+    }
+  ],
+  "sample_note": "same best-fitting tensor mix; sample export used the fast MSE-clipped offline quantizer",
+  "gptq_contract": {
+    "hessian": "2XX^T",
+    "sequences": 256,
+    "damping": "1% mean diagonal",
+    "act_order": true,
+    "lazy_block": 128,
+    "scale_search_candidates": 12
+  }
+}

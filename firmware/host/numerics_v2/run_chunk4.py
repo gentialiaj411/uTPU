@@ -44,7 +44,7 @@ def main():
     ids = tokenize_eval(tokenizer, base / "eval_slice.txt", minimum=args.tokens)[:args.tokens + 1]
     calibration = json.loads((HERE / "calibration_15m.json").read_text(encoding="utf-8"))
     scales, hessian = calibration["activation_scales"], calibration["hessian_diag"]
-    all_specs = [("baseline_int4_g32", 4, 32, None, False),
+    all_specs = [("baseline_int4_g32", 4, 32, None, True),
              ("classifier_embedding_int8", 4, 32, {"classifier": 8}, False),
              ("qkv_int8", 4, 32, {"qkv": 8}, False),
              ("wo_int8", 4, 32, {"wo": 8}, False),
@@ -52,8 +52,10 @@ def main():
              ("w2_int8", 4, 32, {"w2": 8}, False),
              ("gptq_g32", 4, 32, None, True),
              ("gptq_g64", 4, 64, None, True),
-             ("gptq_classifier_embedding_int8_g32", 4, 32, {"classifier": 8}, True),
+             ("gptq_table_int8_g32", 4, 32, {"classifier": 8}, True),
              ("gptq_qkv_int8_g32", 4, 32, {"qkv": 8}, True),
+             ("gptq_qkv_wo_int8_g32", 4, 32, {"qkv": 8, "wo": 8}, True),
+             ("gptq_qkv_wo_w2_int8_g32", 4, 32, {"qkv": 8, "wo": 8, "w2": 8}, True),
              ("gptq_qkv_classifier_int8_g32", 4, 32, {"qkv": 8, "classifier": 8}, True)]
     specs = all_specs if not args.config else [item for item in all_specs if item[0] in args.config]
     rows = []
