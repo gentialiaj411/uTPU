@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from pathlib import Path
 
 import numpy as np
@@ -60,7 +61,6 @@ def calibrate(model_path: Path, tokenizer_path: Path, train_path: Path, device="
         value = torch.from_numpy(tokens).to(device)
         logits = model(value, value)
         maxima["logits"] = float(logits.detach().float().abs().max().cpu())
-        captures["logits"] = [logits.detach().float().cpu()]
         for h1, h3 in zip(captures["h1"], captures["h3"]):
             silu = F.silu(h1)
             maxima["silu"] = max(maxima["silu"], float(silu.abs().max().cpu()))
@@ -73,14 +73,20 @@ def calibrate(model_path: Path, tokenizer_path: Path, train_path: Path, device="
     scales = {}
     for name, values in captures.items():
         flat = torch.cat([item.abs().reshape(-1) for item in values])
-        bound = float(torch.quantile(flat, percentile / 100.0))
+        if flat.numel() <= (1 << 24):
+            bound = float(torch.quantile(flat, percentile / 100.0))
+        else:
+            rank = max(1, int(math.ceil((percentile / 100.0) * flat.numel())))
+            bound = float(torch.kthvalue(flat, rank).values)
         scales[name] = bound / 127.0 if bound else 1.0
+    scales["logits"] = maxima["logits"] / 127.0 if maxima["logits"] else 1.0
     metadata = {"dataset": "roneneldan/TinyStories", "revision": "f54c09fd23315a6f9c86f9dc80f725de7d8f9c64",
                 "split": "train", "sequences": 128, "sequence_tokens": 64, "activation_percentile": percentile,
                 "source_range": "bytes=0-1048575", "source_sha256": hashlib.sha256(train_path.read_bytes()).hexdigest(),
                 "calibration_corpus_bytes": corpus_bytes, "calibration_corpus_sha256": corpus_sha,
                 "eval_slice_sha256": "ae55d9eb37d0e99c6e1051dbeb212f51b6c1d2d98858fccd81f5676bee92a4e7",
                 "provably_disjoint": True, "disjoint_reason": "different named upstream splits (train vs validation) and unequal SHA-256 digests"}
+    metadata["scale_selection"] = "99.9th percentile (nearest-rank above 2^24 samples); logits max-abs"
     return scales, metadata
 
 

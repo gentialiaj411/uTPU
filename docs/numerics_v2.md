@@ -150,3 +150,21 @@ INT4 max-absolute g32/g64/g128 PPL is 4.09786/4.25439/4.27088; top-1 is
 3.96024/4.09073/4.11525 and top-1 82.660%/80.918%/80.310%. Exact KL, per-prompt
 divergences, accumulator bounds, and provenance are in
 `bench/results/numerics_v2_260k.json`.
+
+## stories15M results and budget
+
+The 15M evaluation uses the same 50,000-token validation slice and TRAIN-only
+calibration corpus. The 32,000-way classifier is evaluated in integer chunks of
+4,096 codes; chunk-local top-k and global argmax are integer merges. Float PPL is
+2.73589. INT8 reaches PPL 2.73990, 98.074% teacher-forced top-1, KL 0.0016967,
+and median first divergence 33.5. INT4 max-absolute g32/g64/g128 reaches
+3.15241/3.24940/3.38375 PPL with 83.862%/82.306%/80.292% top-1; MSE clipping
+improves these to 3.10542/3.22719/3.33410 PPL and 84.716%/82.748%/81.192% top-1.
+
+The packed hardware budget is identical across quantizers except for packed weight
+bytes (the table reports the INT8 upper bound). At sequence length 256 it is
+25,846,336 weight bytes including scale pairs, 958,464 KV-cache bytes, and
+16,502,628 streamed bytes per token. The bandwidth-only QSPI estimates are
+1.515/3.030/6.060 tokens/s at 25/50/100 MB/s respectively; these estimates exclude
+compute and command overhead. Full per-configuration budgets, KL, divergence lists,
+and checkpoint/calibration hashes are in `bench/results/numerics_v2_15m.json`.
