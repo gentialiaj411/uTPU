@@ -63,6 +63,9 @@ def _gptq_codes(weight, qmax, group_size, hessian):
         cached = (inv_chol.T @ inv_chol, np.argsort(-np.diag(gram), kind="stable"))
         _GPTQ_CACHE[cache_key] = cached
     h_inv, order = cached
+    # The working columns are act-ordered; permute H^{-1} into that same
+    # coordinate system before diagonal/error propagation.
+    h_inv = h_inv[np.ix_(order, order)]
     work = value[:, order].copy()
     codes = np.zeros((out, width), dtype=np.int8)
     groups = (width + group_size - 1) // group_size

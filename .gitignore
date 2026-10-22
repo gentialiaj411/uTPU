@@ -43,6 +43,7 @@ weights/
 
 # Reproducible llama2.c model/data downloads (see tools/llama2c/manifest.json)
 models/llama2c/
+models/numerics_v2/
 
 # Root-level compiled experiments
 /a.out

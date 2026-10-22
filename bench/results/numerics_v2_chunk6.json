@@ -1,0 +1,333 @@
+{
+  "schema_version": 1,
+  "model": "stories15M",
+  "eval_tokens": 50000,
+  "eval_protocol": "sequential exported artifacts; each evaluator is chunked; peak RAM recorded per row",
+  "gptq_layer_reconstruction": {
+    "matrices": [
+      {
+        "matrix": "layer0.wq",
+        "rtn_relative_error": 0.051628101408478386,
+        "gptq_relative_error": 0.04679311192673239,
+        "reduction_pct": 9.365034447987645,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer0.wk",
+        "rtn_relative_error": 0.05646216788491691,
+        "gptq_relative_error": 0.05177310975895019,
+        "reduction_pct": 8.304778760043567,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer0.wv",
+        "rtn_relative_error": 0.11147059425688596,
+        "gptq_relative_error": 0.09852919891901087,
+        "reduction_pct": 11.609694398911538,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer0.wo",
+        "rtn_relative_error": 0.07040963847891121,
+        "gptq_relative_error": 0.06908438957661658,
+        "reduction_pct": 1.88219813497773,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer0.w1",
+        "rtn_relative_error": 0.0922156767410509,
+        "gptq_relative_error": 0.08761575131203143,
+        "reduction_pct": 4.988224986882033,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer0.w3",
+        "rtn_relative_error": 0.0954974277643826,
+        "gptq_relative_error": 0.09072221491207466,
+        "reduction_pct": 5.000357563650454,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer0.w2",
+        "rtn_relative_error": 0.08736684629711972,
+        "gptq_relative_error": 0.09128912251192517,
+        "reduction_pct": -4.489433212990729,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer1.wq",
+        "rtn_relative_error": 0.0732039558442857,
+        "gptq_relative_error": 0.06063175472089149,
+        "reduction_pct": 17.17421002512065,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer1.wk",
+        "rtn_relative_error": 0.05652679179952812,
+        "gptq_relative_error": 0.04643920631650863,
+        "reduction_pct": 17.84567133899097,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer1.wv",
+        "rtn_relative_error": 0.11319873045601876,
+        "gptq_relative_error": 0.09973732971319244,
+        "reduction_pct": 11.89183013678453,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer1.wo",
+        "rtn_relative_error": 0.08803263400281718,
+        "gptq_relative_error": 0.08860145058498432,
+        "reduction_pct": -0.6461428635078039,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer1.w1",
+        "rtn_relative_error": 0.08708585096637002,
+        "gptq_relative_error": 0.08072895032674347,
+        "reduction_pct": 7.2995791728341635,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer1.w3",
+        "rtn_relative_error": 0.09300714925724883,
+        "gptq_relative_error": 0.08635582063359497,
+        "reduction_pct": 7.151416505904216,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer1.w2",
+        "rtn_relative_error": 0.0950696062705129,
+        "gptq_relative_error": 0.06857723139505521,
+        "reduction_pct": 27.86629282977756,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer2.wq",
+        "rtn_relative_error": 0.0718096031581405,
+        "gptq_relative_error": 0.05634911867816072,
+        "reduction_pct": 21.529828602356154,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer2.wk",
+        "rtn_relative_error": 0.05708781658562037,
+        "gptq_relative_error": 0.044256967640525786,
+        "reduction_pct": 22.47563440414797,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer2.wv",
+        "rtn_relative_error": 0.11765878977309817,
+        "gptq_relative_error": 0.09811143025746369,
+        "reduction_pct": 16.613598995307566,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer2.wo",
+        "rtn_relative_error": 0.08781916224141331,
+        "gptq_relative_error": 0.08587564051685712,
+        "reduction_pct": 2.2130952686766583,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer2.w1",
+        "rtn_relative_error": 0.08429717237791087,
+        "gptq_relative_error": 0.07591542744893663,
+        "reduction_pct": 9.943091437750981,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer2.w3",
+        "rtn_relative_error": 0.08972751630794841,
+        "gptq_relative_error": 0.08044974922648986,
+        "reduction_pct": 10.3399352430718,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer2.w2",
+        "rtn_relative_error": 0.09410360735710968,
+        "gptq_relative_error": 0.09523973726296904,
+        "reduction_pct": -1.2073181228302008,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer3.wq",
+        "rtn_relative_error": 0.06911004768388881,
+        "gptq_relative_error": 0.05443887412070214,
+        "reduction_pct": 21.228712835350674,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer3.wk",
+        "rtn_relative_error": 0.058939129144366526,
+        "gptq_relative_error": 0.045433004613588054,
+        "reduction_pct": 22.915378504654075,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer3.wv",
+        "rtn_relative_error": 0.12234250004538615,
+        "gptq_relative_error": 0.09754895464482789,
+        "reduction_pct": 20.265684771326757,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer3.wo",
+        "rtn_relative_error": 0.09243748233371075,
+        "gptq_relative_error": 0.0808811863992145,
+        "reduction_pct": 12.501742413079354,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer3.w1",
+        "rtn_relative_error": 0.08279625195906756,
+        "gptq_relative_error": 0.0733022128579828,
+        "reduction_pct": 11.4667498545446,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer3.w3",
+        "rtn_relative_error": 0.08743823366815955,
+        "gptq_relative_error": 0.0772559472108948,
+        "reduction_pct": 11.645119108773365,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer3.w2",
+        "rtn_relative_error": 0.08839952910378518,
+        "gptq_relative_error": 0.08070909106892409,
+        "reduction_pct": 8.699636879097127,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer4.wq",
+        "rtn_relative_error": 0.0706060084454184,
+        "gptq_relative_error": 0.056145016524281895,
+        "reduction_pct": 20.481248323668506,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer4.wk",
+        "rtn_relative_error": 0.06395462533645763,
+        "gptq_relative_error": 0.0505970088061691,
+        "reduction_pct": 20.886083625720115,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer4.wv",
+        "rtn_relative_error": 0.1286153815676602,
+        "gptq_relative_error": 0.10165130311732684,
+        "reduction_pct": 20.964894028750727,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer4.wo",
+        "rtn_relative_error": 0.09645367188206731,
+        "gptq_relative_error": 0.0846572294943958,
+        "reduction_pct": 12.230164137343442,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer4.w1",
+        "rtn_relative_error": 0.0817313083773034,
+        "gptq_relative_error": 0.07179872818799929,
+        "reduction_pct": 12.15272382946749,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer4.w3",
+        "rtn_relative_error": 0.08640504707136931,
+        "gptq_relative_error": 0.07570212438656546,
+        "reduction_pct": 12.386918412258256,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer4.w2",
+        "rtn_relative_error": 0.09601842070805905,
+        "gptq_relative_error": 0.08717797260934293,
+        "reduction_pct": 9.207033435381343,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer5.wq",
+        "rtn_relative_error": 0.06648726784968292,
+        "gptq_relative_error": 0.05250928688849229,
+        "reduction_pct": 21.02354542946871,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer5.wk",
+        "rtn_relative_error": 0.060927788693141804,
+        "gptq_relative_error": 0.04818948697407868,
+        "reduction_pct": 20.907211622628573,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer5.wv",
+        "rtn_relative_error": 0.13050843756262037,
+        "gptq_relative_error": 0.10205895465604509,
+        "reduction_pct": 21.798960617335332,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer5.wo",
+        "rtn_relative_error": 0.07010387080470402,
+        "gptq_relative_error": 0.059525144352917586,
+        "reduction_pct": 15.090074671135843,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer5.w1",
+        "rtn_relative_error": 0.07802308707634546,
+        "gptq_relative_error": 0.06755972997114129,
+        "reduction_pct": 13.410591015151443,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer5.w3",
+        "rtn_relative_error": 0.08388237750860304,
+        "gptq_relative_error": 0.07313939133292606,
+        "reduction_pct": 12.807202769825132,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "layer5.w2",
+        "rtn_relative_error": 0.0928961745714225,
+        "gptq_relative_error": 0.05687154174373202,
+        "reduction_pct": 38.779457812865296,
+        "heldout_vectors": 8192
+      },
+      {
+        "matrix": "classifier",
+        "rtn_relative_error": 0.1048374282155153,
+        "gptq_relative_error": 0.1121251726737331,
+        "reduction_pct": -6.95147199074392,
+        "heldout_vectors": 8192
+      }
+    ],
+    "median_reduction_pct": 12.230164137343442,
+    "min_reduction_pct": -6.95147199074392,
+    "max_reduction_pct": 38.779457812865296,
+    "heldout_protocol": "second half of 256 TRAIN calibration rows; WX reconstruction"
+  },
+  "configs": [
+    {
+      "config": "gptq_g32",
+      "artifact_sha256": "5383f4d6fe7594e8d4f021a84b455575bdb33c382e6ae82bbfb4831ca84554e4",
+      "status": "pending_resource_safe_eval"
+    },
+    {
+      "config": "gptq_qkv_wo_int8_g32",
+      "artifact_sha256": null,
+      "status": "pending_resource_safe_eval"
+    },
+    {
+      "config": "gptq_qkv_wo_w2_int8_g32",
+      "artifact_sha256": null,
+      "status": "pending_resource_safe_eval"
+    }
+  ],
+  "samples": null
+}

@@ -182,7 +182,8 @@ GPTQ follows Frantar et al.: calibration hooks accumulate full `H=2XX^T` from 25
 TRAIN sequences, damp the diagonal by 1% of its mean, form a Cholesky factor of
 `H^-1`, process columns in descending act-order, and propagate quantization error to
 remaining columns with lazy block-128 updates. Group scales are selected as each group
-is first reached; only INT4 codes and multiplier/shift pairs are exported. No Hessian
+is first reached; the act-order permutation is applied to both weights and `H^-1`
+and inverted on output; only INT4 codes and multiplier/shift pairs are exported. No Hessian
 or float value enters runtime; hardware cost is zero.
 
 The real-GPTQ chunk-5 diagnostic (512 tokens; the environment terminated longer
