@@ -161,10 +161,35 @@ and median first divergence 33.5. INT4 max-absolute g32/g64/g128 reaches
 3.15241/3.24940/3.38375 PPL with 83.862%/82.306%/80.292% top-1; MSE clipping
 improves these to 3.10542/3.22719/3.33410 PPL and 84.716%/82.748%/81.192% top-1.
 
-The packed hardware budget is identical across quantizers except for packed weight
-bytes (the table reports the INT8 upper bound). At sequence length 256 it is
-25,846,336 weight bytes including scale pairs, 958,464 KV-cache bytes, and
-16,502,628 streamed bytes per token. The bandwidth-only QSPI estimates are
-1.515/3.030/6.060 tokens/s at 25/50/100 MB/s respectively; these estimates exclude
-compute and command overhead. Full per-configuration budgets, KL, divergence lists,
-and checkpoint/calibration hashes are in `bench/results/numerics_v2_15m.json`.
+After tied-table rebudgeting, INT8 stores 17,302,336 weight bytes (over the
+14,155,776-byte flash payload), while INT4 g32/g64/g128 store 11,414,592 /
+9,708,352 / 8,855,232 bytes and fit. KV-cache bytes remain 958,464 at sequence
+256; streamed bytes/token remain 16,502,649 for INT8 and 9,974,781 for INT4 g32.
+Bandwidth-only QSPI estimates exclude compute and command overhead; full per-config
+breakdowns are in `bench/results/numerics_v2_15m.json`.
+
+## Chunk-4 tied-table and GPTQ contract
+
+For shared-classifier checkpoints, the INT4/INT8 classifier and token embedding use
+one code table. Embedding lookup reads the row codes and applies a separate
+per-group `(multiplier, shift)` plane; classifier matmul keeps its own output-scale
+plane. This removes the duplicate 32000x288 table while preserving bit-exact integer
+runtime behavior. `fits_flash` means weight bytes are at most
+`16 MiB - 2.5 MiB = 14,155,776` bytes; JSON also records layers, classifier scales,
+embedding-table/scales, gamma, KV, and streamed-byte breakdowns.
+
+GPTQ is offline diagonal-Hessian GPTQ-lite: the calibration forward hooks accumulate
+`H_jj=sum_t x_{t,j}^2` on the pinned 128x64 TRAIN corpus. For every weight group,
+candidate clipping scales are selected by minimizing `sum_j H_jj(w_j-Q(w_j))^2`;
+codes and scale-pair records are unchanged, and no Hessian or float value enters the
+runtime. The added offline cost is 46 candidate scans per group; hardware cost is
+zero.
+
+Full 50k-token chunk-4 results are: tied INT4 g32 3.22097 PPL/82.706% top-1;
+GPTQ g32 3.10678/84.982%; GPTQ g64 3.19334/83.546%; and GPTQ with INT8 qkv plus
+INT8 tied table 2.91479/89.346%. The latter is +6.54% versus float and exceeds the
+13.5 MB flash payload (16 MiB minus 2.5 MiB bitstream reserve) at 16,769,088 bytes;
+the fitting GPTQ g32 and g64 images are 11,414,592 and 9,708,352 bytes. The
+per-class restore screen (512 tokens, explicitly marked in JSON) ranks qkv, tied
+classifier/embedding, w13, w2, then wo by recovered PPL; full rows and byte deltas are
+in `bench/results/numerics_v2_chunk4.json`.

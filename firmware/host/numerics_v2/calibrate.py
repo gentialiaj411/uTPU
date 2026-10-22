@@ -35,6 +35,7 @@ def calibrate(model_path: Path, tokenizer_path: Path, train_path: Path, device="
     model = load_torch_model(ref, device)
     maxima = {name: 0.0 for name in ("x", "norm", "q", "k", "v", "av", "h1", "h3", "silu", "hidden", "logits")}
     captures = {}
+    hessian = {}
 
     def output_hook(name):
         def hook(_module, _inputs, output):
@@ -50,13 +51,25 @@ def calibrate(model_path: Path, tokenizer_path: Path, train_path: Path, device="
             captures.setdefault(name, []).append(value.cpu())
         return hook
 
+    def hessian_hook(name):
+        def hook(_module, inputs):
+            value = inputs[0].detach().float()
+            flat = value.reshape(-1, value.shape[-1])
+            hessian[name] = hessian.get(name, torch.zeros(value.shape[-1])) + torch.sum(flat * flat, dim=0).cpu()
+        return hook
+
     handles = [model.tok_embeddings.register_forward_hook(output_hook("x")), model.norm.register_forward_hook(output_hook("norm"))]
     for layer in model.layers:
         handles += [layer.register_forward_hook(output_hook("x")), layer.attention_norm.register_forward_hook(output_hook("norm")),
                     layer.ffn_norm.register_forward_hook(output_hook("norm")), layer.attention.wq.register_forward_hook(output_hook("q")),
                     layer.attention.wk.register_forward_hook(output_hook("k")), layer.attention.wv.register_forward_hook(output_hook("v")),
-                    layer.attention.wo.register_forward_hook(input_hook("av")), layer.feed_forward.w1.register_forward_hook(output_hook("h1")),
-                    layer.feed_forward.w3.register_forward_hook(output_hook("h3")), layer.feed_forward.w2.register_forward_hook(input_hook("hidden"))]
+                    layer.attention.wq.register_forward_pre_hook(hessian_hook("norm")), layer.attention.wk.register_forward_pre_hook(hessian_hook("norm")),
+                    layer.attention.wv.register_forward_pre_hook(hessian_hook("norm")), layer.attention.wo.register_forward_hook(input_hook("av")),
+                    layer.attention.wo.register_forward_pre_hook(hessian_hook("av")),
+                    layer.feed_forward.w1.register_forward_hook(output_hook("h1")), layer.feed_forward.w1.register_forward_pre_hook(hessian_hook("norm")),
+                    layer.feed_forward.w3.register_forward_pre_hook(hessian_hook("norm")),
+                    layer.feed_forward.w3.register_forward_hook(output_hook("h3")), layer.feed_forward.w2.register_forward_hook(input_hook("hidden")),
+                    layer.feed_forward.w2.register_forward_pre_hook(hessian_hook("hidden"))]
     with torch.inference_mode():
         value = torch.from_numpy(tokens).to(device)
         logits = model(value, value)
@@ -87,8 +100,12 @@ def calibrate(model_path: Path, tokenizer_path: Path, train_path: Path, device="
                 "eval_slice_sha256": "ae55d9eb37d0e99c6e1051dbeb212f51b6c1d2d98858fccd81f5676bee92a4e7",
                 "provably_disjoint": True, "disjoint_reason": "different named upstream splits (train vs validation) and unequal SHA-256 digests"}
     metadata["scale_selection"] = "99.9th percentile (nearest-rank above 2^24 samples); logits max-abs"
-    return scales, metadata
+    hessian = {name: values.tolist() for name, values in hessian.items()}
+    return scales, metadata, hessian
 
 
-def write(path: Path, scales, metadata):
-    path.write_text(json.dumps({"metadata": metadata, "activation_scales": scales}, indent=2) + "\n", encoding="utf-8")
+def write(path: Path, scales, metadata, hessian=None):
+    document = {"metadata": metadata, "activation_scales": scales}
+    if hessian is not None:
+        document["hessian_diag"] = hessian
+    path.write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")

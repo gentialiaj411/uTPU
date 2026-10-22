@@ -1,0 +1,989 @@
+{
+  "schema_version": 1,
+  "generated_at_utc": "2026-10-22T17:25:20.633149+00:00",
+  "model": "stories15M",
+  "float_perplexity": 2.735893,
+  "full_eval_tokens": 50000,
+  "sensitivity_eval_tokens": 512,
+  "flash_payload_limit_bytes": 14155776,
+  "configs": [
+    {
+      "name": "baseline_int4_g32",
+      "weight_bits": 4,
+      "group_size": 32,
+      "gptq": false,
+      "mixed_precision": {},
+      "accumulator_bounds": {
+        "qkv/wo/w1/w3/classifier": {
+          "K": 32,
+          "max_abs_a": 127,
+          "max_abs_w": 7,
+          "worst_case": 28448,
+          "fits_int32": true
+        },
+        "w2": {
+          "K": 32,
+          "max_abs_a": 127,
+          "max_abs_w": 7,
+          "worst_case": 28448,
+          "fits_int32": true
+        },
+        "attention_score": {
+          "K": 48,
+          "max_abs_a": 127,
+          "max_abs_w": 127,
+          "worst_case": 774192,
+          "fits_int32": true
+        },
+        "attention_value": {
+          "K": 256,
+          "max_abs_a": 32767,
+          "max_abs_w": 127,
+          "worst_case": 1065320704,
+          "fits_int32": true
+        }
+      },
+      "hardware_budget": {
+        "weight_bytes_including_scales": 11414592,
+        "kv_cache_bytes_seq256_including_scales": 958464,
+        "bytes_streamed_per_token": 9974781,
+        "estimated_tokens_per_second": {
+          "25_MBps": 2.5063206901484856,
+          "50_MBps": 5.012641380296971,
+          "100_MBps": 10.025282760593942
+        },
+        "fits_flash": true,
+        "flash_limit_bytes": 14155776,
+        "byte_breakdown": {
+          "layers": 3919104,
+          "classifier_scales": 1440000,
+          "embedding_table_and_scales": 6048000,
+          "gamma": 7488
+        },
+        "embedding_classifier_tied": true,
+        "estimate_assumption": "bandwidth-only QSPI limit; decimal MB/s; no compute/command overhead"
+      },
+      "eval_tokens": 50000,
+      "mean_nll": 1.169682198818412,
+      "perplexity": 3.2209688481504206,
+      "teacher_forced_top1_agreement_pct": 82.706,
+      "logit_kl_float_to_candidate": 0.1616766704731936,
+      "logit_chunk_size": 4096,
+      "delta_vs_float_pct": 17.73007380589886,
+      "summary": {
+        "config": "baseline_int4_g32",
+        "ppl": 3.2209688481504206,
+        "delta_vs_float_pct": 17.73007380589886,
+        "top1_pct": 82.706,
+        "flash_bytes": 11414592,
+        "fits_flash": true,
+        "streamed_bytes_per_token": 9974781,
+        "tok_s_25_50": [
+          2.5063206901484856,
+          5.012641380296971
+        ]
+      },
+      "pareto_best_fit": false
+    },
+    {
+      "name": "gptq_g32",
+      "weight_bits": 4,
+      "group_size": 32,
+      "gptq": true,
+      "mixed_precision": {},
+      "accumulator_bounds": {
+        "qkv/wo/w1/w3/classifier": {
+          "K": 32,
+          "max_abs_a": 127,
+          "max_abs_w": 7,
+          "worst_case": 28448,
+          "fits_int32": true
+        },
+        "w2": {
+          "K": 32,
+          "max_abs_a": 127,
+          "max_abs_w": 7,
+          "worst_case": 28448,
+          "fits_int32": true
+        },
+        "attention_score": {
+          "K": 48,
+          "max_abs_a": 127,
+          "max_abs_w": 127,
+          "worst_case": 774192,
+          "fits_int32": true
+        },
+        "attention_value": {
+          "K": 256,
+          "max_abs_a": 32767,
+          "max_abs_w": 127,
+          "worst_case": 1065320704,
+          "fits_int32": true
+        }
+      },
+      "hardware_budget": {
+        "weight_bytes_including_scales": 11414592,
+        "kv_cache_bytes_seq256_including_scales": 958464,
+        "bytes_streamed_per_token": 9974781,
+        "estimated_tokens_per_second": {
+          "25_MBps": 2.5063206901484856,
+          "50_MBps": 5.012641380296971,
+          "100_MBps": 10.025282760593942
+        },
+        "fits_flash": true,
+        "flash_limit_bytes": 14155776,
+        "byte_breakdown": {
+          "layers": 3919104,
+          "classifier_scales": 1440000,
+          "embedding_table_and_scales": 6048000,
+          "gamma": 7488
+        },
+        "embedding_classifier_tied": true,
+        "estimate_assumption": "bandwidth-only QSPI limit; decimal MB/s; no compute/command overhead"
+      },
+      "eval_tokens": 50000,
+      "mean_nll": 1.1335870513094606,
+      "perplexity": 3.106780718470233,
+      "teacher_forced_top1_agreement_pct": 84.982,
+      "logit_kl_float_to_candidate": 0.12762754508484553,
+      "logit_chunk_size": 4096,
+      "delta_vs_float_pct": 13.556367828355608,
+      "summary": {
+        "config": "gptq_g32",
+        "ppl": 3.106780718470233,
+        "delta_vs_float_pct": 13.556367828355608,
+        "top1_pct": 84.982,
+        "flash_bytes": 11414592,
+        "fits_flash": true,
+        "streamed_bytes_per_token": 9974781,
+        "tok_s_25_50": [
+          2.5063206901484856,
+          5.012641380296971
+        ]
+      },
+      "pareto_best_fit": true
+    },
+    {
+      "name": "gptq_g64",
+      "weight_bits": 4,
+      "group_size": 64,
+      "gptq": true,
+      "mixed_precision": {},
+      "accumulator_bounds": {
+        "qkv/wo/w1/w3/classifier": {
+          "K": 64,
+          "max_abs_a": 127,
+          "max_abs_w": 7,
+          "worst_case": 56896,
+          "fits_int32": true
+        },
+        "w2": {
+          "K": 64,
+          "max_abs_a": 127,
+          "max_abs_w": 7,
+          "worst_case": 56896,
+          "fits_int32": true
+        },
+        "attention_score": {
+          "K": 48,
+          "max_abs_a": 127,
+          "max_abs_w": 127,
+          "worst_case": 774192,
+          "fits_int32": true
+        },
+        "attention_value": {
+          "K": 256,
+          "max_abs_a": 32767,
+          "max_abs_w": 127,
+          "worst_case": 1065320704,
+          "fits_int32": true
+        }
+      },
+      "hardware_budget": {
+        "weight_bytes_including_scales": 9708352,
+        "kv_cache_bytes_seq256_including_scales": 958464,
+        "bytes_streamed_per_token": 8908521,
+        "estimated_tokens_per_second": {
+          "25_MBps": 2.8063019663982383,
+          "50_MBps": 5.6126039327964765,
+          "100_MBps": 11.225207865592953
+        },
+        "fits_flash": true,
+        "flash_limit_bytes": 14155776,
+        "byte_breakdown": {
+          "layers": 3492864,
+          "classifier_scales": 800000,
+          "embedding_table_and_scales": 5408000,
+          "gamma": 7488
+        },
+        "embedding_classifier_tied": true,
+        "estimate_assumption": "bandwidth-only QSPI limit; decimal MB/s; no compute/command overhead"
+      },
+      "eval_tokens": 50000,
+      "mean_nll": 1.1610661035887933,
+      "perplexity": 3.193335888876423,
+      "teacher_forced_top1_agreement_pct": 83.546,
+      "logit_kl_float_to_candidate": 0.15474095175469602,
+      "logit_chunk_size": 4096,
+      "delta_vs_float_pct": 16.72005772434899,
+      "summary": {
+        "config": "gptq_g64",
+        "ppl": 3.193335888876423,
+        "delta_vs_float_pct": 16.72005772434899,
+        "top1_pct": 83.546,
+        "flash_bytes": 9708352,
+        "fits_flash": true,
+        "streamed_bytes_per_token": 8908521,
+        "tok_s_25_50": [
+          2.8063019663982383,
+          5.6126039327964765
+        ]
+      },
+      "pareto_best_fit": true
+    },
+    {
+      "name": "gptq_qkv_classifier_int8_g32",
+      "weight_bits": 4,
+      "group_size": 32,
+      "gptq": true,
+      "mixed_precision": {
+        "qkv": 8,
+        "classifier": 8
+      },
+      "accumulator_bounds": {
+        "qkv/wo/w1/w3/classifier": {
+          "K": 32,
+          "max_abs_a": 127,
+          "max_abs_w": 7,
+          "worst_case": 28448,
+          "fits_int32": true
+        },
+        "w2": {
+          "K": 32,
+          "max_abs_a": 127,
+          "max_abs_w": 7,
+          "worst_case": 28448,
+          "fits_int32": true
+        },
+        "attention_score": {
+          "K": 48,
+          "max_abs_a": 127,
+          "max_abs_w": 127,
+          "worst_case": 774192,
+          "fits_int32": true
+        },
+        "attention_value": {
+          "K": 256,
+          "max_abs_a": 32767,
+          "max_abs_w": 127,
+          "worst_case": 1065320704,
+          "fits_int32": true
+        }
+      },
+      "hardware_budget": {
+        "weight_bytes_including_scales": 16769088,
+        "kv_cache_bytes_seq256_including_scales": 958464,
+        "bytes_streamed_per_token": 15329421,
+        "estimated_tokens_per_second": {
+          "25_MBps": 1.6308508977605873,
+          "50_MBps": 3.2617017955211747,
+          "100_MBps": 6.523403591042349
+        },
+        "fits_flash": false,
+        "flash_limit_bytes": 14155776,
+        "byte_breakdown": {
+          "layers": 4665600,
+          "classifier_scales": 1440000,
+          "embedding_table_and_scales": 10656000,
+          "gamma": 7488
+        },
+        "embedding_classifier_tied": true,
+        "estimate_assumption": "bandwidth-only QSPI limit; decimal MB/s; no compute/command overhead"
+      },
+      "eval_tokens": 50000,
+      "mean_nll": 1.0697980303266303,
+      "perplexity": 2.914790741189349,
+      "teacher_forced_top1_agreement_pct": 89.346,
+      "logit_kl_float_to_candidate": 0.06351133197558315,
+      "logit_chunk_size": 4096,
+      "delta_vs_float_pct": 6.538915856334637,
+      "summary": {
+        "config": "gptq_qkv_classifier_int8_g32",
+        "ppl": 2.914790741189349,
+        "delta_vs_float_pct": 6.538915856334637,
+        "top1_pct": 89.346,
+        "flash_bytes": 16769088,
+        "fits_flash": false,
+        "streamed_bytes_per_token": 15329421,
+        "tok_s_25_50": [
+          1.6308508977605873,
+          3.2617017955211747
+        ]
+      },
+      "pareto_best_fit": false
+    }
+  ],
+  "sensitivity": [
+    {
+      "name": "baseline_int4_g32",
+      "weight_bits": 4,
+      "group_size": 32,
+      "gptq": false,
+      "mixed_precision": {},
+      "accumulator_bounds": {
+        "qkv/wo/w1/w3/classifier": {
+          "K": 32,
+          "max_abs_a": 127,
+          "max_abs_w": 7,
+          "worst_case": 28448,
+          "fits_int32": true
+        },
+        "w2": {
+          "K": 32,
+          "max_abs_a": 127,
+          "max_abs_w": 7,
+          "worst_case": 28448,
+          "fits_int32": true
+        },
+        "attention_score": {
+          "K": 48,
+          "max_abs_a": 127,
+          "max_abs_w": 127,
+          "worst_case": 774192,
+          "fits_int32": true
+        },
+        "attention_value": {
+          "K": 256,
+          "max_abs_a": 32767,
+          "max_abs_w": 127,
+          "worst_case": 1065320704,
+          "fits_int32": true
+        }
+      },
+      "hardware_budget": {
+        "weight_bytes_including_scales": 11414592,
+        "kv_cache_bytes_seq256_including_scales": 958464,
+        "bytes_streamed_per_token": 9974781,
+        "estimated_tokens_per_second": {
+          "25_MBps": 2.5063206901484856,
+          "50_MBps": 5.012641380296971,
+          "100_MBps": 10.025282760593942
+        },
+        "fits_flash": true,
+        "flash_limit_bytes": 14155776,
+        "byte_breakdown": {
+          "layers": 3919104,
+          "classifier_scales": 1440000,
+          "embedding_table_and_scales": 6048000,
+          "gamma": 7488
+        },
+        "embedding_classifier_tied": true,
+        "estimate_assumption": "bandwidth-only QSPI limit; decimal MB/s; no compute/command overhead"
+      },
+      "eval_tokens": 512,
+      "mean_nll": 1.1779115364522377,
+      "perplexity": 3.247584653327361,
+      "teacher_forced_top1_agreement_pct": 83.984375,
+      "logit_kl_float_to_candidate": 0.166473716753026,
+      "logit_chunk_size": 4096,
+      "bytes_added_vs_baseline": 0
+    },
+    {
+      "name": "classifier_embedding_int8",
+      "weight_bits": 4,
+      "group_size": 32,
+      "gptq": false,
+      "mixed_precision": {
+        "classifier": 8
+      },
+      "accumulator_bounds": {
+        "qkv/wo/w1/w3/classifier": {
+          "K": 32,
+          "max_abs_a": 127,
+          "max_abs_w": 7,
+          "worst_case": 28448,
+          "fits_int32": true
+        },
+        "w2": {
+          "K": 32,
+          "max_abs_a": 127,
+          "max_abs_w": 7,
+          "worst_case": 28448,
+          "fits_int32": true
+        },
+        "attention_score": {
+          "K": 48,
+          "max_abs_a": 127,
+          "max_abs_w": 127,
+          "worst_case": 774192,
+          "fits_int32": true
+        },
+        "attention_value": {
+          "K": 256,
+          "max_abs_a": 32767,
+          "max_abs_w": 127,
+          "worst_case": 1065320704,
+          "fits_int32": true
+        }
+      },
+      "hardware_budget": {
+        "weight_bytes_including_scales": 16022592,
+        "kv_cache_bytes_seq256_including_scales": 958464,
+        "bytes_streamed_per_token": 14582925,
+        "estimated_tokens_per_second": {
+          "25_MBps": 1.714333715629752,
+          "50_MBps": 3.428667431259504,
+          "100_MBps": 6.857334862519008
+        },
+        "fits_flash": false,
+        "flash_limit_bytes": 14155776,
+        "byte_breakdown": {
+          "layers": 3919104,
+          "classifier_scales": 1440000,
+          "embedding_table_and_scales": 10656000,
+          "gamma": 7488
+        },
+        "embedding_classifier_tied": true,
+        "estimate_assumption": "bandwidth-only QSPI limit; decimal MB/s; no compute/command overhead"
+      },
+      "eval_tokens": 512,
+      "mean_nll": 1.1258743164686065,
+      "perplexity": 3.0829111108830918,
+      "teacher_forced_top1_agreement_pct": 87.109375,
+      "logit_kl_float_to_candidate": 0.11596748719776276,
+      "logit_chunk_size": 4096,
+      "bytes_added_vs_baseline": 4608000
+    },
+    {
+      "name": "qkv_int8",
+      "weight_bits": 4,
+      "group_size": 32,
+      "gptq": false,
+      "mixed_precision": {
+        "qkv": 8
+      },
+      "accumulator_bounds": {
+        "qkv/wo/w1/w3/classifier": {
+          "K": 32,
+          "max_abs_a": 127,
+          "max_abs_w": 7,
+          "worst_case": 28448,
+          "fits_int32": true
+        },
+        "w2": {
+          "K": 32,
+          "max_abs_a": 127,
+          "max_abs_w": 7,
+          "worst_case": 28448,
+          "fits_int32": true
+        },
+        "attention_score": {
+          "K": 48,
+          "max_abs_a": 127,
+          "max_abs_w": 127,
+          "worst_case": 774192,
+          "fits_int32": true
+        },
+        "attention_value": {
+          "K": 256,
+          "max_abs_a": 32767,
+          "max_abs_w": 127,
+          "worst_case": 1065320704,
+          "fits_int32": true
+        }
+      },
+      "hardware_budget": {
+        "weight_bytes_including_scales": 12161088,
+        "kv_cache_bytes_seq256_including_scales": 958464,
+        "bytes_streamed_per_token": 10721277,
+        "estimated_tokens_per_second": {
+          "25_MBps": 2.331811779510967,
+          "50_MBps": 4.663623559021934,
+          "100_MBps": 9.327247118043868
+        },
+        "fits_flash": true,
+        "flash_limit_bytes": 14155776,
+        "byte_breakdown": {
+          "layers": 4665600,
+          "classifier_scales": 1440000,
+          "embedding_table_and_scales": 6048000,
+          "gamma": 7488
+        },
+        "embedding_classifier_tied": true,
+        "estimate_assumption": "bandwidth-only QSPI limit; decimal MB/s; no compute/command overhead"
+      },
+      "eval_tokens": 512,
+      "mean_nll": 1.1140756001611667,
+      "perplexity": 3.0467504613989167,
+      "teacher_forced_top1_agreement_pct": 87.109375,
+      "logit_kl_float_to_candidate": 0.09833400375723667,
+      "logit_chunk_size": 4096,
+      "bytes_added_vs_baseline": 746496
+    },
+    {
+      "name": "wo_int8",
+      "weight_bits": 4,
+      "group_size": 32,
+      "gptq": false,
+      "mixed_precision": {
+        "wo": 8
+      },
+      "accumulator_bounds": {
+        "qkv/wo/w1/w3/classifier": {
+          "K": 32,
+          "max_abs_a": 127,
+          "max_abs_w": 7,
+          "worst_case": 28448,
+          "fits_int32": true
+        },
+        "w2": {
+          "K": 32,
+          "max_abs_a": 127,
+          "max_abs_w": 7,
+          "worst_case": 28448,
+          "fits_int32": true
+        },
+        "attention_score": {
+          "K": 48,
+          "max_abs_a": 127,
+          "max_abs_w": 127,
+          "worst_case": 774192,
+          "fits_int32": true
+        },
+        "attention_value": {
+          "K": 256,
+          "max_abs_a": 32767,
+          "max_abs_w": 127,
+          "worst_case": 1065320704,
+          "fits_int32": true
+        }
+      },
+      "hardware_budget": {
+        "weight_bytes_including_scales": 11663424,
+        "kv_cache_bytes_seq256_including_scales": 958464,
+        "bytes_streamed_per_token": 10223613,
+        "estimated_tokens_per_second": {
+          "25_MBps": 2.4453194775662968,
+          "50_MBps": 4.8906389551325935,
+          "100_MBps": 9.781277910265187
+        },
+        "fits_flash": true,
+        "flash_limit_bytes": 14155776,
+        "byte_breakdown": {
+          "layers": 4167936,
+          "classifier_scales": 1440000,
+          "embedding_table_and_scales": 6048000,
+          "gamma": 7488
+        },
+        "embedding_classifier_tied": true,
+        "estimate_assumption": "bandwidth-only QSPI limit; decimal MB/s; no compute/command overhead"
+      },
+      "eval_tokens": 512,
+      "mean_nll": 1.165473388253712,
+      "perplexity": 3.2074408887126697,
+      "teacher_forced_top1_agreement_pct": 85.9375,
+      "logit_kl_float_to_candidate": 0.15558205607938977,
+      "logit_chunk_size": 4096,
+      "bytes_added_vs_baseline": 248832
+    },
+    {
+      "name": "w13_int8",
+      "weight_bits": 4,
+      "group_size": 32,
+      "gptq": false,
+      "mixed_precision": {
+        "w13": 8
+      },
+      "accumulator_bounds": {
+        "qkv/wo/w1/w3/classifier": {
+          "K": 32,
+          "max_abs_a": 127,
+          "max_abs_w": 7,
+          "worst_case": 28448,
+          "fits_int32": true
+        },
+        "w2": {
+          "K": 32,
+          "max_abs_a": 127,
+          "max_abs_w": 7,
+          "worst_case": 28448,
+          "fits_int32": true
+        },
+        "attention_score": {
+          "K": 48,
+          "max_abs_a": 127,
+          "max_abs_w": 127,
+          "worst_case": 774192,
+          "fits_int32": true
+        },
+        "attention_value": {
+          "K": 256,
+          "max_abs_a": 32767,
+          "max_abs_w": 127,
+          "worst_case": 1065320704,
+          "fits_int32": true
+        }
+      },
+      "hardware_budget": {
+        "weight_bytes_including_scales": 12741696,
+        "kv_cache_bytes_seq256_including_scales": 958464,
+        "bytes_streamed_per_token": 11301885,
+        "estimated_tokens_per_second": {
+          "25_MBps": 2.2120203842102444,
+          "50_MBps": 4.424040768420489,
+          "100_MBps": 8.848081536840978
+        },
+        "fits_flash": true,
+        "flash_limit_bytes": 14155776,
+        "byte_breakdown": {
+          "layers": 5246208,
+          "classifier_scales": 1440000,
+          "embedding_table_and_scales": 6048000,
+          "gamma": 7488
+        },
+        "embedding_classifier_tied": true,
+        "estimate_assumption": "bandwidth-only QSPI limit; decimal MB/s; no compute/command overhead"
+      },
+      "eval_tokens": 512,
+      "mean_nll": 1.1378653089007018,
+      "perplexity": 3.120100799715713,
+      "teacher_forced_top1_agreement_pct": 85.15625,
+      "logit_kl_float_to_candidate": 0.13297862778666558,
+      "logit_chunk_size": 4096,
+      "bytes_added_vs_baseline": 1327104
+    },
+    {
+      "name": "w2_int8",
+      "weight_bits": 4,
+      "group_size": 32,
+      "gptq": false,
+      "mixed_precision": {
+        "w2": 8
+      },
+      "accumulator_bounds": {
+        "qkv/wo/w1/w3/classifier": {
+          "K": 32,
+          "max_abs_a": 127,
+          "max_abs_w": 7,
+          "worst_case": 28448,
+          "fits_int32": true
+        },
+        "w2": {
+          "K": 32,
+          "max_abs_a": 127,
+          "max_abs_w": 7,
+          "worst_case": 28448,
+          "fits_int32": true
+        },
+        "attention_score": {
+          "K": 48,
+          "max_abs_a": 127,
+          "max_abs_w": 127,
+          "worst_case": 774192,
+          "fits_int32": true
+        },
+        "attention_value": {
+          "K": 256,
+          "max_abs_a": 32767,
+          "max_abs_w": 127,
+          "worst_case": 1065320704,
+          "fits_int32": true
+        }
+      },
+      "hardware_budget": {
+        "weight_bytes_including_scales": 12078144,
+        "kv_cache_bytes_seq256_including_scales": 958464,
+        "bytes_streamed_per_token": 10638333,
+        "estimated_tokens_per_second": {
+          "25_MBps": 2.3499922403256224,
+          "50_MBps": 4.699984480651245,
+          "100_MBps": 9.39996896130249
+        },
+        "fits_flash": true,
+        "flash_limit_bytes": 14155776,
+        "byte_breakdown": {
+          "layers": 4582656,
+          "classifier_scales": 1440000,
+          "embedding_table_and_scales": 6048000,
+          "gamma": 7488
+        },
+        "embedding_classifier_tied": true,
+        "estimate_assumption": "bandwidth-only QSPI limit; decimal MB/s; no compute/command overhead"
+      },
+      "eval_tokens": 512,
+      "mean_nll": 1.1407653377885398,
+      "perplexity": 3.1291623151453742,
+      "teacher_forced_top1_agreement_pct": 85.546875,
+      "logit_kl_float_to_candidate": 0.14179787535685273,
+      "logit_chunk_size": 4096,
+      "bytes_added_vs_baseline": 663552
+    },
+    {
+      "name": "gptq_g32",
+      "weight_bits": 4,
+      "group_size": 32,
+      "gptq": true,
+      "mixed_precision": {},
+      "accumulator_bounds": {
+        "qkv/wo/w1/w3/classifier": {
+          "K": 32,
+          "max_abs_a": 127,
+          "max_abs_w": 7,
+          "worst_case": 28448,
+          "fits_int32": true
+        },
+        "w2": {
+          "K": 32,
+          "max_abs_a": 127,
+          "max_abs_w": 7,
+          "worst_case": 28448,
+          "fits_int32": true
+        },
+        "attention_score": {
+          "K": 48,
+          "max_abs_a": 127,
+          "max_abs_w": 127,
+          "worst_case": 774192,
+          "fits_int32": true
+        },
+        "attention_value": {
+          "K": 256,
+          "max_abs_a": 32767,
+          "max_abs_w": 127,
+          "worst_case": 1065320704,
+          "fits_int32": true
+        }
+      },
+      "hardware_budget": {
+        "weight_bytes_including_scales": 11414592,
+        "kv_cache_bytes_seq256_including_scales": 958464,
+        "bytes_streamed_per_token": 9974781,
+        "estimated_tokens_per_second": {
+          "25_MBps": 2.5063206901484856,
+          "50_MBps": 5.012641380296971,
+          "100_MBps": 10.025282760593942
+        },
+        "fits_flash": true,
+        "flash_limit_bytes": 14155776,
+        "byte_breakdown": {
+          "layers": 3919104,
+          "classifier_scales": 1440000,
+          "embedding_table_and_scales": 6048000,
+          "gamma": 7488
+        },
+        "embedding_classifier_tied": true,
+        "estimate_assumption": "bandwidth-only QSPI limit; decimal MB/s; no compute/command overhead"
+      },
+      "eval_tokens": 512,
+      "mean_nll": 1.108898540534871,
+      "perplexity": 3.0310180116473666,
+      "teacher_forced_top1_agreement_pct": 88.4765625,
+      "logit_kl_float_to_candidate": 0.10150283683745696,
+      "logit_chunk_size": 4096,
+      "bytes_added_vs_baseline": 0
+    },
+    {
+      "name": "gptq_g64",
+      "weight_bits": 4,
+      "group_size": 64,
+      "gptq": true,
+      "mixed_precision": {},
+      "accumulator_bounds": {
+        "qkv/wo/w1/w3/classifier": {
+          "K": 64,
+          "max_abs_a": 127,
+          "max_abs_w": 7,
+          "worst_case": 56896,
+          "fits_int32": true
+        },
+        "w2": {
+          "K": 64,
+          "max_abs_a": 127,
+          "max_abs_w": 7,
+          "worst_case": 56896,
+          "fits_int32": true
+        },
+        "attention_score": {
+          "K": 48,
+          "max_abs_a": 127,
+          "max_abs_w": 127,
+          "worst_case": 774192,
+          "fits_int32": true
+        },
+        "attention_value": {
+          "K": 256,
+          "max_abs_a": 32767,
+          "max_abs_w": 127,
+          "worst_case": 1065320704,
+          "fits_int32": true
+        }
+      },
+      "hardware_budget": {
+        "weight_bytes_including_scales": 9708352,
+        "kv_cache_bytes_seq256_including_scales": 958464,
+        "bytes_streamed_per_token": 8908521,
+        "estimated_tokens_per_second": {
+          "25_MBps": 2.8063019663982383,
+          "50_MBps": 5.6126039327964765,
+          "100_MBps": 11.225207865592953
+        },
+        "fits_flash": true,
+        "flash_limit_bytes": 14155776,
+        "byte_breakdown": {
+          "layers": 3492864,
+          "classifier_scales": 800000,
+          "embedding_table_and_scales": 5408000,
+          "gamma": 7488
+        },
+        "embedding_classifier_tied": true,
+        "estimate_assumption": "bandwidth-only QSPI limit; decimal MB/s; no compute/command overhead"
+      },
+      "eval_tokens": 512,
+      "mean_nll": 1.156836631586627,
+      "perplexity": 3.1798582858044266,
+      "teacher_forced_top1_agreement_pct": 85.7421875,
+      "logit_kl_float_to_candidate": 0.13579646124664435,
+      "logit_chunk_size": 4096,
+      "bytes_added_vs_baseline": -1706240
+    },
+    {
+      "name": "gptq_classifier_embedding_int8_g32",
+      "weight_bits": 4,
+      "group_size": 32,
+      "gptq": true,
+      "mixed_precision": {
+        "classifier": 8
+      },
+      "accumulator_bounds": {
+        "qkv/wo/w1/w3/classifier": {
+          "K": 32,
+          "max_abs_a": 127,
+          "max_abs_w": 7,
+          "worst_case": 28448,
+          "fits_int32": true
+        },
+        "w2": {
+          "K": 32,
+          "max_abs_a": 127,
+          "max_abs_w": 7,
+          "worst_case": 28448,
+          "fits_int32": true
+        },
+        "attention_score": {
+          "K": 48,
+          "max_abs_a": 127,
+          "max_abs_w": 127,
+          "worst_case": 774192,
+          "fits_int32": true
+        },
+        "attention_value": {
+          "K": 256,
+          "max_abs_a": 32767,
+          "max_abs_w": 127,
+          "worst_case": 1065320704,
+          "fits_int32": true
+        }
+      },
+      "hardware_budget": {
+        "weight_bytes_including_scales": 16022592,
+        "kv_cache_bytes_seq256_including_scales": 958464,
+        "bytes_streamed_per_token": 14582925,
+        "estimated_tokens_per_second": {
+          "25_MBps": 1.714333715629752,
+          "50_MBps": 3.428667431259504,
+          "100_MBps": 6.857334862519008
+        },
+        "fits_flash": false,
+        "flash_limit_bytes": 14155776,
+        "byte_breakdown": {
+          "layers": 3919104,
+          "classifier_scales": 1440000,
+          "embedding_table_and_scales": 10656000,
+          "gamma": 7488
+        },
+        "embedding_classifier_tied": true,
+        "estimate_assumption": "bandwidth-only QSPI limit; decimal MB/s; no compute/command overhead"
+      },
+      "eval_tokens": 512,
+      "mean_nll": 1.0700574596745747,
+      "perplexity": 2.915547021547148,
+      "teacher_forced_top1_agreement_pct": 88.8671875,
+      "logit_kl_float_to_candidate": 0.07876314090197448,
+      "logit_chunk_size": 4096,
+      "bytes_added_vs_baseline": 4608000
+    }
+  ],
+  "summary_table": [
+    {
+      "config": "baseline_int4_g32",
+      "ppl": 3.2209688481504206,
+      "delta_vs_float_pct": 17.73007380589886,
+      "top1_pct": 82.706,
+      "flash_bytes": 11414592,
+      "fits_flash": true,
+      "streamed_bytes_per_token": 9974781,
+      "tok_s_25_50": [
+        2.5063206901484856,
+        5.012641380296971
+      ]
+    },
+    {
+      "config": "gptq_g32",
+      "ppl": 3.106780718470233,
+      "delta_vs_float_pct": 13.556367828355608,
+      "top1_pct": 84.982,
+      "flash_bytes": 11414592,
+      "fits_flash": true,
+      "streamed_bytes_per_token": 9974781,
+      "tok_s_25_50": [
+        2.5063206901484856,
+        5.012641380296971
+      ]
+    },
+    {
+      "config": "gptq_g64",
+      "ppl": 3.193335888876423,
+      "delta_vs_float_pct": 16.72005772434899,
+      "top1_pct": 83.546,
+      "flash_bytes": 9708352,
+      "fits_flash": true,
+      "streamed_bytes_per_token": 8908521,
+      "tok_s_25_50": [
+        2.8063019663982383,
+        5.6126039327964765
+      ]
+    },
+    {
+      "config": "gptq_qkv_classifier_int8_g32",
+      "ppl": 2.914790741189349,
+      "delta_vs_float_pct": 6.538915856334637,
+      "top1_pct": 89.346,
+      "flash_bytes": 16769088,
+      "fits_flash": false,
+      "streamed_bytes_per_token": 15329421,
+      "tok_s_25_50": [
+        1.6308508977605873,
+        3.2617017955211747
+      ]
+    }
+  ],
+  "gptq": {
+    "method": "diagonal Hessian weighted clipping",
+    "calibration": {
+      "dataset": "roneneldan/TinyStories",
+      "revision": "f54c09fd23315a6f9c86f9dc80f725de7d8f9c64",
+      "split": "train",
+      "sequences": 128,
+      "sequence_tokens": 64,
+      "activation_percentile": 99.9,
+      "source_range": "bytes=0-1048575",
+      "source_sha256": "1c00f67921651ecf58c88044983fa9fe93ce4b3a372d2633bfc1d1de9dd3710a",
+      "calibration_corpus_bytes": 101641,
+      "calibration_corpus_sha256": "6974b5ad09714553e105f644308d4b2ff99c0406140aa68c6bd1c3b62210c1d6",
+      "eval_slice_sha256": "ae55d9eb37d0e99c6e1051dbeb212f51b6c1d2d98858fccd81f5676bee92a4e7",
+      "provably_disjoint": true,
+      "disjoint_reason": "different named upstream splits (train vs validation) and unequal SHA-256 digests",
+      "scale_selection": "99.9th percentile (nearest-rank above 2^24 samples); logits max-abs"
+    }
+  }
+}

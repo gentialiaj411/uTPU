@@ -119,8 +119,14 @@ class RunQIntegerLlama:
 
     def __init__(self, export, lut_dir):
         self.cfg, self.embedding = export["config"], export["embedding"]
-        self.embedding_scale_multiplier = export["embedding_scale_multiplier"]
-        self.embedding_scale_shift = int(export["embedding_scale_shift"])
+        self.embedding_tied = bool(export.get("embedding_tied", False))
+        if self.embedding_tied:
+            self.embedding_group_multiplier = export["embedding_group_multiplier"]
+            self.embedding_group_shift = export["embedding_group_shift"]
+            self.embedding_group_size = int(export["embedding_group_size"])
+        else:
+            self.embedding_scale_multiplier = export["embedding_scale_multiplier"]
+            self.embedding_scale_shift = int(export["embedding_scale_shift"])
         self.gamma_att, self.gamma_ffn, self.gamma_final = export["gamma_att"], export["gamma_ffn"], export["gamma_final"]
         self.layers, self.classifier = export["layers"], export["classifier"]
         self.norm_multiplier, self.norm_shift = int(export["norm_multiplier"]), int(export["norm_shift"])
@@ -149,6 +155,14 @@ class RunQIntegerLlama:
 
     def _embedding_high(self, ids):
         code = self.embedding[ids].astype(np.int64)
+        if self.embedding_tied:
+            chunks = []
+            for group, begin in enumerate(range(0, code.shape[-1], self.embedding_group_size)):
+                end = min(begin + self.embedding_group_size, code.shape[-1])
+                chunks.append(rshift_rne(code[..., begin:end] *
+                                         self.embedding_group_multiplier[ids, group, None],
+                                         self.embedding_group_shift[ids, group, None]))
+            return np.concatenate(chunks, axis=-1).astype(np.int32)
         peak = self.embedding_scale_multiplier[ids]
         return rshift_rne(code * np.asarray(peak)[..., None], self.embedding_scale_shift).astype(np.int32)
 

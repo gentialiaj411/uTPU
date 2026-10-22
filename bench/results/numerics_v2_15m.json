@@ -65,15 +65,25 @@
         }
       },
       "hardware_budget": {
-        "weight_bytes_including_scales": 25846336,
+        "weight_bytes_including_scales": 17302336,
         "kv_cache_bytes_seq256_including_scales": 958464,
-        "bytes_streamed_per_token": 16502628,
+        "bytes_streamed_per_token": 16502649,
         "estimated_tokens_per_second": {
-          "25_MBps": 1.5149102312674079,
-          "50_MBps": 3.0298204625348157,
-          "100_MBps": 6.0596409250696315
+          "25_MBps": 1.5149083035093336,
+          "50_MBps": 3.029816607018667,
+          "100_MBps": 6.059633214037334
         },
-        "estimate_assumption": "bandwidth-only QSPI limit; decimal MB/s; no compute/command overhead"
+        "fits_flash": false,
+        "flash_limit_bytes": 14155776,
+        "byte_breakdown": {
+          "layers": 6478848,
+          "classifier_scales": 800000,
+          "embedding_table_and_scales": 10016000,
+          "gamma": 7488
+        },
+        "embedding_classifier_tied": true,
+        "estimate_assumption": "bandwidth-only QSPI limit; decimal MB/s; no compute/command overhead",
+        "rebudgeted_tied_table": true
       },
       "eval_tokens": 50000,
       "mean_nll": 1.0079221484767553,
@@ -189,15 +199,25 @@
         }
       },
       "hardware_budget": {
-        "weight_bytes_including_scales": 19318592,
+        "weight_bytes_including_scales": 11414592,
         "kv_cache_bytes_seq256_including_scales": 958464,
-        "bytes_streamed_per_token": 9974884,
+        "bytes_streamed_per_token": 9974781,
         "estimated_tokens_per_second": {
-          "25_MBps": 2.506294810044909,
-          "50_MBps": 5.012589620089818,
-          "100_MBps": 10.025179240179636
+          "25_MBps": 2.5063206901484856,
+          "50_MBps": 5.012641380296971,
+          "100_MBps": 10.025282760593942
         },
-        "estimate_assumption": "bandwidth-only QSPI limit; decimal MB/s; no compute/command overhead"
+        "fits_flash": true,
+        "flash_limit_bytes": 14155776,
+        "byte_breakdown": {
+          "layers": 3919104,
+          "classifier_scales": 1440000,
+          "embedding_table_and_scales": 6048000,
+          "gamma": 7488
+        },
+        "embedding_classifier_tied": true,
+        "estimate_assumption": "bandwidth-only QSPI limit; decimal MB/s; no compute/command overhead",
+        "rebudgeted_tied_table": true
       },
       "eval_tokens": 50000,
       "mean_nll": 1.1481663568007114,
@@ -313,15 +333,25 @@
         }
       },
       "hardware_budget": {
-        "weight_bytes_including_scales": 18252352,
+        "weight_bytes_including_scales": 9708352,
         "kv_cache_bytes_seq256_including_scales": 958464,
-        "bytes_streamed_per_token": 8908644,
+        "bytes_streamed_per_token": 8908521,
         "estimated_tokens_per_second": {
-          "25_MBps": 2.8062632203060307,
-          "50_MBps": 5.612526440612061,
-          "100_MBps": 11.225052881224123
+          "25_MBps": 2.8063019663982383,
+          "50_MBps": 5.6126039327964765,
+          "100_MBps": 11.225207865592953
         },
-        "estimate_assumption": "bandwidth-only QSPI limit; decimal MB/s; no compute/command overhead"
+        "fits_flash": true,
+        "flash_limit_bytes": 14155776,
+        "byte_breakdown": {
+          "layers": 3492864,
+          "classifier_scales": 800000,
+          "embedding_table_and_scales": 5408000,
+          "gamma": 7488
+        },
+        "embedding_classifier_tied": true,
+        "estimate_assumption": "bandwidth-only QSPI limit; decimal MB/s; no compute/command overhead",
+        "rebudgeted_tied_table": true
       },
       "eval_tokens": 50000,
       "mean_nll": 1.1784713376470672,
@@ -437,15 +467,25 @@
         }
       },
       "hardware_budget": {
-        "weight_bytes_including_scales": 17719232,
+        "weight_bytes_including_scales": 8855232,
         "kv_cache_bytes_seq256_including_scales": 958464,
-        "bytes_streamed_per_token": 8375524,
+        "bytes_streamed_per_token": 8375391,
         "estimated_tokens_per_second": {
-          "25_MBps": 2.984887870896197,
-          "50_MBps": 5.969775741792394,
-          "100_MBps": 11.939551483584788
+          "25_MBps": 2.9849352704846854,
+          "50_MBps": 5.969870540969371,
+          "100_MBps": 11.939741081938742
         },
-        "estimate_assumption": "bandwidth-only QSPI limit; decimal MB/s; no compute/command overhead"
+        "fits_flash": true,
+        "flash_limit_bytes": 14155776,
+        "byte_breakdown": {
+          "layers": 3279744,
+          "classifier_scales": 480000,
+          "embedding_table_and_scales": 5088000,
+          "gamma": 7488
+        },
+        "embedding_classifier_tied": true,
+        "estimate_assumption": "bandwidth-only QSPI limit; decimal MB/s; no compute/command overhead",
+        "rebudgeted_tied_table": true
       },
       "eval_tokens": 50000,
       "mean_nll": 1.2189851723886629,
@@ -561,15 +601,25 @@
         }
       },
       "hardware_budget": {
-        "weight_bytes_including_scales": 19318592,
+        "weight_bytes_including_scales": 11414592,
         "kv_cache_bytes_seq256_including_scales": 958464,
-        "bytes_streamed_per_token": 9974884,
+        "bytes_streamed_per_token": 9974781,
         "estimated_tokens_per_second": {
-          "25_MBps": 2.506294810044909,
-          "50_MBps": 5.012589620089818,
-          "100_MBps": 10.025179240179636
+          "25_MBps": 2.5063206901484856,
+          "50_MBps": 5.012641380296971,
+          "100_MBps": 10.025282760593942
         },
-        "estimate_assumption": "bandwidth-only QSPI limit; decimal MB/s; no compute/command overhead"
+        "fits_flash": true,
+        "flash_limit_bytes": 14155776,
+        "byte_breakdown": {
+          "layers": 3919104,
+          "classifier_scales": 1440000,
+          "embedding_table_and_scales": 6048000,
+          "gamma": 7488
+        },
+        "embedding_classifier_tied": true,
+        "estimate_assumption": "bandwidth-only QSPI limit; decimal MB/s; no compute/command overhead",
+        "rebudgeted_tied_table": true
       },
       "eval_tokens": 50000,
       "mean_nll": 1.1331489805271422,
@@ -685,15 +735,25 @@
         }
       },
       "hardware_budget": {
-        "weight_bytes_including_scales": 18252352,
+        "weight_bytes_including_scales": 9708352,
         "kv_cache_bytes_seq256_including_scales": 958464,
-        "bytes_streamed_per_token": 8908644,
+        "bytes_streamed_per_token": 8908521,
         "estimated_tokens_per_second": {
-          "25_MBps": 2.8062632203060307,
-          "50_MBps": 5.612526440612061,
-          "100_MBps": 11.225052881224123
+          "25_MBps": 2.8063019663982383,
+          "50_MBps": 5.6126039327964765,
+          "100_MBps": 11.225207865592953
         },
-        "estimate_assumption": "bandwidth-only QSPI limit; decimal MB/s; no compute/command overhead"
+        "fits_flash": true,
+        "flash_limit_bytes": 14155776,
+        "byte_breakdown": {
+          "layers": 3492864,
+          "classifier_scales": 800000,
+          "embedding_table_and_scales": 5408000,
+          "gamma": 7488
+        },
+        "embedding_classifier_tied": true,
+        "estimate_assumption": "bandwidth-only QSPI limit; decimal MB/s; no compute/command overhead",
+        "rebudgeted_tied_table": true
       },
       "eval_tokens": 50000,
       "mean_nll": 1.1716114639370518,
@@ -809,15 +869,25 @@
         }
       },
       "hardware_budget": {
-        "weight_bytes_including_scales": 17719232,
+        "weight_bytes_including_scales": 8855232,
         "kv_cache_bytes_seq256_including_scales": 958464,
-        "bytes_streamed_per_token": 8375524,
+        "bytes_streamed_per_token": 8375391,
         "estimated_tokens_per_second": {
-          "25_MBps": 2.984887870896197,
-          "50_MBps": 5.969775741792394,
-          "100_MBps": 11.939551483584788
+          "25_MBps": 2.9849352704846854,
+          "50_MBps": 5.969870540969371,
+          "100_MBps": 11.939741081938742
         },
-        "estimate_assumption": "bandwidth-only QSPI limit; decimal MB/s; no compute/command overhead"
+        "fits_flash": true,
+        "flash_limit_bytes": 14155776,
+        "byte_breakdown": {
+          "layers": 3279744,
+          "classifier_scales": 480000,
+          "embedding_table_and_scales": 5088000,
+          "gamma": 7488
+        },
+        "embedding_classifier_tied": true,
+        "estimate_assumption": "bandwidth-only QSPI limit; decimal MB/s; no compute/command overhead",
+        "rebudgeted_tied_table": true
       },
       "eval_tokens": 50000,
       "mean_nll": 1.20420251076074,

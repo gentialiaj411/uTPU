@@ -97,27 +97,47 @@ def greedy_first_divergence(model, prompts, golden, steps=128):
 
 
 def _linear_storage(record, bits):
-    codes = (record["weight"].size * bits + 7) // 8
+    actual_bits = 8 if int(record.get("qmax", 127)) == 127 else 4
+    codes = (record["weight"].size * actual_bits + 7) // 8
     scale_pairs = record["multiplier"].size * 5  # signed INT32 multiplier + UINT8 shift
     return int(codes + scale_pairs)
 
 
+def _scale_storage(record):
+    return int(record["weight_scale_multiplier"].size * 5)
+
+
 def hardware_budget(exported, bits, seq=256):
-    embedding = int(exported["embedding"].size + exported["embedding_scale_multiplier"].size * 4)
+    tied = bool(exported.get("embedding_tied", False))
+    table_bits = 8 if int(exported["classifier"].get("qmax", 127)) == 127 else 4
+    embedding_codes = int((exported["embedding"].size * table_bits + 7) // 8) if tied else int(exported["embedding"].size)
+    embedding_scales = _scale_storage(exported["classifier"]) if tied else int(exported["embedding_scale_multiplier"].size * 4)
+    embedding = embedding_codes + embedding_scales
     gamma = int(exported["gamma_att"].nbytes + exported["gamma_ffn"].nbytes + exported["gamma_final"].nbytes)
     linears = sum(_linear_storage(item, bits) for layer in exported["layers"] for item in layer.values())
     classifier = _linear_storage(exported["classifier"], bits)
+    if tied:
+        # One code table is physically shared; classifier scale pairs remain separate
+        # from the embedding lookup scale pairs, but the codes are counted once.
+        classifier = _scale_storage(exported["classifier"])
     weight_bytes = embedding + gamma + linears + classifier
-    embedding_row = int(exported["embedding"].shape[1] + 4)
-    bytes_streamed = linears + classifier + gamma + embedding_row
+    embedding_row = int((exported["embedding"].shape[1] * table_bits + 7) // 8 +
+                        (exported["classifier"]["weight_scale_multiplier"].shape[1] * 5 if tied else 4))
+    bytes_streamed = linears + _linear_storage(exported["classifier"], bits) + gamma + embedding_row
     c = exported["config"]
     kv_codes = int(c["n_layers"] * seq * c["kv_dim"] * 2)
     kv_scales = int(c["n_layers"] * seq * c["n_kv_heads"] * 4 * 2)
     rates = {f"{rate}_MBps": rate * 1_000_000.0 / bytes_streamed for rate in (25, 50, 100)}
+    flash_limit = 16 * 1024 * 1024 - int(2.5 * 1024 * 1024)
     return {"weight_bytes_including_scales": weight_bytes,
             "kv_cache_bytes_seq256_including_scales": kv_codes + kv_scales,
             "bytes_streamed_per_token": bytes_streamed,
             "estimated_tokens_per_second": rates,
+            "fits_flash": bool(weight_bytes <= flash_limit),
+            "flash_limit_bytes": flash_limit,
+            "byte_breakdown": {"layers": linears, "classifier_scales": classifier,
+                               "embedding_table_and_scales": embedding, "gamma": gamma},
+            "embedding_classifier_tied": tied,
             "estimate_assumption": "bandwidth-only QSPI limit; decimal MB/s; no compute/command overhead"}
 
 
