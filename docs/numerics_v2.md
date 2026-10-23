@@ -16,6 +16,9 @@ of final integer logits for metrics.
 - Evaluation is a pinned TinyStories validation slice with SHA-256
   `ae55d9eb37d0e99c6e1051dbeb212f51b6c1d2d98858fccd81f5676bee92a4e7`.
   The corpora are provably disjoint by named upstream split and unequal hashes.
+- Sample prompts are encoded with `firmware/host/numerics_v2/prompt_encoder.py`; both
+  `sample_stories.py` and `sample_exported.py` use the same `bos=False,eos=False`
+  tokenizer call, preventing prompt drift between float and integer sample runs.
 - The old static path used each tensor's 99.9th-percentile calibration scale and
   clipped outliers. The fixed path divides those scales by 256 only to define fine
   integer base units; runtime max-absolute scaling supplies range, so that percentile

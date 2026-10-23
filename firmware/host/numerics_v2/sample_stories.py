@@ -3,11 +3,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import numpy as np
-from tools.llama2c.metrics import tokenize_eval
 from tools.llama2c.reference import Llama2CModel
 from tools.llama2c.tokenizer import Tokenizer
 from .export import export_runq_model
-from .run_260k import prompts_from
+from .prompt_encoder import encode_prompts
 from .runq_runtime import RunQIntegerLlama
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -17,8 +16,7 @@ def main():
     base = ROOT / "models/llama2c"
     ref = Llama2CModel(base / "stories15M.bin")
     tok = Tokenizer(base / "tokenizer.bin", ref.config.vocab_size)
-    ids = tokenize_eval(tok, base / "eval_slice.txt", minimum=512)
-    prompts = prompts_from(ids, count=3, length=8)
+    prompts = encode_prompts(tok)
     cal = json.loads((HERE / "calibration_15m.json").read_text(encoding="utf-8"))
     mixed = {"qkv": 8, "wo": 8, "w2": 8}
     exported = export_runq_model(ref, cal["activation_scales"], 4, 32,
