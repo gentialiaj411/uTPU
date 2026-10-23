@@ -20,25 +20,26 @@ class QValue:
     code: np.ndarray
     scale_multiplier: np.ndarray
     group_size: int = ACTIVATION_GROUP
+    qmax: int = 127
 
 
-def _quantize(raw, group_size=ACTIVATION_GROUP):
+def _quantize(raw, group_size=ACTIVATION_GROUP, qmax=127):
     value = np.asarray(raw, dtype=np.int64)
     codes, scales = [], []
     for begin in range(0, value.shape[-1], group_size):
         block = value[..., begin:begin + group_size]
         peak = np.maximum(1, np.max(np.abs(block), axis=-1)).astype(np.int32)
-        reciprocal = reciprocal_rne(127, peak)
-        codes.append(np.clip(mul_recip(block, reciprocal[..., None]), -128, 127).astype(np.int8))
+        reciprocal = reciprocal_rne(qmax, peak)
+        codes.append(np.clip(mul_recip(block, reciprocal[..., None]), -qmax, qmax).astype(np.int8))
         scales.append(peak)
-    return QValue(np.concatenate(codes, axis=-1), np.stack(scales, axis=-1), group_size)
+    return QValue(np.concatenate(codes, axis=-1), np.stack(scales, axis=-1), group_size, qmax)
 
 
 def _to_base(value):
     chunks = []
     for group, begin in enumerate(range(0, value.code.shape[-1], value.group_size)):
         block = value.code[..., begin:begin + value.group_size].astype(np.int64)
-        chunks.append(div127(block * value.scale_multiplier[..., group, None]))
+        chunks.append(div_rne(block * value.scale_multiplier[..., group, None], value.qmax))
     return np.concatenate(chunks, axis=-1)
 
 
@@ -117,8 +118,11 @@ def _attention_value(probability, value):
 class RunQIntegerLlama:
     logits_are_base_units = True
 
-    def __init__(self, export, lut_dir):
+    def __init__(self, export, lut_dir, kv_bits=8):
         self.cfg, self.embedding = export["config"], export["embedding"]
+        if kv_bits not in (4, 8):
+            raise ValueError("kv_bits must be 4 or 8")
+        self.kv_bits = int(kv_bits)
         self.embedding_tied = bool(export.get("embedding_tied", False))
         if self.embedding_tied:
             self.embedding_group_multiplier = export["embedding_group_multiplier"]
@@ -232,7 +236,8 @@ class RunQIntegerLlama:
             # KV cache gets an independent scale per KV head.  Sharing one
             # scale across all heads lets one outlier discard useful bits in
             # unrelated heads.
-            k8, v8 = _quantize(k, hs), _quantize(v, hs)
+            qmax = 127 if self.kv_bits == 8 else 7
+            k8, v8 = _quantize(k, hs, qmax), _quantize(v, hs, qmax)
             v_base = _to_base(v8).astype(np.int32)
             heads_high = np.empty((length, int(c["dim"])), dtype=np.int32)
             for head in range(heads):
@@ -279,7 +284,8 @@ class RunQIntegerLlama:
             q = self._rope_high(_linear_high(norm8, layer["wq"]), position)
             k = self._rope_high(_linear_high(norm8, layer["wk"]), position)
             v = _linear_high(norm8, layer["wv"])
-            k8, v8 = _quantize(k, hs), _quantize(v, hs)
+            qmax = 127 if self.kv_bits == 8 else 7
+            k8, v8 = _quantize(k, hs, qmax), _quantize(v, hs, qmax)
             self.key_code[layer_id, position] = k8.code
             self.value_code[layer_id, position] = v8.code
             self.key_scale[layer_id, position] = k8.scale_multiplier
@@ -289,9 +295,11 @@ class RunQIntegerLlama:
                 kv_head = head // kv_mul
                 begin, end = kv_head * hs, (kv_head + 1) * hs
                 key = QValue(self.key_code[layer_id, :position + 1, begin:end],
-                             self.key_scale[layer_id, :position + 1, kv_head, None], hs)
+                             self.key_scale[layer_id, :position + 1, kv_head, None], hs,
+                             127 if self.kv_bits == 8 else 7)
                 value = QValue(self.value_code[layer_id, :position + 1, begin:end],
-                               self.value_scale[layer_id, :position + 1, kv_head, None], hs)
+                               self.value_scale[layer_id, :position + 1, kv_head, None], hs,
+                               127 if self.kv_bits == 8 else 7)
                 score = self._score(q[None, head * hs:(head + 1) * hs], key)[0]
                 probability = self._softmax(score)
                 heads_high[head * hs:(head + 1) * hs] = _attention_value(

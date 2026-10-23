@@ -10,14 +10,14 @@ RTL is parameterized for stories260K and stories15M.
 `top_decode` has a clock/reset, token-in/token-out streaming interface, and a
 weight stream (`valid/ready`, 32-bit data, end-of-tensor marker).  R4 maps that
 stream to QSPI; simulation uses a byte-addressed behavioral memory.  The following
-is an implementation budget (xc7s50, 200 MHz target), not a device limit:
+is an implementation budget (xc7s50, 50 MHz core), not a device limit:
 
 | resource | budget | use |
 |---|---:|---|
-| LUT | 18k | sequencer, unpack, requant, address/control |
-| FF | 12k | pipeline/state |
-| BRAM18 | 70 | KV, activations, FIFOs, LUTs |
-| DSP48 | 80 | 64-lane GEMV and score/AV datapaths |
+| LUT | 11k | sequencer, unpack, requant, address/control |
+| FF | 8k | pipeline/state |
+| BRAM36 | <=70 of 75 | KV, activations, FIFOs, LUTs |
+| DSP48 | 16 | 16-lane GEMV and score/AV datapaths |
 | URAM | 0 | not assumed on xc7s50 |
 
 The frozen design remains reproducible because no source or constraints are added
@@ -37,27 +37,28 @@ stories15M); the integer tree returns argmax and the next token.
 | embedding row (INT8) | BRAM row buffer | 64 | 288 |
 | residual/norm/hidden ping-pong (INT32) | BRAM | 4,096 | 24,576 |
 | q/k/v and attention scratch | BRAM | 1,536 | 8,640 |
-| KV codes + scale records, seq=256 | BRAM | 122,880 | 958,464 |
+| KV codes + scale records, seq=256 | streamed/BRAM if budget permits | 122,880 | 958,464 |
 | score/probability rows | BRAM | 4,096 | 4,096 |
 | exp/SiLU/RoPE LUTs | BRAM ROM | 8,192 | 8,192 |
-| weight stream FIFO | BRAM | 64 KiB | 64 KiB |
+| weight stream FIFO | BRAM | 4 KiB | 4 KiB |
 
-The model weights are not resident: the tied embedding/classifier table and all
-layer matrices are read from the stream.  Exported mixed INT4/INT8 weight bytes
-including scale pairs are 235,952 (260K) and 13,073,472 (15M); the latter fits the
-14,155,776-byte flash payload after the bitstream reservation.
+The 15M KV cache cannot be resident at seq=256: the board has no external RAM and
+flash is read-only. KV is retained on chip only for the selected context; weights
+are streamed. Exported mixed INT4/INT8 weight bytes are 235,952 (260K) and
+13,073,472 (15M).
 
 ## GEMV
 
-The unit has 64 signed lanes, each with an INT8 multiplier and an INT4 nibble
+The unit has 16 signed lanes, each with an INT8 multiplier and an INT4 nibble
 unpacker.  A row is consumed group-by-group (INT4 groups are 32; INT8 groups are
 64).  Codes multiply activation codes into INT32 accumulators; the group
 `(multiplier, right_shift)` scale is applied with RNE and the group results are
 merged at an INT32 boundary.  The activation requantizer performs one max
 reduction/division per 64-element group, then reciprocal-multiply/RNE/saturate per
 element.  No division is present in a lane.  Registered DSP inputs/outputs give
-one 64-wide dot step per cycle.  At 200 MHz this provision is over 100x the
-stream-limited 15M rate, so QSPI, not GEMV, is the bottleneck at 25/50/100 MB/s.
+one 16-wide dot step per cycle at the actual 50 MHz core clock. This is the
+minimum practical width that remains at least 2x faster than a 100 MB/s stream
+for both INT8 and INT4 rows; it uses 16 DSPs and approximately 11k LUTs.
 
 ## Flash layout and prefetch
 
@@ -70,9 +71,29 @@ order; after the code plane comes the scale plane, one packed 5-byte record per
 `(row,group)`: little-endian signed INT32 multiplier followed by UINT8 shift.
 Each tensor ends padded to a 16-byte boundary.  The tied table has one code plane;
 embedding and classifier retain their respective scale planes.  This is exactly
-the byte accounting used by the JSON hardware budgets.  A 64 KiB, two-bank FIFO
-(32 KiB fill/32 KiB drain) hides QSPI latency; DMA requests are strictly
+the byte accounting used by the JSON hardware budgets.  A 4 KiB, two-bank FIFO
+(2 KiB fill/2 KiB drain) hides QSPI latency; DMA requests are strictly
 increasing addresses and never seek within a token.
+
+### Context/KV sweep and BRAM feasibility
+
+The bounded 50k-token command is, for example:
+`python -m firmware.host.numerics_v2.eval_context --artifact models/numerics_v2/gptq_qkv_wo_int8_g32.npz --context 128 --kv-bits 4 --tokens 50000 --output build/ctx128_kv4.json`.
+Run it for L=64,96,128,192 and KV=8,4; externally terminated jobs are recorded
+pending rather than replaced by short-run values.  BRAM36 uses 4,608 bytes and
+includes KV, 24,576-byte activations, 8,192-byte LUTs, and a 4,096-byte FIFO.
+
+| L | 15M KV8 PPL/top1/BRAM36 | 15M KV4 PPL/top1/BRAM36 |
+|---:|---|---|
+|64|pending / pending / 15|pending / pending / 11|
+|96|pending / pending / 21|pending / pending / 16|
+|128|pending / pending / 27|pending / pending / 20|
+|192|pending / pending / 39|pending / pending / 29|
+
+The same 260K accounting (weights included because they may fit) is
+L64: 61/58, L96: 64/61, L128: 66/63, L192: 76/71 BRAM36 (KV8/KV4); thus
+260K streams weights at L=192 and can resident-store all weights only through L=128.
+Select the largest row whose measured PPL is <=1.08x its same-L float baseline.
 
 ## Control
 
@@ -87,10 +108,10 @@ head, group size, and sequence length, so 260K/15M require only different images
 
 | model | streamed bytes/token | 25 MB/s | 50 MB/s | 100 MB/s | compute allowance |
 |---|---:|---:|---:|---:|---:|
-| stories260K | 230,874 | 108.3 tok/s | 216.6 tok/s | 433.1 tok/s | <1.0M cycles/token |
-| stories15M | 11,633,661 | 2.15 tok/s | 4.30 tok/s | 8.60 tok/s | <90M cycles/token |
+| stories260K | 230,874 | 108.3 tok/s | 216.6 tok/s | 433.1 tok/s | <57k cycles/token |
+| stories15M | 11,633,661 | 2.15 tok/s | 4.30 tok/s | 8.60 tok/s | <58k cycles/token |
 
-The compute allowance assumes 200 MHz and the 64-lane GEMV; both rows are
+The compute allowance assumes 50 MHz and the 16-lane GEMV; both rows are
 stream-bound.  QSPI estimates are bandwidth-only and exclude command overhead.
 
 ## Verification and timing rules
@@ -102,7 +123,7 @@ run unit vectors and random tensors, then compare every intermediate tensor and
 logit for N complete tokens against `RunQIntegerLlama`; require bit-exact codes,
 argmax, and KV state.  Structural checks require registered DSP boundaries,
 at most one wide operation per pipeline stage, no combinational divider, bounded
-FIFO back-pressure, and timing closure at 200 MHz.
+FIFO back-pressure, and timing closure at 50 MHz.
 
 ## Risks and implementation chunks
 
