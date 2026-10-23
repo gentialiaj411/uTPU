@@ -17,16 +17,15 @@ HERE = Path(__file__).resolve().parent
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--artifact", type=Path, required=True); ap.add_argument("--output", type=Path, required=True); ap.add_argument("--tokens", type=int, default=50000)
     args = ap.parse_args(); tracemalloc.start()
-    payload = np.load(args.artifact, allow_pickle=True)["payload"][0]; payload.pop("dynamic_base_scales")
+    payload = np.load(args.artifact, allow_pickle=True)["payload"][0]; base_scales = payload.pop("dynamic_base_scales")
     ref = Llama2CModel(ROOT / "models/llama2c/stories15M.bin")
     tok = Tokenizer(ROOT / "models/llama2c/tokenizer.bin", ref.config.vocab_size)
     ids = tokenize_eval(tok, ROOT / "models/llama2c/eval_slice.txt", minimum=args.tokens)[:args.tokens + 1]
     float_model = load_torch_model(ref, "cuda" if torch.cuda.is_available() else "cpu")
     runtime = RunQIntegerLlama(payload, HERE / "luts")
-    base_scale = float(payload["dynamic_base_scales"]["logits"]) if "dynamic_base_scales" in payload else 1.0
-    # The base scales are retained in a sidecar by export_config; recover the
-    # logits scale from the exported classifier's integer multiplier path.
-    base_scale = float(json.loads((HERE / "calibration_15m.json").read_text())["activation_scales"]["logits"])
+    # Logit codes are in the export's dynamic base scale (as in run_15m.teacher_forced_metrics),
+    # not the static calibration scale from earlier chunks.
+    base_scale = float(base_scales["logits"])
     total_nll = total_kl = 0.0; matches = count = 0; seq = int(ref.config.seq_len)
     device = next(float_model.parameters()).device
     with torch.inference_mode():
