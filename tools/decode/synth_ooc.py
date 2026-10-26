@@ -26,9 +26,12 @@ def main():
     for f in ('util.rpt', 'timing.rpt'):
         (out / f).unlink(missing_ok=True)
     log = out / 'vivado.log'
-    with log.open('w') as fh:
-        subprocess.run(['cmd', '/c', VIVADO, '-mode', 'batch', '-nojournal', '-nolog', '-source', str(tcl)],
-                       cwd=ROOT, stdout=fh, stderr=subprocess.STDOUT)
+    for attempt in range(2):   # Vivado 2025.2 opt_design occasionally fails with an empty Synth 20-411
+        with log.open('w') as fh:
+            subprocess.run(['cmd', '/c', VIVADO, '-mode', 'batch', '-nojournal', '-nolog', '-source', str(tcl)],
+                           cwd=ROOT, stdout=fh, stderr=subprocess.STDOUT)
+        if (out / 'timing.rpt').exists():
+            break
     if not (out / 'timing.rpt').exists():
         errs = [l for l in log.read_text(errors='replace').splitlines() if 'ERROR' in l]
         print(json.dumps({'name': name, 'status': 'failed', 'errors': errs[:5]}))

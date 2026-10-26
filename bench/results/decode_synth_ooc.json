@@ -14,5 +14,20 @@
     "bram36_equiv": 1.0,
     "wns_ns": 1.432,
     "timing_met": true
+  },
+  "vec_alu": {
+    "part": "xc7s50csga324-1",
+    "period_ns": 20.0,
+    "top": "vec_alu",
+    "sources": [
+      "rtl/decode/decode_pkg.sv",
+      "rtl/decode/vec_alu.sv"
+    ],
+    "lut": 3006.0,
+    "ff": 561.0,
+    "dsp": 4.0,
+    "bram36_equiv": 3.0,
+    "wns_ns": 2.834,
+    "timing_met": true
   }
 }

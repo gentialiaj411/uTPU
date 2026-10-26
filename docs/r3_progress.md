@@ -91,3 +91,17 @@
 - Fault injection (`tools/decode/fault_inject.py rms`): 5 detected; 2 proven equivalent
   (div_rne(2^54, root) can never tie; a half-up tie estimate is corrected back to RNE).
 - OOC xc7s50 @ 50 MHz: WNS +1.432 ns, 2,611 LUT, 961 FF, 12 DSP, 1 BRAM36.
+
+## U4+U5 vec_alu (RoPE, SwiGLU, residual add, embedding scale) — DONE (coordinator, 2026-10-26)
+
+- `rtl/decode/vec_alu.sv`: one sequential element unit, one shared 33x33 DSP multiplier (3 cycles per
+  product). Ops: ROPE (_rope_high, cos/sin ROMs from `tools/decode/gen_luts.py`), SWIGLU
+  (_hidden_high(_silu_high(h1), h3), sigmoid ROM, int32 wrap of silu, low-64 product via two 32x16
+  partial products), ADD (int32 wrap), MULSHIFT (tied-embedding row scaling).
+- Golden `tools/decode/golden_vec.py` wraps _rope_high/_silu_high/_hidden_high/_embedding_high
+  (48 real calls) plus 240 directed/random cases: RoPE exact ties (x0*c = 2^14 mod 2^15), sigmoid
+  index edges +-512/513, silu and output ties via tie-forcing configs, add wrap-around, embedding ties.
+  12,372 beats, 0 mismatches; mutation 12,372/12,372.
+- Fault injection: 6/6 detected (rope sign, pair-index wrap, sigmoid edge, dropped high product word,
+  ties-away rounding, saturating add).
+- OOC xc7s50 @ 50 MHz: WNS +2.834 ns, 3,006 LUT, 561 FF, 4 DSP, 3 BRAM36 (h8 RoPE + sigmoid ROMs).

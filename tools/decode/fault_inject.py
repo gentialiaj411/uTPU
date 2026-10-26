@@ -22,6 +22,14 @@ FAULTS = {
         'shift_ties_away': ('pkg', "inc  = (rem > half) || ((rem == half) && q[0]);", "inc  = (rem >= half);"),
         'isqrt_no_max1': ('rtl', "wire [46:0] root_eff = (root == 0) ? 47'd1 : root;", "wire [46:0] root_eff = root | 47'd1;"),
     }),
+    'vec': ('tools/decode/run_vec_rtl.py', 'rtl/decode/vec_alu.sv', {
+        'rope_sign': ('rtl', "r0 = 32'(rshift_rne(t0 - t1, 7'd15));", "r0 = 32'(rshift_rne(t0 + t1, 7'd15));"),
+        'rope_no_pair_wrap': ('rtl', "(pair_i + 1'b1 == rope_half) ? '0 :", "1'b0 ? '0 :"),
+        'sigmoid_edge': ('rtl', "(idx_r > 64'sd512) ? 16'd32767", "(idx_r >= 64'sd512) ? 16'd32767"),
+        'swiglu_drop_high_word': ('rtl', "wire signed [63:0] low64 = t2 + (t3 <<< 32);", "wire signed [63:0] low64 = t2;"),
+        'shift_ties_away': ('pkg', "inc  = (rem > half) || ((rem == half) && q[0]);", "inc  = (rem >= half);"),
+        'add_saturate': ('rtl', "OP_ADD: r0 = a_r + b_r;", "OP_ADD: r0 = (33'(a_r) + 33'(b_r) > 33'sd2147483647) ? 32'sd2147483647 : a_r + b_r;"),
+    }),
 }
 
 

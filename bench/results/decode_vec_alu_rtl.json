@@ -1,0 +1,32 @@
+{
+  "status": "pass",
+  "golden_sha256": "d9491a34cd109bffb5a317f75a379997c9b37aaa7564066189e7624146c5ceba",
+  "golden_source": "wrapped RunQIntegerLlama._rope_high/_silu_high/_hidden_high/_embedding_high",
+  "real_cases": 48,
+  "directed_random_cases": 240,
+  "beats": 12372,
+  "ops": {
+    "rope": 150,
+    "swiglu": 85,
+    "add": 20,
+    "mulshift": 33
+  },
+  "kinds": [
+    "mulshift_tie",
+    "random",
+    "real",
+    "rope_tie",
+    "swiglu_tie"
+  ],
+  "mismatch_count": 0,
+  "real_mismatch_count": 0,
+  "first_mismatches": [],
+  "mutation_mismatch_count": 12372,
+  "mutation_expected": 12372,
+  "cycles_total": 174428,
+  "vvp_command": "C:\\iverilog\\bin\\vvp.exe build/decode/vec_tb.vvp",
+  "sim_stdout_sha256": "a47912fbfca9ab75a96c50e858c3ee5c29b73250c6b3716e0d3d7e6fac30d1f2",
+  "mutation_stdout_sha256": "3a9e51d6dfc63343ada0a052a4d4df95b40952ca0f0a25cdae4ea398b8020481",
+  "summary": "SUMMARY cases=288 beats=12372 errors=0 real_errors=0 cycles=174428",
+  "mutation_summary": "SUMMARY cases=288 beats=12372 errors=12372 real_errors=3492 cycles=174428"
+}

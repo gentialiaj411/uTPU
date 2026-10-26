@@ -44,5 +44,43 @@
       "detected": true,
       "ok": true
     }
+  },
+  "vec": {
+    "rope_sign": {
+      "mismatches": 1550,
+      "real_mismatches": 479,
+      "detected": true,
+      "ok": true
+    },
+    "rope_no_pair_wrap": {
+      "mismatches": 1284,
+      "real_mismatches": 600,
+      "detected": true,
+      "ok": true
+    },
+    "sigmoid_edge": {
+      "mismatches": 1,
+      "real_mismatches": 0,
+      "detected": true,
+      "ok": true
+    },
+    "swiglu_drop_high_word": {
+      "mismatches": 3382,
+      "real_mismatches": 1270,
+      "detected": true,
+      "ok": true
+    },
+    "shift_ties_away": {
+      "mismatches": 999,
+      "real_mismatches": 7,
+      "detected": true,
+      "ok": true
+    },
+    "add_saturate": {
+      "mismatches": 151,
+      "real_mismatches": 0,
+      "detected": true,
+      "ok": true
+    }
   }
 }
