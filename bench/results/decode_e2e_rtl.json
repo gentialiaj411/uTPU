@@ -1,13 +1,32 @@
 {
-  "status": "pass",
-  "cases_run": 320,
-  "mismatches": 0,
-  "cycles_per_token": 3,
+  "models": {
+    "stories260K": {
+      "prompts": 5,
+      "generated_tokens": 64,
+      "kv_bits": [
+        8,
+        4
+      ]
+    },
+    "stories15M": {
+      "prompts": 1,
+      "generated_tokens": 8,
+      "kv_bits": [
+        8,
+        4
+      ]
+    }
+  },
   "throttles_bytes_per_cycle": [
     0.5,
     1,
     2
   ],
-  "stdout_summary": "SUMMARY cases=320 errors=0",
-  "scope": "stream/token shell; full model arithmetic integration pending"
+  "cycles_per_token": null,
+  "token_mismatches": null,
+  "logit_mismatches": null,
+  "decoded_text": null,
+  "status": "not_run",
+  "simulator": "missing",
+  "blocker": "iverilog is not installed"
 }
