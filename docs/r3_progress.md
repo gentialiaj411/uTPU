@@ -36,3 +36,10 @@
   and `tools/decode/assemble.py`.
 - Top artifact records 0.5/1/2-byte-per-cycle throttle cases as `not_run`; RTL
   simulation is blocked by missing iverilog.
+
+## Chunk 6 — end to end and gate
+
+- Added `run_decode_rtl.py`, fail-closed `decode_gate.py`, and structural checker
+  enforcing 50 MHz/no divide/no initial rules.
+- E2E and gate are not passed: iverilog is unavailable and all RTL runner artifacts
+  remain explicitly `not_run`; gate therefore exits non-zero as designed.
