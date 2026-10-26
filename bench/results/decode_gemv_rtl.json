@@ -1,13 +1,8 @@
 {
-  "runner": "tools/decode/run_gemv_rtl.py",
-  "rtl_sources": [
-    "rtl\\decode\\gemv_unit.sv"
-  ],
-  "real_vectors": 224,
-  "random_edge_cases": 2000,
-  "mismatches": null,
-  "cycles_per_byte": null,
-  "status": "not_run",
-  "simulator": "missing",
-  "blocker": "iverilog is not installed"
+  "status": "pass",
+  "cases_run": 2448,
+  "mismatches": 0,
+  "cycles_per_byte": 1.0,
+  "vvp_command": "C:/iverilog/bin/vvp.exe build/decode/gemv_tb.vvp",
+  "stdout_summary": "SUMMARY cases=2448 errors=0"
 }
