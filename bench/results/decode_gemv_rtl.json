@@ -1,13 +1,22 @@
 {
-  "runner": "tools/decode/run_gemv_rtl.py",
-  "rtl_sources": [
-    "rtl\\decode\\gemv_unit.sv"
+  "status": "fail",
+  "manifest_sha256": "0e1cc05574ae53c0194e44ce48ca6ec46bf3b5f60049325b1ed66a3d5f633f43",
+  "matmuls": 108,
+  "total_output_elements_compared": 1728,
+  "mismatch_count": 1727,
+  "first_5_mismatches": [
+    "MISMATCH case=0 row=0 got=-3865 exp=-892",
+    "MISMATCH case=0 row=1 got=-14356 exp=172",
+    "MISMATCH case=0 row=2 got=-25082 exp=2090",
+    "MISMATCH case=0 row=3 got=5359 exp=-311",
+    "MISMATCH case=0 row=4 got=-2268 exp=2086"
   ],
-  "real_vectors": 224,
-  "random_edge_cases": 2000,
-  "mismatches": null,
-  "cycles_per_byte": null,
-  "status": "not_run",
-  "simulator": "missing",
-  "blocker": "iverilog is not installed"
+  "mutation_mismatch_count": 1727,
+  "cycles_per_matmul": 79.0,
+  "bytes_per_cycle": 16.0,
+  "vvp_command": "C:\\iverilog\\bin\\vvp.exe build/decode/gemv_real_tb.vvp",
+  "sim_stdout_sha256": "8c053f39b4206c50b345abfb76b3560414502a041869568897e358be0a367ca3",
+  "mutation_stdout_sha256": "8c053f39b4206c50b345abfb76b3560414502a041869568897e358be0a367ca3",
+  "summary": "SUMMARY matmuls=108 elements=1728 errors=1727 cycles=8532",
+  "mutation_summary": "SUMMARY matmuls=108 elements=1728 errors=1727 cycles=8532"
 }
