@@ -211,7 +211,9 @@ class RunQIntegerLlama:
         product = accum.astype(np.int64) * q8.scale_multiplier[..., 0, None] * k8.scale_multiplier[..., 0]
         product *= _small_multiplier(self.score_multiplier)
         score = rshift_rne(product, self.score_shift - 16)
-        score = div127(div127(score))
+        # q is always INT8 (qmax 127); k uses the KV-cache qmax (127 for INT8, 7 for INT4).
+        score = div127(score)
+        score = div127(score) if k8.qmax == 127 else div_rne(score, k8.qmax)
         if np.any(score < -(1 << 31)) or np.any(score > (1 << 31) - 1):
             raise OverflowError("attention score exceeds INT32")
         return score.astype(np.int32)
@@ -243,7 +245,7 @@ class RunQIntegerLlama:
             for head in range(heads):
                 kv_head = head // kv_mul
                 begin, end = kv_head * hs, (kv_head + 1) * hs
-                key = QValue(k8.code[:, begin:end], k8.scale_multiplier[:, kv_head, None], hs)
+                key = QValue(k8.code[:, begin:end], k8.scale_multiplier[:, kv_head, None], hs, k8.qmax)
                 score = self._score(q[:, head * hs:(head + 1) * hs], key)
                 probability = self._softmax(score, causal)
                 heads_high[:, head * hs:(head + 1) * hs] = _attention_value(
