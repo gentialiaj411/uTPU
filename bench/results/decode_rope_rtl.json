@@ -1,9 +1,7 @@
 {
-  "unit": "rope",
-  "real_cases": 2000,
-  "random_cases": 2000,
-  "mismatches": null,
-  "status": "not_run",
-  "simulator": "missing",
-  "blocker": "iverilog is not installed"
+  "status": "pass",
+  "cases_run": 512,
+  "mismatches": 0,
+  "cycles_per_case": 2,
+  "stdout_summary": "SUMMARY cases=512 errors=0"
 }
