@@ -29,17 +29,20 @@ def main():
  ref=Llama2CModel(ROOT/'models/llama2c/stories260K/stories260K.bin'); cal=json.loads((ROOT/'firmware/host/numerics_v2/calibration_260k.json').read_text()); exp=export_runq_model(ref,cal['activation_scales'],4,32,improved=True,mixed_precision={'qkv':8,'wo':8,'w2':8}); exp.pop('dynamic_base_scales'); runtime=RunQIntegerLlama(exp,ROOT/'firmware/host/numerics_v2/luts')
  for token in (1,2,3): runtime.forward_argmax(token,len(runtime.tokens),4096)
  rng=np.random.default_rng(77); directed=[np.zeros(64,dtype=np.int64),np.r_[1,np.zeros(63,dtype=np.int64)],np.r_[-(2**31-1),np.zeros(63,dtype=np.int64)],np.r_[2**31-1,np.zeros(63,dtype=np.int64)],np.arange(172,dtype=np.int64)]
- # Include a searched exact reciprocal-product half-way case when one exists.
- for peak in range(1,128):
-  rec=int(rr.reciprocal_rne(127,np.array(peak)))
-  hits=[x for x in range(-peak,peak+1) if (abs(x)*rec)%(1<<24)==(1<<23)]
-  if hits:
-   vv=np.zeros(64,dtype=np.int64); vv[0]=hits[0]; vv[1]=peak; directed.append(vv); break
+ # Exact RNE ties in rshift_rne(x*recip, 24): peak=254*2^j gives recip=2^(23-j), so x = odd*2^j ties.
+ for j in range(4):
+  pk=254<<j
+  for t in range(6):
+   vv=((2*rng.integers(-pk//(2<<j),pk//(2<<j),size=64)+1)<<j).astype(np.int64); vv[t]=pk if t%2==0 else -pk; directed.append(vv)
+ # Codes exactly at the +-127 clamp and peaks near the int32 limit with small neighbours.
+ for t in range(6):
+  pk=int(rng.integers(1<<20,(1<<31)-1)); vv=rng.integers(-pk,pk+1,size=64).astype(np.int64); vv[t]=pk; vv[63-t]=-pk; directed.append(vv)
+ n_real=len(records)
  for i,v in enumerate(directed):
   q=original(v,64)
   for b in range(0,len(v),64):
    block=v[b:b+64]; qc=q.code[b:b+64]; qs=q.scale_multiplier[b//64]; records.append(save(a.output,len(records),block,type(q)(qc,np.asarray([qs]),len(block),q.qmax)))
  for i in range(300):
   n=64; v=rng.integers(-(2**31-1),2**31,size=n,dtype=np.int64); q=original(v,64); records.append(save(a.output,10000+i,v,q))
- manifest={'real_groups':len(records)-304,'random_directed_groups':304,'real_elements':sum(r['length'] for r in records[:-304]),'random_directed_elements':sum(r['length'] for r in records[-304:]),'records':records,'source':'wrapped runq_runtime._quantize'}; (a.output/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n'); print(json.dumps({k:manifest[k] for k in ('real_groups','random_directed_groups','real_elements','random_directed_elements')}))
+ n_rd=len(records)-n_real; manifest={'real_groups':n_real,'random_directed_groups':n_rd,'real_elements':sum(r['length'] for r in records[:n_real]),'random_directed_elements':sum(r['length'] for r in records[n_real:]),'records':records,'source':'wrapped runq_runtime._quantize'}; (a.output/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n'); print(json.dumps({k:manifest[k] for k in ('real_groups','random_directed_groups','real_elements','random_directed_elements')}))
 if __name__=='__main__': main()
