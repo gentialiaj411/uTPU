@@ -4,7 +4,7 @@ from pathlib import Path
 
 import numpy as np
 
-from firmware.host.numerics_v2.fixed import mul_recip, reciprocal_rne, rshift_rne
+from firmware.host.numerics_v2.fixed import div_const_rne, div_rne, mul_recip, reciprocal_rne, rshift_rne
 from firmware.host.numerics_v2.export import accumulator_bounds, export_model, export_runq_model
 from firmware.host.numerics_v2.runtime import IntegerLlama
 from firmware.host.numerics_v2.runq_runtime import RunQIntegerLlama
@@ -12,6 +12,14 @@ from tools.llama2c.reference import Llama2CModel
 
 ROOT = Path(__file__).resolve().parents[3]
 HERE = Path(__file__).resolve().parent
+
+
+def test_constant_reciprocal_division_exact():
+    values = np.arange(-100000, 100001, dtype=np.int64)
+    for denominator in (7, 127):
+        np.testing.assert_array_equal(div_const_rne(values, denominator), div_rne(values, denominator))
+        boundary = np.asarray([-(1 << 31), -1, 0, 1, (1 << 31) - 1], dtype=np.int64)
+        np.testing.assert_array_equal(div_const_rne(boundary, denominator), div_rne(boundary, denominator))
 
 
 def test_integer_forward_sources_have_no_float_constants_or_float_dtypes():

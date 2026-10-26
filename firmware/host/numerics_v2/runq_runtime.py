@@ -9,7 +9,7 @@ from pathlib import Path
 
 import numpy as np
 
-from .fixed import checked_matmul, div127, div_rne, mul_recip, reciprocal_rne, rshift_rne
+from .fixed import checked_matmul, div127, div_const_rne, mul_recip, reciprocal_rne, rshift_rne
 
 ACTIVATION_GROUP = 64
 ATTENTION_VALUE_GROUP = 16
@@ -39,7 +39,7 @@ def _to_base(value):
     chunks = []
     for group, begin in enumerate(range(0, value.code.shape[-1], value.group_size)):
         block = value.code[..., begin:begin + value.group_size].astype(np.int64)
-        chunks.append(div_rne(block * value.scale_multiplier[..., group, None], value.qmax))
+        chunks.append(div_const_rne(block * value.scale_multiplier[..., group, None], value.qmax))
     return np.concatenate(chunks, axis=-1)
 
 
@@ -70,7 +70,9 @@ def _linear_high(value, record, output_begin=0, output_end=None):
 def _rms_high(value, gamma, gamma_fraction_bits, multiplier, shift, epsilon):
     x = np.asarray(value, dtype=np.int64)
     square_sum = np.sum(x * x, axis=-1, dtype=np.int64)
-    mean = div_rne(square_sum, x.shape[-1]).astype(np.int64) + int(epsilon)
+    # Hidden widths are fixed model constants; use reciprocal-multiply rather
+    # than a per-element divide.  The exactness proof is exercised in tests.
+    mean = div_const_rne(square_sum, x.shape[-1]).astype(np.int64) + int(epsilon)
     roots = np.fromiter((max(1, math.isqrt(int(item) << 30)) for item in mean.reshape(-1)), dtype=np.int64).reshape(mean.shape)
     reciprocal = reciprocal_rne(1 << 30, roots)
     normalized = mul_recip(x, reciprocal[..., None])
@@ -213,7 +215,7 @@ class RunQIntegerLlama:
         score = rshift_rne(product, self.score_shift - 16)
         # q is always INT8 (qmax 127); k uses the KV-cache qmax (127 for INT8, 7 for INT4).
         score = div127(score)
-        score = div127(score) if k8.qmax == 127 else div_rne(score, k8.qmax)
+        score = div127(score) if k8.qmax == 127 else div_const_rne(score, k8.qmax)
         if np.any(score < -(1 << 31)) or np.any(score > (1 << 31) - 1):
             raise OverflowError("attention score exceeds INT32")
         return score.astype(np.int32)

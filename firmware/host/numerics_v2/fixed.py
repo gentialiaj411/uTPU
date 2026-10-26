@@ -7,6 +7,9 @@ import numpy as np
 I32_MAX = (1 << 31) - 1
 RECIP_SHIFT = 24
 INV127_Q24 = 132104
+INV7_Q24 = 2396745
+INV127_Q32 = 33818641
+INV7_Q32 = 613566757
 
 
 def rshift_rne(value, shift):
@@ -50,7 +53,34 @@ def mul_recip(value, reciprocal):
 
 def div127(value):
     """Constant division by 127 using a Q24 reciprocal multiply and shift."""
-    return mul_recip(value, INV127_Q24)
+    return div_const_rne(value, 127)
+
+
+def div_const_rne(value, denominator):
+    """Exact RNE division by a supported constant using reciprocal multiply.
+
+    The reciprocal estimate is followed by a bounded residual correction (one
+    multiply/compare/subtract), so this contains no variable divide.  The
+    correction makes the Q32 approximation exact for every reachable numerator
+    (the runtime asserts |numerator| <= 2^31 before this boundary).
+    """
+    d = int(denominator)
+    if d <= 0:
+        raise ValueError("denominator must be positive")
+    shift = 32
+    reciprocal = {7: INV7_Q32, 127: INV127_Q32}.get(d, int(round((1 << shift) / d)))
+    n = np.asarray(value, dtype=np.int64)
+    if np.any(np.abs(n) > (1 << 31)):
+        raise OverflowError("constant reciprocal boundary exceeds proven range")
+    mag = np.abs(n)
+    q = rshift_rne(mag * reciprocal, shift)
+    twice_err = np.abs((mag - q * d) * 2)
+    down = twice_err > d
+    tie_odd = (twice_err == d) & ((q & 1) != 0)
+    q = q + ((twice_err > d) & (mag > q * d))
+    q = q - ((twice_err > d) & (mag < q * d))
+    q = q - (tie_odd & (mag < q * d))
+    return np.where(n < 0, -q, q)
 
 
 def requant(value, multiplier, shift, lo=-128, hi=127, dtype=np.int8):
