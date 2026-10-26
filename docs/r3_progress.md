@@ -29,3 +29,10 @@
 - Added registered classifier-chunk and tied embedding-row interfaces.
 - Runner artifact records the required 200-token/20-full-logit plan as `not_run`
   because iverilog is unavailable.
+
+## Chunk 5 — sequencer and top
+
+- Added 4 KiB stream reader, microcoded-sequencer shell, parameterized `top_decode`,
+  and `tools/decode/assemble.py`.
+- Top artifact records 0.5/1/2-byte-per-cycle throttle cases as `not_run`; RTL
+  simulation is blocked by missing iverilog.
