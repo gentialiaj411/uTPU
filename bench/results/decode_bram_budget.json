@@ -1,0 +1,166 @@
+{
+  "bram36_bytes": 4608,
+  "fixed_bytes": 36864,
+  "rows": [
+    {
+      "model": "15m",
+      "context": 64,
+      "kv_bits": 8,
+      "kv_bytes": 221184,
+      "fixed_bytes": 36864,
+      "bram36": 56,
+      "fits_70": true,
+      "weights_resident": false
+    },
+    {
+      "model": "15m",
+      "context": 64,
+      "kv_bits": 4,
+      "kv_bytes": 110592,
+      "fixed_bytes": 36864,
+      "bram36": 32,
+      "fits_70": true,
+      "weights_resident": false
+    },
+    {
+      "model": "15m",
+      "context": 96,
+      "kv_bits": 8,
+      "kv_bytes": 331776,
+      "fixed_bytes": 36864,
+      "bram36": 80,
+      "fits_70": false,
+      "weights_resident": false
+    },
+    {
+      "model": "15m",
+      "context": 96,
+      "kv_bits": 4,
+      "kv_bytes": 165888,
+      "fixed_bytes": 36864,
+      "bram36": 44,
+      "fits_70": true,
+      "weights_resident": false
+    },
+    {
+      "model": "15m",
+      "context": 128,
+      "kv_bits": 8,
+      "kv_bytes": 442368,
+      "fixed_bytes": 36864,
+      "bram36": 104,
+      "fits_70": false,
+      "weights_resident": false
+    },
+    {
+      "model": "15m",
+      "context": 128,
+      "kv_bits": 4,
+      "kv_bytes": 221184,
+      "fixed_bytes": 36864,
+      "bram36": 56,
+      "fits_70": true,
+      "weights_resident": false
+    },
+    {
+      "model": "15m",
+      "context": 192,
+      "kv_bits": 8,
+      "kv_bytes": 663552,
+      "fixed_bytes": 36864,
+      "bram36": 152,
+      "fits_70": false,
+      "weights_resident": false
+    },
+    {
+      "model": "15m",
+      "context": 192,
+      "kv_bits": 4,
+      "kv_bytes": 331776,
+      "fixed_bytes": 36864,
+      "bram36": 80,
+      "fits_70": false,
+      "weights_resident": false
+    },
+    {
+      "model": "260k",
+      "context": 64,
+      "kv_bits": 8,
+      "kv_bytes": 20480,
+      "fixed_bytes": 36864,
+      "bram36": 64,
+      "fits_70": true,
+      "weights_resident": true
+    },
+    {
+      "model": "260k",
+      "context": 64,
+      "kv_bits": 4,
+      "kv_bytes": 10240,
+      "fixed_bytes": 36864,
+      "bram36": 62,
+      "fits_70": true,
+      "weights_resident": true
+    },
+    {
+      "model": "260k",
+      "context": 96,
+      "kv_bits": 8,
+      "kv_bytes": 30720,
+      "fixed_bytes": 36864,
+      "bram36": 66,
+      "fits_70": true,
+      "weights_resident": true
+    },
+    {
+      "model": "260k",
+      "context": 96,
+      "kv_bits": 4,
+      "kv_bytes": 15360,
+      "fixed_bytes": 36864,
+      "bram36": 63,
+      "fits_70": true,
+      "weights_resident": true
+    },
+    {
+      "model": "260k",
+      "context": 128,
+      "kv_bits": 8,
+      "kv_bytes": 40960,
+      "fixed_bytes": 36864,
+      "bram36": 69,
+      "fits_70": true,
+      "weights_resident": true
+    },
+    {
+      "model": "260k",
+      "context": 128,
+      "kv_bits": 4,
+      "kv_bytes": 20480,
+      "fixed_bytes": 36864,
+      "bram36": 64,
+      "fits_70": true,
+      "weights_resident": true
+    },
+    {
+      "model": "260k",
+      "context": 192,
+      "kv_bits": 8,
+      "kv_bytes": 61440,
+      "fixed_bytes": 36864,
+      "bram36": 73,
+      "fits_70": false,
+      "weights_resident": false
+    },
+    {
+      "model": "260k",
+      "context": 192,
+      "kv_bits": 4,
+      "kv_bytes": 30720,
+      "fixed_bytes": 36864,
+      "bram36": 66,
+      "fits_70": true,
+      "weights_resident": true
+    }
+  ]
+}

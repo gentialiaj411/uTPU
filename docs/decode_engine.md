@@ -85,14 +85,15 @@ includes KV, 24,576-byte activations, 8,192-byte LUTs, and a 4,096-byte FIFO.
 
 | L | 15M KV8 PPL/top1/BRAM36 | 15M KV4 PPL/top1/BRAM36 |
 |---:|---|---|
-|64|pending / pending / 15|pending / pending / 11|
-|96|pending / pending / 21|pending / pending / 16|
-|128|pending / pending / 27|pending / pending / 20|
-|192|pending / pending / 39|pending / pending / 29|
+|64|pending / pending / 56|pending / pending / 32|
+|96|pending / pending / 80 (no)|pending / pending / 44|
+|128|pending / pending / 104 (no)|pending / pending / 56|
+|192|pending / pending / 152 (no)|pending / pending / 80 (no)|
 
 The same 260K accounting (weights included because they may fit) is
-L64: 61/58, L96: 64/61, L128: 66/63, L192: 76/71 BRAM36 (KV8/KV4); thus
-260K streams weights at L=192 and can resident-store all weights only through L=128.
+L64: 64/62, L96: 66/63, L128: 69/64, L192: 73/66 BRAM36 (KV8/KV4); thus
+260K streams weights at L=192 and can resident-store all weights through L=128
+(or L192 with INT4 KV).
 Select the largest row whose measured PPL is <=1.08x its same-L float baseline.
 
 ## Control
