@@ -1,0 +1,13 @@
+{
+  "runner": "tools/decode/run_gemv_rtl.py",
+  "rtl_sources": [
+    "rtl\\decode\\gemv_unit.sv"
+  ],
+  "real_vectors": 224,
+  "random_edge_cases": 2000,
+  "mismatches": null,
+  "cycles_per_byte": null,
+  "status": "not_run",
+  "simulator": "missing",
+  "blocker": "iverilog is not installed"
+}
