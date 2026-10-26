@@ -71,7 +71,18 @@ def div_const_rne(value, denominator):
     reciprocal = {7: INV7_Q32, 127: INV127_Q32}.get(d, int(round((1 << shift) / d)))
     n = np.asarray(value, dtype=np.int64)
     if np.any(np.abs(n) > (1 << 31)):
-        raise OverflowError("constant reciprocal boundary exceeds proven range")
+        # Wide-product fallback models the RTL's 64x32->96-bit multiplier;
+        # it still performs only constant multiply, shift, and correction.
+        flat = n.reshape(-1)
+        out = []
+        for item in flat:
+            sign = -1 if int(item) < 0 else 1
+            mag_item = abs(int(item)); qi = (mag_item * reciprocal + (1 << (shift - 1))) >> shift
+            err = abs(mag_item - qi * d) * 2
+            if err > d: qi += 1 if mag_item > qi * d else -1
+            elif err == d and (qi & 1) and mag_item < qi * d: qi -= 1
+            out.append(sign * qi)
+        return np.asarray(out, dtype=np.int64).reshape(n.shape)
     mag = np.abs(n)
     q = rshift_rne(mag * reciprocal, shift)
     twice_err = np.abs((mag - q * d) * 2)
