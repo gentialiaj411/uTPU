@@ -1,40 +1,166 @@
+"""Differential GEMV test: rtl/decode/gemv_unit.sv vs captured runq_runtime._linear_high tiles."""
 from __future__ import annotations
-import argparse,hashlib,json,subprocess
+import argparse, hashlib, json, sys
 from pathlib import Path
 import numpy as np
-import sys; sys.path.insert(0,str(Path(__file__).resolve().parent))
-from sim import compile_and_run,ROOT,IVERILOG,VVP
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sim import compile_and_run, ROOT, VVP
+
+LANES = 16
+
+
+def load(golden, rec, kind, dtype):
+    return np.frombuffer(bytes.fromhex((golden / f"{rec['id']}_{kind}.hex").read_text().strip()), dtype=dtype)
+
+
+def tile_streams(golden, rec):
+    """Return (beats, chunks, expected) for one tile in the RTL's input format."""
+    k, rows, qmax = rec['k'], rec['rows'], rec['qmax']
+    act = load(golden, rec, 'a', np.int8).reshape(-1)
+    act_scales = load(golden, rec, 'as', '<i4').reshape(-1)
+    wbytes = load(golden, rec, 'w', np.uint8)
+    mult = load(golden, rec, 'wm', '<i8').reshape(rows, -1)
+    shift = load(golden, rec, 'ws', '<i8').reshape(rows, -1)
+    expected = load(golden, rec, 'o', '<i4')
+    begins, ends = rec['groups']
+    int4 = qmax == 7
+    stride = (k + 1) // 2 if int4 else k
+    chunk_ends = {}
+    for g, (b, e) in enumerate(zip(begins, ends)):
+        cb = b
+        while cb < e:
+            ce = min(e, (cb // 64 + 1) * 64)
+            chunk_ends[ce - 1] = (g, cb // 64)
+            cb = ce
+    beats, chunks = [], []
+    for pos in range(k):
+        word = 0
+        for lane in range(LANES):
+            byte = 0
+            if lane < rows:
+                byte = int(wbytes[lane * stride + (pos // 2 if int4 else pos)])
+            word |= byte << (8 * lane)
+        last_chunk = pos in chunk_ends
+        flags = (int(pos == k - 1) << 3) | (int(last_chunk) << 2) | (int(int4 and pos % 2 == 1) << 1) | int(int4)
+        beats.append((flags << 136) | ((int(act[pos]) & 0xFF) << 128) | word)
+        if last_chunk:
+            g, ag = chunk_ends[pos]
+            m = sh = 0
+            for lane in range(rows):
+                m |= (int(mult[lane, g]) & 0xFFFFFFFF) << (32 * lane)
+                sh |= (int(shift[lane, g]) & 0xFF) << (8 * lane)
+            chunks.append((int(act_scales[ag]) & 0xFFFFFFFF) << 640 | sh << 512 | m)
+    exp = 0
+    for lane in range(rows):
+        exp |= (int(expected[lane]) & 0xFFFFFFFF) << (32 * lane)
+    return beats, chunks, exp, rows
+
+
+TB = r"""
+module gemv_tb;
+  localparam int NT = %(nt)d, NB = %(nb)d, NC = %(nc)d;
+  logic clk = 0, rst = 1, start = 0, in_valid = 0;
+  logic [139:0] beat_mem [NB];
+  logic [671:0] chunk_mem [NC];
+  logic [511:0] exp_mem [NT];
+  logic [31:0] meta_mem [NT];          // {rows[7:0], beats[23:0]}
+  logic [139:0] b; logic [671:0] c;
+  logic in_ready, busy, done; logic [511:0] result;
+  integer bi = 0, ci = 0, errors = 0, real_errors = 0, cycles = 0, mism = 0;
+  decode_gemv_unit dut(.clk, .rst, .start, .in_valid, .in_ready,
+    .int4_mode(b[136]), .nibble_hi(b[137]), .act_code(b[135:128]), .weight_bytes(b[127:0]),
+    .chunk_last(b[138]), .tile_last(b[139]), .act_scale(c[671:640]), .multipliers(c[511:0]),
+    .shifts(c[639:512]), .busy, .done, .result);
+  always #1 clk = ~clk;
+  initial begin
+    $readmemh("%(beats)s", beat_mem); $readmemh("%(chunks)s", chunk_mem);
+    $readmemh("%(exp)s", exp_mem); $readmemh("%(meta)s", meta_mem);
+    b = '0; c = '0;
+    @(posedge clk); #0.1 rst = 0;
+    for (int t = 0; t < NT; t++) begin
+      int nbeats, rows, sent;
+      nbeats = meta_mem[t][23:0]; rows = meta_mem[t][31:24]; sent = 0;
+      start = 1; @(posedge clk); #0.1 start = 0;
+      while (!done) begin
+        if (sent < nbeats) begin b = beat_mem[bi]; c = chunk_mem[ci]; in_valid = 1; end
+        else in_valid = 0;
+        @(posedge clk); cycles++;
+        if (in_valid && in_ready) begin
+          if (b[138]) ci++;
+          bi++; sent++;
+        end
+        #0.1;
+      end
+      in_valid = 0;
+      for (int r = 0; r < rows; r++)
+        if (result[r*32 +: 32] !== exp_mem[t][r*32 +: 32]) begin
+          errors++; if (t < %(nreal)d) real_errors++;
+          if (mism < 5) $display("MISMATCH tile=%%0d row=%%0d got=%%0d exp=%%0d", t, r,
+            $signed(result[r*32 +: 32]), $signed(exp_mem[t][r*32 +: 32]));
+          mism++;
+        end
+    end
+    $display("SUMMARY tiles=%%0d errors=%%0d real_errors=%%0d cycles=%%0d", NT, errors, real_errors, cycles);
+    $finish;
+  end
+endmodule
+"""
+
+
 def main():
- ap=argparse.ArgumentParser(); ap.add_argument('--golden',type=Path,default=ROOT/'build/decode/golden_gemv'); ap.add_argument('--output',type=Path,default=ROOT/'bench/results/decode_gemv_rtl.json'); a=ap.parse_args(); man=json.loads((a.golden/'manifest.json').read_text()); recs=man['records']+man['random_records']; acts=[];weights=[];expects=[];meta=[]
- for r in recs:
-  def read(n): return bytes.fromhex((a.golden/f"{r['id']}_{n[:2] if n=='activation_codes' else n[0] if n=='activation_scales' else n[0] if n=='weight_codes' else n[:2] if n=='weight_scales' else n[0]}.hex").read_text().strip())
-  # names are explicit in the manifest; locate matching suffix.
-  suffix={'activation_codes':'a','activation_scales':'as','weight_codes':'w','weight_scales':'ws','output':'o'}
-  def raw(kind):
-   p=a.golden/f"{r['id']}_{suffix[kind]}.hex"
-   return bytes.fromhex(p.read_text().strip())
-  ac=np.frombuffer(raw('activation_codes'),dtype=np.int8); wc=bytes(raw('weight_codes')); out=np.frombuffer(raw('output'),dtype='<i4').reshape(-1)
-  k=r['k']; rows=min(16,r['rows']); qmax=r['qmax']; packed=[]
-  row_stride = k if qmax==127 else (k+1)//2
-  for pos in range(k):
-   for row in range(rows):
-    if qmax==127: packed.append(wc[row*k+pos])
-    else:
-     byte=wc[row*row_stride+pos//2]; packed.append(byte)
-   acts.append(ac[pos]); weights.extend(packed); expects.extend(out[:rows]) if pos==k-1 else None
-  meta.append((k,rows,qmax))
- n=len(recs); abase=[];wbase=[];ebase=[]; aa=ww=ee=0
- for k,rows,qmax in meta: abase.append(aa); wbase.append(ww); ebase.append(ee); aa+=k; ww+=k*rows; ee+=rows
- def write_hex(path,vals,width): path.write_text(''.join(f'{int(v)&((1<<width)-1):0{width//4}x}\n' for v in vals))
- base=ROOT/'build/decode'; write_hex(base/'gemv_a.mem',acts,8); write_hex(base/'gemv_w.mem',weights,8); write_hex(base/'gemv_e.mem',expects,32)
- tb=base/'gemv_real_tb.sv'; lines=[f'module gemv_real_tb; localparam N={n}; logic clk=0,rst=1,start=0,valid=0,last=0,int4_mode; logic signed [7:0] a; logic [127:0] wbytes; logic ready,done; logic signed [511:0] result; integer errors=0,real_errors=0,random_errors=0,cycles=0; reg [7:0] amem[0:{len(acts)-1}],wmem[0:{len(weights)-1}]; reg signed [31:0] emem[0:{len(expects)-1}]; reg [31:0] klist[0:{n-1}],rlist[0:{n-1}],qlist[0:{n-1}],alist[0:{n-1}],wlist[0:{n-1}],elist[0:{n-1}]; decode_gemv_unit dut(clk,rst,start,valid,last,int4_mode,a,wbytes,ready,done,result); always #1 clk=~clk; initial begin $readmemh("{(base/"gemv_a.mem").as_posix()}",amem); $readmemh("{(base/"gemv_w.mem").as_posix()}",wmem); $readmemh("{(base/"gemv_e.mem").as_posix()}",emem); #2 rst=0;']
- for idx,(k,rows,qmax) in enumerate(meta): lines += [f'klist[{idx}]={k}; rlist[{idx}]={rows}; qlist[{idx}]={(1 if qmax==7 else 0)}; alist[{idx}]={abase[idx]}; wlist[{idx}]={wbase[idx]}; elist[{idx}]={ebase[idx]};']
- lines += [f'for(integer ci=0;ci<{n};ci=ci+1) begin int4_mode=qlist[ci]; start=1; @(posedge clk); #1; start=0; for(integer pi=0;pi<klist[ci];pi=pi+1) begin a=amem[alist[ci]+pi]; for(integer li=0;li<16;li=li+1) wbytes[li*8 +: 8]=wmem[wlist[ci]+pi*rlist[ci]+li]; valid=1; last=(pi==klist[ci]-1); cycles=cycles+1; @(posedge clk); #1; end valid=0; #1; if(!done) errors=errors+1; for(integer jj=0;jj<rlist[ci];jj=jj+1) if(result[jj*32 +: 32] !== emem[elist[ci]+jj]) begin errors=errors+1; if(ci<{man["real_matmuls"]}) real_errors=real_errors+1; else random_errors=random_errors+1; if(errors<=5) $display("MISMATCH case=%0d row=%0d got=%0d exp=%0d",ci,jj,$signed(result[jj*32 +: 32]),emem[elist[ci]+jj]); end end']
- lines += [f'$display("SUMMARY matmuls={n} elements={len(expects)} errors=%0d real_errors=%0d random_errors=%0d cycles=%0d",errors,real_errors,random_errors,cycles); $finish; end endmodule']; tb.write_text('\n'.join(lines))
- rc,out=compile_and_run([ROOT/'rtl/decode/gemv_unit.sv'],'gemv_real_tb',tb); summary=next((x for x in out.splitlines() if x.startswith('SUMMARY')),''); normal_err=int(summary.split('errors=')[1].split()[0]) if 'errors=' in summary else len(expects)
- mrc,mout=compile_and_run([ROOT/'rtl/decode/gemv_unit.sv'],'gemv_real_tb',tb,defines=('GEMV_MUTATE',)); msummary=next((x for x in mout.splitlines() if x.startswith('SUMMARY')),''); mut_err=int(msummary.split('errors=')[1].split()[0]) if 'errors=' in msummary else len(expects)
- cycles=int(summary.split('cycles=')[1]) if 'cycles=' in summary else 0
- first=[x for x in out.splitlines() if x.startswith('MISMATCH')][:5]
- mutation_delta=n if mout!=out else 0
- o={'status':'pass' if rc==0 and normal_err==0 and mutation_delta==n else 'fail','manifest_sha256':hashlib.sha256((a.golden/'manifest.json').read_bytes()).hexdigest(),'matmuls':n,'real_matmuls':man['real_matmuls'],'random_matmuls':man['random_matmuls'],'real_output_elements':man['real_output_elements'],'random_output_elements':man['random_output_elements'],'total_output_elements_compared':len(expects),'mismatch_count':normal_err,'first_5_mismatches':first,'mutation_mismatch_count':mutation_delta,'mutation_expected':n,'cycles_per_matmul':cycles/n,'bytes_per_cycle':16.0,'vvp_command':f'{VVP} build/decode/gemv_real_tb.vvp','sim_stdout_sha256':hashlib.sha256(out.encode()).hexdigest(),'mutation_stdout_sha256':hashlib.sha256(mout.encode()).hexdigest(),'summary':summary,'mutation_summary':msummary}; a.output.parent.mkdir(parents=True,exist_ok=True); a.output.write_text(json.dumps(o,indent=2)+'\n'); print(json.dumps(o,indent=2))
-if __name__=='__main__': main()
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--golden', type=Path, default=ROOT / 'build/decode/golden_gemv')
+    ap.add_argument('--output', type=Path, default=ROOT / 'bench/results/decode_gemv_rtl.json')
+    a = ap.parse_args()
+    man_bytes = (a.golden / 'manifest.json').read_bytes(); man = json.loads(man_bytes)
+    recs = man['records'] + man['random_records']
+    beats, chunks, exps, meta, elems = [], [], [], [], [0, 0]
+    for i, rec in enumerate(recs):
+        bt, ch, ex, rows = tile_streams(a.golden, rec)
+        beats += bt; chunks += ch; exps.append(ex); meta.append((rows << 24) | len(bt))
+        elems[i >= len(man['records'])] += rows
+    base = ROOT / 'build/decode'; base.mkdir(parents=True, exist_ok=True)
+    files = {}
+    for name, vals, width in (('beats', beats, 140), ('chunks', chunks, 672), ('exp', exps, 512), ('meta', meta, 32)):
+        path = base / f'gemv_{name}.mem'
+        path.write_text(''.join(f'{v:0{(width + 3) // 4}x}\n' for v in vals))
+        files[name] = path.as_posix()
+    tb = base / 'gemv_tb.sv'
+    tb.write_text(TB % dict(nt=len(recs), nb=len(beats), nc=len(chunks), nreal=len(man['records']), **files))
+    src = [ROOT / 'rtl/decode/gemv_unit.sv']
+
+    def parse(out):
+        line = next((x for x in out.splitlines() if x.startswith('SUMMARY')), '')
+        kv = dict(t.split('=') for t in line.split()[1:]) if line else {}
+        return line, kv
+
+    rc, out = compile_and_run(src, 'gemv_tb', tb)
+    summary, kv = parse(out)
+    mrc, mout = compile_and_run(src, 'gemv_tb', tb, defines=('GEMV_MUTATE',))
+    msummary, mkv = parse(mout)
+    tiles_with_row3 = sum(1 for r in recs if r['rows'] > 3)
+    errors = int(kv.get('errors', -1)); merrors = int(mkv.get('errors', -1))
+    o = {
+        'status': 'pass' if rc == 0 and errors == 0 and merrors == tiles_with_row3 else 'fail',
+        'golden_source': man['source'],
+        'manifest_sha256': hashlib.sha256(man_bytes).hexdigest(),
+        'real_tiles': len(man['records']), 'random_tiles': len(man['random_records']),
+        'real_output_elements': elems[0], 'random_output_elements': elems[1],
+        'mismatch_count': errors, 'real_mismatch_count': int(kv.get('real_errors', -1)),
+        'first_mismatches': [x for x in out.splitlines() if x.startswith('MISMATCH')],
+        'mutation_mismatch_count': merrors, 'mutation_expected': tiles_with_row3,
+        'beats': len(beats), 'chunks': len(chunks),
+        'cycles_total': int(kv.get('cycles', 0)), 'cycles_per_tile': int(kv.get('cycles', 0)) / len(recs),
+        'observed_max_widths': man.get('observed_max_widths'),
+        'vvp_command': f'{VVP} build/decode/gemv_tb.vvp',
+        'sim_stdout_sha256': hashlib.sha256(out.encode()).hexdigest(),
+        'mutation_stdout_sha256': hashlib.sha256(mout.encode()).hexdigest(),
+        'summary': summary, 'mutation_summary': msummary,
+    }
+    a.output.parent.mkdir(parents=True, exist_ok=True)
+    a.output.write_text(json.dumps(o, indent=2) + '\n')
+    print(json.dumps({k: o[k] for k in ('status', 'mismatch_count', 'mutation_mismatch_count', 'mutation_expected', 'cycles_per_tile')}))
+
+
+if __name__ == '__main__':
+    main()

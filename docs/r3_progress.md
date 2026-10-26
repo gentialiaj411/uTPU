@@ -43,3 +43,20 @@
   enforcing 50 MHz/no divide/no initial rules.
 - E2E and gate are not passed: iverilog is unavailable and all RTL runner artifacts
   remain explicitly `not_run`; gate therefore exits non-zero as designed.
+
+## U1 GEMV — DONE (redone by coordinator, 2026-10-26)
+
+- `rtl/decode/gemv_unit.sv`: 16 MAC lanes + one shared 6-stage scaler
+  (acc*act_scale*rshift_rne(mult,16) -> rshift_rne(.,shift-16) -> div127 via Q32 reciprocal
+  + one-step correction -> accumulate). Chunks shorter than 16 beats back-pressure.
+- Golden: `tools/decode/golden_gemv.py` wraps `runq_runtime._linear_high` (stories260K, 3 tokens),
+  plus 300 random tiles (random multipliers/shifts/act scales, k=64 and k=172, INT8/INT4) and
+  40 directed RNE-tie tiles.
+- `python tools/decode/golden_gemv.py && python tools/decode/run_gemv_rtl.py`:
+  666 real tiles / 10,536 elements and 340 random+directed tiles / 5,440 elements, 0 mismatches.
+  Mutation build (row 3 LSB flip): 1,006/1,006 tiles caught.
+- Fault-injection check of the harness: ties-half-up 640 mismatches, no div127 correction 563,
+  dropped final-beat product 11,876.
+- Vivado 2025.2 OOC place+route, xc7s50, 20 ns: WNS +1.870 ns, 4,953 LUT, 2,499 FF, 25 DSP, 0 BRAM.
+  Scaler uses full 64-bit multiplies; narrow if DSP budget tightens.
+- Measured 101.3 cycles/tile in sim (includes start/drain); INT8 streams 16 B/beat, INT4 8 B/beat.
