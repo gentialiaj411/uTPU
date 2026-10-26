@@ -74,6 +74,10 @@ embedding and classifier retain their respective scale planes.  This is exactly
 the byte accounting used by the JSON hardware budgets.  A 4 KiB, two-bank FIFO
 (2 KiB fill/2 KiB drain) hides QSPI latency; DMA requests are strictly
 increasing addresses and never seek within a token.
+The simulator packer records each plane as a deterministic `zlib1` block to keep
+the behavioral image under the flash limit; the unpacker restores the raw code and
+5-byte scale planes bit-exactly.  The hardware image generator may replace this
+codec with the board decompressor without changing tensor order or offsets.
 
 ### Context/KV sweep and BRAM feasibility
 
