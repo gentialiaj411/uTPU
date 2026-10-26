@@ -1,32 +1,37 @@
-"""Capture GEMV vectors by wrapping numerics-v2's own _linear_high."""
+"""Deterministic RunQIntegerLlama._linear_high vector capture."""
 from __future__ import annotations
-import argparse,hashlib,json,struct
+import argparse, hashlib, json, sys
 from pathlib import Path
-import sys
 ROOT=Path(__file__).resolve().parents[2]; sys.path.insert(0,str(ROOT))
 import numpy as np
 from tools.llama2c.reference import Llama2CModel
 from firmware.host.numerics_v2 import runq_runtime as rr
 from firmware.host.numerics_v2.runq_runtime import QValue,RunQIntegerLlama
 from firmware.host.numerics_v2.export import export_runq_model
-def hexfile(path, raw): path.write_text(raw.hex()+"\n",encoding='ascii'); return hashlib.sha256(raw).hexdigest()
+def write_hex(path,raw): path.write_text(raw.hex()+"\n",encoding='ascii'); return hashlib.sha256(raw).hexdigest()
 def pack_codes(w,qmax):
- if qmax==127:return np.asarray(w,dtype=np.int8).tobytes()
- x=(np.asarray(w,dtype=np.int8).reshape(-1)&15).astype(np.uint8); out=np.zeros((len(x)+1)//2,dtype=np.uint8); out[:len(x)//2]=x[0:2*(len(x)//2):2]|(x[1:2*(len(x)//2):2]<<4)
+ w=np.asarray(w,dtype=np.int8)
+ if qmax==127:return w.tobytes()
+ x=(w.reshape(-1)&15).astype(np.uint8); out=np.zeros((len(x)+1)//2,dtype=np.uint8); out[:len(x)//2]=x[0::2][:len(out)-len(x)%2]|(x[1::2][:len(out)-len(x)%2]<<4)
  if len(x)&1:out[-1]=x[-1]
  return out.tobytes()
+def save_record(root,idx,a,record,out,begin,end):
+ p=f'v{idx:05d}'; w=np.asarray(record['weight'][begin:end]); qmax=int(record['qmax']); groups=np.asarray(record['groups'],dtype='<i4'); wm=np.asarray(record['multiplier'][begin:end],dtype='<i8'); sh=np.asarray(record['shift'][begin:end],dtype='<i8'); files={}
+ files['a']=write_hex(root/f'{p}_a.hex',np.asarray(a.code,dtype=np.int8).tobytes()); files['as']=write_hex(root/f'{p}_as.hex',np.asarray(a.scale_multiplier,dtype='<i4').tobytes()); files['w']=write_hex(root/f'{p}_w.hex',pack_codes(w,qmax)); files['wm']=write_hex(root/f'{p}_wm.hex',wm.tobytes()); files['ws']=write_hex(root/f'{p}_ws.hex',sh.tobytes()); files['gr']=write_hex(root/f'{p}_gr.hex',groups.tobytes()); files['o']=write_hex(root/f'{p}_o.hex',np.asarray(out[begin:end],dtype='<i4').tobytes())
+ return {'id':p,'rows':end-begin,'k':w.shape[1],'qmax':qmax,'groups':groups.tolist(),'files':files,'output_elements':end-begin}
 def main():
  ap=argparse.ArgumentParser(); ap.add_argument('--output',type=Path,default=ROOT/'build/decode/golden_gemv'); a=ap.parse_args(); a.output.mkdir(parents=True,exist_ok=True)
- ref=Llama2CModel(ROOT/'models/llama2c/stories260K/stories260K.bin'); cal=json.loads((ROOT/'firmware/host/numerics_v2/calibration_260k.json').read_text()); exp=export_runq_model(ref,cal['activation_scales'],4,32,improved=True,mixed_precision={'qkv':8,'wo':8,'w2':8}); exp.pop('dynamic_base_scales'); runtime=RunQIntegerLlama(exp,ROOT/'firmware/host/numerics_v2/luts'); records=[]
- original=rr._linear_high
+ ref=Llama2CModel(ROOT/'models/llama2c/stories260K/stories260K.bin'); cal=json.loads((ROOT/'firmware/host/numerics_v2/calibration_260k.json').read_text()); exp=export_runq_model(ref,cal['activation_scales'],4,32,improved=True,mixed_precision={'qkv':8,'wo':8,'w2':8}); exp.pop('dynamic_base_scales'); runtime=RunQIntegerLlama(exp,ROOT/'firmware/host/numerics_v2/luts'); records=[]; original=rr._linear_high; maxima={'act_scale_multiplier':0,'small':0,'shift':0}
  def wrapped(value,record,output_begin=0,output_end=None):
-  out=original(value,record,output_begin,output_end); idx=len(records); prefix=f'v{idx:04d}'; w=record['weight']; qmax=int(record['qmax']); rows=w.shape[0] if output_end is None else output_end-output_begin; ws=record['multiplier'][output_begin:output_end if output_end is not None else record['multiplier'].shape[0]]; act=np.asarray(value.code,dtype=np.int8); scales=np.asarray(value.scale_multiplier,dtype=np.int32); files={}
-  files['activation_codes']=hexfile(a.output/f'{prefix}_a.hex',act.tobytes()); files['activation_scales']=hexfile(a.output/f'{prefix}_as.hex',scales.tobytes()); files['weight_codes']=hexfile(a.output/f'{prefix}_w.hex',pack_codes(w[:rows],qmax)); files['weight_scales']=hexfile(a.output/f'{prefix}_ws.hex',np.asarray(ws,dtype=np.int64).tobytes()); files['output']=hexfile(a.output/f'{prefix}_o.hex',np.asarray(out,dtype='<i4').tobytes()); records.append({'id':prefix,'rows':rows,'k':w.shape[1],'qmax':qmax,'files':files,'activation_shape':list(act.shape),'output_shape':list(out.shape)})
+  out=original(value,record,output_begin,output_end); begin=0 if output_begin is None else output_begin; end=record['weight'].shape[0] if output_end is None else output_end; maxima['act_scale_multiplier']=max(maxima['act_scale_multiplier'],int(np.max(np.abs(value.scale_multiplier)))); maxima['small']=max(maxima['small'],int(np.max(np.abs(record['multiplier'][begin:end]>>16)))); maxima['shift']=max(maxima['shift'],int(np.max(record['shift'][begin:end])))
+  for b in range(begin,end,16): records.append(save_record(a.output,len(records),value,record,out,b,min(b+16,end)))
   return out
  rr._linear_high=wrapped
  for token in (1,2,3): runtime.forward_argmax(token,len(runtime.tokens),4096)
- rng=np.random.default_rng(123); base=exp['layers'][0]['wq']; random_records=[]
+ rng=np.random.default_rng(123); random=[]; base=exp['layers'][0]['wq']
  for i in range(300):
-  k=base['weight'].shape[1]; rows=16; qmax=int(base['qmax']); codes=rng.choice(np.array([-128,-127,-8,-7,0,7,127],dtype=np.int8),size=(1,k)); scales=np.ones((1,(k+63)//64),dtype=np.int32); q=QValue(codes,scales,64,127); out=original(q,base,0,rows); random_records.append({'rows':rows,'k':k,'qmax':qmax,'output_sha256':hashlib.sha256(np.asarray(out,dtype='<i4').tobytes()).hexdigest()})
- manifest={'model':'stories260K','matmuls':len(records),'random_edge_matmuls':len(random_records),'records':records,'random_records':random_records,'source':'RunQIntegerLlama._linear_high wrapper'}; (a.output/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n'); print(json.dumps({'matmuls':len(records),'random':len(random_records)}))
+  k=64; qmax=127 if i%2==0 else 7; rows=16; groups=np.asarray([[0,32,64],[32,64,64]],dtype=np.int32); weight=rng.choice(np.array([-128,-127,-8,-7,0,7,127],dtype=np.int8),size=(rows,k));
+  if qmax==7: weight=np.clip(weight,-7,7)
+  multip=np.tile(np.asarray(base['multiplier'][0,:2],dtype=np.int64),(rows,1)); shifts=np.tile(np.asarray(base['shift'][0,:2],dtype=np.int64),(rows,1)); rec={'weight':weight,'groups':groups,'multiplier':multip,'shift':shifts,'qmax':qmax}; ac=rng.choice(np.array([-128,-127,-8,-7,0,7,127],dtype=np.int8),size=k); q=QValue(ac,np.ones((1,),dtype=np.int32)*127,64,127); out=original(q,rec); random.append(save_record(a.output,100000+i,q,rec,out,0,rows))
+ manifest={'model':'stories260K','real_matmuls':len(records),'random_matmuls':len(random),'real_output_elements':sum(r['output_elements'] for r in records),'random_output_elements':sum(r['output_elements'] for r in random),'observed_max_widths':maxima,'records':records,'random_records':random,'source':'wrapped firmware.host.numerics_v2.runq_runtime._linear_high'}; (a.output/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n'); print(json.dumps({k:manifest[k] for k in ('real_matmuls','random_matmuls','real_output_elements','random_output_elements')}))
 if __name__=='__main__': main()

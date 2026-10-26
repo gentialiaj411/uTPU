@@ -1,9 +1,13 @@
 {
   "status": "fail",
-  "manifest_sha256": "0e1cc05574ae53c0194e44ce48ca6ec46bf3b5f60049325b1ed66a3d5f633f43",
-  "matmuls": 108,
-  "total_output_elements_compared": 1728,
-  "mismatch_count": 1727,
+  "manifest_sha256": "533be194587f59fd759c90f618c8a90c67225a63b8771eb3d457567a95c03029",
+  "matmuls": 966,
+  "real_matmuls": 666,
+  "random_matmuls": 300,
+  "real_output_elements": 10536,
+  "random_output_elements": 4800,
+  "total_output_elements_compared": 15336,
+  "mismatch_count": 15335,
   "first_5_mismatches": [
     "MISMATCH case=0 row=0 got=-3865 exp=-892",
     "MISMATCH case=0 row=1 got=-14356 exp=172",
@@ -11,12 +15,13 @@
     "MISMATCH case=0 row=3 got=5359 exp=-311",
     "MISMATCH case=0 row=4 got=-2268 exp=2086"
   ],
-  "mutation_mismatch_count": 1727,
-  "cycles_per_matmul": 79.0,
+  "mutation_mismatch_count": 966,
+  "mutation_expected": 966,
+  "cycles_per_matmul": 70.7080745341615,
   "bytes_per_cycle": 16.0,
   "vvp_command": "C:\\iverilog\\bin\\vvp.exe build/decode/gemv_real_tb.vvp",
-  "sim_stdout_sha256": "8c053f39b4206c50b345abfb76b3560414502a041869568897e358be0a367ca3",
-  "mutation_stdout_sha256": "8c053f39b4206c50b345abfb76b3560414502a041869568897e358be0a367ca3",
-  "summary": "SUMMARY matmuls=108 elements=1728 errors=1727 cycles=8532",
-  "mutation_summary": "SUMMARY matmuls=108 elements=1728 errors=1727 cycles=8532"
+  "sim_stdout_sha256": "f6e37d4f1429cd74349f572bdac8ae87dfa4f7f0a189b90590a2eebae683140a",
+  "mutation_stdout_sha256": "7f380852a9f1a170273aaf30dd23a98e4fe84ec22ba358f23acf84c291b4c60c",
+  "summary": "SUMMARY matmuls=966 elements=15336 errors=15335 real_errors=10536 random_errors=4799 cycles=68304",
+  "mutation_summary": "SUMMARY matmuls=966 elements=15336 errors=15335 real_errors=10536 random_errors=4799 cycles=68304"
 }
