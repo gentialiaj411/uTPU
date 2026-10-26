@@ -5,7 +5,7 @@ from pathlib import Path
 def check(root=Path('.')):
  files=list((root/'rtl/decode').glob('*.sv')); errors=[]
  for f in files:
-  s=f.read_text(encoding='utf-8')
+  s=re.sub(r'//[^\n]*','',f.read_text(encoding='utf-8'))
   if 'initial ' in s and '$readmemh' not in s: errors.append(f'{f}:initial')
   if re.search(r'\bdiv\b|/\s*[0-9]',s): errors.append(f'{f}:divide-or-operator')
  if errors: return {'status':'fail','errors':errors}
