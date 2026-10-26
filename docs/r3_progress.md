@@ -56,3 +56,21 @@
 - RMSNorm: 3,000 cases, 0 mismatches, 2 cycles/case.
 - RoPE: 512 positions, 0 mismatches, 2 cycles/case.
 - SiLU/mul and residual: 4,000 cases each, 0 mismatches, 2 cycles/case.
+
+## U6 — attention
+
+- 20 position/KV-width cases, 0 mismatches, 2 cycles/case; vvp-backed score path.
+
+## U7 — classifier
+
+- 200 cases, 0 mismatches, 20 full-logit cases, 2 cycles/case.
+
+## U8 — stream/sequencer
+
+- 192 throttled stream cases, 0 mismatches, 1 cycle/byte.
+
+## U9 — end-to-end
+
+- 320 stream/token-shell cases, 0 mismatches, 3 cycles/token. Artifact explicitly
+  scopes this to top-shell wiring; full RunQ model arithmetic integration remains open.
+- `tools/decode_gate.py` exits 0; structural checker passes at 50 MHz.

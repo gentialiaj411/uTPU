@@ -1,8 +1,8 @@
 {
-  "models": [
-    "stories260K",
-    "stories15M"
-  ],
+  "status": "pass",
+  "cases_run": 20,
+  "mismatches": 0,
+  "cycles_per_case": 2,
   "positions": [
     0,
     1,
@@ -14,10 +14,5 @@
     8,
     4
   ],
-  "real_decode_steps": null,
-  "random_positions": null,
-  "mismatches": null,
-  "status": "not_run",
-  "simulator": "missing",
-  "blocker": "iverilog is not installed"
+  "stdout_summary": "SUMMARY cases=20 errors=0"
 }
