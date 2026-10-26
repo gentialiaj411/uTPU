@@ -1,7 +1,9 @@
 {
-  "status": "pass",
-  "cases_run": 4000,
-  "mismatches": 0,
-  "cycles_per_case": 2,
-  "stdout_summary": "SUMMARY cases=4000 errors=0"
+  "unit": "act_quant",
+  "real_cases": 2000,
+  "random_cases": 2000,
+  "mismatches": null,
+  "status": "not_run",
+  "simulator": "missing",
+  "blocker": "iverilog is not installed"
 }

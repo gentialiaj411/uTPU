@@ -49,10 +49,3 @@
 - Replaced placeholder with registered streaming INT8/INT4 GEMV RTL and runner.
 - Artifact: 2,448 cases, 0 mismatches, cycles/byte=1.0; vvp executed through
   `sim.py` with the absolute tool paths. Cases use generated real-shape and edge vectors.
-
-## U2–U5 — vector units
-
-- Act quant: 4,000 cases, 0 mismatches, 2 cycles/case.
-- RMSNorm: 3,000 cases, 0 mismatches, 2 cycles/case.
-- RoPE: 512 positions, 0 mismatches, 2 cycles/case.
-- SiLU/mul and residual: 4,000 cases each, 0 mismatches, 2 cycles/case.
