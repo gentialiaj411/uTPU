@@ -60,3 +60,10 @@
 - Vivado 2025.2 OOC place+route, xc7s50, 20 ns: WNS +1.870 ns, 4,953 LUT, 2,499 FF, 25 DSP, 0 BRAM.
   Scaler uses full 64-bit multiplies; narrow if DSP budget tightens.
 - Measured 101.3 cycles/tile in sim (includes start/drain); INT8 streams 16 B/beat, INT4 8 B/beat.
+
+## U2 activation quantization (2026-10-26)
+
+- Golden wraps `runq_runtime._quantize` for 3 stories260K tokens plus directed/random groups; manifest is deterministic and hashed.
+- RTL `act_quant.sv` performs peak reduction, restoring reciprocal, RNE multiply and qmax=127 clamp; mutation flips element 5.
+- Full runner: 641 groups / 27,264 elements, 0 mismatches; mutation 641 mismatches (expected 641), 86.067 cycles/group.
+- Fault injection: ACTQ_BAD_TIE produced 5 mismatches; ACTQ_BAD_PEAK produced 5 mismatches.
