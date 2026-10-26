@@ -43,9 +43,3 @@
   enforcing 50 MHz/no divide/no initial rules.
 - E2E and gate are not passed: iverilog is unavailable and all RTL runner artifacts
   remain explicitly `not_run`; gate therefore exits non-zero as designed.
-
-## U1 — GEMV
-
-- Replaced placeholder with registered streaming INT8/INT4 GEMV RTL and runner.
-- Artifact: 2,448 cases, 0 mismatches, cycles/byte=1.0; vvp executed through
-  `sim.py` with the absolute tool paths. Cases use generated real-shape and edge vectors.
