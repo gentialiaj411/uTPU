@@ -16,3 +16,10 @@
   residual units in `rtl/decode/vector_units.sv`.
 - Runner emits 2,000 real + 2,000 random planned cases per unit. All five artifacts
   explicitly record `not_run` because iverilog is unavailable; no mismatches are claimed.
+
+## Chunk 3 — attention
+
+- Added parameterized KV-cache, score, softmax, and attention-value registered
+  interfaces in `rtl/decode/attention_units.sv`.
+- Attention artifact records the required model/position/KV-bit matrix as `not_run`
+  because no RTL simulator is installed; exact score/KV differential remains open.

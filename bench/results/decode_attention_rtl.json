@@ -1,0 +1,23 @@
+{
+  "models": [
+    "stories260K",
+    "stories15M"
+  ],
+  "positions": [
+    0,
+    1,
+    2,
+    17,
+    "MAX_SEQ-1"
+  ],
+  "kv_bits": [
+    8,
+    4
+  ],
+  "real_decode_steps": null,
+  "random_positions": null,
+  "mismatches": null,
+  "status": "not_run",
+  "simulator": "missing",
+  "blocker": "iverilog is not installed"
+}
