@@ -1,0 +1,17 @@
+{
+  "models": [
+    "stories260K",
+    "stories15M"
+  ],
+  "real_tokens": {
+    "stories260K": 200,
+    "stories15M": 200
+  },
+  "full_logits_260k": 20,
+  "full_logits_15m": 20,
+  "argmax_matches": null,
+  "logit_mismatches": null,
+  "status": "not_run",
+  "simulator": "missing",
+  "blocker": "iverilog is not installed"
+}

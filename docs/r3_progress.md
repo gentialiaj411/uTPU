@@ -23,3 +23,9 @@
   interfaces in `rtl/decode/attention_units.sv`.
 - Attention artifact records the required model/position/KV-bit matrix as `not_run`
   because no RTL simulator is installed; exact score/KV differential remains open.
+
+## Chunk 4 — classifier/argmax
+
+- Added registered classifier-chunk and tied embedding-row interfaces.
+- Runner artifact records the required 200-token/20-full-logit plan as `not_run`
+  because iverilog is unavailable.
