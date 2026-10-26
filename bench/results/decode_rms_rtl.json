@@ -1,0 +1,27 @@
+{
+  "status": "pass",
+  "golden_sha256": "f1349a1c06c2cfa366fa592f9a3cda107c16a7dddb099d48fb4ae8896c58fa3c",
+  "golden_source": "wrapped firmware.host.numerics_v2.runq_runtime._rms_high",
+  "real_cases": 33,
+  "directed_random_cases": 250,
+  "elements": 46112,
+  "kinds": [
+    "div_tie",
+    "gamma_out_tie",
+    "random",
+    "real",
+    "recip_tie",
+    "zero"
+  ],
+  "mismatch_count": 0,
+  "real_mismatch_count": 0,
+  "first_mismatches": [],
+  "mutation_mismatch_count": 46112,
+  "mutation_expected": 46112,
+  "cycles_total": 2802378,
+  "vvp_command": "C:\\iverilog\\bin\\vvp.exe build/decode/rms_tb.vvp",
+  "sim_stdout_sha256": "3344f28789b816d84c726e78b1afdf64e3e4968d1c8459f596b01f62eef537a3",
+  "mutation_stdout_sha256": "cccb462504f0f1fa1fb9201d5c7f04ca7304c94ad07f61fd8f2edb9209fb9dbe",
+  "summary": "SUMMARY cases=283 elements=46112 errors=0 real_errors=0 cycles=2802378",
+  "mutation_summary": "SUMMARY cases=283 elements=46112 errors=46112 real_errors=2112 cycles=2802378"
+}

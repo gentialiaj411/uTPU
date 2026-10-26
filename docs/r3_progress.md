@@ -78,3 +78,16 @@
 - Fault injection (source-text edits, full mismatch counts): ties-half-up 766, reciprocal truncation
   8,292, peak off-by-one 1,298, clamp at 128 98.
 - Vivado 2025.2 OOC place+route, xc7s50, 20 ns: WNS +6.791 ns, 427 LUT, 202 FF, 4 DSP, 1 RAMB18.
+
+## U3 RMSNorm — DONE (coordinator, 2026-10-26)
+
+- `rtl/decode/rmsnorm.sv` (+ `decode_pkg.sv`, `seq_mul.sv`): capture with registered x*x into int64,
+  then mean = div_const_rne(ss, D) + eps (fixed.py small/wide-path rounding and the small path's
+  sequential correction reproduced exactly), 47-cycle isqrt(mean<<30), 55-cycle div_rne(2^54, root),
+  and a sequential per-element chain (one radix-16 seq_mul, ~55 cycles/element) with int64 wrap.
+- Golden `tools/decode/golden_rms.py` wraps `_rms_high`: 33 real stories260K vectors plus 250
+  directed/random (D=64 and D=288, div ties, x*recip ties via eps-forced root 2^31/2^32,
+  gamma/output-shift ties, zero vectors). 46,112 elements, 0 mismatches; mutation 46,112/46,112.
+- Fault injection (`tools/decode/fault_inject.py rms`): 5 detected; 2 proven equivalent
+  (div_rne(2^54, root) can never tie; a half-up tie estimate is corrected back to RNE).
+- OOC xc7s50 @ 50 MHz: WNS +1.432 ns, 2,611 LUT, 961 FF, 12 DSP, 1 BRAM36.

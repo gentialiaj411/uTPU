@@ -1,0 +1,48 @@
+{
+  "rms": {
+    "mean_no_correction": {
+      "mismatches": 4,
+      "real_mismatches": 0,
+      "detected": true,
+      "ok": true
+    },
+    "small_path_half_up": {
+      "mismatches": 0,
+      "real_mismatches": 0,
+      "detected": false,
+      "equivalent_reason": "equivalent: on an exact tie the half-up estimate is odd and the tie_odd correction restores RNE",
+      "ok": true
+    },
+    "recip_half_up": {
+      "mismatches": 0,
+      "real_mismatches": 0,
+      "detected": false,
+      "equivalent_reason": "equivalent: 2^54 mod root == root/2 has no solution, so div_rne(2^54, root) never ties",
+      "ok": true
+    },
+    "gamma_shift_off_by_one": {
+      "mismatches": 44092,
+      "real_mismatches": 2084,
+      "detected": true,
+      "ok": true
+    },
+    "seq_mul_drop_top_nibble": {
+      "mismatches": 3086,
+      "real_mismatches": 0,
+      "detected": true,
+      "ok": true
+    },
+    "shift_ties_away": {
+      "mismatches": 4536,
+      "real_mismatches": 1,
+      "detected": true,
+      "ok": true
+    },
+    "isqrt_no_max1": {
+      "mismatches": 42,
+      "real_mismatches": 0,
+      "detected": true,
+      "ok": true
+    }
+  }
+}
