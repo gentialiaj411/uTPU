@@ -9,7 +9,10 @@ Exits non-zero unless all of the following hold (artifacts under bench/results/)
   * end-to-end top_decode runs (KV8 and KV4, throttled flash) reproduce every logit and token;
   * M4 QSPI: reader-vs-flash-model unit test over all configurations with its nibble-swap mutation caught, qspi fault set,
     qspi_reader OOC (0 BRAM) and top_decode_15m + reader OOC (same BRAM/LUT/timing limits), and the e2e run through
-    qspi_reader + the flash model with 0 logit/token mismatches.
+    qspi_reader + the flash model with 0 logit/token mismatches;
+  * M5 board top: UART-driven simulation of boolean_core + flash model (tokens, probed logits, flash Quad-enable procedure,
+    mutation caught, QUAD=0 read trips the flash model), boolean_pin_check all pins agree, and the full implementation of
+    boolean_top (xc7s50, constraints/boolean_xc7s50.xdc, no bitstream): timing met, <= 68 BRAM36, <= 85% LUT, 0 DRC errors.
 """
 from __future__ import annotations
 import json, sys
@@ -81,6 +84,36 @@ def main():
                     f"{o['cycles_per_token_mean']:.0f} cycles/token at {o['flash_bytes_per_cycle']} B/cycle"
         if not ok:
             unmet.append(f'{e} not pass')
+    # M5 board top: UART path in simulation, pin verification, full implementation of boolean_top
+    u = load('boolean_uart_rtl')
+    if u is None:
+        unmet.append('missing boolean_uart_rtl')
+    else:
+        ok = (u.get('status') == 'pass' and u.get('mismatch_count') == 0 and u.get('mutation_mismatch_count', 0) > 0
+              and u.get('negative_quad0_read_trips_flash_model') is True and u.get('quad_enable_via_uart', {}).get('wrr_commands_applied', 0) >= 1)
+        report['boolean_uart_rtl'] = f"{'pass' if ok else 'FAIL'}: {u.get('steps')} steps, {u.get('checks')} checks, {u.get('mismatch_count')} mismatches"
+        if not ok:
+            unmet.append('boolean_uart_rtl not pass')
+    pc = load('boolean_pin_check')
+    if pc is None:
+        unmet.append('missing boolean_pin_check')
+    else:
+        report['boolean_pin_check'] = f"{len(pc['pins'])} pins, all_agree={pc['all_agree']}"
+        if not pc['all_agree'] or pc.get('disagreements'):
+            unmet.append(f"boolean pin check disagreements: {pc.get('disagreements')}")
+    bi = load('boolean_top_impl')
+    if bi is None or bi.get('status') != 'ok':
+        unmet.append('missing or failed boolean_top_impl')
+    else:
+        report['boolean_top_impl'] = f"WNS {bi['wns_ns']:+.3f} ns, WHS {bi['whs_ns']:+.3f} ns, {int(bi['lut'])} LUT, {bi['bram36_equiv']} BRAM36, DRC errors {len(bi['drc_error_rules'])}"
+        if not bi['timing_met']:
+            unmet.append('boolean_top_impl timing not met')
+        if bi['bram36_equiv'] > BRAM36_LIMIT_15M:
+            unmet.append(f"boolean_top_impl BRAM36 {bi['bram36_equiv']} > {BRAM36_LIMIT_15M}")
+        if bi['lut'] > LUT_LIMIT_15M:
+            unmet.append(f"boolean_top_impl LUT {int(bi['lut'])} > {int(LUT_LIMIT_15M)} (85%)")
+        if bi['drc_error_rules']:
+            unmet.append(f"boolean_top_impl DRC errors {bi['drc_error_rules']}")
     print(json.dumps({'exit_code': int(bool(unmet)), 'report': report, 'unmet': unmet}, indent=2))
     sys.exit(1 if unmet else 0)
 

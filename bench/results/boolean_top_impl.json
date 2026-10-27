@@ -1,0 +1,58 @@
+{
+  "status": "ok",
+  "part": "xc7s50csga324-1",
+  "top": "boolean_top",
+  "constraints": "constraints/boolean_xc7s50.xdc",
+  "bitstream_generated": false,
+  "sources": [
+    "rtl/decode/decode_pkg.sv",
+    "rtl/decode/seq_mul.sv",
+    "rtl/decode/mul_pipe.sv",
+    "rtl/decode/div_const_pipe.sv",
+    "rtl/decode/gemv_unit.sv",
+    "rtl/decode/act_quant.sv",
+    "rtl/decode/rmsnorm.sv",
+    "rtl/decode/vec_alu.sv",
+    "rtl/decode/attention.sv",
+    "rtl/decode/top_decode.sv",
+    "rtl/decode/qspi_reader.sv",
+    "rtl/board/uart_rx.sv",
+    "rtl/board/uart_tx.sv",
+    "rtl/board/board_ctrl.sv",
+    "rtl/board/boolean_core.sv",
+    "rtl/board/qspi_pads.sv",
+    "rtl/board/boolean_top.sv"
+  ],
+  "lut": 20726.0,
+  "lut_pct": 63.6,
+  "ff": 9815.0,
+  "dsp": 73.0,
+  "bram36_equiv": 67.0,
+  "wns_ns": 1.418,
+  "tns_ns": 0.0,
+  "whs_ns": 0.008,
+  "ths_ns": 0.0,
+  "timing_met": true,
+  "drc_checks_found": 37,
+  "drc_summary_rules": [
+    [
+      "DPIP-1",
+      "Warning",
+      "36"
+    ],
+    [
+      "IOSR-1",
+      "Warning",
+      "1"
+    ]
+  ],
+  "drc_error_rules": [],
+  "bitstream_note": "write_bitstream is not in the Tcl; no bitstream was generated",
+  "reports": {
+    "util.rpt": "build/decode/synth/boolean_top/util.rpt",
+    "timing.rpt": "build/decode/synth/boolean_top/timing.rpt",
+    "drc.rpt": "build/decode/synth/boolean_top/drc.rpt",
+    "io.rpt": "build/decode/synth/boolean_top/io.rpt",
+    "clock_util.rpt": "build/decode/synth/boolean_top/clock_util.rpt"
+  }
+}

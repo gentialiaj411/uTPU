@@ -16,7 +16,10 @@
 `timescale 1ns/1ps
 module qspi_flash_model #(
     parameter string IMG = "",
-    parameter int SIZE = 1024,           // image bytes
+    parameter int SIZE = 1024,           // flash bytes modelled (BASE + image bytes)
+    parameter int BASE = 0,              // image offset in the flash (the bitstream lives below it)
+    parameter bit QUAD_INIT = 1'b1,      // CR1[1] (QUAD) power-up value
+    parameter bit ALLOW_REG_CMDS = 1'b0, // also model RDID 9Fh, RDSR1 05h, RDCR 35h, WREN 06h, WRR 01h (single-bit)
     parameter int ADDR_BYTES = 3,
     parameter int DUMMY = 8,
     parameter real TV = 7.65,            // ns, falling SCLK to output valid
@@ -31,7 +34,7 @@ module qspi_flash_model #(
     logic [7:0] mem [SIZE];
     initial begin
         for (int i = 0; i < SIZE; i++) mem[i] = 8'hFF;
-        $readmemh(IMG, mem);
+        $readmemh(IMG, mem, BASE);
         flash_o = 4'bz; flash_oe = 4'h0;
     end
     // phase: 0 idle, 1 instruction, 2 address, 3 dummy, 4 data
@@ -39,6 +42,9 @@ module qspi_flash_model #(
     logic [7:0] instr; logic [31:0] addr;
     int unsigned rd_addr; int nib = 0; int over_read = 0, nbytes_out = 0, ncmds = 0;
     realtime last_cs_rise = -1000.0;
+    logic [7:0] regsnap, sr1 = 8'h00, cr1 = {6'b0, QUAD_INIT, 1'b0}, regbyte, wrr_b0, wrr_b1;
+    logic wel = 0; int wip_polls = 0, rbit = 0, ridx = 0; logic [7:0] id_bytes [6]; initial begin id_bytes[0] = 8'h01; id_bytes[1] = 8'h20; id_bytes[2] = 8'h18; id_bytes[3] = 8'h4D; id_bytes[4] = 8'h00; id_bytes[5] = 8'h80; end  // ID-CFI bytes 0..5, uniform 256 kB sectors
+    int n_wrr = 0, n_quad_reads_blocked = 0;
     wire driving = (phase == 4);
 
     always @(negedge cs_n) begin
@@ -49,6 +55,16 @@ module qspi_flash_model #(
     always @(posedge cs_n) begin
         if (sck !== 1'b0) $fatal(1, "FLASH: CS# rose while SCLK=%b", sck);
         if ((phase == 1 || phase == 2 || phase == 3) && rises % 8 != 0) $fatal(1, "FLASH: CS# raised mid-byte of the command (%0d rising edges)", rises);
+        if (phase == 6) begin
+            if (rises != 8) $fatal(1, "FLASH: WREN with %0d clocks", rises);
+            wel = 1;
+        end
+        if (phase == 7) begin
+            if (rises != 24) $fatal(1, "FLASH: WRR must clock 24 bits (SR1+CR1), got %0d", rises);
+            if (wel) begin
+                cr1 = wrr_b1; sr1 = {wrr_b0[7:2], 2'b00}; wel = 0; wip_polls = 2; n_wrr++;
+            end
+        end
         phase = 0; last_cs_rise = $realtime;
         flash_o = 4'bz; flash_oe = 4'h0;
     end
@@ -59,8 +75,16 @@ module qspi_flash_model #(
                 if (host_oe[0] !== 1'b1) $fatal(1, "FLASH: host not driving IO0 during instruction");
                 instr = {instr[6:0], host_o[0]}; bitn++;
                 if (bitn == 8) begin
-                    if (instr !== OPCODE) $fatal(1, "FLASH: instruction %02h, expected %02h", instr, OPCODE);
-                    phase = 2; bitn = 0;
+                    bitn = 0;
+                    if (instr === OPCODE) begin
+                        if (!cr1[1]) $fatal(1, "FLASH: Quad Output Read issued with CR1.QUAD = 0");
+                        phase = 2;
+                    end else if (ALLOW_REG_CMDS && (instr === 8'h9F || instr === 8'h05 || instr === 8'h35)) begin
+                        phase = 5; ridx = 0; rbit = 0;
+                        regsnap = {sr1[7:2], wel, (wip_polls > 0)}; if (instr === 8'h05 && wip_polls > 0) wip_polls--;
+                    end else if (ALLOW_REG_CMDS && instr === 8'h06) phase = 6;
+                    else if (ALLOW_REG_CMDS && instr === 8'h01) phase = 7;
+                    else $fatal(1, "FLASH: instruction %02h, expected %02h", instr, OPCODE);
                 end
             end
             2: begin
@@ -73,10 +97,29 @@ module qspi_flash_model #(
                 end
             end
             3: begin bitn++; if (bitn == DUMMY) phase = 4; end   // data launches on the next falling edge
+            7: begin
+                if (host_oe[0] !== 1'b1) $fatal(1, "FLASH: host not driving IO0 during WRR data");
+                if (bitn < 8) wrr_b0 = {wrr_b0[6:0], host_o[0]}; else wrr_b1 = {wrr_b1[6:0], host_o[0]};
+                bitn++;
+            end
             4: begin
                 if (host_oe !== 4'h0) $fatal(1, "FLASH: host drives the bus (oe=%b) while the flash outputs data", host_oe);
             end
         endcase
+    end
+    // single-bit register reads: SO = IO1, launched on the falling edge
+    always @(negedge sck) if (cs_n === 1'b0 && phase == 5) begin
+        if (host_oe[1] !== 1'b0) $fatal(1, "FLASH: host drives IO1 (SO) during a register read");
+        if (rbit == 0) begin
+            case (instr)
+                8'h9F: regbyte = id_bytes[ridx % 6];
+                8'h05: regbyte = regsnap;
+                default: regbyte = cr1;
+            endcase
+        end
+        #(THO) if (cs_n === 1'b0) begin flash_o = 4'bx; flash_oe = 4'b0010; end
+        #(TV - THO) if (cs_n === 1'b0) flash_o = {2'b00, regbyte[7 - rbit], 1'b0};
+        rbit++; if (rbit == 8) begin rbit = 0; ridx++; end
     end
     // data launch: after the last dummy rising edge, each falling edge starts the next nibble
     always @(negedge sck) if (cs_n === 1'b0 && phase == 4) begin

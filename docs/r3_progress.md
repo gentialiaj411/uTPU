@@ -362,3 +362,75 @@ script. top_decode and every other unit are untouched.
 - M5 (board top, UART, XDC) was not started. Real Digital's master constraints file lists the clock (F14), switches, LEDs, buttons, displays, UART_rxd (V12) and
   more, but no QSPI pins, and the QSPI pin locations in the schematic extraction are unreliable. They must not be guessed; someone needs to read them off the
   schematic (bank-14 dedicated D00..D03 / FCS_B pins) before `rtl/board/qspi_pads.sv` can be constrained.
+
+## M5 - Boolean board top (2026-10-27, simulation + full implementation; no bitstream generated, no hardware access)
+
+### Pin verification (hard-stop check passed)
+`python tools/board/pin_check.py` -> `bench/results/boolean_pin_check.json`. Each pin is checked against (a) the device database of the installed
+Vivado 2025.2 (`link_design -part xc7s50csga324-1`, 324 package pins, PIN_FUNC and BANK), (b) Real Digital's master XDC where it lists the pin, and
+(c) the Boolean schematic, rasterized sheets 10, 11 and 13 read by eye (the PDF text layer is scrambled, so the schematic column is a
+transcription, not machine output). VCCO_0, VCCO_14 and VCCO_15 are all VCCp3V3 (sheet 13), CFGBVS_0 is tied to 3V3 (sheet 10), so LVCMOS33 everywhere.
+
+| signal | pin | device PIN_FUNC (bank) | master XDC | schematic | agrees |
+|---|---|---|---|---|---|
+| clk 100 MHz | F14 | IO_L13P_T2_MRCC_15 (15) | `clk` F14 | sheet 11 net UCLK from IC9 ASEM1-100.000MHZ | yes |
+| UART_rxd (FPGA RX) | V12 | IO_L24N_T3_D16_14 (14) | `UART_rxd` V12 | UART_TXD_IN | yes |
+| UART_txd (FPGA TX) | U11 | IO_L24P_T3_D17_14 (14) | `UART_txd` U11 | UART_RXD_OUT | yes |
+| qspi_cs_n | M13 | IO_L6P_T0_FCS_B_14 (14) | not listed | QSPI_CS to IC8 pin 7 | yes |
+| qspi_dq[0] | K17 | IO_L1P_T0_D00_MOSI_14 | not listed | QSPI_DQ0 to IC8 pin 15 | yes |
+| qspi_dq[1] | K18 | IO_L1N_T0_D01_DIN_14 | not listed | QSPI_DQ1 to IC8 pin 8 | yes |
+| qspi_dq[2] | L14 | IO_L2P_T0_D02_14 | not listed | QSPI_DQ2 to IC8 pin 9 (WP#), 1.8k pull-up | yes |
+| qspi_dq[3] | M15 | IO_L2N_T0_D03_14 | not listed | QSPI_DQ3 to IC8 pin 1 (HOLD#), 1.8k pull-up | yes |
+| flash SCLK | C8 | CCLK_0 (0) | n/a | QSPI_SCK to IC8 pin 16, via STARTUPE2 | yes |
+
+The coordinator's recalled Arty S7 pins were checked and REJECTED: L13 is `IO_0_14` (not FCS_B, which is M13) and M14 is `IO_L5P_T0_D06_14`
+(not D03, which is M15). The flash is wired to the config pins (D00..D03, FCS_B), not to other pins.
+
+### Design
+- `rtl/board/boolean_top.sv`: MMCME2_BASE (100 MHz x10 / 20 = 50 MHz, BUFG on output and feedback), reset held until the MMCM is locked + 16 cycles,
+  `qspi_pads` (STARTUPE2 + IOBUF/OBUF), `boolean_core`. `boolean_core.sv` (no vendor primitives): `uart_rx`/`uart_tx` (8N1, `CPB` = 434 for
+  115200 baud at 50 MHz), `board_ctrl`, `top_decode` (defaults = stories15M, checked against `params.json` by `impl_top.py`) and `qspi_reader`.
+  Image addresses are offset by `FLASH_BASE` = 0x280000 (2.5 MiB; the xc7s50 bitstream is 17,536,096 bits = 2,192,012 B; 0x280000 is 256 kB
+  aligned; image 13,073,472 B ends at 15,694,912 < 16 MiB).
+- UART protocol (little endian, `board_ctrl.sv` header): `'T' tok_lo tok_hi pos idx_lo idx_hi` -> `'R' tok_lo tok_hi cyc[4] logit[4]` (argmax token, core
+  cycles start to done, INT32 logit at idx, 0 if idx >= VOCAB). `'S' ntx nrx tx...` -> `'s' nrx rx...` single-bit SPI on the flash (ntx, nrx <= 8) for
+  RDID/RDSR/RDCR/WREN/WRR; `'V'` -> `'v' 01`. Full logit streaming is not offered: top_decode emits logits with no backpressure and the UART is ~4000x slower
+  than the classifier, so the host probes individual logit indices instead. The host must wait for the response before the next frame.
+- Host tool `tools/board/boolean_host.py` (pyserial; `selftest` checks the frame encoding against a software stub, never run against a board).
+
+### Verification
+| item | result |
+|---|---|
+| `tools/board/run_uart_rtl.py` -> `boolean_uart_rtl.json`: TB speaks the UART protocol to `boolean_core` (260K parameters, KV8) + flash model with the image at flash offset 0x280000 and QUAD powering up as 0 | 0 mismatches, 66 checks: V, RDID (01 20 18 4D 00 80), RDCR=00, truncated frame dropped by timeout, WREN, SR1.WEL, WRR (CR1=02), WIP polling (01, 01, 00), CR1 read back 02, then 4 decode steps (prompt 1,403,260 + 2 generated): every argmax token and one probed logit per step (one out-of-range probe expecting 0) bit-exact to the integer golden; reported cycles 930,674 per step |
+| mutation `BOARD_MUTATE` (token bytes swapped in the response) | caught |
+| negative: decode request with QUAD = 0 | flash model `$fatal`s "Quad Output Read issued with CR1.QUAD = 0" |
+| `tools/board/impl_top.py` -> `boolean_top_impl.json`: synth + place + route of `boolean_top` with `constraints/boolean_xc7s50.xdc` at 50 MHz | 20,726 LUT (63.6%), 9,815 FF, 73 DSP, 67 BRAM36, WNS +1.418 ns, WHS +0.008 ns, TNS/THS 0; DRC: 0 errors, 37 warnings (DPIP-1 DSP input pipelining x36, IOSR-1 x1) |
+| bitstream | NOT generated (`write_bitstream` is not in the implementation Tcl) |
+
+Flash model changes for M5 (it is shared with M4, so the M4 unit test, qspi faults and the QSPI e2e were rerun on it: unit 5/5 configs pass, 10 detected + 2 equivalent
+faults, e2e 10 steps 0 mismatches 930,673 cycles/token): `BASE` image offset, `QUAD_INIT`, and register commands (RDID/RDSR1/RDCR/WREN/WRR) behind `ALLOW_REG_CMDS`;
+a Quad read with CR1.QUAD = 0 is fatal.
+
+### Bring-up commands (none of these were run)
+All from the repo root. Vivado = `C:/AMDDesignTools/2025.2/Vivado/bin/vivado.bat`.
+1. Pack the 15M image if `build/decode/decode_image_15m/image.bin` is missing (`python tools/decode/pack_decode_image.py ...` as used for the 15M runs).
+2. Bitstream + flash file: `vivado.bat -mode batch -nojournal -nolog -source tools/board/make_bitstream.tcl` (refuses to write a bitstream if WNS < 0). It writes
+   `build/boolean/boolean_top.bit` and `build/boolean/boolean_flash.mcs` (bitstream at 0x0, image at 0x280000, config x1 so boot does not depend on the QUAD bit).
+3. First test over JTAG with the volatile bitstream only (Vivado Hardware Manager, Program Device with `boolean_top.bit`), then find the USB-UART COM port and run
+   `python tools/board/boolean_host.py --port COMx ping` (expect `board version 1`) and `... id` (expect `01 20 18 4d 00 80`: manufacturer 01, S25FL128S 2018, ID-CFI length 4D,
+   byte 4 = 00 means 256 kB uniform sectors; if it reads 01 use `s25fl128sxxxxxx1-spi-x1_x2_x4` in `program_flash.tcl`).
+4. Check / set the Quad-enable bit: `... cr1` prints `SR1=.. CR1=.. QUAD=n`; if QUAD=0 run `... enable-quad` (WREN, WRR of SR1 unchanged + CR1|0x02, poll WIP, read back).
+   QUAD is CR1[1], non-volatile (datasheet table 8.9), so it only has to be done once; the WRR rewrites the other CR1 bits as read (the OTP bits stay as they are).
+5. Program the flash: `vivado.bat -mode batch -nojournal -nolog -source tools/board/program_flash.tcl` (erase/program/verify 16 MB, several minutes), then power-cycle.
+6. Run: `python tools/board/boolean_host.py --port COMx step --token 1 --pos 0 --probe 5`, then `... run --prompt 1,403,260 --gen 8` (greedy; token ids). Expected for
+   stories15M at 0.25 B/cycle: about 46.5 M core cycles/token, roughly 0.9 s/token. The returned `cyc` is the board's own cycle count.
+
+### Open issues (M5)
+- Never run on hardware: STARTUPE2 startup edges and SCLK idle polarity (see M4), QUAD state, sample point against pad delays, the host tool, `make_bitstream.tcl` and
+  `program_flash.tcl` (written from Vivado's standard flow and the part names in the installed `get_cfgmem_parts`, but not executed), UART at 115200 on the FT-bridge.
+- Flash pin timing is unconstrained (no `set_input_delay`/`set_output_delay` for qspi_dq/qspi_cs_n: the clock reaches the pin through STARTUPE2, so a proper constraint needs a
+  generated clock on USRCCLKO that I did not set up). The pad registers are not forced into the IOBs; WHS +0.008 ns is the only hold margin.
+- The ordering code suffix (sector size digit) is not known from the schematic; step 3 reads it from the chip.
+- No fault-injection set for `board_ctrl`/UART beyond the one mutation and the QUAD=0 negative test.
+- `boolean_core` defaults duplicate the 15M parameters (checked by `impl_top.py`, not generated).
+- BRAM margin is still 1 BRAM36 (67/68).

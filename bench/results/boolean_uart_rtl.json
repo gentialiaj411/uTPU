@@ -1,0 +1,45 @@
+{
+  "status": "pass",
+  "model": "stories260K (boolean_core with 260K parameters; the 15M configuration is the default of the same RTL)",
+  "uart_cpb": 8,
+  "flash_base": 2621440,
+  "steps": 4,
+  "prompts": [
+    [
+      1,
+      403,
+      260
+    ]
+  ],
+  "golden_tokens": [
+    [
+      403,
+      407,
+      416,
+      432
+    ]
+  ],
+  "checks": 66,
+  "mismatch_count": 0,
+  "steps_log": [
+    "STEP 0 idx=359 token=147 cycles_reported=930674 wall_cycles=932054",
+    "STEP 1 idx=517 token=151 cycles_reported=930674 wall_cycles=932054",
+    "STEP 2 idx=173 token=160 cycles_reported=930674 wall_cycles=932054",
+    "STEP 3 idx=38 token=176 cycles_reported=930674 wall_cycles=932054"
+  ],
+  "quad_enable_via_uart": {
+    "flash_model_QUAD_powerup": 0,
+    "wrr_commands_applied": 1
+  },
+  "mutation_mismatch_count": 1,
+  "mutation_expected": ">0 (BOARD_MUTATE swaps the response token bytes)",
+  "negative_quad0_read_trips_flash_model": true,
+  "negative_stdout_tail": [
+    "FATAL: C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\tools\\decode\\tb\\qspi_flash_model.sv:80: FLASH: Quad Output Read issued with CR1.QUAD = 0"
+  ],
+  "first_mismatches": [],
+  "vvp_command": "C:\\iverilog\\bin\\vvp.exe build/decode/uart_main_tb.vvp",
+  "summary": "SUMMARY errors=0 checks=66 cycles=3746668 ncmds=16 nwrr=1",
+  "sim_stdout_sha256": "803d24d77fb7d7cff30820ed40bb3a89e2ec4611a48393f644584034c84a4df5",
+  "wall_seconds": 239.6
+}
