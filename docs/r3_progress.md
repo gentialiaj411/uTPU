@@ -1,6 +1,6 @@
 # R3 progress
 
-## Chunk 1 — GEMV
+## Chunk 1 - GEMV
 
 - Built `rtl/decode/gemv_unit.sv`: registered 16-lane INT4/INT8 stream GEMV shell,
   nibble unpack, INT32 accumulation, start/done and weight valid/ready handshakes.
@@ -10,41 +10,41 @@
 - Open issue: execute the runner with iverilog and complete exact scale/requant
   wiring before sign-off.
 
-## Chunk 2 — vector units
+## Chunk 2 - vector units
 
 - Added registered start/done shells for act quant, RMSNorm, RoPE, SiLU/mul, and
   residual units in `rtl/decode/vector_units.sv`.
 - Runner emits 2,000 real + 2,000 random planned cases per unit. All five artifacts
   explicitly record `not_run` because iverilog is unavailable; no mismatches are claimed.
 
-## Chunk 3 — attention
+## Chunk 3 - attention
 
 - Added parameterized KV-cache, score, softmax, and attention-value registered
   interfaces in `rtl/decode/attention_units.sv`.
 - Attention artifact records the required model/position/KV-bit matrix as `not_run`
   because no RTL simulator is installed; exact score/KV differential remains open.
 
-## Chunk 4 — classifier/argmax
+## Chunk 4 - classifier/argmax
 
 - Added registered classifier-chunk and tied embedding-row interfaces.
 - Runner artifact records the required 200-token/20-full-logit plan as `not_run`
   because iverilog is unavailable.
 
-## Chunk 5 — sequencer and top
+## Chunk 5 - sequencer and top
 
 - Added 4 KiB stream reader, microcoded-sequencer shell, parameterized `top_decode`,
   and `tools/decode/assemble.py`.
 - Top artifact records 0.5/1/2-byte-per-cycle throttle cases as `not_run`; RTL
   simulation is blocked by missing iverilog.
 
-## Chunk 6 — end to end and gate
+## Chunk 6 - end to end and gate
 
 - Added `run_decode_rtl.py`, fail-closed `decode_gate.py`, and structural checker
   enforcing 50 MHz/no divide/no initial rules.
 - E2E and gate are not passed: iverilog is unavailable and all RTL runner artifacts
   remain explicitly `not_run`; gate therefore exits non-zero as designed.
 
-## U1 GEMV — DONE (redone by coordinator, 2026-10-26)
+## U1 GEMV - DONE (redone by coordinator, 2026-10-26)
 
 - `rtl/decode/gemv_unit.sv`: 16 MAC lanes + one shared 6-stage scaler
   (acc*act_scale*rshift_rne(mult,16) -> rshift_rne(.,shift-16) -> div127 via Q32 reciprocal
@@ -61,7 +61,7 @@
   Scaler uses full 64-bit multiplies; narrow if DSP budget tightens.
 - Measured 101.3 cycles/tile in sim (includes start/drain); INT8 streams 16 B/beat, INT4 8 B/beat.
 
-## U2 activation quantization � DONE (redone by coordinator, 2026-10-26)
+## U2 activation quantization - DONE (redone by coordinator, 2026-10-26)
 
 - Agent version (c2a1617) rejected: reciprocal was a 32-step divider unrolled into one cycle (Vivado
   synthesis failed; the multi-cycle DIV state was dead code); "5 mismatches" fault counts were the
@@ -79,7 +79,7 @@
   8,292, peak off-by-one 1,298, clamp at 128 98.
 - Vivado 2025.2 OOC place+route, xc7s50, 20 ns: WNS +6.791 ns, 427 LUT, 202 FF, 4 DSP, 1 RAMB18.
 
-## U3 RMSNorm — DONE (coordinator, 2026-10-26)
+## U3 RMSNorm - DONE (coordinator, 2026-10-26)
 
 - `rtl/decode/rmsnorm.sv` (+ `decode_pkg.sv`, `seq_mul.sv`): capture with registered x*x into int64,
   then mean = div_const_rne(ss, D) + eps (fixed.py small/wide-path rounding and the small path's
@@ -92,7 +92,7 @@
   (div_rne(2^54, root) can never tie; a half-up tie estimate is corrected back to RNE).
 - OOC xc7s50 @ 50 MHz: WNS +1.432 ns, 2,611 LUT, 961 FF, 12 DSP, 1 BRAM36.
 
-## U4+U5 vec_alu (RoPE, SwiGLU, residual add, embedding scale) — DONE (coordinator, 2026-10-26)
+## U4+U5 vec_alu (RoPE, SwiGLU, residual add, embedding scale) - DONE (coordinator, 2026-10-26)
 
 - `rtl/decode/vec_alu.sv`: one sequential element unit, one shared 33x33 DSP multiplier (3 cycles per
   product). Ops: ROPE (_rope_high, cos/sin ROMs from `tools/decode/gen_luts.py`), SWIGLU
@@ -106,13 +106,13 @@
   ties-away rounding, saturating add).
 - OOC xc7s50 @ 50 MHz: WNS +2.834 ns, 3,006 LUT, 561 FF, 4 DSP, 3 BRAM36 (h8 RoPE + sigmoid ROMs).
 
-## U2 update — qmax 7 (2026-10-26)
+## U2 update - qmax 7 (2026-10-26)
 
 - `act_quant` gained `qmax7` (KV4 cache quantization, `_quantize(k, hs, 7)`). Golden now also wraps a
   kv_bits=4 runtime: 666 real groups + 377 directed (incl. exact ties at qmax 7), 0 mismatches.
   Fault injection 5/5 detected (adds qmax-7 clamp and numerator faults).
 
-## U6 attention — DONE (coordinator, 2026-10-26)
+## U6 attention - DONE (coordinator, 2026-10-26)
 
 - `rtl/decode/attention.sv` (+ `mul_pipe.sv` 64x33 pipelined multiplier, `div_const_pipe.sv`
   pipelined div_const_rne for d=7/127 with shift-subtract residual): on-chip KV cache (codes in
@@ -127,7 +127,7 @@
   clip is unobservable).
 - OOC xc7s50 @ 50 MHz: WNS +2.336 ns, 4,602 LUT, 27 DSP, 11.5 BRAM36 (260K config).
 
-## U7-U9 classifier, sequencer, top, end to end — DONE (coordinator, 2026-10-26)
+## U7-U9 classifier, sequencer, top, end to end - DONE (coordinator, 2026-10-26)
 
 - Classifier = GEMV over the tied INT4 table + argmax (strictly-greater, lowest index on ties, the
   runtime's lexsort order), inside `top_decode`.
@@ -147,3 +147,21 @@
 - Full engine OOC xc7s50 @ 50 MHz (260K config): WNS +0.777 ns, 24,372 LUT, 32,746 FF, 73 DSP,
   19.5 BRAM36. Register-built arrays (tile buffers, scale register files) dominate FF/LUT; moving them
   to BRAM is required before the 15M configuration can fit (KV cache alone ~56 BRAM36 at L128 KV4).
+
+## Gate status (2026-10-26, `python tools/decode_gate.py`)
+
+| item | result |
+|---|---|
+| units (gemv, act_quant, rms, vec_alu, attention) | all pass, 0 mismatches, mutation caught on every element |
+| fault injection | 26 detected, 4 proven equivalent, 0 unexplained |
+| OOC xc7s50 @ 50 MHz | all blocks and the full 260K engine meet timing (top WNS +0.777 ns) |
+| e2e stories260K KV8, 1 B/cycle | 5 prompts, 169 steps, 86,528 logits + tokens, 0 mismatches, 424,026 cycles/token |
+| e2e stories260K KV4, 1 B/cycle | 5 prompts, 169 steps, 86,528 logits + tokens, 0 mismatches, 424,026 cycles/token |
+| e2e stories260K KV8, 0.5 B/cycle | 2 prompts, 19 steps, 0 mismatches, 470,071 cycles/token (98.9% of stream bound) |
+| e2e stories260K KV8, 0.25 B/cycle | 1 prompt, 10 steps, 0 mismatches, 930,326 cycles/token (= stream bound) |
+| e2e stories15M KV4, 1 B/cycle | running (1 prompt, 11 steps, MAX_SEQ 128) |
+
+Cycle counts are data-independent: the KV8 and KV4 runs produce different tokens but identical cycles.
+Cycles/token are means over the positions run (up to 35); attention cost grows with position.
+At 1 B/cycle the engine is above the 232,554-cycle stream bound because the sequencer pops at most
+one byte per cycle, so GEMV compute between tiles is not hidden (double-buffered tiles would fix it).
