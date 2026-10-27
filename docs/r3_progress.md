@@ -165,3 +165,34 @@ Cycle counts are data-independent: the KV8 and KV4 runs produce different tokens
 Cycles/token are means over the positions run (up to 35); attention cost grows with position.
 At 1 B/cycle the engine is above the 232,554-cycle stream bound because the sequencer pops at most
 one byte per cycle, so GEMV compute between tiles is not hidden (double-buffered tiles would fix it).
+
+## M1 - top_decode with 15M parameters, baseline (2026-10-26)
+
+Config: stories15M (D 288, H 768, NL 6, NH/NKV 6, HS 48, VOCAB 32000), MAX_SEQ 128, KV4, h48 RoPE ROMs
+(12,288 rows). Synthesized through a generated wrapper `build/decode/top_decode_15m_wrap.sv`
+(parameters from `build/decode/decode_image_15m/params.json`). Record: `top_decode_15m` in
+`bench/results/decode_synth_ooc.json`. Place failed on utilization DRC (numbers are post-synthesis):
+
+| resource | used | xc7s50 | % |
+|---|---|---|---|
+| Slice LUTs | 73,601 (6,208 LUTRAM) | 32,600 | 226 |
+| Slice FFs | 122,750 | 65,200 | 188 |
+| DSP48 | 73 | 120 | 61 |
+| BRAM36 | 112 | 75 | 149 |
+| F7 mux | 18,387 | 16,300 | 113 |
+
+Hierarchical (post-synth, `build/decode/synth/top_decode_15m/synth_util_hier.rpt`):
+
+| instance | LUT | FF | BRAM36 | DSP |
+|---|---|---|---|---|
+| top_decode body (scr, tbuf, mrf/srf, qc, fifo, FSM) | 25,540 | 114,889 | 0 | 3 |
+| attention (all of it) | 6,439 | 3,498 | 112 | 25 |
+| gemv_unit | 35,812 | 2,507 | 0 | 25 |
+| rmsnorm | 2,595 | 993 | 0 | 12 |
+| vec_alu | 2,672 | 660 | 0 | 4 |
+| act_quant | 543 | 203 | 0 | 4 |
+
+Reading: the 112 BRAM36 are all KV cache (224-bit word x 4,608 entries for K and again for V; Vivado rounds
+the 4,608-deep memory up to 8,192, i.e. 7 wide x 8 deep = 56 each). ~115K FFs in the top body are the
+register-built `tbuf` (16 x 768 B = 98 Kbit), `mrf`/`srf`. The gemv instance at 35.8K LUT (vs 4,953 standalone)
+is not explained by its own logic; to be re-measured after the register arrays move to RAM.
