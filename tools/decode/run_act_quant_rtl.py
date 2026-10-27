@@ -11,19 +11,19 @@ GOLDEN = ROOT / 'build/decode/golden_act_quant'
 TB = r"""`timescale 1ns/1ps
 module act_quant_tb;
   localparam int NG = %(ng)d, NE = %(ne)d;
-  logic clk = 0, rst = 1, in_valid = 0, in_last = 0;
+  logic clk = 0, rst = 1, in_valid = 0, in_last = 0, qmax7 = 0;
   logic signed [31:0] raw_in = 0;
   logic in_ready, code_valid, done; logic signed [7:0] code_out; logic [31:0] scale_out;
-  logic [31:0] raw_mem [NE]; logic [7:0] code_mem [NE]; logic [31:0] scale_mem [NG]; logic [7:0] len_mem [NG];
+  logic [31:0] raw_mem [NE]; logic [7:0] code_mem [NE]; logic [31:0] scale_mem [NG]; logic [8:0] len_mem [NG];
   integer base = 0, errors = 0, real_errors = 0, cycles = 0, got, shown = 0;
-  act_quant dut(.clk, .rst, .in_valid, .in_last, .raw_in, .in_ready, .code_valid, .code_out, .scale_out, .done);
+  act_quant dut(.clk, .rst, .in_valid, .in_last, .qmax7, .raw_in, .in_ready, .code_valid, .code_out, .scale_out, .done);
   always #1 clk = ~clk;
   initial begin
     $readmemh("%(raw)s", raw_mem); $readmemh("%(code)s", code_mem);
     $readmemh("%(scale)s", scale_mem); $readmemh("%(len)s", len_mem);
     @(posedge clk); #0.1 rst = 0;
     for (int g = 0; g < NG; g++) begin
-      int n, sent, bad; n = len_mem[g]; sent = 0; got = 0; bad = 0;
+      int n, sent, bad; n = len_mem[g][7:0]; qmax7 = len_mem[g][8]; sent = 0; got = 0; bad = 0;
       while (!done) begin
         in_valid = sent < n; in_last = sent == n - 1; raw_in = in_valid ? raw_mem[base + sent] : 0;
         @(posedge clk); cycles++;
@@ -57,9 +57,9 @@ def build(golden, man):
     for r in man['records']:
         rd = lambda k: bytes.fromhex(''.join((golden / f"{r['id']}_{k}.hex").read_text().split()))
         raw += np.frombuffer(rd('r'), '<i4').tolist(); code += np.frombuffer(rd('c'), np.int8).tolist()
-        scale += np.frombuffer(rd('s'), '<i4').tolist(); lens.append(r['length'])
+        scale += np.frombuffer(rd('s'), '<i4').tolist(); lens.append(r['length'] | (256 if r['qmax'] == 7 else 0))
     base = ROOT / 'build/decode'; files = {}
-    for name, vals, w in (('raw', raw, 32), ('code', code, 8), ('scale', scale, 32), ('len', lens, 8)):
+    for name, vals, w in (('raw', raw, 32), ('code', code, 8), ('scale', scale, 32), ('len', lens, 12)):
         path = base / f'actq_{name}.mem'; path.write_text(''.join(f'{v & ((1 << w) - 1):0{w // 4}x}\n' for v in vals))
         files[name] = path.as_posix()
     tb = base / 'act_quant_tb.sv'
@@ -85,7 +85,7 @@ def main():
     line, kv = summary(out)
     mrc, mout = compile_and_run([a.rtl], 'act_quant_tb', tb, defines=('ACTQ_MUTATE',))
     mline, mkv = summary(mout)
-    expected_mut = sum(1 for n in lens if n > 5)
+    expected_mut = sum(1 for n in lens if (n & 255) > 5)
     errors, merrors = int(kv.get('errors', -1)), int(mkv.get('errors', -1))
     o = {
         'status': 'pass' if rc == 0 and errors == 0 and merrors == expected_mut else 'fail',

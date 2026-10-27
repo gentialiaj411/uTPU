@@ -29,5 +29,73 @@
     "bram36_equiv": 3.0,
     "wns_ns": 2.834,
     "timing_met": true
+  },
+  "attention": {
+    "part": "xc7s50csga324-1",
+    "period_ns": 20.0,
+    "top": "attention",
+    "sources": [
+      "rtl/decode/decode_pkg.sv",
+      "rtl/decode/mul_pipe.sv",
+      "rtl/decode/div_const_pipe.sv",
+      "rtl/decode/attention.sv"
+    ],
+    "lut": 4602.0,
+    "ff": 1857.0,
+    "dsp": 27.0,
+    "bram36_equiv": 11.5,
+    "wns_ns": 2.336,
+    "timing_met": true
+  },
+  "top_decode_260k": {
+    "part": "xc7s50csga324-1",
+    "period_ns": 20.0,
+    "top": "top_decode",
+    "sources": [
+      "rtl/decode/decode_pkg.sv",
+      "rtl/decode/seq_mul.sv",
+      "rtl/decode/mul_pipe.sv",
+      "rtl/decode/div_const_pipe.sv",
+      "rtl/decode/gemv_unit.sv",
+      "rtl/decode/act_quant.sv",
+      "rtl/decode/rmsnorm.sv",
+      "rtl/decode/vec_alu.sv",
+      "rtl/decode/attention.sv",
+      "rtl/decode/top_decode.sv"
+    ],
+    "lut": 24372.0,
+    "ff": 32746.0,
+    "dsp": 73.0,
+    "bram36_equiv": 19.5,
+    "wns_ns": 0.777,
+    "timing_met": true
+  },
+  "gemv_unit": {
+    "part": "xc7s50csga324-1",
+    "period_ns": 20.0,
+    "top": "decode_gemv_unit",
+    "sources": [
+      "rtl/decode/gemv_unit.sv"
+    ],
+    "lut": 4953.0,
+    "ff": 2499.0,
+    "dsp": 25.0,
+    "bram36_equiv": 0.0,
+    "wns_ns": 1.87,
+    "timing_met": true
+  },
+  "act_quant": {
+    "part": "xc7s50csga324-1",
+    "period_ns": 20.0,
+    "top": "act_quant",
+    "sources": [
+      "rtl/decode/act_quant.sv"
+    ],
+    "lut": 435.0,
+    "ff": 203.0,
+    "dsp": 4.0,
+    "bram36_equiv": 0.5,
+    "wns_ns": 5.12,
+    "timing_met": true
   }
 }

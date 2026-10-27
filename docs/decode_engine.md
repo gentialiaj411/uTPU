@@ -1,5 +1,26 @@
 # R4 decode engine microarchitecture
 
+## As built (R3, simulation only) - 2026-10-26
+
+The sections below are the original plan. What exists in `rtl/decode/` and how it differs:
+
+- Units, each bit-exact against the numerics_v2 runtime function it implements (captured real
+  stories260K data + directed rounding-tie/range cases, mutation build, fault injection):
+  `gemv_unit` (16 MAC lanes + shared pipelined scaler), `act_quant` (qmax 127/7), `rmsnorm`
+  (sequential isqrt / restoring divider / radix-16 multiplier), `vec_alu` (RoPE, SwiGLU, residual
+  add, embedding scale), `attention` (on-chip KV cache, scores, softmax, 16-position AV blocks).
+- `top_decode`: a fixed-function sequencer FSM over the per-layer step list (no microcode ROM),
+  eight INT32 scratch buffers, a byte-wide valid/ready weight port with a seek request, and the
+  tile image format of `tools/decode/pack_decode_image.py` (classifier tiles double as the tied
+  embedding table). Results: see `docs/r3_progress.md` and `python tools/decode_gate.py`.
+- Deviations from the plan: the stream port is 8-bit with seek (not 32-bit with end-of-tensor);
+  there is no prefetch FIFO, so streaming and compute do not overlap (cycles/token = stream bytes
+  + about 160k compute cycles for stories260K at 1 B/cycle); scalar datapaths use DSP multipliers,
+  so the 260K build is 24,470 LUT / 73 DSP / 18.5 BRAM36 against the planned 11k LUT / 16 DSP.
+  Register-built arrays (tile buffers, scale register files) dominate FF/LUT and must move to
+  RAM before the stories15M configuration (D=288, H=768, KV cache ~56 BRAM36 at L128 KV4) fits.
+
+
 This is a separate `top_decode` build, with the frozen Phase-4 top and bitstream
 left untouched.  It is the safest integration boundary: the streaming-port model
 and all RunQIntegerLlama arithmetic can be verified independently, while the same

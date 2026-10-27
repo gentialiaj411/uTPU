@@ -82,5 +82,115 @@
       "detected": true,
       "ok": true
     }
+  },
+  "attn": {
+    "exp_clip_1023": {
+      "mismatches": 0,
+      "real_mismatches": 0,
+      "detected": false,
+      "equivalent_reason": "equivalent: exp_q15 is 0 for every index >= 710, so clipping at 1023 or 1024 reads 0",
+      "ok": true
+    },
+    "exp_clip_512": {
+      "mismatches": 14221,
+      "real_mismatches": 12831,
+      "detected": true,
+      "ok": true
+    },
+    "kv4_score_div127": {
+      "mismatches": 14056,
+      "real_mismatches": 12475,
+      "detected": true,
+      "ok": true
+    },
+    "av_clip_127": {
+      "mismatches": 236,
+      "real_mismatches": 0,
+      "detected": true,
+      "ok": true
+    },
+    "softmax_recip_trunc": {
+      "mismatches": 54,
+      "real_mismatches": 22,
+      "detected": true,
+      "ok": true
+    },
+    "kv4_zero_extend": {
+      "mismatches": 14372,
+      "real_mismatches": 12699,
+      "detected": true,
+      "ok": true
+    },
+    "block_recip_trunc": {
+      "mismatches": 1143,
+      "real_mismatches": 180,
+      "detected": true,
+      "ok": true
+    }
+  },
+  "gemv": {
+    "ties_half_up": {
+      "mismatches": 640,
+      "real_mismatches": 0,
+      "detected": true,
+      "ok": true
+    },
+    "no_div127_up_correction": {
+      "mismatches": 0,
+      "real_mismatches": 0,
+      "detected": false,
+      "equivalent_reason": "equivalent: INV127_Q32 = 33818641 > 2^32/127, so the estimate never falls below the true quotient and the +1 branch is unreachable",
+      "ok": true
+    },
+    "no_div127_down_correction": {
+      "mismatches": 563,
+      "real_mismatches": 0,
+      "detected": true,
+      "ok": true
+    },
+    "drop_last_beat_product": {
+      "mismatches": 11876,
+      "real_mismatches": 10442,
+      "detected": true,
+      "ok": true
+    },
+    "int4_nibble_swap": {
+      "mismatches": 8052,
+      "real_mismatches": 6695,
+      "detected": true,
+      "ok": true
+    }
+  },
+  "actq": {
+    "ties_half_up": {
+      "mismatches": 1036,
+      "real_mismatches": 0,
+      "detected": true,
+      "ok": true
+    },
+    "recip_truncate": {
+      "mismatches": 7979,
+      "real_mismatches": 5,
+      "detected": true,
+      "ok": true
+    },
+    "peak_off_by_one": {
+      "mismatches": 1688,
+      "real_mismatches": 503,
+      "detected": true,
+      "ok": true
+    },
+    "qmax7_clamp_8": {
+      "mismatches": 4,
+      "real_mismatches": 0,
+      "detected": true,
+      "ok": true
+    },
+    "qmax7_numerator_127": {
+      "mismatches": 1793,
+      "real_mismatches": 815,
+      "detected": true,
+      "ok": true
+    }
   }
 }

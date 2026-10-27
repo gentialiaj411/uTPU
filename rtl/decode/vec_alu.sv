@@ -11,9 +11,9 @@ module vec_alu
     import decode_pkg::*;
 #(
     parameter int    ROPE_DEPTH = 2048,
-    parameter string ROPE_COS   = "rtl/decode/luts/rope_cos_q15_h8.mem",
-    parameter string ROPE_SIN   = "rtl/decode/luts/rope_sin_q15_h8.mem",
-    parameter string SIGMOID    = "rtl/decode/luts/sigmoid_q15.mem"
+    parameter ROPE_COS   = "rtl/decode/luts/rope_cos_q15_h8.mem",
+    parameter ROPE_SIN   = "rtl/decode/luts/rope_sin_q15_h8.mem",
+    parameter SIGMOID    = "rtl/decode/luts/sigmoid_q15.mem"
 ) (
     input  logic               clk,
     input  logic               rst,

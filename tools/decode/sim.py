@@ -10,7 +10,7 @@ VVP = IVERILOG.with_name("vvp.exe")
 
 def compile_and_run(sources, top, tb, plusargs=(), defines=()):
     BUILD.mkdir(parents=True, exist_ok=True)
-    exe = BUILD / f"{top}.vvp"
+    exe = BUILD / f"{Path(tb).stem}{'_' + '_'.join(defines) if defines else ''}.vvp"
     srcs = [str(Path(s).resolve()) for s in sources]
     tb_path = str(Path(tb).resolve())
     flags=[f"-D{x}" for x in defines]

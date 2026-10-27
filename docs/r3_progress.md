@@ -105,3 +105,45 @@
 - Fault injection: 6/6 detected (rope sign, pair-index wrap, sigmoid edge, dropped high product word,
   ties-away rounding, saturating add).
 - OOC xc7s50 @ 50 MHz: WNS +2.834 ns, 3,006 LUT, 561 FF, 4 DSP, 3 BRAM36 (h8 RoPE + sigmoid ROMs).
+
+## U2 update — qmax 7 (2026-10-26)
+
+- `act_quant` gained `qmax7` (KV4 cache quantization, `_quantize(k, hs, 7)`). Golden now also wraps a
+  kv_bits=4 runtime: 666 real groups + 377 directed (incl. exact ties at qmax 7), 0 mismatches.
+  Fault injection 5/5 detected (adds qmax-7 clamp and numerator faults).
+
+## U6 attention — DONE (coordinator, 2026-10-26)
+
+- `rtl/decode/attention.sv` (+ `mul_pipe.sv` 64x33 pipelined multiplier, `div_const_pipe.sv`
+  pipelined div_const_rne for d=7/127 with shift-subtract residual): on-chip KV cache (codes in
+  CB=8 or packed CB=4 bits + 32-bit scale per head), per head: 8-lane dot -> 3 wide multiplies ->
+  rshift_rne -> div127 -> div127|div7 scores; softmax via exp ROM and restoring divider; 16-position
+  AV blocks with _to_base, block peak, reciprocal, INT8 codes, prob.code, rshift_rne(.*peak,15), div127.
+- Golden `tools/decode/golden_attn.py` wraps RunQIntegerLlama._score and _attention_value over 40
+  decode steps (positions 0-63) for KV8 and KV4: 3,200 real head calls; plus 420 random-cache calls
+  (incl. 2^27 V scales that reach the -128 code clamp). 28,960 outputs, 0 mismatches (KV8 on CB=8,
+  KV4 on packed CB=4); mutation 28,960/28,960.
+- Fault injection: 6 detected, 1 proven equivalent (exp_q15 is 0 from index 710, so a 1023/1024
+  clip is unobservable).
+- OOC xc7s50 @ 50 MHz: WNS +2.336 ns, 4,602 LUT, 27 DSP, 11.5 BRAM36 (260K config).
+
+## U7-U9 classifier, sequencer, top, end to end — DONE (coordinator, 2026-10-26)
+
+- Classifier = GEMV over the tied INT4 table + argmax (strictly-greater, lowest index on ties, the
+  runtime's lexsort order), inside `top_decode`.
+- `rtl/decode/top_decode.sv`: fixed-function sequencer FSM (no microcode ROM; the agent's
+  `assemble.py` stub and its unchecked structural test were removed), 8 INT32 scratch buffers,
+  4 KiB prefetch FIFO fed by a segment prefetcher (embedding codes, embedding scales, layers,
+  classifier) over an 8-bit valid/ready flash port with seek, 1 GEMV beat/cycle.
+- Image: `tools/decode/pack_decode_image.py` (16-row tiles, per-group scales before codes;
+  classifier tiles double as the tied embedding table). stories260K 237,632 B; stories15M
+  13,073,472 B (fits the 14,155,776 B flash budget).
+- End to end: `tools/decode/run_decode_rtl.py` compares every logit and the argmax of every step
+  with RunQIntegerLlama.forward (greedy, prompt then generated tokens). Each unit's mutation build
+  is caught end to end (~1,200-1,500 logit mismatches each). Results in the gate table below.
+- Throughput (stories260K, 232,554 streamed bytes/token): 0.25 B/cycle 930,326 cycles/token
+  (= stream bound); 0.5 B/cycle 470,071 (98.9% of bound); 1 B/cycle ~365k (the sequencer pops at
+  most 1 B/cycle, so non-overlapped GEMV compute is exposed; double-buffered tiles would fix it).
+- Full engine OOC xc7s50 @ 50 MHz (260K config): WNS +0.777 ns, 24,372 LUT, 32,746 FF, 73 DSP,
+  19.5 BRAM36. Register-built arrays (tile buffers, scale register files) dominate FF/LUT; moving them
+  to BRAM is required before the 15M configuration can fit (KV cache alone ~56 BRAM36 at L128 KV4).

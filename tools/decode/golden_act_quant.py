@@ -28,6 +28,8 @@ def main():
  rr._quantize=wrap
  ref=Llama2CModel(ROOT/'models/llama2c/stories260K/stories260K.bin'); cal=json.loads((ROOT/'firmware/host/numerics_v2/calibration_260k.json').read_text()); exp=export_runq_model(ref,cal['activation_scales'],4,32,improved=True,mixed_precision={'qkv':8,'wo':8,'w2':8}); exp.pop('dynamic_base_scales'); runtime=RunQIntegerLlama(exp,ROOT/'firmware/host/numerics_v2/luts')
  for token in (1,2,3): runtime.forward_argmax(token,len(runtime.tokens),4096)
+ runtime4=RunQIntegerLlama(exp,ROOT/'firmware/host/numerics_v2/luts',kv_bits=4)
+ for token in (1,2,3): runtime4.forward_argmax(token,len(runtime4.tokens),4096)
  rng=np.random.default_rng(77); directed=[np.zeros(64,dtype=np.int64),np.r_[1,np.zeros(63,dtype=np.int64)],np.r_[-(2**31-1),np.zeros(63,dtype=np.int64)],np.r_[2**31-1,np.zeros(63,dtype=np.int64)],np.arange(172,dtype=np.int64)]
  # Exact RNE ties in rshift_rne(x*recip, 24): peak=254*2^j gives recip=2^(23-j), so x = odd*2^j ties.
  for j in range(4):
@@ -38,6 +40,10 @@ def main():
  for t in range(6):
   pk=int(rng.integers(1<<20,(1<<31)-1)); vv=rng.integers(-pk,pk+1,size=64).astype(np.int64); vv[t]=pk; vv[63-t]=-pk; directed.append(vv)
  n_real=len(records)
+ for i in range(40):
+  n=8 if i%2 else 48; pk=int(rng.integers(1,1<<int(rng.integers(2,31)))); v=rng.integers(-pk,pk+1,size=n).astype(np.int64); v[i%n]=pk
+  if i%4==0: v=((2*rng.integers(-3,4,size=n)+1)*(1<<20)).astype(np.int64); v[0]=7<<21   # recip = 2^23/... exact ties at qmax 7
+  q=original(v,n,7); records.append(save(a.output,len(records),v,type(q)(q.code,np.asarray(q.scale_multiplier).reshape(-1),n,7)))
  for i,v in enumerate(directed):
   q=original(v,64)
   for b in range(0,len(v),64):

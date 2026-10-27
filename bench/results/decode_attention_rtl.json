@@ -1,23 +1,24 @@
 {
-  "models": [
-    "stories260K",
-    "stories15M"
+  "status": "pass",
+  "golden_sha256": "19a3bb278bae5b63413b5edfec8345e5efab095390d62b4f3f600d69ff96e291",
+  "golden_source": "wrapped RunQIntegerLlama._score + runq_runtime._attention_value (decode path)",
+  "real_head_calls": 3200,
+  "random_head_calls": 420,
+  "output_elements": 28960,
+  "mismatch_count": 0,
+  "real_mismatch_count": 0,
+  "first_mismatches": [],
+  "mutation_mismatch_count": 28960,
+  "mutation_expected": 28960,
+  "cycles_total": 8457271,
+  "cycles_per_head_call": 2336.2627071823204,
+  "vvp_command": "C:\\iverilog\\bin\\vvp.exe build/decode/attn_tb.vvp (kv8 CB=8, kv4 CB=4)",
+  "sim_stdout_sha256": [
+    "437badaab681da4d6c251de997af26b3e83c93f43245a7e0cb7981c3fd214cb8",
+    "2dde9732312532a0f007ae0277863bc3db9af71e9b435f8ac764a931dff22920"
   ],
-  "positions": [
-    0,
-    1,
-    2,
-    17,
-    "MAX_SEQ-1"
-  ],
-  "kv_bits": [
-    8,
-    4
-  ],
-  "real_decode_steps": null,
-  "random_positions": null,
-  "mismatches": null,
-  "status": "not_run",
-  "simulator": "missing",
-  "blocker": "iverilog is not installed"
+  "summary": [
+    "kv8: SUMMARY calls=1810 errors=0 real_errors=0 cycles=4207711",
+    "kv4: SUMMARY calls=1810 errors=0 real_errors=0 cycles=4249560"
+  ]
 }

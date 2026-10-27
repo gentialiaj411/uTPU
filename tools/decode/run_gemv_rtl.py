@@ -111,6 +111,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--golden', type=Path, default=ROOT / 'build/decode/golden_gemv')
     ap.add_argument('--output', type=Path, default=ROOT / 'bench/results/decode_gemv_rtl.json')
+    ap.add_argument('--rtl', type=Path, default=ROOT / 'rtl/decode/gemv_unit.sv')
     a = ap.parse_args()
     man_bytes = (a.golden / 'manifest.json').read_bytes(); man = json.loads(man_bytes)
     recs = man['records'] + man['random_records']
@@ -127,7 +128,7 @@ def main():
         files[name] = path.as_posix()
     tb = base / 'gemv_tb.sv'
     tb.write_text(TB % dict(nt=len(recs), nb=len(beats), nc=len(chunks), nreal=len(man['records']), **files))
-    src = [ROOT / 'rtl/decode/gemv_unit.sv']
+    src = [a.rtl]
 
     def parse(out):
         line = next((x for x in out.splitlines() if x.startswith('SUMMARY')), '')

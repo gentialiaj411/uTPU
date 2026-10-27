@@ -1,9 +1,10 @@
-// Dynamic group activation quantizer, bit-exact with numerics_v2 runq_runtime._quantize (qmax=127).
+// Dynamic group activation quantizer, bit-exact with numerics_v2 runq_runtime._quantize (qmax 127 or 7).
 //
 // Per group (<= 64 INT32 values, in_last on the final one):
 //   peak  = max(1, max |x|)                         tracked while capturing
-//   recip = div_rne(127 << 24, peak)                31-cycle restoring divider + RNE fixup
-//   code  = clamp(rshift_rne(x * recip, 24), +-127) 2-stage pipeline, one code per cycle
+//   recip = div_rne(qmax << 24, peak)               31-cycle restoring divider + RNE fixup
+//   code  = clamp(rshift_rne(x * recip, 24), +-qmax) 2-stage pipeline, one code per cycle
+// qmax7 selects qmax = 7 (INT4 KV cache) instead of 127; it is sampled with the last input.
 // scale_out is the peak (QValue.scale_multiplier), valid with done.
 module act_quant #(
     parameter int MAX_GROUP = 64
@@ -12,6 +13,7 @@ module act_quant #(
     input  logic               rst,
     input  logic               in_valid,
     input  logic               in_last,
+    input  logic               qmax7,
     input  logic signed [31:0] raw_in,
     output logic               in_ready,
     output logic               code_valid,
@@ -20,7 +22,8 @@ module act_quant #(
     output logic               done
 );
     localparam int AW = $clog2(MAX_GROUP);
-    localparam logic [30:0] NUMER = 31'(127) << 24;
+    logic              qmax7_r;
+    wire  [30:0]       NUMER = qmax7_r ? 31'(7) << 24 : 31'(127) << 24;
 
     typedef enum logic [1:0] {CAP, DIV, EMIT, DRAIN} state_t;
     state_t state;
@@ -46,7 +49,7 @@ module act_quant #(
     logic signed [63:0] prod1;
     logic signed [8:0]  code2;
 
-    function automatic logic signed [8:0] round_clamp(input logic signed [63:0] p);
+    function automatic logic signed [8:0] round_clamp(input logic signed [63:0] p, input logic q7);
         logic [63:0] mag, q;
         logic [23:0] rem24;
         logic        inc;
@@ -55,7 +58,7 @@ module act_quant #(
         rem24 = mag[23:0];
         inc   = (rem24 > 24'h800000) || ((rem24 == 24'h800000) && q[0]);
         q     = q + 64'(inc);
-        if (q > 64'd127) q = 64'd127;
+        if (q > (q7 ? 64'd7 : 64'd127)) q = q7 ? 64'd7 : 64'd127;
         return p[63] ? -$signed({1'b0, q[7:0]}) : $signed({1'b0, q[7:0]});
     endfunction
 
@@ -73,6 +76,7 @@ module act_quant #(
                     if (in_last) begin
                         state <= DIV; div_bit <= 5'd30; rem <= '0; quot <= '0;
                         scale_out <= (mag_in > peak) ? mag_in : peak;
+                        qmax7_r <= qmax7;
                     end
                 end
                 DIV: begin
@@ -101,7 +105,7 @@ module act_quant #(
             prod1 <= 64'(mem[emit_i[AW-1:0]]) * $signed({32'd0, recip});
             // stage 2: round + clamp
             v2    <= v1; last2 <= last1;
-            code2 <= round_clamp(prod1);
+            code2 <= round_clamp(prod1, qmax7_r);
             code_valid <= v2;
             code_out   <= code2[7:0];
 `ifdef ACTQ_MUTATE
