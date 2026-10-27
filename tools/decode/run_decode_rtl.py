@@ -7,6 +7,7 @@ byte per `period` cycles and drops st_valid during the seek cycle.
 """
 from __future__ import annotations
 import argparse, hashlib, json, time
+from pathlib import Path
 import numpy as np
 from harness import ROOT, BUILD, load_runtime_260k, write_mem, parse_summary
 from sim import compile_and_run, VVP
@@ -17,7 +18,7 @@ SRCS = ['decode_pkg.sv', 'seq_mul.sv', 'mul_pipe.sv', 'div_const_pipe.sv', 'gemv
 
 TB = r"""`timescale 1ns/1ps
 module e2e_tb;
-  localparam int NS = %(ns)d, V = %(vocab)d, NB = %(nbytes)d, PERIOD = %(period)d;
+  localparam int NS = %(ns)d, V = %(vocab)d, NB = %(nbytes)d, PERIOD = %(period)d, LIMIT = %(limit)d;
   logic clk = 0, rst = 1, start = 0, st_valid, st_ready, seek_req, busy, done, logit_valid;
   logic [15:0] token, token_out, logit_idx; logic [%(pw)d-1:0] pos; logic [31:0] seek_addr, ptr = 0;
   logic [7:0] img [NB]; logic signed [31:0] logit_val; logic [47:0] step_mem [NS]; logic [31:0] exp_logits [NS*V];
@@ -38,7 +39,7 @@ module e2e_tb;
     for (int s = 0; s < NS; s++) begin
       token = step_mem[s][47:32]; pos = step_mem[s][%(pw)d-1:0];
       start = 1; @(posedge clk); #0.1 start = 0; nlog = 0; tcyc = 0;
-      while (!done) begin
+      while (!done && tcyc < LIMIT) begin
         @(posedge clk); cycles++; tcyc++;
         if (logit_valid) begin
           if (logit_val !== exp_logits[s*V + logit_idx]) begin
@@ -49,6 +50,7 @@ module e2e_tb;
         end
         #0.1;
       end
+      if (!done) begin errors += V; $display("TIMEOUT step=%%0d after %%0d cycles", s, tcyc); $display("SUMMARY steps=%%0d errors=%%0d token_errors=%%0d cycles=%%0d", NS, errors, tok_errors, cycles); $finish; end
       if (nlog != V) errors += V;
       if (token_out !== step_mem[s][31:16]) begin tok_errors++; if (shown < 8) begin shown++; $display("TOKEN step=%%0d got=%%0d exp=%%0d", s, token_out, step_mem[s][31:16]); end end
       $display("STEP %%0d token=%%0d pos=%%0d out=%%0d cycles=%%0d", s, token, pos, token_out, tcyc);
@@ -95,6 +97,7 @@ def main():
     ap.add_argument('--prompts', type=int, default=1)
     ap.add_argument('--gen', type=int, default=8, help='generated tokens per prompt')
     ap.add_argument('--output', default=None)
+    ap.add_argument('--top-rtl', default=None, help='replacement top_decode.sv (fault injection)')
     ap.add_argument('--define', action='append', default=[], help='iverilog define (mutation checks)')
     a = ap.parse_args()
     prompt_bank = [[1, 403, 260], [1, 87], [1, 33, 499, 12], [1, 300], [1, 150, 77]] if a.model == '260k' else \
@@ -108,7 +111,7 @@ def main():
         for p, (t, o, l) in enumerate(zip(tokens, outs, lg)):
             steps.append((t << 32) | (o << 16) | p)
             logits += [int(x) for x in l]
-    tag = ('' if a.model == '260k' else '15m_') + f'kv{a.kv_bits}_p{a.period}' + ''.join('_' + d for d in a.define)
+    tag = ('' if a.model == '260k' else '15m_') + f'kv{a.kv_bits}_p{a.period}' + ''.join('_' + d for d in a.define) + ('_' + Path(a.top_rtl).stem if a.top_rtl else '')
     files = dict(img=write_mem(f'e2e_img_{a.model}', list(img), 8), steps=write_mem(f'e2e_steps_{tag}', steps, 48),
                  logits=write_mem(f'e2e_logits_{tag}', logits, 32))
     keys = ['D', 'H', 'NL', 'NH', 'NKV', 'HS', 'VOCAB', 'CLS4', 'WQ4', 'WK4', 'WV4', 'WO4', 'W14', 'W34', 'W24',
@@ -117,11 +120,12 @@ def main():
     max_seq = 64 if a.model == '260k' else 128
     plist = ', '.join(f'.{k}({params[k]})' for k in keys) + f', .MAX_SEQ({max_seq}), .KV4({int(a.kv_bits == 4)})'
     if a.model == '15m':
-        plist += ', .ROPE_COS("rtl/decode/luts/rope_cos_q15_h48.mem"), .ROPE_SIN("rtl/decode/luts/rope_sin_q15_h48.mem"), .ROPE_DEPTH(12288)'
+        plist += ', .ROPE_CS("rtl/decode/luts/rope_cs_q15_h48_p128.mem"), .ROPE_DEPTH(3072)'
     tb = BUILD / f'e2e_{tag}_tb.sv'
     tb.write_text(TB % dict(ns=len(steps), vocab=params['VOCAB'], nbytes=len(img), period=a.period, params=plist,
-                            pw=max_seq.bit_length() - 1, **files))
-    rc, out = compile_and_run([ROOT / 'rtl/decode' / s for s in SRCS], 'e2e_tb', tb, defines=tuple(a.define))
+                            pw=max_seq.bit_length() - 1, limit=(2_000_000 if a.model == '260k' else 80_000_000) * a.period, **files))
+    srcs = [Path(a.top_rtl) if (a.top_rtl and s == 'top_decode.sv') else ROOT / 'rtl/decode' / s for s in SRCS]
+    rc, out = compile_and_run(srcs, 'e2e_tb', tb, defines=tuple(a.define))
     line, kv = parse_summary(out)
     step_lines = [x for x in out.splitlines() if x.startswith('STEP')]
     cyc = [int(x.split('cycles=')[1]) for x in step_lines]

@@ -25,8 +25,8 @@
   "mutation_expected": 12372,
   "cycles_total": 174428,
   "vvp_command": "C:\\iverilog\\bin\\vvp.exe build/decode/vec_tb.vvp",
-  "sim_stdout_sha256": "a47912fbfca9ab75a96c50e858c3ee5c29b73250c6b3716e0d3d7e6fac30d1f2",
-  "mutation_stdout_sha256": "3a9e51d6dfc63343ada0a052a4d4df95b40952ca0f0a25cdae4ea398b8020481",
+  "sim_stdout_sha256": "dc454eb26e6cb6008e6a600fe439e61e83955d234acb27e05047579ac467fe63",
+  "mutation_stdout_sha256": "baa36761f3d21d3ae0aa19a628586d133527cb00a6a131a051d301a0848aa7a8",
   "summary": "SUMMARY cases=288 beats=12372 errors=0 real_errors=0 cycles=174428",
   "mutation_summary": "SUMMARY cases=288 beats=12372 errors=12372 real_errors=3492 cycles=174428"
 }

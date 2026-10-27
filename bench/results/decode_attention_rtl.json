@@ -14,8 +14,8 @@
   "cycles_per_head_call": 2336.2627071823204,
   "vvp_command": "C:\\iverilog\\bin\\vvp.exe build/decode/attn_tb.vvp (kv8 CB=8, kv4 CB=4)",
   "sim_stdout_sha256": [
-    "437badaab681da4d6c251de997af26b3e83c93f43245a7e0cb7981c3fd214cb8",
-    "2dde9732312532a0f007ae0277863bc3db9af71e9b435f8ac764a931dff22920"
+    "c0a0fcea963a7ac1b0f1fcbdcb5443471b9fc500a85a7feaefdb8b63d56b33e0",
+    "cdde2e4ab848e0f9978030cdae10bafa786ce3be008e421e887ee67525771ea7"
   ],
   "summary": [
     "kv8: SUMMARY calls=1810 errors=0 real_errors=0 cycles=4207711",

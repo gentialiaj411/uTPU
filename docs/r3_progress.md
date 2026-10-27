@@ -196,3 +196,82 @@ Reading: the 112 BRAM36 are all KV cache (224-bit word x 4,608 entries for K and
 the 4,608-deep memory up to 8,192, i.e. 7 wide x 8 deep = 56 each). ~115K FFs in the top body are the
 register-built `tbuf` (16 x 768 B = 98 Kbit), `mrf`/`srf`. The gemv instance at 35.8K LUT (vs 4,953 standalone)
 is not explained by its own logic; to be re-measured after the register arrays move to RAM.
+
+## M2 - 15M build fits (2026-10-27)
+
+No numerics changed: every edit is storage mapping or read-pipeline timing; the golden is untouched.
+
+| | before (M1, post-synth, place failed) | after (placed + routed, 50 MHz) | limit |
+|---|---|---|---|
+| LUT | 73,601 | 20,289 (62%) | <= 85% = 27,710 |
+| FF | 122,750 | 9,223 | 65,200 |
+| DSP | 73 | 73 | 120 |
+| BRAM36 | 112 | 67 | <= 68 |
+| WNS | n/a (not placed) | +0.525 ns | >= 0 |
+
+Margin warning: BRAM36 is 67 of the 68 budget (75 on the part). Anything that adds a memory needs to take one out.
+
+Per-array moves:
+
+| array | before | after |
+|---|---|---|
+| KV cache (attention) | separate K and V, 224-bit x 4,608 deep each, depth rounded to 8,192: 112 BRAM36 | one merged memory (K entries [0,4608), V [4608,9216)), word split into <=72-bit slices, each made of explicit banks sized to a BRAM36 aspect (72x512 ... 9x4096), last partial bank trimmed to a power of two: 57 RAMB36 + 1 RAMB18 |
+| `tbuf` (16 rows x 768 B tile buffer) | register array, ~98 Kbit of FFs | 128-bit x KBMAX BRAM with byte write enables, registered read: 4 RAMB36 |
+| `mrf`/`srf` (per-row group scales) | registers | per-row LUTRAM with async read (writes gated, `g_sc`) |
+| scratch (`scr`) | one array sized for the widest role | per-role offsets, `SCR_N = 6*max(D,KVD) + 2*H`: 4 RAMB36 |
+| RoPE cos/sin | two 16-bit ROMs | one 32-bit `{cos,sin}` ROM, truncated to MAX_SEQ 128 (3,072 rows) |
+| sigmoid, exp, `qc`, rmsnorm `xmem`/`gmem`, act_quant `mem` | BRAM | `ram_style`/`rom_style = "distributed"` (LUTRAM) |
+
+After (hierarchical, `build/decode/synth/top_decode_15m/`): top body 2,690 LUT / 1,184 FF / 9 RAMB36 + 1 RAMB18;
+attention 6,719 LUT / 3,728 FF / 57 RAMB36 + 1 RAMB18 / 25 DSP; gemv 5,126 LUT; rmsnorm 2,608; vec_alu 2,468;
+act_quant 687. The 35.8K-LUT gemv figure in M1 was the register `tbuf` being absorbed into it; it is 5.1K now.
+The 260K config (`top_decode_260k`, default parameters) is 15,492 LUT / 7,001 FF / 73 DSP / 12 BRAM36 / WNS +0.829.
+
+New files: `rtl/decode/luts/rope_cs_q15_h{8,48,48_p128}.mem`. `gen_luts.py` writes them.
+
+## M3 - re-verification on the M2 RTL (2026-10-27)
+
+Unit differentials (all `status: pass`, 0 mismatches, mutation caught on every expected output):
+
+| runner | mismatches | mutation caught |
+|---|---|---|
+| gemv (260K tiles) | 0 | 1006/1006 |
+| gemv15 (new: 2,328 real stories15M tiles from `_linear_high` + 120 random, K=288 and K=768, INT8/INT4; 39,168 outputs) | 0 | 2448/2448 |
+| act_quant | 0 | 1043/1043 |
+| rmsnorm | 0 | 46,112/46,112 |
+| vec_alu | 0 | 12,372/12,372 |
+| attention (260K) | 0 | 28,960/28,960 |
+| attention15 (new: HS 48, 6 layers, 6 KV heads, MAX_SEQ 128, KV4; 858 head calls, 648 real captured at positions up to 127 + 210 random; 41,184 outputs) | 0 | 41,184/41,184 |
+
+Fault injection (`tools/decode/fault_inject.py`, `bench/results/decode_fault_injection.json`): gemv 4 detected + 1 proven equivalent;
+actq 5; rms 5 + 2 equivalent; vec 7 (new: rope_cos_sin_lane_swap); attn 9 + 2 equivalent (new: kv_v_region_offset, kv_tail_bank_half,
+kv_write_v_offset, kv4 ones as before; kv_bank_sel_undelayed is proven equivalent, reason in the entry); top 7 (new unit: tbuf lane swap,
+embed address, scale group/row selection, scratch overlaps; each flips every logit); attn15 1 (kv_bank_write_ge).
+
+Two test gaps found and closed, not papered over:
+- `kv_bank_write_ge` (bank match `==` -> `<=`) was NOT detected by the 260K attention runner. Aliased writes land on higher
+  addresses, and that runner wrote KV entries in address order, so a later correct write always repaired them. It is a real bug
+  class at 15M geometry: with 512-deep banks and 768 entries per layer, a K write at position >= 43 aliases to a later layer's
+  earlier position. Fixed by making the 15M attention runner write in decode order (position, then layer, then K before V);
+  the mutation is then detected (41,052 mismatches). The fault lives under `attn15`, and the gate requires it.
+- The first 15M GEMV golden had 3,488 tiles with empty expected values (the runtime returns only the requested row slice and
+  my capture indexed absolute rows). The regenerated golden pads to absolute rows. The random-tile shift range was also narrowed
+  (36..47) because most lower shifts overflow INT32 at K >= 288, which made capture take hours.
+
+Synthesis (placed + routed, xc7s50, 50 MHz), all met: gemv_unit +1.870 ns, act_quant +5.058, rmsnorm +0.960, vec_alu +3.366,
+attention +2.452 (27 DSP, 8 BRAM36), top_decode_260k +0.829 (15,492 LUT, 12 BRAM36), top_decode_15m +0.525 (20,289 LUT, 67 BRAM36).
+
+End to end (golden = runtime logits and tokens), all 0 logit and 0 token mismatches:
+
+| run | steps | logits compared | cycles/token |
+|---|---|---|---|
+| 260K KV8, 1 B/cycle, 5 prompts x 32 | 169 | 86,528 | 424,026 |
+| 260K KV4, 1 B/cycle | 169 | 86,528 | 424,026 |
+| 260K KV8, 0.5 B/cycle | 169 | 86,528 | 514,861 |
+| 260K KV8, 0.25 B/cycle | 169 | 86,528 | 950,247 |
+| 15M KV4, 1 B/cycle, 1 prompt x 8 | 11 | 352,000 | 13,287,867 (3.76 tok/s at 50 MHz) |
+
+`tools/decode_gate.py` now also requires: gemv15/attention15 passes, the attn15 and top fault units, `top_decode_15m` timing met,
+<= 68 BRAM36 and <= 85% LUT for it, and the 15M e2e artifact. Gate output: unmet = [].
+
+Open: BRAM margin is 1 BRAM36 (67/68). The 15M e2e covers one prompt of 8 tokens (11 steps); the full matrix ran on 260K only.

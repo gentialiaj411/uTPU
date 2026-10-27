@@ -1,0 +1,22 @@
+{
+  "status": "pass",
+  "golden_sha256": "ddb622a7a062d322933e0ce1baadff95852f3f4d129141c36dfbee5065991661",
+  "golden_source": "wrapped RunQIntegerLlama._score + runq_runtime._attention_value (stories15M decode path)",
+  "real_head_calls": 648,
+  "random_head_calls": 210,
+  "output_elements": 41184,
+  "mismatch_count": 0,
+  "real_mismatch_count": 0,
+  "first_mismatches": [],
+  "mutation_mismatch_count": 41184,
+  "mutation_expected": 41184,
+  "cycles_total": 18122113,
+  "cycles_per_head_call": 21121.343822843824,
+  "vvp_command": "C:\\iverilog\\bin\\vvp.exe build/decode/attn_tb.vvp (15M shape: HS48 L6 KVH6 SEQ128 CB=4)",
+  "sim_stdout_sha256": [
+    "6f080220e6bb749031c113890178e1a85f98a5d3d3a57f8cda11af99786b3487"
+  ],
+  "summary": [
+    "kv4: SUMMARY calls=858 errors=0 real_errors=0 cycles=18122113"
+  ]
+}

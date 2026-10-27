@@ -26,8 +26,7 @@ module top_decode
     parameter int GFB = 12, NORM_SHIFT = 33,
     parameter longint SILU_MULT = 930645194, SWIGLU_MULT = 888647850, SCORE_MULT = 1028527294,
     parameter int SILU_SHIFT = 37, SWIGLU_SHIFT = 43, SCORE_SHIFT = 46,
-    parameter ROPE_COS = "rtl/decode/luts/rope_cos_q15_h8.mem",
-    parameter ROPE_SIN = "rtl/decode/luts/rope_sin_q15_h8.mem",
+    parameter ROPE_CS = "rtl/decode/luts/rope_cs_q15_h8.mem",
     parameter int ROPE_DEPTH = 2048
 ) (
     input  logic               clk,
@@ -49,8 +48,10 @@ module top_decode
 );
     localparam int KVD    = NKV * HS;
     localparam int MAXLEN = (D > H) ? D : H;
-    localparam int NBUF   = 8;
-    localparam int SAW    = $clog2(NBUF * MAXLEN);
+    // scratch buffers are sized per role: X, XB, Q, K, V, T hold at most max(D, KVD) words, only H1/H3 need H
+    localparam int SSZ    = (D > KVD) ? D : KVD;
+    localparam int SCR_N  = 6 * SSZ + 2 * H;
+    localparam int SAW    = $clog2(SCR_N);
     localparam int LW     = $clog2(MAXLEN) + 1;
     localparam int GMAX   = (MAXLEN + 31) / 32;
     localparam int KBMAX  = MAXLEN;
@@ -59,7 +60,7 @@ module top_decode
     localparam logic [2:0] BX = 3'd0, BXB = 3'd1, BQ = 3'd2, BK = 3'd3, BV = 3'd4, BH1 = 3'd5, BH3 = 3'd6, BT = 3'd7;
 
     // ---------------- scratch memory ----------------
-    logic signed [31:0] scr [NBUF * MAXLEN];
+    logic signed [31:0] scr [SCR_N];
     logic [SAW-1:0]     rd_addr, wr_addr;
     logic signed [31:0] scr_q, wr_data;
     logic               wr_en;
@@ -68,23 +69,42 @@ module top_decode
         if (wr_en) scr[wr_addr] <= wr_data;
     end
     function automatic logic [SAW-1:0] sa(input logic [2:0] b, input logic [LW-1:0] i);
-        return SAW'(32'(b) * MAXLEN + 32'(i));
+        logic [31:0] off;
+        case (b)
+            BX:      off = 0;
+            BXB:     off = SSZ;
+            BQ:      off = 2 * SSZ;
+            BK:      off = 3 * SSZ;
+            BV:      off = 4 * SSZ;
+            BT:      off = 5 * SSZ;
+            BH1:     off = 6 * SSZ;
+            default: off = 6 * SSZ + H;
+        endcase
+        return SAW'(off + 32'(i));
     endfunction
 
-    logic signed [7:0]  qc [MAXLEN];
+    (* ram_style = "distributed" *) logic signed [7:0]  qc [MAXLEN];
     logic signed [7:0]  qc_q;
     logic [LW-1:0]      qc_raddr, qc_ra;
     logic [31:0]        qs [GMAX];
     always_ff @(posedge clk) qc_q <= qc[qc_ra];
 
     // ---------------- GEMV tile buffers ----------------
-    logic [7:0]  tbuf [16][KBMAX];
-    logic [7:0]  tb_q [16];
+    // One 16-byte row per k index (row r = byte lane r), written one byte at a time as rows arrive,
+    // read k-major as a registered 128-bit word -> a 128-bit-wide RAM with byte write enables.
+    logic [127:0] tbuf [KBMAX];
+    logic [127:0] tb_word;
+    logic [7:0]   tb_q [16];
     logic [LW-1:0] tb_raddr, tb_ra;
-    always_ff @(posedge clk) for (int r = 0; r < 16; r++) tb_q[r] <= tbuf[r][tb_ra];
-    logic [31:0] mrf [GMAX][16];
-    logic [7:0]  srf [GMAX][16];
-
+    logic          tb_we;
+    logic [3:0]    tb_wr;
+    logic [LW-1:0] tb_wa;
+    logic [LW-1:0] sc_ra;
+    logic          sc_we;
+    logic [4:0]    sc_wr;
+    logic [5:0]    sc_wg;
+    logic [31:0]   mrf_q [16];
+    logic [7:0]    srf_q [16];
     // ---------------- units ----------------
     logic gv_start, gv_in_valid, gv_in_ready, gv_busy, gv_done, gv_int4, gv_nib, gv_chunk_last, gv_tile_last;
     logic [16*8-1:0]  gv_w;
@@ -116,7 +136,7 @@ module top_decode
     logic signed [31:0] va_a, va_b, va_out0, va_out1;
     logic [31:0] va_m;
     logic [6:0]  va_sh;
-    vec_alu #(.ROPE_DEPTH(ROPE_DEPTH), .ROPE_COS(ROPE_COS), .ROPE_SIN(ROPE_SIN)) va (.clk, .rst, .op(va_op),
+    vec_alu #(.ROPE_DEPTH(ROPE_DEPTH), .ROPE_CS(ROPE_CS)) va (.clk, .rst, .op(va_op),
         .op_start(va_op_start), .rope_base(16'(32'(pos_r) * (HS / 2))), .rope_half(6'(HS / 2)),
         .silu_mult(32'(SILU_MULT)), .silu_shift(7'(SILU_SHIFT)), .swiglu_mult(32'(SWIGLU_MULT)),
         .swiglu_shift(7'(SWIGLU_SHIFT)), .in_valid(va_in_valid), .a(va_a), .b(va_b), .m(va_m), .sh(va_sh),
@@ -204,6 +224,27 @@ module top_decode
         end
     end
 
+    always_ff @(posedge clk) begin
+        for (int r = 0; r < 16; r++) if (tb_we && tb_wr == 4'(r)) tbuf[tb_wa][r*8 +: 8] <= st_byte;
+        tb_word <= tbuf[tb_ra];
+    end
+    always_comb for (int r = 0; r < 16; r++) tb_q[r] = tb_word[r*8 +: 8];
+    assign tb_we = byte_ok && ((state == E_CODES) || (state == G_CODES));
+    assign tb_wr = (state == E_CODES) ? 4'd0 : rr[3:0];
+    assign tb_wa = (state == E_CODES) ? g_kb : i;
+    // per-row scale files (multiplier + shift per weight group), distributed RAM, asynchronous read
+    assign sc_we = byte_ok && bc == 3'd4 && ((state == E_SCALES) || (state == G_SCALES));
+    assign sc_wr = (state == E_SCALES) ? 5'd0 : rr;
+    assign sc_wg = gg;
+    for (genvar r = 0; r < 16; r++) begin : g_sc
+        logic [31:0] m [GMAX];
+        logic [7:0]  sh [GMAX];
+        always_ff @(posedge clk) if (sc_we && sc_wr == 5'(r)) begin m[sc_wg] <= btmp; sh[sc_wg] <= st_byte; end
+        assign mrf_q[r] = m[sc_ra];
+        assign srf_q[r] = sh[sc_ra];
+    end
+
+
     // segment prefetcher: walks this token's four image segments in consumption order
     logic [1:0]  pf_seg;
     logic        pf_active, pf_seek;
@@ -251,10 +292,11 @@ module top_decode
     assign gv_chunk_last = ((kk[4:0] == 5'd31) || (kk + 1'b1 == g_k));
     assign gv_tile_last  = (kk + 1'b1 == g_k);
     assign gv_act_scale  = qs[kk >> 6];
+    assign sc_ra         = (state == E_ISSUE) ? LW'(i >> 5) : LW'(kk >> 5);   // scale files: embedding row 0 or GEMV group
     always_comb for (int r = 0; r < 16; r++) begin
         gv_w[r*8 +: 8]       = tb_q[r];
-        gv_mult[r*32 +: 32]  = mrf[kk >> 5][r];
-        gv_shift[r*8 +: 8]   = srf[kk >> 5][r];
+        gv_mult[r*32 +: 32]  = mrf_q[r];
+        gv_shift[r*8 +: 8]   = srf_q[r];
     end
 
     function automatic logic signed [31:0] nib(input logic [7:0] b, input logic hi);
@@ -320,13 +362,13 @@ module top_decode
             // ---------------- embedding (tied classifier row + per-group scale) ----------------
             E_SEEK: begin g_kb <= '0; state <= E_CODES; end
             E_CODES: if (byte_ok) begin
-                tbuf[0][g_kb] <= st_byte; g_kb <= g_kb + 1'b1;
+                g_kb <= g_kb + 1'b1;
                 if (g_kb == LW'(CLS_KB - 1)) state <= E_SSEEK;
             end
             E_SSEEK: begin gg <= '0; bc <= '0; state <= E_SCALES; end
             E_SCALES: if (byte_ok) begin
                 if (bc == 3'd4) begin
-                    mrf[gg][0] <= btmp; srf[gg][0] <= st_byte; bc <= '0; gg <= gg + 1'b1;
+                    bc <= '0; gg <= gg + 1'b1;
                     if (gg == 6'(CLS_G - 1)) begin i <= '0; va_op <= 2'd3; state <= E_RD; end
                 end else begin btmp <= {st_byte, btmp[31:8]}; bc <= bc + 1'b1; end
             end
@@ -334,7 +376,7 @@ module top_decode
             E_WAIT: state <= E_ISSUE;
             E_ISSUE: begin
                 va_a <= CLS4 ? nib(tb_q[0], i[0]) : 32'($signed(tb_q[0]));
-                va_m <= mrf[i >> 5][0]; va_sh <= 7'(srf[i >> 5][0]); va_in_valid <= 1'b1; state <= E_OUT;
+                va_m <= mrf_q[0]; va_sh <= 7'(srf_q[0]); va_in_valid <= 1'b1; state <= E_OUT;
             end
             E_OUT: if (va_out_valid) begin
                 wr_en <= 1'b1; wr_addr <= sa(BX, i); wr_data <= va_out0;
@@ -380,7 +422,7 @@ module top_decode
             // ---------------- GEMV tiles ----------------
             G_SCALES: if (byte_ok) begin
                 if (bc == 3'd4) begin
-                    mrf[gg][rr] <= btmp; srf[gg][rr] <= st_byte; bc <= '0; rr <= rr + 1'b1;
+                    bc <= '0; rr <= rr + 1'b1;
                     if (rr == 5'd15) begin
                         rr <= '0; gg <= gg + 1'b1;
                         if (gg + 1'b1 == g_ngroups) begin i <= '0; state <= G_CODES; end
@@ -388,7 +430,7 @@ module top_decode
                 end else begin btmp <= {st_byte, btmp[31:8]}; bc <= bc + 1'b1; end
             end
             G_CODES: if (byte_ok) begin
-                tbuf[rr[3:0]][i] <= st_byte; i <= i + 1'b1;
+                i <= i + 1'b1;
                 if (i + 1'b1 == g_kb) begin
                     i <= '0; rr <= rr + 1'b1;
                     if (rr == 5'd15) begin rr <= '0; state <= G_START; end

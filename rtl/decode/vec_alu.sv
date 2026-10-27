@@ -11,8 +11,7 @@ module vec_alu
     import decode_pkg::*;
 #(
     parameter int    ROPE_DEPTH = 2048,
-    parameter ROPE_COS   = "rtl/decode/luts/rope_cos_q15_h8.mem",
-    parameter ROPE_SIN   = "rtl/decode/luts/rope_sin_q15_h8.mem",
+    parameter ROPE_CS    = "rtl/decode/luts/rope_cs_q15_h8.mem",    // one {cos, sin} Q15 pair per line
     parameter SIGMOID    = "rtl/decode/luts/sigmoid_q15.mem"
 ) (
     input  logic               clk,
@@ -38,12 +37,10 @@ module vec_alu
     localparam logic [1:0] OP_ROPE = 2'd0, OP_SWIGLU = 2'd1, OP_ADD = 2'd2, OP_MULSHIFT = 2'd3;
     localparam int RW = $clog2(ROPE_DEPTH);
 
-    logic signed [15:0] cos_rom [ROPE_DEPTH];
-    logic signed [15:0] sin_rom [ROPE_DEPTH];
-    logic [15:0]        sig_rom [1025];
+    logic [31:0]        rope_rom [ROPE_DEPTH];   // cos in [31:16], sin in [15:0]: one 32-bit-wide BRAM
+    (* rom_style = "distributed" *) logic [15:0] sig_rom [1025];
     initial begin
-        $readmemh(ROPE_COS, cos_rom);
-        $readmemh(ROPE_SIN, sin_rom);
+        $readmemh(ROPE_CS, rope_rom);
         $readmemh(SIGMOID, sig_rom);
     end
 
@@ -104,8 +101,7 @@ module vec_alu
             case (state)
                 IDLE: if (in_valid) begin
                     a_r <= a; b_r <= b; m_r <= m; sh_r <= sh; op_r <= op; k <= '0;
-                    c_r <= cos_rom[RW'(rope_base + 16'(pair_i))];
-                    s_r <= sin_rom[RW'(rope_base + 16'(pair_i))];
+                    {c_r, s_r} <= rope_rom[RW'(rope_base + 16'(pair_i))];
                     if (op == OP_ROPE) pair_i <= (pair_i + 1'b1 == rope_half) ? '0 : pair_i + 1'b1;
                     state <= (op == OP_ADD) ? OUT : ISSUE;
                 end

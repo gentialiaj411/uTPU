@@ -28,7 +28,7 @@ module act_quant #(
     typedef enum logic [1:0] {CAP, DIV, EMIT, DRAIN} state_t;
     state_t state;
 
-    logic signed [31:0] mem [MAX_GROUP];
+    (* ram_style = "distributed" *) logic signed [31:0] mem [MAX_GROUP];
     logic [AW:0]        count, emit_i;
     logic [31:0]        peak;
     logic [4:0]         div_bit;

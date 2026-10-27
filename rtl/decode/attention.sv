@@ -52,24 +52,41 @@ module attention
     localparam int BW    = $clog2(16 * HS);
 
     // ---------------- KV cache ----------------
-    logic [W-1:0] kmem [DEPTH];
-    logic [W-1:0] vmem [DEPTH];
+    // K entries [0, DEPTH) and V entries [DEPTH, 2*DEPTH) share one read port (scores and the AV
+    // pass never overlap). The word is split into slices of up to 72 bits, each built from explicit
+    // banks sized to fill a BRAM36 in its widest aspect (72x512 ... 9x4096), so Vivado does not round
+    // a non-power-of-2 depth up to the next power of 2. Read: raddr -> bank output reg -> kvq_r.
+    localparam int TOTD = 2 * DEPTH;
+    localparam int FA   = $clog2(TOTD);
+    localparam int NSL  = (W + 71) / 72;
     logic [W-1:0] wword;
     always_comb begin
         wword = '0;
         wword[W-1 -: 32] = kv_scale;
         for (int j = 0; j < HS; j++) wword[j*CB +: CB] = kv_codes[j*8 +: CB];
     end
-    wire [AW-1:0] waddr = AW'((32'(kv_layer) * MAX_SEQ + 32'(kv_pos)) * KV_HEADS + 32'(kv_head));
-    logic [AW-1:0] raddr;
-    logic [W-1:0]  kq, vq, kq_r, vq_r;   // BRAM data and output registers
-    always_ff @(posedge clk) begin
-        if (kv_we && !kv_is_v) kmem[waddr] <= wword;
-        if (kv_we &&  kv_is_v) vmem[waddr] <= wword;
-        kq <= kmem[raddr];
-        vq <= vmem[raddr];
-        kq_r <= kq;
-        vq_r <= vq;
+    wire [FA-1:0] wfa = FA'((32'(kv_layer) * MAX_SEQ + 32'(kv_pos)) * KV_HEADS + 32'(kv_head) + (kv_is_v ? DEPTH : 0));
+    logic [FA-1:0] raddr, raddr_d;
+    logic [W-1:0]  kvq_r;
+    always_ff @(posedge clk) raddr_d <= raddr;
+    for (genvar sl = 0; sl < NSL; sl++) begin : g_sl
+        localparam int SW  = (W - 72 * sl > 72) ? 72 : (W - 72 * sl);
+        localparam int BD  = (SW <= 9) ? 4096 : (SW <= 18) ? 2048 : (SW <= 36) ? 1024 : 512;
+        localparam int BAW = $clog2(BD);
+        localparam int NF  = TOTD / BD;                  // full banks
+        localparam int REM = TOTD % BD;                  // the last, partial bank is trimmed to a power of 2
+        localparam int NB  = NF + (REM != 0 ? 1 : 0);
+        logic [SW-1:0] bq [NB];
+        for (genvar bk = 0; bk < NB; bk++) begin : g_b
+            localparam int DB  = (bk < NF) ? BD : (1 << $clog2(REM));
+            localparam int DAW = $clog2(DB);
+            logic [SW-1:0] mem [DB];
+            always_ff @(posedge clk) begin
+                if (kv_we && (32'(wfa) >> BAW) == bk) mem[wfa[DAW-1:0]] <= wword[sl*72 +: SW];
+                bq[bk] <= mem[raddr[DAW-1:0]];
+            end
+        end
+        always_ff @(posedge clk) kvq_r[sl*72 +: SW] <= bq[32'(raddr_d) >> BAW];
     end
     function automatic logic signed [7:0] code_of(input logic [W-1:0] w, input int j);
         return 8'($signed(w[j*CB +: CB]));
@@ -88,7 +105,7 @@ module attention
     div_const_pipe dp (.clk, .in_valid(dp_v), .n(dp_n), .d127(dp_d127), .tag_in(dp_tag_in),
                        .out_valid(dp_ov), .q(dp_q), .tag_out(dp_tag));
 
-    logic [15:0] exp_rom [1025];
+    (* rom_style = "distributed" *) logic [15:0] exp_rom [1025];
     initial $readmemh(EXP_LUT, exp_rom);
 
     // ---------------- buffers ----------------
@@ -157,11 +174,11 @@ module attention
                 state <= SC_RD;
             end
             // ---------------- scores ----------------
-            SC_RD: begin raddr <= base_addr + AW'(32'(t) * KV_HEADS); state <= SC_WAIT; end
+            SC_RD: begin raddr <= FA'(base_addr + AW'(32'(t) * KV_HEADS)); state <= SC_WAIT; end
             SC_WAIT: begin j <= '0; acc <= '0; state <= SC_WAIT2; end   // raddr -> kq
             SC_WAIT2: state <= SC_DOT;                                    // kq -> kq_r
             SC_DOT: begin
-                for (int l = 0; l < LANES; l++) prods[l] <= 16'(qc[j + l]) * 16'(code_of(kq_r, int'(j) + l));
+                for (int l = 0; l < LANES; l++) prods[l] <= 16'(qc[j + l]) * 16'(code_of(kvq_r, int'(j) + l));
                 state <= SC_SUM;
             end
             SC_SUM: begin
@@ -170,7 +187,7 @@ module attention
                 for (int l = 0; l < LANES; l++) s = s + 32'(prods[l]);
                 acc <= acc + s;
                 j <= j + JW'(LANES);
-                if (j + JW'(LANES) == JW'(HS)) begin kscale <= kq_r[W-1 -: 32]; step <= 2'd0; state <= SC_MUL; end
+                if (j + JW'(LANES) == JW'(HS)) begin kscale <= kvq_r[W-1 -: 32]; step <= 2'd0; state <= SC_MUL; end
                 else state <= SC_DOT;
             end
             SC_MUL: begin
@@ -238,13 +255,13 @@ module attention
                     i <= '0; peak <= 33'd1; n_issue <= '0; n_recv <= '0; state <= AV_VRD;
                 end else begin i <= i + 1'b1; state <= AV_PRD; end
             end
-            AV_VRD: begin raddr <= base_addr + AW'(32'(blk + TW'(i)) * KV_HEADS); state <= AV_VWAIT; end
+            AV_VRD: begin raddr <= FA'(32'(base_addr + AW'(32'(blk + TW'(i)) * KV_HEADS)) + DEPTH); state <= AV_VWAIT; end
             AV_VWAIT: begin j <= '0; state <= AV_VWAIT2; end
             AV_VWAIT2: state <= AV_VISSUE;
             AV_VISSUE: begin
                 // _to_base: div_const_rne(code * scale, qmax), one element per cycle
                 dp_v <= 1'b1; dp_d127 <= !kv4;
-                dp_n <= 64'(code_of(vq_r, int'(j))) * 64'($signed(vq_r[W-1 -: 32]));
+                dp_n <= 64'(code_of(kvq_r, int'(j))) * 64'($signed(kvq_r[W-1 -: 32]));
                 dp_tag_in <= 8'(n_issue);
                 n_issue <= n_issue + 1'b1;
                 j <= j + 1'b1;

@@ -8,11 +8,11 @@
       "rtl/decode/seq_mul.sv",
       "rtl/decode/rmsnorm.sv"
     ],
-    "lut": 2611.0,
-    "ff": 961.0,
+    "lut": 3224.0,
+    "ff": 992.0,
     "dsp": 12.0,
-    "bram36_equiv": 1.0,
-    "wns_ns": 1.432,
+    "bram36_equiv": 0.0,
+    "wns_ns": 0.96,
     "timing_met": true
   },
   "vec_alu": {
@@ -23,11 +23,11 @@
       "rtl/decode/decode_pkg.sv",
       "rtl/decode/vec_alu.sv"
     ],
-    "lut": 3006.0,
-    "ff": 561.0,
+    "lut": 4375.0,
+    "ff": 605.0,
     "dsp": 4.0,
-    "bram36_equiv": 3.0,
-    "wns_ns": 2.834,
+    "bram36_equiv": 0.0,
+    "wns_ns": 3.366,
     "timing_met": true
   },
   "attention": {
@@ -40,11 +40,11 @@
       "rtl/decode/div_const_pipe.sv",
       "rtl/decode/attention.sv"
     ],
-    "lut": 4602.0,
-    "ff": 1857.0,
+    "lut": 4692.0,
+    "ff": 1913.0,
     "dsp": 27.0,
-    "bram36_equiv": 11.5,
-    "wns_ns": 2.336,
+    "bram36_equiv": 8.0,
+    "wns_ns": 2.452,
     "timing_met": true
   },
   "top_decode_260k": {
@@ -63,11 +63,11 @@
       "rtl/decode/attention.sv",
       "rtl/decode/top_decode.sv"
     ],
-    "lut": 24372.0,
-    "ff": 32746.0,
+    "lut": 15492.0,
+    "ff": 7001.0,
     "dsp": 73.0,
-    "bram36_equiv": 19.5,
-    "wns_ns": 0.777,
+    "bram36_equiv": 12.0,
+    "wns_ns": 0.829,
     "timing_met": true
   },
   "gemv_unit": {
@@ -91,11 +91,11 @@
     "sources": [
       "rtl/decode/act_quant.sv"
     ],
-    "lut": 435.0,
+    "lut": 477.0,
     "ff": 203.0,
     "dsp": 4.0,
-    "bram36_equiv": 0.5,
-    "wns_ns": 5.12,
+    "bram36_equiv": 0.0,
+    "wns_ns": 5.058,
     "timing_met": true
   },
   "top_decode_15m": {
@@ -115,20 +115,11 @@
       "rtl/decode/top_decode.sv",
       "build/decode/top_decode_15m_wrap.sv"
     ],
-    "status": "failed",
-    "timing_met": false,
-    "errors": [
-      "ERROR: [DRC UTLZ-1] Resource utilization: F7 Muxes over-utilized in Top Level Design (This design requires more F7 Muxes cells than are available in the target device. This design requires 18387 of such cell types but only 16300 compatible sites are available in the target device. Please analyze your synthesis results and constraints to ensure the design is mapped to Xilinx primitives as expected. If so, please consider targeting a larger device.)",
-      "ERROR: [DRC UTLZ-1] Resource utilization: FDRE over-utilized in Top Level Design (This design requires more FDRE cells than are available in the target device. This design requires 122741 of such cell types but only 65830 compatible sites are available in the target device. Please analyze your synthesis results and constraints to ensure the design is mapped to Xilinx primitives as expected. If so, please consider targeting a larger device.)",
-      "ERROR: [DRC UTLZ-1] Resource utilization: LUT as Logic over-utilized in Top Level Design (This design requires more LUT as Logic cells than are available in the target device. This design requires 67464 of such cell types but only 32600 compatible sites are available in the target device. Please analyze your synthesis results and constraints to ensure the design is mapped to Xilinx primitives as expected. If so, please consider targeting a larger device. Please set tcl parameter \"drc.disableLUTOverUtilError\" to 1 to change this error to warning.)",
-      "ERROR: [DRC UTLZ-1] Resource utilization: LUT6 over-utilized in Top Level Design (This design requires more LUT6 cells than are available in the target device. This design requires 48062 of such cell types but only 32600 compatible sites are available in the target device. Please analyze your synthesis results and constraints to ensure the design is mapped to Xilinx primitives as expected. If so, please consider targeting a larger device.)",
-      "ERROR: [DRC UTLZ-1] Resource utilization: MUXF7 over-utilized in Top Level Design (This design requires more MUXF7 cells than are available in the target device. This design requires 18387 of such cell types but only 16300 compatible sites are available in the target device. Please analyze your synthesis results and constraints to ensure the design is mapped to Xilinx primitives as expected. If so, please consider targeting a larger device.)"
-    ],
-    "wns_ns": null,
-    "lut": 73601.0,
-    "ff": 122750.0,
+    "lut": 20289.0,
+    "ff": 9223.0,
     "dsp": 73.0,
-    "bram36_equiv": 112.0,
-    "numbers_are": "post-synthesis (place/route failed)"
+    "bram36_equiv": 67.0,
+    "wns_ns": 0.525,
+    "timing_met": true
   }
 }

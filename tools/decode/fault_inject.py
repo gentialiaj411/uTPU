@@ -24,6 +24,7 @@ FAULTS = {
     }),
     'vec': ('tools/decode/run_vec_rtl.py', 'rtl/decode/vec_alu.sv', {
         'rope_sign': ('rtl', "r0 = 32'(rshift_rne(t0 - t1, 7'd15));", "r0 = 32'(rshift_rne(t0 + t1, 7'd15));"),
+        'rope_cos_sin_lane_swap': ('rtl', "{c_r, s_r} <= rope_rom", "{s_r, c_r} <= rope_rom"),
         'rope_no_pair_wrap': ('rtl', "(pair_i + 1'b1 == rope_half) ? '0 :", "1'b0 ? '0 :"),
         'sigmoid_edge': ('rtl', "(idx_r > 64'sd512) ? 16'd32767", "(idx_r >= 64'sd512) ? 16'd32767"),
         'swiglu_drop_high_word': ('rtl', "wire signed [63:0] low64 = t2 + (t3 <<< 32);", "wire signed [63:0] low64 = t2;"),
@@ -37,6 +38,11 @@ FAULTS = {
         'kv4_score_div127': ('rtl', "dp_d127 <= !kv4; state <= SC_DWAIT;", "dp_d127 <= 1'b1; state <= SC_DWAIT;"),
         'av_clip_127': ('rtl', "(r < -64'sd128) ? -32'sd128", "(r < -64'sd127) ? -32'sd127"),
         'softmax_recip_trunc': ('rtl', "precip <= dv_qn + 40'(dv_up);", "precip <= dv_qn;"),
+        'kv_v_region_offset': ('rtl', "AW'(32'(blk + TW'(i)) * KV_HEADS)) + DEPTH);", "AW'(32'(blk + TW'(i)) * KV_HEADS)) + 0);"),
+        'kv_tail_bank_half': ('rtl', "localparam int DB  = (bk < NF) ? BD : (1 << $clog2(REM));", "localparam int DB  = (bk < NF) ? BD : (1 << $clog2(REM)) / 2;"),
+        'kv_write_v_offset': ('rtl', "+ (kv_is_v ? DEPTH : 0));", "+ (kv_is_v ? DEPTH - 1 : 0));"),
+        'kv_bank_sel_undelayed': ('rtl', "<= bq[32'(raddr_d) >> BAW];", "<= bq[32'(raddr) >> BAW];",
+                                  'equivalent: raddr is written in SC_RD/AV_VRD and kvq_r is first consumed three states later (SC_DOT/AV_VISSUE), by which time raddr == raddr_d'),
         'kv4_zero_extend': ('rtl', "return 8'($signed(w[j*CB +: CB]));", "return 8'(w[j*CB +: CB]);"),
         'block_recip_trunc': ('rtl', "vrecip <= 32'(dv_qn + 40'(dv_up));", "vrecip <= 32'(dv_qn);"),
     }),
@@ -46,6 +52,19 @@ FAULTS = {
         'peak_off_by_one': ('rtl', "if (mag_in > peak) peak <= mag_in;", "if (mag_in > peak) peak <= mag_in + 32'd1;"),
         'qmax7_clamp_8': ('rtl', "(q7 ? 64'd7 : 64'd127)) q = q7 ? 64'd7", "(q7 ? 64'd8 : 64'd127)) q = q7 ? 64'd8"),
         'qmax7_numerator_127': ('rtl', "qmax7_r ? 31'(7) << 24", "qmax7_r ? 31'(127) << 24"),
+    }),
+    'top': ('tools/decode/run_decode_rtl.py --prompts 1 --gen 2', 'rtl/decode/top_decode.sv', {
+        # new in the BRAM move: byte-lane writes into the 128-bit tbuf word, per-row scale files, role-sized scratch
+        'tbuf_lane_swap': ('rtl', "assign tb_wr = (state == E_CODES) ? 4'd0 : rr[3:0];", "assign tb_wr = (state == E_CODES) ? 4'd0 : rr[3:0] ^ 4'd1;"),
+        'tbuf_embed_addr': ('rtl', "assign tb_wa = (state == E_CODES) ? g_kb : i;", "assign tb_wa = (state == E_CODES) ? g_kb + LW'(1) : i;"),
+        'scale_write_group': ('rtl', "assign sc_wg = gg;", "assign sc_wg = 6'd0;"),
+        'scale_embed_read_group': ('rtl', "assign sc_ra         = (state == E_ISSUE) ? LW'(i >> 5) : LW'(kk >> 5);", "assign sc_ra         = LW'(kk >> 5);"),
+        'scale_row_select': ('rtl', "assign sc_wr = (state == E_SCALES) ? 5'd0 : rr;", "assign sc_wr = (state == E_SCALES) ? 5'd0 : (rr ^ 5'd1);"),
+        'scratch_xb_overlap': ('rtl', "BXB:     off = SSZ;", "BXB:     off = SSZ - 1;"),
+        'scratch_h3_overlap': ('rtl', "default: off = 6 * SSZ + H;", "default: off = 6 * SSZ + H - 1;"),
+    }),
+    'attn15': ('tools/decode/run_attn15_rtl.py', 'rtl/decode/attention.sv', {   # 15M geometry: bank aliasing wraps onto earlier positions only here
+        'kv_bank_write_ge': ('rtl', "(32'(wfa) >> BAW) == bk) mem", "(32'(wfa) >> BAW) <= bk) mem"),
     }),
     'gemv': ('tools/decode/run_gemv_rtl.py', 'rtl/decode/gemv_unit.sv', {
         'ties_half_up': ('rtl', "inc  = (rem > half) || ((rem == half) && q[0]);", "inc  = (rem >= half);"),
@@ -71,10 +90,18 @@ def main():
             mutant = ROOT / 'build/decode' / f'fault_{unit}_{name}.sv'
             mutant.write_text(text.replace(old, new))
             out = ROOT / 'build/decode' / f'fault_{unit}_{name}.json'
-            args = [sys.executable, str(ROOT / runner), '--output', str(out), '--pkg' if which == 'pkg' else '--rtl', str(mutant)]
+            script, *extra = runner.split()
+            if unit == 'top':   # end-to-end runner: mutant top_decode.sv, mismatches = logits + tokens
+                args = [sys.executable, str(ROOT / script), *extra, '--output', str(out), '--top-rtl', str(mutant)]
+            else:
+                args = [sys.executable, str(ROOT / script), '--output', str(out), '--pkg' if which == 'pkg' else '--rtl', str(mutant)]
             subprocess.run(args, check=True, capture_output=True)
             o = json.loads(out.read_text())
-            res[name] = {'mismatches': o['mismatch_count'], 'real_mismatches': o['real_mismatch_count'], 'detected': o['mismatch_count'] > 0}
+            if unit == 'top':
+                mm = o['logit_mismatches'] + o['token_mismatches']
+                res[name] = {'mismatches': mm, 'real_mismatches': mm, 'detected': mm > 0}
+            else:
+                res[name] = {'mismatches': o['mismatch_count'], 'real_mismatches': o['real_mismatch_count'], 'detected': o['mismatch_count'] > 0}
             if why:
                 res[name]['equivalent_reason'] = why[0]
             res[name]['ok'] = res[name]['detected'] != bool(why)

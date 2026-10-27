@@ -52,6 +52,12 @@
       "detected": true,
       "ok": true
     },
+    "rope_cos_sin_lane_swap": {
+      "mismatches": 1920,
+      "real_mismatches": 720,
+      "detected": true,
+      "ok": true
+    },
     "rope_no_pair_wrap": {
       "mismatches": 1284,
       "real_mismatches": 600,
@@ -113,6 +119,31 @@
       "mismatches": 54,
       "real_mismatches": 22,
       "detected": true,
+      "ok": true
+    },
+    "kv_v_region_offset": {
+      "mismatches": 28934,
+      "real_mismatches": 25575,
+      "detected": true,
+      "ok": true
+    },
+    "kv_tail_bank_half": {
+      "mismatches": 2767,
+      "real_mismatches": 2543,
+      "detected": true,
+      "ok": true
+    },
+    "kv_write_v_offset": {
+      "mismatches": 28943,
+      "real_mismatches": 25585,
+      "detected": true,
+      "ok": true
+    },
+    "kv_bank_sel_undelayed": {
+      "mismatches": 0,
+      "real_mismatches": 0,
+      "detected": false,
+      "equivalent_reason": "equivalent: raddr is written in SC_RD/AV_VRD and kvq_r is first consumed three states later (SC_DOT/AV_VISSUE), by which time raddr == raddr_d",
       "ok": true
     },
     "kv4_zero_extend": {
@@ -189,6 +220,58 @@
     "qmax7_numerator_127": {
       "mismatches": 1793,
       "real_mismatches": 815,
+      "detected": true,
+      "ok": true
+    }
+  },
+  "top": {
+    "tbuf_lane_swap": {
+      "mismatches": 2052,
+      "real_mismatches": 2052,
+      "detected": true,
+      "ok": true
+    },
+    "tbuf_embed_addr": {
+      "mismatches": 2052,
+      "real_mismatches": 2052,
+      "detected": true,
+      "ok": true
+    },
+    "scale_write_group": {
+      "mismatches": 2052,
+      "real_mismatches": 2052,
+      "detected": true,
+      "ok": true
+    },
+    "scale_embed_read_group": {
+      "mismatches": 2052,
+      "real_mismatches": 2052,
+      "detected": true,
+      "ok": true
+    },
+    "scale_row_select": {
+      "mismatches": 2051,
+      "real_mismatches": 2051,
+      "detected": true,
+      "ok": true
+    },
+    "scratch_xb_overlap": {
+      "mismatches": 2049,
+      "real_mismatches": 2049,
+      "detected": true,
+      "ok": true
+    },
+    "scratch_h3_overlap": {
+      "mismatches": 2048,
+      "real_mismatches": 2048,
+      "detected": true,
+      "ok": true
+    }
+  },
+  "attn15": {
+    "kv_bank_write_ge": {
+      "mismatches": 41052,
+      "real_mismatches": 30982,
       "detected": true,
       "ok": true
     }

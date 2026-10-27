@@ -39,8 +39,8 @@ module rmsnorm
     } state_t;
     state_t state;
 
-    logic signed [31:0] xmem [MAX_D];
-    logic [15:0]        gmem [MAX_D];
+    (* ram_style = "distributed" *) logic signed [31:0] xmem [MAX_D];
+    (* ram_style = "distributed" *) logic [15:0]        gmem [MAX_D];
     logic [AW:0]        count, idx;
     logic signed [63:0] ss, sq;
     logic               sq_v;

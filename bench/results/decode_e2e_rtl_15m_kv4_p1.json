@@ -68,7 +68,7 @@
   "first_mismatches": [],
   "vvp_command": "C:\\iverilog\\bin\\vvp.exe build/decode/e2e_tb.vvp",
   "defines": [],
-  "sim_stdout_sha256": "2022ec64818235ab99b35dfbdbc8178f8e5622e6ea916644385874f68e23326d",
+  "sim_stdout_sha256": "89c75c6b3da64c252aee54153d302eb3a05e1e520767cb675e22ef4de11f34a5",
   "summary": "SUMMARY steps=11 errors=0 token_errors=0 cycles=146166537",
-  "wall_seconds": 6326.5
+  "wall_seconds": 10302.1
 }
