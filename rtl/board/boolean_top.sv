@@ -32,7 +32,7 @@ module boolean_top (
     end
 
     // ---- core + pads ----
-    logic sclk, cs_n; logic [3:0] io_o, io_oe, io_i;
-    boolean_core u_core (.clk(clk50), .rst, .uart_rx(UART_rxd), .uart_tx(UART_txd), .sclk, .cs_n, .io_o, .io_oe, .io_i);
-    qspi_pads u_pads (.sclk, .cs_n, .io_o, .io_oe, .io_i, .qspi_dq, .qspi_cs_n);
+    logic pad_sclk, pad_cs_n; logic [3:0] pad_io_o, pad_io_t, pad_io_i;
+    boolean_core u_core (.clk(clk50), .rst, .uart_rx(UART_rxd), .uart_tx(UART_txd), .pad_sclk, .pad_cs_n, .pad_io_o, .pad_io_t, .pad_io_i);
+    qspi_pads u_pads (.pad_sclk, .pad_cs_n, .pad_io_o, .pad_io_t, .pad_io_i, .qspi_dq, .qspi_cs_n);
 endmodule

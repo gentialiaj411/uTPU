@@ -13,6 +13,7 @@ module boolean_core #(
     parameter logic [31:0] FLASH_BASE = 32'h0028_0000,
     parameter int QSPI_HALF = 1,
     parameter bit QSPI_SAMPLE_LATE = 1'b1,
+    parameter int QSPI_CAP_DLY = 2,                // qspi_pad_regs adds 1 output + 1 input register
     parameter int D = 288, H = 768, NL = 6, NH = 6, NKV = 6, HS = 48, VOCAB = 32000, MAX_SEQ = 128,
     parameter int KV4 = 1,
     parameter int CLS4 = 1, WQ4 = 0, WK4 = 0, WV4 = 0, WO4 = 0, W14 = 1, W34 = 1, W24 = 0,
@@ -28,9 +29,10 @@ module boolean_core #(
     input  logic       clk, rst,
     input  logic       uart_rx,
     output logic       uart_tx,
-    output logic       sclk, cs_n,
-    output logic [3:0] io_o, io_oe,
-    input  logic [3:0] io_i
+    // pad side of the flash interface (registered in qspi_pad_regs; pad_io_t = 1 releases the pad)
+    output logic       pad_sclk, pad_cs_n,
+    output logic [3:0] pad_io_o, pad_io_t,
+    input  logic [3:0] pad_io_i
 );
     localparam int PW = $clog2(MAX_SEQ);
     // UART
@@ -50,8 +52,8 @@ module boolean_core #(
         .clk, .rst, .start(dec_start), .token(dec_token), .pos(dec_pos), .seek_req, .seek_addr, .st_valid, .st_data, .st_ready,
         .busy(dec_busy), .done(dec_done), .token_out(dec_token_out), .logit_valid(dec_logit_valid), .logit_idx(dec_logit_idx),
         .logit_val(dec_logit_val));
-    logic r_sclk, r_cs_n; logic [3:0] r_io_o, r_io_oe;
-    qspi_reader #(.HALF(QSPI_HALF), .SAMPLE_LATE(QSPI_SAMPLE_LATE)) u_rd (
+    logic r_sclk, r_cs_n; logic [3:0] r_io_o, r_io_oe, io_i;
+    qspi_reader #(.HALF(QSPI_HALF), .SAMPLE_LATE(QSPI_SAMPLE_LATE), .CAP_DLY(QSPI_CAP_DLY)) u_rd (
         .clk, .rst, .seek_req, .seek_addr(seek_addr + FLASH_BASE), .st_ready, .st_valid, .st_data,
         .sclk(r_sclk), .cs_n(r_cs_n), .io_o(r_io_o), .io_oe(r_io_oe), .io_i);
     // UART control + flash register access (single-bit SPI) multiplexed onto the flash pins
@@ -60,8 +62,10 @@ module boolean_core #(
         .clk, .rst, .rx_data, .rx_valid, .tx_data, .tx_start, .tx_busy,
         .dec_start, .dec_token, .dec_pos, .dec_done, .dec_token_out, .dec_logit_valid, .dec_logit_idx, .dec_logit_val,
         .pt_active, .pt_sclk, .pt_cs_n, .pt_mosi, .pt_miso(io_i[1]));
+    logic sclk, cs_n; logic [3:0] io_o, io_oe;
     assign sclk  = pt_active ? pt_sclk : r_sclk;
     assign cs_n  = pt_active ? pt_cs_n : r_cs_n;
     assign io_o  = pt_active ? {2'b11, 1'b0, pt_mosi} : r_io_o;   // IO2/IO3 (WP#/HOLD#) high in single-bit mode
     assign io_oe = pt_active ? 4'b1101 : r_io_oe;
+    qspi_pad_regs u_pr (.clk, .sclk, .cs_n, .io_o, .io_oe, .pad_sclk, .pad_cs_n, .pad_io_o, .pad_io_t, .pad_io_i, .io_i);
 endmodule

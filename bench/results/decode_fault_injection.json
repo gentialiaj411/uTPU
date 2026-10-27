@@ -278,62 +278,74 @@
   },
   "qspi": {
     "dummy_count_off_by_one": {
-      "mismatches": 15329,
-      "real_mismatches": 15329,
+      "mismatches": 15334,
+      "real_mismatches": 15334,
       "detected": true,
       "ok": true
     },
     "nibble_order_swapped": {
-      "mismatches": 74095,
-      "real_mismatches": 74095,
+      "mismatches": 148199,
+      "real_mismatches": 148199,
       "detected": true,
       "ok": true
     },
     "address_byte_order_swapped": {
-      "mismatches": 5,
-      "real_mismatches": 5,
+      "mismatches": 10,
+      "real_mismatches": 10,
       "detected": true,
       "ok": true
     },
     "wrong_opcode_fast_read": {
-      "mismatches": 4,
-      "real_mismatches": 4,
+      "mismatches": 8,
+      "real_mismatches": 8,
       "detected": true,
       "ok": true
     },
     "cs_not_raised_on_seek": {
-      "mismatches": 5,
-      "real_mismatches": 5,
+      "mismatches": 10,
+      "real_mismatches": 10,
       "detected": true,
       "ok": true
     },
     "byte_valid_in_seek_cycle": {
-      "mismatches": 1124,
-      "real_mismatches": 1124,
+      "mismatches": 2203,
+      "real_mismatches": 2203,
       "detected": true,
       "ok": true
     },
     "seek_keeps_stale_byte": {
-      "mismatches": 1270,
-      "real_mismatches": 1270,
+      "mismatches": 1711,
+      "real_mismatches": 1711,
       "detected": true,
       "ok": true
     },
     "no_backpressure_stall": {
-      "mismatches": 24404,
-      "real_mismatches": 24404,
+      "mismatches": 54250,
+      "real_mismatches": 54250,
+      "detected": true,
+      "ok": true
+    },
+    "inflight_captures_ignored": {
+      "mismatches": 38559,
+      "real_mismatches": 38559,
+      "detected": true,
+      "ok": true
+    },
+    "capture_strobe_one_cycle_early": {
+      "mismatches": 19810,
+      "real_mismatches": 19810,
       "detected": true,
       "ok": true
     },
     "abort_mid_command_byte": {
-      "mismatches": 5,
-      "real_mismatches": 5,
+      "mismatches": 10,
+      "real_mismatches": 10,
       "detected": true,
       "ok": true
     },
     "stale_capture_after_seek": {
-      "mismatches": 12462,
-      "real_mismatches": 12462,
+      "mismatches": 53750,
+      "real_mismatches": 53750,
       "detected": true,
       "ok": true
     },
@@ -349,6 +361,106 @@
       "real_mismatches": 0,
       "detected": false,
       "equivalent_reason": "equivalent: the S_GAP exit that starts the next command also clears nib_ph, and nibbles are only captured in S_RUN, so the stale value is never observed",
+      "ok": true
+    }
+  },
+  "board": {
+    "tx_bit_period_off_by_one": {
+      "mismatches": 2,
+      "real_mismatches": 2,
+      "detected": true,
+      "ok": true
+    },
+    "rx_seven_data_bits": {
+      "mismatches": 1,
+      "real_mismatches": 1,
+      "detected": true,
+      "ok": true
+    },
+    "rx_ignores_stop_bit": {
+      "mismatches": 1,
+      "real_mismatches": 1,
+      "detected": true,
+      "ok": true
+    },
+    "response_logit_bytes_swapped": {
+      "mismatches": 1,
+      "real_mismatches": 1,
+      "detected": true,
+      "ok": true
+    },
+    "response_cycle_bytes_swapped": {
+      "mismatches": 1,
+      "real_mismatches": 1,
+      "detected": true,
+      "ok": true
+    },
+    "request_token_bytes_swapped": {
+      "mismatches": 1,
+      "real_mismatches": 1,
+      "detected": true,
+      "ok": true
+    },
+    "request_pos_from_wrong_byte": {
+      "mismatches": 1,
+      "real_mismatches": 1,
+      "detected": true,
+      "ok": true
+    },
+    "probe_index_off_by_one": {
+      "mismatches": 1,
+      "real_mismatches": 1,
+      "detected": true,
+      "ok": true
+    },
+    "spi_response_one_byte_short": {
+      "mismatches": 1,
+      "real_mismatches": 1,
+      "detected": true,
+      "ok": true
+    },
+    "spi_clocks_one_bit_short": {
+      "mismatches": 1,
+      "real_mismatches": 1,
+      "detected": true,
+      "ok": true
+    },
+    "frame_timeout_never_fires": {
+      "mismatches": 1,
+      "real_mismatches": 1,
+      "detected": true,
+      "ok": true
+    },
+    "response_before_done": {
+      "mismatches": 1,
+      "real_mismatches": 1,
+      "detected": true,
+      "ok": true
+    },
+    "cs_not_released_after_spi": {
+      "mismatches": 0,
+      "real_mismatches": 0,
+      "detected": false,
+      "equivalent_reason": "equivalent at the pins: when the S transaction ends the pins go back to qspi_reader, whose CS# is high (idle: CS# rises there, 8 cycles late) or low (burst parked by backpressure: CS# stays low with SCLK low and no clocks). The CS# rise that latches WREN/WRDI/WRR is only deferred to the next CS# rise, which always comes before any further command byte is clocked: the next S frame forces CS# high first (S_PT_WAIT sets cs_n_q=1 before pt_active) and a decode seek raises it in qspi_reader. WEL/WIP are only observed through S frames or take effect before the next decode read, so the deferral is unobservable; the directed WREN/RDSR/WRDI/RDSR cases between decode steps (reader parked with CS# low) pass with the fault",
+      "ok": true
+    },
+    "flash_image_offset_wrong": {
+      "mismatches": 1,
+      "real_mismatches": 1,
+      "detected": true,
+      "ok": true
+    },
+    "cycle_count_off_by_one": {
+      "mismatches": 1,
+      "real_mismatches": 1,
+      "detected": true,
+      "ok": true
+    },
+    "spi_takeover_without_settle_wait": {
+      "mismatches": 0,
+      "real_mismatches": 0,
+      "detected": false,
+      "equivalent_reason": "equivalent: the 256-cycle wait only guards against taking the pins while the reader still clocks its last prefetched byte. The reader parks within about 16 cycles of the last byte top_decode accepts, which is before done; the host cannot send an S frame before it has received the 11-byte R response (11 x 10 bit times >= 880 cycles at 115200 baud, 880 cycles even at CPB=8 x 10 x 11) and the S header itself takes 3 more byte times, so the wait is always already elapsed in a protocol-conforming exchange. Removing it is unobservable",
       "ok": true
     }
   }

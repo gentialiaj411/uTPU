@@ -4,6 +4,7 @@
   "max_seq": 64,
   "kv_bits": 8,
   "flash": "qspi",
+  "qspi_pad_regs_cap_dly": 2,
   "flash_bytes_per_cycle": 0.25,
   "prompts": [
     [
@@ -18,15 +19,15 @@
   "logit_mismatches": 0,
   "token_mismatches": 0,
   "image_bytes": 237632,
-  "cycles_per_token_mean": 930672.6,
-  "cycles_per_token_max": 930678,
+  "cycles_per_token_mean": 930680.6,
+  "cycles_per_token_max": 930686,
   "stream_bytes_per_token": 232554,
   "busy_cycles_by_step": {
-    "embed": 9206,
+    "embed": 9246,
     "seek_layers": 20,
     "rms_att": 208100,
     "quant_att": 14700,
-    "wq": 721060,
+    "wq": 721080,
     "wk": 473600,
     "wv": 473600,
     "rope_q": 33700,
@@ -47,7 +48,7 @@
     "rms_final": 41620,
     "quant_final": 2940,
     "seek_cls": 20,
-    "classifier": 815300,
+    "classifier": 815320,
     "done": 10
   },
   "golden_tokens": [
@@ -67,7 +68,7 @@
   "first_mismatches": [],
   "vvp_command": "C:\\iverilog\\bin\\vvp.exe build/decode/e2e_tb.vvp",
   "defines": [],
-  "sim_stdout_sha256": "8c170cb3537c91ced12f891b469566ac1845a3024d2c8f87b716e61f4b32e0cd",
-  "summary": "SUMMARY steps=10 errors=0 token_errors=0 cycles=9306726",
-  "wall_seconds": 460.1
+  "sim_stdout_sha256": "66866361983209d2fcac4942c4312dde63ac2efe4d3399b2307b26326cec5f35",
+  "summary": "SUMMARY steps=10 errors=0 token_errors=0 cycles=9306806",
+  "wall_seconds": 525.9
 }

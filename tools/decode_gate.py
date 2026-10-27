@@ -10,6 +10,8 @@ Exits non-zero unless all of the following hold (artifacts under bench/results/)
   * M4 QSPI: reader-vs-flash-model unit test over all configurations with its nibble-swap mutation caught, qspi fault set,
     qspi_reader OOC (0 BRAM) and top_decode_15m + reader OOC (same BRAM/LUT/timing limits), and the e2e run through
     qspi_reader + the flash model with 0 logit/token mismatches;
+  * M6: every QSPI IO path (CS#, DQ in/out, setup and hold) has slack >= 0 under the flash AC-parameter constraints, and the
+    board_ctrl/UART fault unit is detected or proven equivalent;
   * M5 board top: UART-driven simulation of boolean_core + flash model (tokens, probed logits, flash Quad-enable procedure,
     mutation caught, QUAD=0 read trips the flash model), boolean_pin_check all pins agree, and the full implementation of
     boolean_top (xc7s50, constraints/boolean_xc7s50.xdc, no bitstream): timing met, <= 68 BRAM36, <= 85% LUT, 0 DRC errors.
@@ -23,7 +25,7 @@ RES = ROOT / 'bench/results'
 UNITS = ['decode_gemv_rtl', 'decode_act_quant_rtl', 'decode_rms_rtl', 'decode_vec_alu_rtl', 'decode_attention_rtl',
          'decode_gemv15_rtl', 'decode_attention15_rtl',
          'decode_qspi_rtl']   # last two: stories15M shapes (K=288/768; HS=48, KV4, positions to 127)
-FAULT_UNITS = ['gemv', 'actq', 'rms', 'vec', 'attn', 'attn15', 'top', 'qspi']
+FAULT_UNITS = ['gemv', 'actq', 'rms', 'vec', 'attn', 'attn15', 'top', 'qspi', 'board']
 SYNTH = ['gemv_unit', 'act_quant', 'rmsnorm', 'vec_alu', 'attention', 'top_decode_260k', 'top_decode_15m',
          'qspi_reader', 'top_decode_15m_qspi']   # M4: QSPI flash reader alone and 15M top_decode + reader
 BRAM36_LIMIT_15M = 68        # leaves room for the board top + QSPI + UART on the 75-BRAM36 xc7s50
@@ -114,6 +116,22 @@ def main():
             unmet.append(f"boolean_top_impl LUT {int(bi['lut'])} > {int(LUT_LIMIT_15M)} (85%)")
         if bi['drc_error_rules']:
             unmet.append(f"boolean_top_impl DRC errors {bi['drc_error_rules']}")
+        # M6: every QSPI IO path (constrained against the flash AC numbers) must have non-negative setup and hold slack
+        io = bi.get('qspi_io_slack')
+        if not io:
+            unmet.append('boolean_top_impl has no per-path QSPI IO slack')
+        else:
+            need = [('qspi_cs_n', 'out_setup'), ('qspi_cs_n', 'out_hold')] +                    [(f'qspi_dq[{i}]', k) for i in range(4) for k in ('in_setup', 'in_hold')] +                    [(f'qspi_dq[{i}]', k) for i in (0, 2, 3) for k in ('out_setup', 'out_hold')]
+            worst = []
+            for port, kind in need:
+                sl = (io.get(port, {}).get(kind) or {}).get('slack_ns')
+                if sl is None:
+                    unmet.append(f'boolean_top_impl missing QSPI IO slack {port} {kind}')
+                else:
+                    worst.append(sl)
+                    if sl < 0:
+                        unmet.append(f'boolean_top_impl QSPI IO slack {port} {kind} = {sl} ns < 0')
+            report['boolean_top_qspi_io_min_slack'] = f"{min(worst):+.3f} ns over {len(worst)} paths" if worst else 'none'
     print(json.dumps({'exit_code': int(bool(unmet)), 'report': report, 'unmet': unmet}, indent=2))
     sys.exit(1 if unmet else 0)
 

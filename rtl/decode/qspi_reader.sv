@@ -28,7 +28,9 @@ module qspi_reader #(
     parameter int HALF           = 1,     // core clocks per SCLK half period
     parameter bit SAMPLE_LATE    = 1'b1,  // 1: sample IO just before the falling edge, 0: at the rising edge
     parameter int STARTUP_PULSES = 4,
-    parameter int CS_HIGH        = 2      // minimum CS# high cycles between commands (tCS read >= 10 ns)
+    parameter int CS_HIGH        = 2,     // minimum CS# high cycles between commands (tCS read >= 10 ns)
+    parameter int CAP_DLY        = 0      // extra core cycles between the sampling tick and the data reaching io_i: 0 with
+                                          // direct pads, 2 behind qspi_pad_regs (1 output + 1 input IOB register)
 ) (
     input  logic        clk,
     input  logic        rst,
@@ -65,6 +67,8 @@ module qspi_reader #(
     logic [3:0]    nib_hi;
     logic [7:0]    ob_data;
     logic          ob_valid;
+    localparam int CD = (CAP_DLY > 0) ? CAP_DLY : 1;
+    logic [CD-1:0] cap_p;            // sampling strobes in flight (CAP_DLY > 0)
 
     assign sclk     = sclk_q;
     assign cs_n     = cs_n_q;
@@ -77,18 +81,32 @@ module qspi_reader #(
     wire room        = !ob_valid || accept_now;
     wire data_phase  = (rise_n >= 8'(PRE));
     wire tick_raw    = (tcnt == TW'(HALF - 1));
+    // nibble phase the next rising edge will sample, counting captures still in flight, and whether an in-flight capture
+    // will complete a byte (it will occupy the output register before the next one can)
+    logic eff_ph, pend_complete;
+    always_comb begin
+        eff_ph = nib_ph; pend_complete = 1'b0;
+        if (CAP_DLY > 0) for (int i = CAP_DLY - 1; i >= 0; i--) if (cap_p[i]) begin
+            if (eff_ph) pend_complete = 1'b1;
+            eff_ph = ~eff_ph;
+        end
+    end
     // do not raise SCLK if the nibble it samples would complete a byte with nowhere to put it
-    wire rise_blocked = !sclk_q && data_phase && nib_ph && !room;
+    wire rise_blocked = !sclk_q && data_phase && eff_ph && !(room && !pend_complete);
     wire tick        = tick_raw && !rise_blocked;
     wire abort_now   = pend && !sclk_q && (data_phase || rise_n[2:0] == 3'd0);
+    wire launch      = (state == S_RUN) && !abort_now && tick &&
+                       (SAMPLE_LATE ? (sclk_q && last_rise_data) : (!sclk_q && data_phase));
+    wire strobe      = (CAP_DLY == 0) ? launch : cap_p[CD-1];
 
     always_ff @(posedge clk) begin
         if (rst) begin
             state <= S_START; sclk_q <= 1'b0; cs_n_q <= 1'b1; io_o_q <= 4'hF; io_oe_q <= 4'h0;
-            tcnt <= '0; rise_n <= '0; pend <= 1'b0; su_cnt <= 8'(2 * STARTUP_PULSES); gcnt <= '0;
+            cap_p <= '0; tcnt <= '0; rise_n <= '0; pend <= 1'b0; su_cnt <= 8'(2 * STARTUP_PULSES); gcnt <= '0;
             nib_ph <= 1'b0; last_rise_data <= 1'b0; ob_valid <= 1'b0;
         end else begin
             if (accept_now) ob_valid <= 1'b0;
+            cap_p <= (cap_p << 1) | CD'(launch);
             case (state)
                 S_START: begin
                     if (su_cnt == 8'd0) state <= S_IDLE;
@@ -103,14 +121,15 @@ module qspi_reader #(
                         state <= S_RUN; cs_n_q <= 1'b0; pend <= 1'b0;
                         sh <= {OPC, pend_addr[8*ADDR_BYTES-1:0]};
                         io_o_q <= {3'b111, OPC[7]}; io_oe_q <= 4'b1101;
-                        rise_n <= '0; tcnt <= '0; nib_ph <= 1'b0; last_rise_data <= 1'b0; ob_valid <= 1'b0;
+                        rise_n <= '0; tcnt <= '0; nib_ph <= 1'b0; last_rise_data <= 1'b0; ob_valid <= 1'b0; cap_p <= '0;
                     end
                 end
                 S_RUN: begin
                     if (abort_now) begin
                         state <= S_GAP; gcnt <= 4'(CS_HIGH - 1); cs_n_q <= 1'b1; io_oe_q <= 4'h0; io_o_q <= 4'hF;
-                        ob_valid <= 1'b0; nib_ph <= 1'b0; tcnt <= '0;
+                        ob_valid <= 1'b0; nib_ph <= 1'b0; tcnt <= '0; cap_p <= '0;
                     end else begin
+                        if (strobe) cap(io_i);
                         if (tick_raw) begin if (!rise_blocked) tcnt <= '0; end
                         else tcnt <= tcnt + 1'b1;
                         if (tick) begin
@@ -118,9 +137,7 @@ module qspi_reader #(
                             if (!sclk_q) begin                        // rising edge
                                 if (rise_n != 8'(PRE)) rise_n <= rise_n + 1'b1;
                                 last_rise_data <= data_phase;
-                                if (!SAMPLE_LATE && data_phase) cap(io_i);
                             end else begin                            // falling edge: launch next bit
-                                if (SAMPLE_LATE && last_rise_data) cap(io_i);
                                 if (rise_n < 8'(SHW)) begin
                                     sh <= sh << 1; io_o_q[0] <= sh[SHW-2];
                                 end else begin

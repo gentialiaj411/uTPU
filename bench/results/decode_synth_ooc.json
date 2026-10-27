@@ -129,11 +129,11 @@
     "sources": [
       "rtl/decode/qspi_reader.sv"
     ],
-    "lut": 63.0,
+    "lut": 59.0,
     "ff": 98.0,
     "dsp": 0.0,
     "bram36_equiv": 0.0,
-    "wns_ns": 15.255,
+    "wns_ns": 13.972,
     "timing_met": true
   },
   "top_decode_15m_qspi": {
@@ -154,11 +154,11 @@
       "rtl/decode/qspi_reader.sv",
       "build/decode/top_decode_15m_qspi_wrap.sv"
     ],
-    "lut": 20366.0,
+    "lut": 20376.0,
     "ff": 9323.0,
     "dsp": 73.0,
     "bram36_equiv": 67.0,
-    "wns_ns": 1.148,
+    "wns_ns": 1.169,
     "timing_met": true
   }
 }

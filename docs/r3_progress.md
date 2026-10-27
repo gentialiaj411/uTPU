@@ -434,3 +434,108 @@ All from the repo root. Vivado = `C:/AMDDesignTools/2025.2/Vivado/bin/vivado.bat
 - No fault-injection set for `board_ctrl`/UART beyond the one mutation and the QUAD=0 negative test.
 - `boolean_core` defaults duplicate the 15M parameters (checked by `impl_top.py`, not generated).
 - BRAM margin is still 1 BRAM36 (67/68).
+
+## M6 - board top hardening (2026-10-27, simulation + implementation only; no bitstream, no hardware)
+
+### 1. QSPI pad timing
+**IOB registers.** `rtl/board/qspi_pad_regs.sv` (no primitives, simulates in iverilog) holds one `IOB = "TRUE"` register on every pad-facing flash
+signal: CS# output, IO[3:0] data outputs, IO[3:0] output enables (stored as the IOBUF `T` polarity so nothing sits between flip-flop and pad), IO[3:0]
+inputs; SCLK gets one more fabric register before `STARTUPE2.USRCCLKO` so SCLK and the data/CS# outputs have equal latency. The pad registers are
+inside `boolean_core` (so every simulation covers them); `qspi_pads.sv` now holds only STARTUPE2/IOBUF/OBUF. Vivado placed them in OLOGIC/ILOGIC
+(see `qspi_out_paths.rpt`: `OLOGIC_X0Y48 FDRE u_core/u_pr/io_t_r_reg[0]`). The previous structure (reader flops -> mux with the SPI-passthrough
+selects -> pad) had logic between flop and pad, so nothing could be packed: that is what was restructured. The pad registers add 1 core cycle on outputs
+and 1 on the input data, so `qspi_reader` got a `CAP_DLY` parameter (default 0 = old behaviour, board uses 2): the capture strobe is delayed by
+CAP_DLY cycles after the sampling tick, and the stall logic counts captures still in flight (`eff_ph`, `pend_complete`) so a byte is never completed
+into an occupied output register. Cost: +8 cycles per token (930,680.6 vs 930,672.6 cycles/token for the 260K QSPI e2e).
+DQ1 never has an output path: the design only reads on IO1 (and single-bit SPI uses IO1 as SO), so its output/enable registers are constants and removed.
+
+**Constraints** (`constraints/boolean_xc7s50.xdc`, every number cited in comments):
+| parameter | value | source |
+|---|---|---|
+| tSU data in setup / tHD data in hold | 3.0 / 2.0 ns min | S25FL128S datasheet rev 05, table 6.4 (VIO = VCC 2.7-3.6 V) |
+| tCSS / tCSH CS# active setup / hold | 3.0 / 3.0 ns min | same |
+| tV clock low to output valid | 8.0 ns max (full VCC range, 30 pF; 7.65 ns at 3.0-3.6 V, 6.5 ns at 15 pF) | same; the worst case is used |
+| tHO output hold | 2.0 ns min | same |
+| TUSRCCLKO (STARTUPE2 USRCCLKO to CCLK pin) | 0.50 ns min, 7.50 ns max, speed grade -1 | DS189 Spartan-7 data sheet v1.11, Configuration Switching Characteristics, as returned by the AMD docs page; also quoted as 0.5/6.7 for Kintex-7 in Digilent's Genesys2 XDC, so the 7.5 ns Spartan-7 value is used |
+| board trace delay | 0 .. 0.5 ns per signal | NOT from an official source: the Boolean layout is not public. A bounded assumption (about 3 inches), worst case constrained |
+CCLK is modelled as a generated clock (`clk_sck`, divide-by-2) on the `USRCCLKO` pin sourced from the SCLK register, with early/late source latency = TUSRCCLKO min/max.
+Outputs: `set_output_delay` max = tSU (tCSS for CS#) + 0.5, min = -(tHD or tCSH). Inputs: `set_input_delay -clock_fall` max = tV + 0.5, min = tHO, relative to `clk_sck`.
+Two multicycle exceptions describe what the RTL does and are the only non-default timing relations: inputs are sampled one SCLK period (two core cycles) after the launching
+SCLK falling edge (setup 2 / hold 1); output hold is checked against the previous SCLK edge because the pad registers only change on the SCLK-falling phase or while SCLK is
+parked low, never on the clk50 edge that coincides with an SCLK rise (an RTL property of `qspi_reader`, exercised by the flash model's tSU/tHD/tCSS/tCSH checks). The XDC is
+valid only for `HALF=1`, `SAMPLE_LATE=1`, `CAP_DLY=2`. Vivado models the generated clock as an ideal edge plus the set latency; the SCLK register clock-to-Q + route
+(about 0.8 ns) and the clock-tree insertion (about -0.8 ns, MMCM-compensated) are not added separately and cancel to within about +-0.3 ns by Vivado's own path reports.
+
+**Result** (`bench/results/boolean_top_impl.json`, post-route, 50 MHz): 20,735 LUT (63.6%), 9,818 FF, 73 DSP, 67 BRAM36, WNS +1.565 ns, WHS +0.025 ns, TNS/THS 0, 0 DRC errors,
+`check_timing`: no unconstrained or unclocked endpoints (the one input without a delay is UART_rxd under a false path). Per-path slack of every flash IO path (ns):
+
+| port | output setup | output hold | input setup | input hold |
+|---|---|---|---|---|
+| qspi_cs_n | +14.242 | +29.706 | n/a | n/a |
+| qspi_dq[0] | +14.128 | +30.342 | +21.484 | +2.979 |
+| qspi_dq[1] | none (never driven) | none | +21.494 | +2.969 |
+| qspi_dq[2] | +14.158 | +30.341 | +21.511 | +2.952 |
+| qspi_dq[3] | +14.163 | +30.341 | +21.516 | +2.947 |
+
+Smallest margin: input hold +2.947 ns (qspi_dq[3]). **The overall WHS (+0.025 ns, previously +0.008 ns) is not a QSPI path.** It is a direct register-to-register hold path inside the decode
+engine, `u_core/u_dec/hcodes_reg[286]/C -> u_core/u_dec/attn/qc_reg[35][6]/D` (0.344 ns data delay against clock skew, fast corner): FF-to-FF with no logic. It is real in the sense
+that it is the tool's hold check on actual routing, but the router fixes hold during routing and the result is met (>= 0) at the fast corner; it moves by a few ps between runs and does
+not depend on the flash interface.
+
+**Sample margin at 25 MHz** (`HALF=1`, `SAMPLE_LATE=1`, `CAP_DLY=2`; time relative to the ideal USRCCLKO falling edge that launches a nibble; SCLK period 40 ns):
+the nibble is valid at the FPGA pin from 7.5 (TUSRCCLKO max) + 8.0 (tV max) + 0.5 (trace) = 16.0 ns until the next launch's earliest change at 40 + 0.5 (TUSRCCLKO min) + 2.0 (tHO)
++ 0 (min trace) = 42.5 ns. The input register samples at 40 ns: 24.0 ns after the data is valid and 2.5 ns before it can change (Vivado, with IBUF delay, clock insertion and flop
+setup/hold: +21.5 ns setup, +2.95 ns hold). The sampling instants available at a 50 MHz core clock are 20 ns steps. Sampling at 20 ns instead would leave +1.5 ns setup (21.5 - 20, Vivado) and +22.9 ns hold; sampling at 40 ns leaves
++21.5 ns setup and +2.95 ns hold. The larger minimum margin is at 40 ns (2.95 vs 1.5 ns), so that point is kept. A sample point centred in the window (30 ns) would need a falling-edge input register, not done. The margin is
+positive but the hold side is only about 3 ns: it depends on the unverified trace-delay assumption and should be re-checked on the board (scope the DQ lines against CCLK).
+`HALF=2` (12.5 MHz) would put the sample 22.5 ns from both ends of the window but halves the read bandwidth, so it was not adopted.
+
+QSPI unit test (`decode_qspi_rtl.json`) now has 10 configurations: the 5 direct-pad ones from M4 plus 5 behind `qspi_pad_regs` with `CAP_DLY=2` and delay corners in front of the flash model
+(CCLK 7.5 ns / tV 8.0 / input path 2.0 ns; CCLK 0.5 / output path 6.5 / input path 0.6; zero delay; 4-byte address; HALF=2). The flash model gained tSU, tHD, tCSS and tCSH checks (enabled in
+every configuration) and a start-up fix (x/1 transitions at time 0 are not CS# edges). All 10 pass with 0 mismatches and the nibble-swap mutation is caught on exactly the expected bytes.
+qspi faults: 12 detected + 2 equivalent (new: `inflight_captures_ignored`, `capture_strobe_one_cycle_early`; `no_backpressure_stall` re-anchored on the new stall expression).
+
+### 2. board_ctrl / UART verification
+New directed cases in `tools/board/run_uart_rtl.py`: a byte with a bad stop bit is dropped; a second 'T' frame sent while a step runs is ignored; WREN/RDSR/WRDI/RDSR and RDCR between decode steps
+(reader parked with CS# low) with the following steps still bit-exact; the reported cycle count must equal the testbench's own count of dec_start to dec_done (it was only a range check before).
+**Defined behaviour for a request while busy:** bytes that arrive while a step or an SPI transaction runs are ignored, no response is generated for them, and the engine state is unaffected;
+the host must wait for the response before the next frame. Tested: the ignored frame uses token 9 / pos 2; the next step (token and position from the golden) is still bit-exact, which would fail if the
+ignored frame had run (it would have written KV position 2 early and returned a second response, which the test also checks for).
+The flash model gained WRDI (04h). UART TB: 87 checks, 0 mismatches, 4 steps bit-exact, 930,682 cycles reported per step.
+
+Fault unit `board` (`tools/decode/fault_inject.py`, runner in fast mode, stops at the first error; a flash-model `$fatal` counts as detection):
+
+| fault | file | result |
+|---|---|---|
+| tx bit period one count too long | uart_tx.sv | detected (at the simulated CPB = 8 that is 12.5% per bit; see the 115200 note) |
+| receiver takes 7 data bits | uart_rx.sv | detected |
+| receiver ignores the stop bit | uart_rx.sv | detected (bad-stop-bit frame) |
+| logit bytes swapped in the response | board_ctrl.sv | detected |
+| cycle-count bytes swapped | board_ctrl.sv | detected |
+| request token bytes swapped | board_ctrl.sv | detected |
+| request position taken from the wrong byte | board_ctrl.sv | detected |
+| probe index off by one | board_ctrl.sv | detected |
+| SPI response one byte short | board_ctrl.sv | detected |
+| SPI transaction one clock short | board_ctrl.sv | detected |
+| partial-frame timeout never fires | board_ctrl.sv | detected |
+| 'R' response sent before done | board_ctrl.sv | detected |
+| flash image offset 0x270000 instead of 0x280000 | boolean_core.sv | detected |
+| cycle count off by one | board_ctrl.sv | detected (exact check) |
+| CS# not released at the end of an S frame | board_ctrl.sv | proven equivalent (reason in the JSON) |
+| SPI takeover without the 256-cycle settle wait | board_ctrl.sv | proven equivalent (reason in the JSON) |
+The first version of the CS# fault survived the original TB; I added the WREN/WRDI directed cases (they pass) and then concluded from the pin mux that the fault is unobservable and wrote the proof
+rather than leaving it undetected: the CS# rise that latches WREN/WRR is only deferred to the next CS# rise (next S frame or decode seek), which always precedes the next command byte.
+**UART baud at the real 115200 baud (CPB = 434):** a +-1 count error is 0.23% per bit, 2.2% of a bit period accumulated at the stop-bit sample (9.5 bit times), against a +-50% mid-bit sampling window, so it is within tolerance
+and unobservable on the board; the simulation uses CPB = 8 where the same error is 12.5% per bit and is detected, which exercises the divider logic.
+
+### Reruns after the reader/core change
+qspi unit 10/10 pass, qspi faults 12 + 2, qspi e2e (reader + pad registers + flash model, 260K KV8, 1 prompt, gen 8) 0 mismatches, 930,680.6 cycles/token, UART TB, board faults, implementation. The decode e2e
+artifacts with the ideal stream and the 15M decode e2e do not depend on the reader or board files and were not rerun.
+
+### Open issues (M6)
+- Still never run on hardware (see M4/M5): STARTUPE2 start-up edges, QUAD state, real pad delays. The 2.9 ns input-hold margin rests on the min TUSRCCLKO/tHO numbers and an assumed zero minimum trace delay.
+- Trace delays are an assumption (0 to 0.5 ns); the Boolean layout is not public.
+- The multicycle exceptions encode RTL behaviour (phase of pad-register updates); a change to `HALF`/`CAP_DLY` or to when `qspi_reader` updates its outputs invalidates the XDC.
+- The XDC numbers come from datasheet rev 05 (2012) and a docs-page summary of DS189; the current Infineon S25FL128S datasheet was not available.
+
+Synthesis records refreshed after the reader change (default CAP_DLY = 0 wrapper builds): `qspi_reader` 59 LUT / 98 FF / 0 BRAM, WNS +13.972 ns; `top_decode_15m_qspi` 20,376 LUT / 9,323 FF / 73 DSP / 67 BRAM36, WNS +1.169 ns.

@@ -8,7 +8,7 @@ file mkdir build/boolean
 foreach f {rtl/decode/decode_pkg.sv rtl/decode/seq_mul.sv rtl/decode/mul_pipe.sv rtl/decode/div_const_pipe.sv rtl/decode/gemv_unit.sv
            rtl/decode/act_quant.sv rtl/decode/rmsnorm.sv rtl/decode/vec_alu.sv rtl/decode/attention.sv rtl/decode/top_decode.sv
            rtl/decode/qspi_reader.sv rtl/board/uart_rx.sv rtl/board/uart_tx.sv rtl/board/board_ctrl.sv rtl/board/boolean_core.sv
-           rtl/board/qspi_pads.sv rtl/board/boolean_top.sv} {
+           rtl/board/qspi_pad_regs.sv rtl/board/qspi_pads.sv rtl/board/boolean_top.sv} {
     read_verilog -sv $f
 }
 read_xdc constraints/boolean_xc7s50.xdc

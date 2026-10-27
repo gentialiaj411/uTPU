@@ -24,7 +24,11 @@ module qspi_flash_model #(
     parameter int DUMMY = 8,
     parameter real TV = 7.65,            // ns, falling SCLK to output valid
     parameter real THO = 2.0,            // ns, output hold after falling SCLK
-    parameter real TCS = 10.0            // ns, CS# high time between read commands
+    parameter real TCS = 10.0,           // ns, CS# high time between read commands
+    parameter real TCSS = 0.0,           // ns, CS# active setup (CS# fall to first SCLK rise); 0 disables the check
+    parameter real TCSH = 0.0,           // ns, CS# active hold (last SCLK rise to CS# rise); 0 disables
+    parameter real TSU = 0.0,            // ns, host data in setup before SCLK rise; 0 disables
+    parameter real THD = 0.0             // ns, host data in hold after SCLK rise; 0 disables
 ) (
     input  logic       sck, cs_n,
     input  logic [3:0] host_o, host_oe,
@@ -41,23 +45,37 @@ module qspi_flash_model #(
     int phase = 0, bitn = 0, rises = 0;          // rises: rising edges in this command
     logic [7:0] instr; logic [31:0] addr;
     int unsigned rd_addr; int nib = 0; int over_read = 0, nbytes_out = 0, ncmds = 0;
-    realtime last_cs_rise = -1000.0;
+    realtime last_cs_rise = -1000.0, t_rise = -1000.0, t_chg = -1000.0, t_csfall = -1000.0;
+    // host-to-flash setup/hold checks (instruction, address, WRR data on IO0)
+    always @(host_o[0] or host_oe[0]) begin
+        if (cs_n === 1'b0 && (phase == 1 || phase == 2 || phase == 7) && THD > 0.0 && $realtime - t_rise < THD && $realtime - t_rise >= 0.0 && t_rise > 0.0)
+            $fatal(1, "FLASH: host data changed %0.2f ns after SCLK rise (tHD %0.1f)", $realtime - t_rise, THD);
+        t_chg = $realtime;
+    end
     logic [7:0] regsnap, sr1 = 8'h00, cr1 = {6'b0, QUAD_INIT, 1'b0}, regbyte, wrr_b0, wrr_b1;
     logic wel = 0; int wip_polls = 0, rbit = 0, ridx = 0; logic [7:0] id_bytes [6]; initial begin id_bytes[0] = 8'h01; id_bytes[1] = 8'h20; id_bytes[2] = 8'h18; id_bytes[3] = 8'h4D; id_bytes[4] = 8'h00; id_bytes[5] = 8'h80; end  // ID-CFI bytes 0..5, uniform 256 kB sectors
     int n_wrr = 0, n_quad_reads_blocked = 0;
     wire driving = (phase == 4);
 
-    always @(negedge cs_n) begin
+    logic cs_low = 1'b0;     // x->0 / 1->x transitions at start-up are not real CS# edges
+    always @(negedge cs_n) if (cs_n === 1'b0 && !cs_low) begin
+        cs_low = 1'b1;
         if (sck !== 1'b0) $fatal(1, "FLASH: CS# fell while SCLK=%b (mode 0 requires SCLK low)", sck);
         if ($realtime - last_cs_rise < TCS) $fatal(1, "FLASH: CS# high time %0.2f ns < tCS %0.1f ns", $realtime - last_cs_rise, TCS);
-        phase = 1; bitn = 0; rises = 0; instr = 0; addr = 0; nib = 0;
+        phase = 1; bitn = 0; rises = 0; instr = 0; addr = 0; nib = 0; t_csfall = $realtime; t_rise = -1000.0;
     end
-    always @(posedge cs_n) begin
+    always @(posedge cs_n) if (cs_n === 1'b1 && cs_low) begin
+        cs_low = 1'b0;
         if (sck !== 1'b0) $fatal(1, "FLASH: CS# rose while SCLK=%b", sck);
+        if (TCSH > 0.0 && rises > 0 && $realtime - t_rise < TCSH) $fatal(1, "FLASH: CS# rose %0.2f ns after the last SCLK rise (tCSH %0.1f)", $realtime - t_rise, TCSH);
         if ((phase == 1 || phase == 2 || phase == 3) && rises % 8 != 0) $fatal(1, "FLASH: CS# raised mid-byte of the command (%0d rising edges)", rises);
         if (phase == 6) begin
             if (rises != 8) $fatal(1, "FLASH: WREN with %0d clocks", rises);
             wel = 1;
+        end
+        if (phase == 8) begin
+            if (rises != 8) $fatal(1, "FLASH: WRDI with %0d clocks", rises);
+            wel = 0;
         end
         if (phase == 7) begin
             if (rises != 24) $fatal(1, "FLASH: WRR must clock 24 bits (SR1+CR1), got %0d", rises);
@@ -70,6 +88,10 @@ module qspi_flash_model #(
     end
     always @(posedge sck) if (cs_n === 1'b0) begin
         rises++;
+        if (rises == 1 && TCSS > 0.0 && $realtime - t_csfall < TCSS) $fatal(1, "FLASH: CS# fell %0.2f ns before the first SCLK rise (tCSS %0.1f)", $realtime - t_csfall, TCSS);
+        if (TSU > 0.0 && (phase == 1 || phase == 2 || phase == 7) && $realtime - t_chg < TSU)
+            $fatal(1, "FLASH: host data changed %0.2f ns before SCLK rise (tSU %0.1f)", $realtime - t_chg, TSU);
+        t_rise = $realtime;
         case (phase)
             1: begin
                 if (host_oe[0] !== 1'b1) $fatal(1, "FLASH: host not driving IO0 during instruction");
@@ -83,6 +105,7 @@ module qspi_flash_model #(
                         phase = 5; ridx = 0; rbit = 0;
                         regsnap = {sr1[7:2], wel, (wip_polls > 0)}; if (instr === 8'h05 && wip_polls > 0) wip_polls--;
                     end else if (ALLOW_REG_CMDS && instr === 8'h06) phase = 6;
+                    else if (ALLOW_REG_CMDS && instr === 8'h04) phase = 8;     // WRDI
                     else if (ALLOW_REG_CMDS && instr === 8'h01) phase = 7;
                     else $fatal(1, "FLASH: instruction %02h, expected %02h", instr, OPCODE);
                 end

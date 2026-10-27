@@ -6,16 +6,19 @@
   "vvp_command": "C:\\iverilog\\bin\\vvp.exe build/decode/qspi_*_tb.vvp",
   "mismatch_count": 0,
   "real_mismatch_count": 0,
-  "mutation_mismatch_count": 74095,
-  "mutation_expected": 74095,
+  "mutation_mismatch_count": 148199,
+  "mutation_expected": 148199,
   "mutation": "QSPI_MUTATE (nibble swap)",
-  "bytes_checked": 78462,
+  "bytes_checked": 157015,
   "variants": [
     {
       "variant": "a3_h1_late",
       "addr_bytes": 3,
       "half": 1,
       "sample_late": 1,
+      "pad_regs": 0,
+      "cap_dly": 0,
+      "delays_ns": {},
       "rc": 0,
       "summary": "SUMMARY errors=0 cycles=132362 bytes=15981 seeks=762 same_cycle=71 stall_edges=0 exp_mut=15082 over_read=4 cmds=610",
       "mutation_summary": "SUMMARY errors=15082 cycles=132362 bytes=15981 seeks=762 same_cycle=71 stall_edges=0 exp_mut=15082 over_read=4 cmds=610",
@@ -34,7 +37,7 @@
         "MISMATCH addr=2 got=9b exp=b9",
         "MISMATCH addr=3 got=ab exp=ba"
       ],
-      "sim_stdout_sha256": "e91cde9784fedc0fa091035aea13c382963b3aadb336edb31e702a324a1d819b",
+      "sim_stdout_sha256": "3116be836baf926b7b4ad34291de98d69293672d5e3cbd3d4231224c62d2714d",
       "ok": true
     },
     {
@@ -42,6 +45,9 @@
       "addr_bytes": 3,
       "half": 1,
       "sample_late": 0,
+      "pad_regs": 0,
+      "cap_dly": 0,
+      "delays_ns": {},
       "rc": 0,
       "summary": "SUMMARY errors=0 cycles=131665 bytes=16114 seeks=771 same_cycle=66 stall_edges=0 exp_mut=15212 over_read=4 cmds=610",
       "mutation_summary": "SUMMARY errors=15212 cycles=131665 bytes=16114 seeks=771 same_cycle=66 stall_edges=0 exp_mut=15212 over_read=4 cmds=610",
@@ -60,7 +66,7 @@
         "MISMATCH addr=2 got=9b exp=b9",
         "MISMATCH addr=3 got=ab exp=ba"
       ],
-      "sim_stdout_sha256": "ca11f773f34b7230d65a3082957fbb588b01892e2a604a746cfcda66e8f546e6",
+      "sim_stdout_sha256": "b8a24647959f865317371c6b07ef1ba878814e419abd24f6f6ab0a047e409b52",
       "ok": true
     },
     {
@@ -68,6 +74,9 @@
       "addr_bytes": 3,
       "half": 2,
       "sample_late": 1,
+      "pad_regs": 0,
+      "cap_dly": 0,
+      "delays_ns": {},
       "rc": 0,
       "summary": "SUMMARY errors=0 cycles=231516 bytes=15410 seeks=763 same_cycle=60 stall_edges=0 exp_mut=14559 over_read=4 cmds=519",
       "mutation_summary": "SUMMARY errors=14559 cycles=231516 bytes=15410 seeks=763 same_cycle=60 stall_edges=0 exp_mut=14559 over_read=4 cmds=519",
@@ -86,7 +95,7 @@
         "MISMATCH addr=2 got=9b exp=b9",
         "MISMATCH addr=3 got=ab exp=ba"
       ],
-      "sim_stdout_sha256": "9455e65faf70676463da2708141dc72e4b22bb1182ea05c3d168d2f54140557b",
+      "sim_stdout_sha256": "7960a6e8bae6e043bbcaf22e93717649df86a4b6d38b5f0ac86d6e06d1c81cbb",
       "ok": true
     },
     {
@@ -94,6 +103,9 @@
       "addr_bytes": 4,
       "half": 1,
       "sample_late": 1,
+      "pad_regs": 0,
+      "cap_dly": 0,
+      "delays_ns": {},
       "rc": 0,
       "summary": "SUMMARY errors=0 cycles=139116 bytes=15583 seeks=762 same_cycle=64 stall_edges=0 exp_mut=14730 over_read=4 cmds=594",
       "mutation_summary": "SUMMARY errors=14730 cycles=139116 bytes=15583 seeks=762 same_cycle=64 stall_edges=0 exp_mut=14730 over_read=4 cmds=594",
@@ -112,7 +124,7 @@
         "MISMATCH addr=2 got=9b exp=b9",
         "MISMATCH addr=3 got=ab exp=ba"
       ],
-      "sim_stdout_sha256": "91314dcb092d851b790e802101fe0525772d23ec129e5cc56b346069fafe1684",
+      "sim_stdout_sha256": "cba15dbf3ca68447d11942e993b13e8610e448e1af7f2bbfba3ac1c67aabde3a",
       "ok": true
     },
     {
@@ -120,6 +132,9 @@
       "addr_bytes": 3,
       "half": 3,
       "sample_late": 0,
+      "pad_regs": 0,
+      "cap_dly": 0,
+      "delays_ns": {},
       "rc": 0,
       "summary": "SUMMARY errors=0 cycles=334462 bytes=15374 seeks=762 same_cycle=60 stall_edges=0 exp_mut=14512 over_read=4 cmds=506",
       "mutation_summary": "SUMMARY errors=14512 cycles=334462 bytes=15374 seeks=762 same_cycle=60 stall_edges=0 exp_mut=14512 over_read=4 cmds=506",
@@ -138,7 +153,177 @@
         "MISMATCH addr=2 got=9b exp=b9",
         "MISMATCH addr=3 got=ab exp=ba"
       ],
-      "sim_stdout_sha256": "a4c9285cd51c0e43a52653d5676bc3b505c9f0d69a34924cbdab534989e0cf0e",
+      "sim_stdout_sha256": "df12f179fd4a41c4d58b3eaa73ee0cd0a8929393b9ca8bb40a6b39eccf7a25bd",
+      "ok": true
+    },
+    {
+      "variant": "pad_h1_late_slowin",
+      "addr_bytes": 3,
+      "half": 1,
+      "sample_late": 1,
+      "pad_regs": 1,
+      "cap_dly": 2,
+      "delays_ns": {
+        "sck_d": 7.5,
+        "out_d": 4.0,
+        "in_d": 2.0,
+        "tv": 8.0
+      },
+      "rc": 0,
+      "summary": "SUMMARY errors=0 cycles=133730 bytes=15798 seeks=762 same_cycle=67 stall_edges=0 exp_mut=14900 over_read=4 cmds=598",
+      "mutation_summary": "SUMMARY errors=14900 cycles=133730 bytes=15798 seeks=762 same_cycle=67 stall_edges=0 exp_mut=14900 over_read=4 cmds=598",
+      "mismatches": 0,
+      "bytes_checked": 15798,
+      "seeks": 762,
+      "same_cycle_seek_handoffs": 67,
+      "sclk_edges_during_4000_cycle_stall": 0,
+      "flash_commands": 598,
+      "reads_past_image_end_by_reader_lookahead": 4,
+      "mutation_mismatches": 14900,
+      "mutation_expected": 14900,
+      "fatal_lines": [
+        "MISMATCH addr=0 got=26 exp=62",
+        "MISMATCH addr=1 got=d2 exp=2d",
+        "MISMATCH addr=2 got=9b exp=b9",
+        "MISMATCH addr=3 got=ab exp=ba"
+      ],
+      "sim_stdout_sha256": "496f5e4d35d12b0817af77ba7e2d2c7914379ce36d324826a7ab5c103829a5e9",
+      "ok": true
+    },
+    {
+      "variant": "pad_h1_late_fastin",
+      "addr_bytes": 3,
+      "half": 1,
+      "sample_late": 1,
+      "pad_regs": 1,
+      "cap_dly": 2,
+      "delays_ns": {
+        "sck_d": 0.5,
+        "out_d": 6.5,
+        "in_d": 0.6,
+        "tv": 8.0
+      },
+      "rc": 0,
+      "summary": "SUMMARY errors=0 cycles=133730 bytes=15798 seeks=762 same_cycle=67 stall_edges=0 exp_mut=14900 over_read=4 cmds=598",
+      "mutation_summary": "SUMMARY errors=14900 cycles=133730 bytes=15798 seeks=762 same_cycle=67 stall_edges=0 exp_mut=14900 over_read=4 cmds=598",
+      "mismatches": 0,
+      "bytes_checked": 15798,
+      "seeks": 762,
+      "same_cycle_seek_handoffs": 67,
+      "sclk_edges_during_4000_cycle_stall": 0,
+      "flash_commands": 598,
+      "reads_past_image_end_by_reader_lookahead": 4,
+      "mutation_mismatches": 14900,
+      "mutation_expected": 14900,
+      "fatal_lines": [
+        "MISMATCH addr=0 got=26 exp=62",
+        "MISMATCH addr=1 got=d2 exp=2d",
+        "MISMATCH addr=2 got=9b exp=b9",
+        "MISMATCH addr=3 got=ab exp=ba"
+      ],
+      "sim_stdout_sha256": "af21d2e2838997334641aa541346c2abb8cf7fe1dd4925a33f7c6078d8b6115b",
+      "ok": true
+    },
+    {
+      "variant": "pad_h1_late_nodelay",
+      "addr_bytes": 3,
+      "half": 1,
+      "sample_late": 1,
+      "pad_regs": 1,
+      "cap_dly": 2,
+      "delays_ns": {
+        "sck_d": 0.0,
+        "out_d": 0.0,
+        "in_d": 0.0,
+        "tv": 2.5
+      },
+      "rc": 0,
+      "summary": "SUMMARY errors=0 cycles=133730 bytes=15798 seeks=762 same_cycle=67 stall_edges=0 exp_mut=14900 over_read=4 cmds=598",
+      "mutation_summary": "SUMMARY errors=14900 cycles=133730 bytes=15798 seeks=762 same_cycle=67 stall_edges=0 exp_mut=14900 over_read=4 cmds=598",
+      "mismatches": 0,
+      "bytes_checked": 15798,
+      "seeks": 762,
+      "same_cycle_seek_handoffs": 67,
+      "sclk_edges_during_4000_cycle_stall": 0,
+      "flash_commands": 598,
+      "reads_past_image_end_by_reader_lookahead": 4,
+      "mutation_mismatches": 14900,
+      "mutation_expected": 14900,
+      "fatal_lines": [
+        "MISMATCH addr=0 got=26 exp=62",
+        "MISMATCH addr=1 got=d2 exp=2d",
+        "MISMATCH addr=2 got=9b exp=b9",
+        "MISMATCH addr=3 got=ab exp=ba"
+      ],
+      "sim_stdout_sha256": "ffcc9ba0f569b26ef5b833670e79ee85ad5e21dcfcf02a12e8a897113dd0895d",
+      "ok": true
+    },
+    {
+      "variant": "pad_a4_h1_late_slowin",
+      "addr_bytes": 4,
+      "half": 1,
+      "sample_late": 1,
+      "pad_regs": 1,
+      "cap_dly": 2,
+      "delays_ns": {
+        "sck_d": 7.5,
+        "out_d": 4.0,
+        "in_d": 2.0,
+        "tv": 8.0
+      },
+      "rc": 0,
+      "summary": "SUMMARY errors=0 cycles=142102 bytes=15617 seeks=762 same_cycle=62 stall_edges=0 exp_mut=14737 over_read=4 cmds=587",
+      "mutation_summary": "SUMMARY errors=14737 cycles=142102 bytes=15617 seeks=762 same_cycle=62 stall_edges=0 exp_mut=14737 over_read=4 cmds=587",
+      "mismatches": 0,
+      "bytes_checked": 15617,
+      "seeks": 762,
+      "same_cycle_seek_handoffs": 62,
+      "sclk_edges_during_4000_cycle_stall": 0,
+      "flash_commands": 587,
+      "reads_past_image_end_by_reader_lookahead": 4,
+      "mutation_mismatches": 14737,
+      "mutation_expected": 14737,
+      "fatal_lines": [
+        "MISMATCH addr=0 got=26 exp=62",
+        "MISMATCH addr=1 got=d2 exp=2d",
+        "MISMATCH addr=2 got=9b exp=b9",
+        "MISMATCH addr=3 got=ab exp=ba"
+      ],
+      "sim_stdout_sha256": "d453a703d2a7a54604503708de28efbc4e5df659e2c8ec22119c003b0e944b1a",
+      "ok": true
+    },
+    {
+      "variant": "pad_h2_late_slowin",
+      "addr_bytes": 3,
+      "half": 2,
+      "sample_late": 1,
+      "pad_regs": 1,
+      "cap_dly": 2,
+      "delays_ns": {
+        "sck_d": 7.5,
+        "out_d": 4.0,
+        "in_d": 2.0,
+        "tv": 8.0
+      },
+      "rc": 0,
+      "summary": "SUMMARY errors=0 cycles=237260 bytes=15542 seeks=758 same_cycle=60 stall_edges=0 exp_mut=14667 over_read=4 cmds=555",
+      "mutation_summary": "SUMMARY errors=14667 cycles=237260 bytes=15542 seeks=758 same_cycle=60 stall_edges=0 exp_mut=14667 over_read=4 cmds=555",
+      "mismatches": 0,
+      "bytes_checked": 15542,
+      "seeks": 758,
+      "same_cycle_seek_handoffs": 60,
+      "sclk_edges_during_4000_cycle_stall": 0,
+      "flash_commands": 555,
+      "reads_past_image_end_by_reader_lookahead": 4,
+      "mutation_mismatches": 14667,
+      "mutation_expected": 14667,
+      "fatal_lines": [
+        "MISMATCH addr=0 got=26 exp=62",
+        "MISMATCH addr=1 got=d2 exp=2d",
+        "MISMATCH addr=2 got=9b exp=b9",
+        "MISMATCH addr=3 got=ab exp=ba"
+      ],
+      "sim_stdout_sha256": "483c9a19eaf44ef6cc409b773cf6c102689be17d4e3e36795061744a35990cb8",
       "ok": true
     }
   ]

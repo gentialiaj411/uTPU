@@ -14,7 +14,17 @@ from sim import compile_and_run, VVP
 
 NB = 16384
 # (name, ADDR_BYTES, HALF, SAMPLE_LATE)
-VARIANTS = [('a3_h1_late', 3, 1, 1), ('a3_h1_early', 3, 1, 0), ('a3_h2_late', 3, 2, 1), ('a4_h1_late', 4, 1, 1), ('a3_h3_early', 3, 3, 0)]
+# direct pads (no pad registers); then behind qspi_pad_regs with CAP_DLY=2 and board/flash delay corners:
+#   slowin : CCLK delay 7.5 (DS189 TUSRCCLKO max), flash tV 8.0 (max), 2.0 ns input path  -> worst input setup, fastest output
+#   fastin : CCLK delay 0.5 (TUSRCCLKO min), 6.5 ns output path, 0.6 ns input path       -> worst output setup, input hold
+VARIANTS = [dict(name='a3_h1_late', ab=3, half=1, late=1), dict(name='a3_h1_early', ab=3, half=1, late=0),
+            dict(name='a3_h2_late', ab=3, half=2, late=1), dict(name='a4_h1_late', ab=4, half=1, late=1),
+            dict(name='a3_h3_early', ab=3, half=3, late=0),
+            dict(name='pad_h1_late_slowin', ab=3, half=1, late=1, pads=1, sck_d=7.5, out_d=4.0, in_d=2.0, tv=8.0),
+            dict(name='pad_h1_late_fastin', ab=3, half=1, late=1, pads=1, sck_d=0.5, out_d=6.5, in_d=0.6, tv=8.0),
+            dict(name='pad_h1_late_nodelay', ab=3, half=1, late=1, pads=1, sck_d=0.0, out_d=0.0, in_d=0.0, tv=2.5),
+            dict(name='pad_a4_h1_late_slowin', ab=4, half=1, late=1, pads=1, sck_d=7.5, out_d=4.0, in_d=2.0, tv=8.0),
+            dict(name='pad_h2_late_slowin', ab=3, half=2, late=1, pads=1, sck_d=7.5, out_d=4.0, in_d=2.0, tv=8.0)]
 
 TB = r"""`timescale 1ns/1ps
 module qspi_tb;
@@ -22,14 +32,31 @@ module qspi_tb;
   logic clk = 0, rst = 1; always #10 clk = ~clk;
   logic seek_req = 0, st_ready = 0; logic [31:0] seek_addr = 0;
   wire st_valid; wire [7:0] st_data; wire sclk, cs_n; wire [3:0] io_o, io_oe, f_o, f_oe; tri [3:0] bus;
+  wire [3:0] io_i_c;
+  wire sck_m, cs_m; wire [3:0] host_o_m, host_oe_m;
+  // flash-side wiring. PADS=1: qspi_pad_regs between reader and pads, with board/trace delays in front of the flash model
+  // (SCK_D: USRCCLKO->CCLK, OUT_D: pad register -> flash, IN_D: flash -> input register) and CAP_DLY=2.
+  localparam bit PADS = %(pads)d;
+  localparam realtime SCK_D = %(sck_d)s, OUT_D = %(out_d)s, IN_D = %(in_d)s;
+  if (PADS) begin : g_pads
+    wire pad_sclk, pad_cs_n; wire [3:0] pad_io_o, pad_io_t, bus_in;
+    qspi_pad_regs pr (.clk, .sclk, .cs_n, .io_o, .io_oe, .pad_sclk, .pad_cs_n, .pad_io_o, .pad_io_t, .pad_io_i(bus_in), .io_i(io_i_c));
+    assign #(SCK_D) sck_m = pad_sclk;
+    assign #(OUT_D) cs_m = pad_cs_n;
+    assign #(OUT_D) host_o_m = pad_io_o;
+    assign #(OUT_D) host_oe_m = ~pad_io_t;
+    assign #(IN_D) bus_in = bus;
+  end else begin : g_direct
+    assign sck_m = sclk; assign cs_m = cs_n; assign host_o_m = io_o; assign host_oe_m = io_oe; assign io_i_c = bus;
+  end
   for (genvar i = 0; i < 4; i++) begin : g_bus
-    assign bus[i] = io_oe[i] ? io_o[i] : 1'bz;
+    assign bus[i] = host_oe_m[i] ? host_o_m[i] : 1'bz;
     assign bus[i] = f_oe[i] ? f_o[i] : 1'bz;
   end
-  qspi_reader #(.ADDR_BYTES(%(ab)d), .HALF(%(half)d), .SAMPLE_LATE(%(late)d), .DUMMY(8)) dut (.clk, .rst, .seek_req, .seek_addr,
-      .st_ready, .st_valid, .st_data, .sclk, .cs_n, .io_o, .io_oe, .io_i(bus));
-  qspi_flash_model #(.IMG("%(img)s"), .SIZE(NB), .ADDR_BYTES(%(ab)d), .DUMMY(8)) flash (.sck(sclk), .cs_n, .host_o(io_o), .host_oe(io_oe),
-      .flash_o(f_o), .flash_oe(f_oe));
+  qspi_reader #(.ADDR_BYTES(%(ab)d), .HALF(%(half)d), .SAMPLE_LATE(%(late)d), .DUMMY(8), .CAP_DLY(%(cap)d)) dut (.clk, .rst, .seek_req, .seek_addr,
+      .st_ready, .st_valid, .st_data, .sclk, .cs_n, .io_o, .io_oe, .io_i(io_i_c));
+  qspi_flash_model #(.IMG("%(img)s"), .SIZE(NB), .ADDR_BYTES(%(ab)d), .DUMMY(8), .TV(%(tv)s), .THO(2.0), .TCSS(3.0), .TCSH(3.0), .TSU(3.0), .THD(2.0))
+      flash (.sck(sck_m), .cs_n(cs_m), .host_o(host_o_m), .host_oe(host_oe_m), .flash_o(f_o), .flash_oe(f_oe));
   logic [7:0] img [NB]; initial $readmemh("%(img)s", img);
   integer errors = 0, cycles = 0, got = 0, seeks = 0, same_cycle = 0, stall_edges = 0, shown = 0, exp_mut = 0, unexpected_valid = 0;
   integer exp_ptr = 0;
@@ -115,16 +142,19 @@ def main():
     img_path = write_mem('qspi_img', list(img), 8)
     model = ROOT / 'tools/decode/tb/qspi_flash_model.sv'
     runs, tot_err, tot_mut, tot_exp = [], 0, 0, 0
-    for name, ab, half, late in VARIANTS:
+    for v in VARIANTS:
+        name, ab, half, late = v['name'], v['ab'], v['half'], v['late']
         if a.variants and name not in a.variants.split(','):
             continue
+        pads = v.get('pads', 0)
         tb = BUILD / f'qspi_{name}_tb.sv'
-        tb.write_text(TB % dict(nb=NB, ab=ab, half=half, late=late, img=img_path))
-        rc, out = compile_and_run([a.rtl, model], 'qspi_tb', tb)
-        mrc, mout = compile_and_run([a.rtl, model], 'qspi_tb', tb, defines=('QSPI_MUTATE',))
+        tb.write_text(TB % dict(nb=NB, ab=ab, half=half, late=late, img=img_path, pads=pads, cap=2 if pads else 0,
+                                sck_d=v.get('sck_d', 0.0), out_d=v.get('out_d', 0.0), in_d=v.get('in_d', 0.0), tv=v.get('tv', 7.65)))
+        rc, out = compile_and_run([a.rtl, model, ROOT / 'rtl/board/qspi_pad_regs.sv'], 'qspi_tb', tb)
+        mrc, mout = compile_and_run([a.rtl, model, ROOT / 'rtl/board/qspi_pad_regs.sv'], 'qspi_tb', tb, defines=('QSPI_MUTATE',))
         line, kv = parse_summary(out)
         mline, mkv = parse_summary(mout)
-        r = {'variant': name, 'addr_bytes': ab, 'half': half, 'sample_late': late, 'rc': rc, 'summary': line, 'mutation_summary': mline,
+        r = {'variant': name, 'addr_bytes': ab, 'half': half, 'sample_late': late, 'pad_regs': pads, 'cap_dly': 2 if pads else 0, 'delays_ns': {k: v[k] for k in ('sck_d', 'out_d', 'in_d', 'tv') if k in v}, 'rc': rc, 'summary': line, 'mutation_summary': mline,
              'mismatches': (int(kv['errors']) if 'errors' in kv else 0) + (1 if rc != 0 or 'errors' not in kv else 0),  # a model $fatal counts as a detection
              'bytes_checked': int(kv.get('bytes', 0)), 'seeks': int(kv.get('seeks', 0)),
              'same_cycle_seek_handoffs': int(kv.get('same_cycle', 0)), 'sclk_edges_during_4000_cycle_stall': int(kv.get('stall_edges', -1)),

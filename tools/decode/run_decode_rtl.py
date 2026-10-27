@@ -25,14 +25,15 @@ FLASH_IDEAL = r"""  assign st_valid = (phase == 0) && !seek_req;
 
 # QSPI: the reader + independent flash model (tools/decode/tb/qspi_flash_model.sv). The sim clock is 2 ns, so the
 # flash AC times are scaled by 1/10 (tV 0.765, tHO 0.2, tCS 1.0 ns); the unit test uses the datasheet values at 20 ns.
-FLASH_QSPI = r"""  wire sclk, cs_n; wire [3:0] io_o, io_oe, f_o, f_oe; tri [3:0] bus;
+FLASH_QSPI = r"""  wire sclk, cs_n; wire [3:0] io_o, io_oe, io_i_c, f_o, f_oe, pad_io_o, pad_io_t; wire pad_sclk, pad_cs_n; tri [3:0] bus;
+  qspi_reader #(.CAP_DLY(2)) qrd (.clk, .rst, .seek_req, .seek_addr, .st_ready, .st_valid, .st_data, .sclk, .cs_n, .io_o, .io_oe, .io_i(io_i_c));
+  qspi_pad_regs pr (.clk, .sclk, .cs_n, .io_o, .io_oe, .pad_sclk, .pad_cs_n, .pad_io_o, .pad_io_t, .pad_io_i(bus), .io_i(io_i_c));
   for (genvar i = 0; i < 4; i++) begin : g_bus
-    assign bus[i] = io_oe[i] ? io_o[i] : 1'bz;
+    assign bus[i] = !pad_io_t[i] ? pad_io_o[i] : 1'bz;
     assign bus[i] = f_oe[i] ? f_o[i] : 1'bz;
   end
-  qspi_reader qrd (.clk, .rst, .seek_req, .seek_addr, .st_ready, .st_valid, .st_data, .sclk, .cs_n, .io_o, .io_oe, .io_i(bus));
-  qspi_flash_model #(.IMG("%(img)s"), .SIZE(NB), .TV(0.765), .THO(0.2), .TCS(1.0)) flash (.sck(sclk), .cs_n, .host_o(io_o), .host_oe(io_oe),
-      .flash_o(f_o), .flash_oe(f_oe));"""
+  qspi_flash_model #(.IMG("%(img)s"), .SIZE(NB), .TV(0.765), .THO(0.2), .TCS(1.0), .TCSS(0.3), .TCSH(0.3), .TSU(0.3), .THD(0.2)) flash (.sck(pad_sclk), .cs_n(pad_cs_n),
+      .host_o(pad_io_o), .host_oe(~pad_io_t), .flash_o(f_o), .flash_oe(f_oe));"""
 
 TB = r"""`timescale 1ns/1ps
 module e2e_tb;
@@ -142,7 +143,7 @@ def main():
                             pw=max_seq.bit_length() - 1, limit=(2_000_000 if a.model == '260k' else 80_000_000) * (4 if a.flash == 'qspi' else a.period), **files))
     srcs = [Path(a.top_rtl) if (a.top_rtl and s == 'top_decode.sv') else ROOT / 'rtl/decode' / s for s in SRCS]
     if a.flash == 'qspi':
-        srcs += [ROOT / 'rtl/decode/qspi_reader.sv', ROOT / 'tools/decode/tb/qspi_flash_model.sv']
+        srcs += [ROOT / 'rtl/decode/qspi_reader.sv', ROOT / 'rtl/board/qspi_pad_regs.sv', ROOT / 'tools/decode/tb/qspi_flash_model.sv']
     rc, out = compile_and_run(srcs, 'e2e_tb', tb, defines=tuple(a.define))
     line, kv = parse_summary(out)
     step_lines = [x for x in out.splitlines() if x.startswith('STEP')]
@@ -152,7 +153,7 @@ def main():
                   'add_ffn', 'rms_final', 'quant_final', 'seek_cls', 'classifier', 'done']
     prof = {step_names[int(x.split()[1])]: int(x.split()[2]) for x in out.splitlines() if x.startswith('PROF')}
     o = {'status': 'pass' if rc == 0 and kv.get('errors') == '0' and kv.get('token_errors') == '0' and len(cyc) == len(steps) else 'fail',
-         'model': 'stories260K' if a.model == '260k' else 'stories15M', 'max_seq': max_seq, 'kv_bits': a.kv_bits, 'flash': a.flash, 'flash_bytes_per_cycle': (0.25 if a.flash == 'qspi' else 1 / a.period), 'prompts': prompts,
+         'model': 'stories260K' if a.model == '260k' else 'stories15M', 'max_seq': max_seq, 'kv_bits': a.kv_bits, 'flash': a.flash, 'qspi_pad_regs_cap_dly': (2 if a.flash == 'qspi' else None), 'flash_bytes_per_cycle': (0.25 if a.flash == 'qspi' else 1 / a.period), 'prompts': prompts,
          'generated_tokens_per_prompt': a.gen, 'steps': len(steps), 'logits_compared': len(steps) * params['VOCAB'],
          'logit_mismatches': int(kv.get('errors', -1)), 'token_mismatches': int(kv.get('token_errors', -1)),
          'image_bytes': len(img), 'cycles_per_token_mean': (sum(cyc) / len(cyc)) if cyc else None,

@@ -20,39 +20,152 @@
     "rtl/board/uart_tx.sv",
     "rtl/board/board_ctrl.sv",
     "rtl/board/boolean_core.sv",
+    "rtl/board/qspi_pad_regs.sv",
     "rtl/board/qspi_pads.sv",
     "rtl/board/boolean_top.sv"
   ],
-  "lut": 20726.0,
+  "lut": 20735.0,
   "lut_pct": 63.6,
-  "ff": 9815.0,
+  "ff": 9818.0,
   "dsp": 73.0,
   "bram36_equiv": 67.0,
-  "wns_ns": 1.418,
+  "wns_ns": 1.565,
   "tns_ns": 0.0,
-  "whs_ns": 0.008,
+  "whs_ns": 0.025,
   "ths_ns": 0.0,
   "timing_met": true,
-  "drc_checks_found": 37,
+  "drc_checks_found": 36,
   "drc_summary_rules": [
     [
       "DPIP-1",
       "Warning",
       "36"
-    ],
-    [
-      "IOSR-1",
-      "Warning",
-      "1"
     ]
   ],
   "drc_error_rules": [],
   "bitstream_note": "write_bitstream is not in the Tcl; no bitstream was generated",
+  "qspi_io_slack": {
+    "qspi_cs_n": {
+      "out_setup": {
+        "slack_ns": 14.242,
+        "from": "u_core/u_pr/cs_n_r_reg/C",
+        "to": "qspi_cs_n"
+      },
+      "out_hold": {
+        "slack_ns": 29.706,
+        "from": "u_core/u_pr/cs_n_r_reg/C",
+        "to": "qspi_cs_n"
+      }
+    },
+    "qspi_dq[0]": {
+      "out_setup": {
+        "slack_ns": 14.128,
+        "from": "u_core/u_pr/io_t_r_reg[0]/C",
+        "to": "qspi_dq[0]"
+      },
+      "out_hold": {
+        "slack_ns": 30.342,
+        "from": "u_core/u_pr/io_t_r_reg[0]/C",
+        "to": "qspi_dq[0]"
+      },
+      "in_setup": {
+        "slack_ns": 21.484,
+        "from": "qspi_dq[0]",
+        "to": "u_core/u_pr/io_i_r_reg[0]/D"
+      },
+      "in_hold": {
+        "slack_ns": 2.979,
+        "from": "qspi_dq[0]",
+        "to": "u_core/u_pr/io_i_r_reg[0]/D"
+      }
+    },
+    "qspi_dq[1]": {
+      "out_setup": {
+        "slack_ns": null,
+        "from": "none",
+        "to": "none"
+      },
+      "out_hold": {
+        "slack_ns": null,
+        "from": "none",
+        "to": "none"
+      },
+      "in_setup": {
+        "slack_ns": 21.494,
+        "from": "qspi_dq[1]",
+        "to": "u_core/u_pr/io_i_r_reg[1]/D"
+      },
+      "in_hold": {
+        "slack_ns": 2.969,
+        "from": "qspi_dq[1]",
+        "to": "u_core/u_pr/io_i_r_reg[1]/D"
+      }
+    },
+    "qspi_dq[2]": {
+      "out_setup": {
+        "slack_ns": 14.158,
+        "from": "u_core/u_pr/io_t_r_reg[2]/C",
+        "to": "qspi_dq[2]"
+      },
+      "out_hold": {
+        "slack_ns": 30.341,
+        "from": "u_core/u_pr/io_t_r_reg[2]/C",
+        "to": "qspi_dq[2]"
+      },
+      "in_setup": {
+        "slack_ns": 21.511,
+        "from": "qspi_dq[2]",
+        "to": "u_core/u_pr/io_i_r_reg[2]/D"
+      },
+      "in_hold": {
+        "slack_ns": 2.952,
+        "from": "qspi_dq[2]",
+        "to": "u_core/u_pr/io_i_r_reg[2]/D"
+      }
+    },
+    "qspi_dq[3]": {
+      "out_setup": {
+        "slack_ns": 14.163,
+        "from": "u_core/u_pr/io_t_r_reg[3]/C",
+        "to": "qspi_dq[3]"
+      },
+      "out_hold": {
+        "slack_ns": 30.341,
+        "from": "u_core/u_pr/io_t_r_reg[3]/C",
+        "to": "qspi_dq[3]"
+      },
+      "in_setup": {
+        "slack_ns": 21.516,
+        "from": "qspi_dq[3]",
+        "to": "u_core/u_pr/io_i_r_reg[3]/D"
+      },
+      "in_hold": {
+        "slack_ns": 2.947,
+        "from": "qspi_dq[3]",
+        "to": "u_core/u_pr/io_i_r_reg[3]/D"
+      }
+    },
+    "worst_hold": {
+      "slack_ns": 0.025,
+      "from": "u_core/u_dec/hcodes_reg[286]/C",
+      "to": "u_core/u_dec/attn/qc_reg[35][6]/D"
+    },
+    "worst_setup": {
+      "slack_ns": 1.565,
+      "from": "u_core/u_dec/gemv/s3_reg[0]/C",
+      "to": "u_core/u_dec/gemv/q4_reg[63]/D"
+    }
+  },
   "reports": {
     "util.rpt": "build/decode/synth/boolean_top/util.rpt",
     "timing.rpt": "build/decode/synth/boolean_top/timing.rpt",
     "drc.rpt": "build/decode/synth/boolean_top/drc.rpt",
     "io.rpt": "build/decode/synth/boolean_top/io.rpt",
-    "clock_util.rpt": "build/decode/synth/boolean_top/clock_util.rpt"
+    "clock_util.rpt": "build/decode/synth/boolean_top/clock_util.rpt",
+    "qspi_io_slack.txt": "build/decode/synth/boolean_top/qspi_io_slack.txt",
+    "qspi_in_paths.rpt": "build/decode/synth/boolean_top/qspi_in_paths.rpt",
+    "qspi_out_paths.rpt": "build/decode/synth/boolean_top/qspi_out_paths.rpt",
+    "clocks.rpt": "build/decode/synth/boolean_top/clocks.rpt",
+    "check_timing.rpt": "build/decode/synth/boolean_top/check_timing.rpt"
   }
 }
