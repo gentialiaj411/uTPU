@@ -1,0 +1,93 @@
+// Behavioral model of the Boolean board's QSPI flash (Spansion/Infineon S25FL128S) for the read path
+// only. Written from the S25FL128S datasheet (rev 05, sec. 10.4.4 Quad Output Read, tables 8.10/8.12,
+// AC characteristics), not from rtl/decode/qspi_reader.sv.
+//
+//  * SPI mode 0. Instruction 6Bh (3-byte address) or 6Ch (4-byte address) on IO0, then DUMMY
+//    clocks (8 for latency code 00 at <= 104 MHz), then 4 bits per SCLK on IO[3:0] on the falling
+//    edge, high nibble first. The address auto-increments. Data is driven X from tHO after a falling
+//    edge until tV after it, so sampling inside that window (or during the dummy clocks, where the
+//    bus is Hi-Z) yields X/Z.
+//  * $fatal on: wrong instruction; address beyond the image; CS# raised in the middle of a byte of the
+//    instruction/address/dummy phase; CS# edge while SCLK is high; CS# high time < tCS; host driving the
+//    bus while the flash drives data; host not driving IO0 in the instruction/address phase;
+//    SCLK pulses with CS# low but the instruction phase missing the quad bit (n/a).
+//  * Reads past the end of the image return 0xFF (erased flash) and are counted in over_read.
+//  * SCLK edges while CS# is high are ignored (the 7-series STARTUPE2 startup edges).
+`timescale 1ns/1ps
+module qspi_flash_model #(
+    parameter string IMG = "",
+    parameter int SIZE = 1024,           // image bytes
+    parameter int ADDR_BYTES = 3,
+    parameter int DUMMY = 8,
+    parameter real TV = 7.65,            // ns, falling SCLK to output valid
+    parameter real THO = 2.0,            // ns, output hold after falling SCLK
+    parameter real TCS = 10.0            // ns, CS# high time between read commands
+) (
+    input  logic       sck, cs_n,
+    input  logic [3:0] host_o, host_oe,
+    output logic [3:0] flash_o, flash_oe
+);
+    localparam logic [7:0] OPCODE = (ADDR_BYTES == 4) ? 8'h6C : 8'h6B;
+    logic [7:0] mem [SIZE];
+    initial begin
+        for (int i = 0; i < SIZE; i++) mem[i] = 8'hFF;
+        $readmemh(IMG, mem);
+        flash_o = 4'bz; flash_oe = 4'h0;
+    end
+    // phase: 0 idle, 1 instruction, 2 address, 3 dummy, 4 data
+    int phase = 0, bitn = 0, rises = 0;          // rises: rising edges in this command
+    logic [7:0] instr; logic [31:0] addr;
+    int unsigned rd_addr; int nib = 0; int over_read = 0, nbytes_out = 0, ncmds = 0;
+    realtime last_cs_rise = -1000.0;
+    wire driving = (phase == 4);
+
+    always @(negedge cs_n) begin
+        if (sck !== 1'b0) $fatal(1, "FLASH: CS# fell while SCLK=%b (mode 0 requires SCLK low)", sck);
+        if ($realtime - last_cs_rise < TCS) $fatal(1, "FLASH: CS# high time %0.2f ns < tCS %0.1f ns", $realtime - last_cs_rise, TCS);
+        phase = 1; bitn = 0; rises = 0; instr = 0; addr = 0; nib = 0;
+    end
+    always @(posedge cs_n) begin
+        if (sck !== 1'b0) $fatal(1, "FLASH: CS# rose while SCLK=%b", sck);
+        if ((phase == 1 || phase == 2 || phase == 3) && rises % 8 != 0) $fatal(1, "FLASH: CS# raised mid-byte of the command (%0d rising edges)", rises);
+        phase = 0; last_cs_rise = $realtime;
+        flash_o = 4'bz; flash_oe = 4'h0;
+    end
+    always @(posedge sck) if (cs_n === 1'b0) begin
+        rises++;
+        case (phase)
+            1: begin
+                if (host_oe[0] !== 1'b1) $fatal(1, "FLASH: host not driving IO0 during instruction");
+                instr = {instr[6:0], host_o[0]}; bitn++;
+                if (bitn == 8) begin
+                    if (instr !== OPCODE) $fatal(1, "FLASH: instruction %02h, expected %02h", instr, OPCODE);
+                    phase = 2; bitn = 0;
+                end
+            end
+            2: begin
+                if (host_oe[0] !== 1'b1) $fatal(1, "FLASH: host not driving IO0 during address");
+                addr = {addr[30:0], host_o[0]}; bitn++;
+                if (bitn == 8 * ADDR_BYTES) begin
+                    if (addr >= SIZE) $fatal(1, "FLASH: address %0d beyond the image (%0d bytes)", addr, SIZE);
+                    rd_addr = addr; phase = 3; bitn = 0; ncmds++;
+                    if (DUMMY == 0) phase = 4;
+                end
+            end
+            3: begin bitn++; if (bitn == DUMMY) phase = 4; end   // data launches on the next falling edge
+            4: begin
+                if (host_oe !== 4'h0) $fatal(1, "FLASH: host drives the bus (oe=%b) while the flash outputs data", host_oe);
+            end
+        endcase
+    end
+    // data launch: after the last dummy rising edge, each falling edge starts the next nibble
+    always @(negedge sck) if (cs_n === 1'b0 && phase == 4) begin
+        logic [7:0] b; logic [3:0] v;
+        b = (rd_addr < SIZE) ? mem[rd_addr] : 8'hFF;
+        v = (nib == 0) ? b[7:4] : b[3:0];
+        if (rd_addr >= SIZE && nib == 0) over_read++;
+        if (host_oe !== 4'h0) $fatal(1, "FLASH: host drives the bus (oe=%b) at a data launch", host_oe);
+        #(THO) if (cs_n === 1'b0) begin flash_o = 4'bx; flash_oe = 4'hF; end
+        #(TV - THO) if (cs_n === 1'b0) flash_o = v;
+        if (nib == 1) begin rd_addr = (ADDR_BYTES == 4) ? rd_addr + 1 : (rd_addr + 1) & 32'hFFFFFF; nbytes_out++; end
+        nib = 1 - nib;
+    end
+endmodule

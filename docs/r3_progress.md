@@ -271,7 +271,94 @@ End to end (golden = runtime logits and tokens), all 0 logit and 0 token mismatc
 | 260K KV8, 0.25 B/cycle | 169 | 86,528 | 950,247 |
 | 15M KV4, 1 B/cycle, 1 prompt x 8 | 11 | 352,000 | 13,287,867 (3.76 tok/s at 50 MHz) |
 
+Note on the 0.5 / 0.25 B/cycle rows: the M3 numbers (514,861 / 950,247) cover 5 prompts and 169 steps. The older figures in the first gate table (470,071 / 930,326) cover 2 prompts / 19 steps and 1 prompt / 10 steps. Mean cycles/token grows with position, so the two sets are not comparable. It is not a regression: the coordinator reran the old 2-prompt workload on a69cc17 and got 470,070.84 cycles/token, identical to before.
+
 `tools/decode_gate.py` now also requires: gemv15/attention15 passes, the attn15 and top fault units, `top_decode_15m` timing met,
 <= 68 BRAM36 and <= 85% LUT for it, and the 15M e2e artifact. Gate output: unmet = [].
 
 Open: BRAM margin is 1 BRAM36 (67/68). The 15M e2e covers one prompt of 8 tokens (11 steps); the full matrix ran on 260K only.
+
+## M4 - QSPI flash controller (2026-10-27, simulation + synthesis only, nothing run on hardware)
+
+### Flash part (source)
+- Boolean schematic (Real Digital, `https://www.realdigital.org/downloads/63f9a8205ebd9c2e8c2d265ad25097dc.pdf`, sheet 10 "QSPI"):
+  the flash symbol is labelled **S25FL128SAGMFI00** (Spansion/Cypress/Infineon S25FL128S, 128 Mb = 16 MB, 3.3 V, SOIC-16). Nets
+  QSPI_DQ0..DQ3, QSPI_CS and QSPI_SCK (FPGA pin CCLK_0 = C8). The product page (`realdigital.org/hardware/boolean`) says only "16MB QSPI".
+  The schematic text extracted from the PDF is garbled; the part name and the CCLK_0/C8 to QSPI_SCK link read cleanly, the other pin
+  locations do not and were NOT used.
+- Datasheet used: S25FL128S/S25FL256S rev 05 (Spansion, 12 Jul 2012; copy hosted by NXP at
+  `community.nxp.com/.../S25FL128S_256S_00.pdf`). I did not find the current Infineon revision (downloads blocked), so figures below are
+  from rev 05. The ordering-code suffix of the actual part (S25FL128SAGMFI00) was not decoded against the datasheet's ordering table.
+- Read command: **Quad Output Read 6Bh** (3-byte address; 6Ch for 4-byte). Address and instruction on IO0 only, data 4 bits/clock on IO[3:0],
+  falling-edge launch, high nibble first, auto-increment, wraps at the end of the array (sec. 10.4.4, Fig. 10.30). The 16 MB device is
+  fully reachable with 24-bit addresses, so `ADDR_BYTES=3` (parameter; 4 gives 6Ch).
+- Dummy cycles: **8** for 6Bh at latency codes 00/01/10 up to 104 MHz (tables 8.10/8.12; 0 dummy clocks only with LC=11 at <= 50 MHz);
+  Fig. 10.30 shows 8 dummy clocks. The table text came from a PDF-to-text extraction with scrambled columns; I cross-checked it with
+  Fig. 10.30 but did not read the table graphically. Default LC (CR1[7:6], non-volatile) is 00. `DUMMY` is a parameter. If someone had
+  programmed LC=11 the reader would misalign (documented, not detected).
+- Quad mode: **CR1[1] QUAD, non-volatile** (table 8.9); it must be 1 for 6Bh to drive IO2/IO3 ("The QUAD bit of Configuration Register must
+  be set (CR Bit1=1)"). It is written with WRR (01h) of {SR1, CR1}. The reader does not write it: it assumes QUAD=1. Open item: confirm on
+  the board (Vivado's flash programming for a x4 configuration normally sets it; not verified here).
+- Timing used: tV <= 7.65 ns (30 pF, 2.7-3.6 V), tHO >= 2 ns, tCS(read) >= 10 ns, tCSS/tCSH >= 3 ns, QOR fmax 104 MHz.
+
+### Clock pin (7-series)
+- The flash clock is CCLK_0, reachable after configuration only through STARTUPE2 (USRCCLKO, USRCCLKTS=0). `rtl/board/qspi_pads.sv` is the thin
+  wrapper (STARTUPE2 + 4 IOBUF + OBUF for CS#). It synthesizes in Vivado (1 STARTUPE2, 4 OBUFT, 1 OBUF; no errors). It has no pin
+  constraints (see M5 below). The core `qspi_reader.sv` contains no primitives and simulates in iverilog.
+- "First 3 USRCCLKO edges after configuration are swallowed" is taken from the task brief; I could not confirm it in an official document in
+  this session. Handled in the core: after reset it sends `STARTUP_PULSES` (4 pulses = 8 toggles) on SCLK with CS# high, which the flash ignores.
+  Caveat: this keeps SCLK idle-low only if the number of swallowed transitions is even (3 clock cycles lost = 6 transitions). If exactly 3
+  transitions were lost the pin would idle high after startup and every command would be inverted; first bring-up should look at SCLK with a
+  scope or ILA before trusting reads. Unverified on hardware.
+
+### Design (`rtl/decode/qspi_reader.sv`)
+- Interface is top_decode's flash port as is: in `seek_req, seek_addr, st_ready`; out `st_valid, st_data`. `st_valid = ob_valid && !seek_req`, so no
+  byte is offered in the seek cycle. One byte register plus one nibble register is the only buffering; the 4 KiB FIFO stays in top_decode. Zero BRAM.
+- SPI mode 0, SCLK = clk/(2*HALF) (HALF=1: 25 MHz at a 50 MHz core, 0.25 B per core cycle). `SAMPLE_LATE=1` (default) samples IO on the core
+  cycle that generates the falling edge (about one SCLK half period after the flash launched the data, before it changes); `0` samples at the
+  rising edge. Both are simulated; which one meets timing on the board depends on real pad and clock-to-out delays (open issue).
+- On `seek_req` (latched, newest address wins): stop at SCLK low and, inside the instruction/address/dummy phase, at a byte boundary; raise CS#;
+  hold CS# high `CS_HIGH`=2 core cycles (40 ns >= tCS 10 ns); CS# low; 8-bit opcode + 24-bit address on IO0 (IO2/IO3 driven high, IO1 input), IO
+  released after the last address bit; `DUMMY` clocks; then nibbles are captured and assembled high nibble first. Bytes assembled but not yet
+  delivered are dropped on a seek.
+- Backpressure: SCLK is stopped low (CS# held) when the next rising edge would complete a second byte while the output register is occupied and not being taken.
+- Parameters: `ADDR_BYTES, DUMMY, HALF, SAMPLE_LATE, STARTUP_PULSES, CS_HIGH`. `-DQSPI_MUTATE` swaps the nibbles.
+
+### Verification
+Flash model `tools/decode/tb/qspi_flash_model.sv` was written from the datasheet sections above, not from the reader. It `$fatal`s on: wrong
+opcode, address >= image size, CS# raised mid-byte of the instruction/address/dummy phase, CS# edge while SCLK is high, CS# high time < tCS, host not
+driving IO0 during instruction/address, host driving the bus while the flash drives data. It drives the data lines Hi-Z during the dummy clocks and
+X from tHO to tV after each falling edge (unit test: tV 7.65 / tHO 2 ns at a 20 ns clock; e2e scales these to its 2 ns clock). The model cannot see a
+wrong dummy count directly; it shows up as X/Z or shifted bytes, which the byte comparison catches.
+
+| item | result |
+|---|---|
+| unit `run_qspi_rtl.py` -> `decode_qspi_rtl.json`: address 0, last byte, every alignment 0..39, random aligned/unaligned, back-to-back seeks, 250 seeks mid-burst, 60 seeks in the cycle of a byte handoff, 4000-cycle stall (0 SCLK edges), slow consumers; 5 configs (3-byte HALF1 late/early, HALF2 late, 4-byte, HALF3 early) | 0 mismatches; 15.4k-16.1k bytes per config compared with the image; 60-71 same-cycle seek/handoff events per config |
+| mutation `QSPI_MUTATE` (nibble swap) | caught on exactly the expected bytes in all 5 configs (e.g. 15,082 of 15,082) |
+| fault injection `qspi` | 10 detected (dummy-1, nibble order, address byte order, opcode 0Bh, CS# not raised on seek, byte valid in seek cycle, stale byte kept on seek, no backpressure stall, abort mid command byte, stale capture after seek), 2 proven equivalent (reasons in the JSON) |
+| OOC `qspi_reader` @ 50 MHz | 63 LUT / 98 FF / 0 DSP / 0 BRAM, WNS +15.255 ns |
+| OOC `top_decode_15m_qspi` (15M top_decode + reader, wrapper from `tools/decode/gen_qspi_wrap.py`) | 20,366 LUT (62%), 9,323 FF, 73 DSP, 67 BRAM36, WNS +1.148 ns (standalone 15M was +0.525; routing variation, the reader adds 77 LUT) |
+| e2e stories260K KV8, 1 prompt, gen 8 through reader + model (`decode_e2e_rtl_kv8_p1_qspi.json`) | 10 steps, 5,120 logits + tokens, 0 mismatches, **930,673 cycles/token** |
+| same workload, ideal stream 0.25 B/cycle (`decode_e2e_rtl_kv8_p4_1prompt.json`) | 0 mismatches, 930,326 cycles/token |
+
+QSPI overhead: +347 cycles/token (+0.037%) over the ideal 0.25 B/cycle stream, about 87 cycles for each of the 4 seeks per token (abort, CS# gap,
+40 command SCLK cycles = 80 core cycles). The engine is stream-bound at 0.25 B/cycle, so on 260K the flash is the bottleneck.
+
+Stories15M through QSPI was NOT simulated (the 1 B/cycle run took about 3 hours; 0.25 B/cycle would take several times longer). Estimate: 11,633,661
+streamed bytes per token x 4 cycles/byte = 46.53 M cycles, plus about 350 for seeks, so **about 1.07 tok/s at 50 MHz**. The 260K run is within 0.04% of its
+stream bound at this rate, so compute should be hidden behind the slower stream. This is an estimate, not a measurement.
+
+### Gate
+`tools/decode_gate.py` now also requires: `decode_qspi_rtl` pass (all configs), the `qspi` fault unit, `qspi_reader` (0 BRAM) and `top_decode_15m_qspi`
+(timing, <= 68 BRAM36, <= 85% LUT) synth entries, and the QSPI e2e artifact (flash == qspi). Gate: exit 0, unmet = [].
+`tools/decode/run_decode_rtl.py` gained `--flash qspi`; the ideal path was re-run on a short workload and gives identical cycles to the previous
+script. top_decode and every other unit are untouched.
+
+### Open issues
+- Nothing ran on the board: STARTUPE2 startup-edge behaviour, the QUAD bit state, the sample point (early/late) against real pad and clock-to-out
+  delays, and IO2/IO3 floating/high during the instruction phase (the reader drives them high) are all unverified.
+- The flash part is read from the schematic's symbol label; datasheet rev 05 was used.
+- BRAM margin is still 1 BRAM36 (67/68); the reader adds none.
+- M5 (board top, UART, XDC) was not started. Real Digital's master constraints file lists the clock (F14), switches, LEDs, buttons, displays, UART_rxd (V12) and
+  more, but no QSPI pins, and the QSPI pin locations in the schematic extraction are unreliable. They must not be guessed; someone needs to read them off the
+  schematic (bank-14 dedicated D00..D03 / FCS_B pins) before `rtl/board/qspi_pads.sv` can be constrained.

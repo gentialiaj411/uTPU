@@ -275,5 +275,81 @@
       "detected": true,
       "ok": true
     }
+  },
+  "qspi": {
+    "dummy_count_off_by_one": {
+      "mismatches": 15329,
+      "real_mismatches": 15329,
+      "detected": true,
+      "ok": true
+    },
+    "nibble_order_swapped": {
+      "mismatches": 74095,
+      "real_mismatches": 74095,
+      "detected": true,
+      "ok": true
+    },
+    "address_byte_order_swapped": {
+      "mismatches": 5,
+      "real_mismatches": 5,
+      "detected": true,
+      "ok": true
+    },
+    "wrong_opcode_fast_read": {
+      "mismatches": 4,
+      "real_mismatches": 4,
+      "detected": true,
+      "ok": true
+    },
+    "cs_not_raised_on_seek": {
+      "mismatches": 5,
+      "real_mismatches": 5,
+      "detected": true,
+      "ok": true
+    },
+    "byte_valid_in_seek_cycle": {
+      "mismatches": 1124,
+      "real_mismatches": 1124,
+      "detected": true,
+      "ok": true
+    },
+    "seek_keeps_stale_byte": {
+      "mismatches": 1270,
+      "real_mismatches": 1270,
+      "detected": true,
+      "ok": true
+    },
+    "no_backpressure_stall": {
+      "mismatches": 24404,
+      "real_mismatches": 24404,
+      "detected": true,
+      "ok": true
+    },
+    "abort_mid_command_byte": {
+      "mismatches": 5,
+      "real_mismatches": 5,
+      "detected": true,
+      "ok": true
+    },
+    "stale_capture_after_seek": {
+      "mismatches": 12462,
+      "real_mismatches": 12462,
+      "detected": true,
+      "ok": true
+    },
+    "cs_high_gap_one_cycle": {
+      "mismatches": 0,
+      "real_mismatches": 0,
+      "detected": false,
+      "equivalent_reason": "equivalent at 50 MHz: CS# then stays high one core cycle (20 ns) which already exceeds tCS(read) = 10 ns; CS_HIGH=2 is only margin. The flash model checks tCS and the unit test (20 ns clock) and e2e (scaled) both pass it",
+      "ok": true
+    },
+    "abort_leaves_nib_ph": {
+      "mismatches": 0,
+      "real_mismatches": 0,
+      "detected": false,
+      "equivalent_reason": "equivalent: the S_GAP exit that starts the next command also clears nib_ph, and nibbles are only captured in S_RUN, so the stale value is never observed",
+      "ok": true
+    }
   }
 }
