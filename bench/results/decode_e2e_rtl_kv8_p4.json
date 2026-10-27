@@ -1,0 +1,72 @@
+{
+  "status": "pass",
+  "model": "stories260K",
+  "max_seq": 64,
+  "kv_bits": 8,
+  "flash_bytes_per_cycle": 0.25,
+  "prompts": [
+    [
+      1,
+      403,
+      260
+    ]
+  ],
+  "generated_tokens_per_prompt": 8,
+  "steps": 10,
+  "logits_compared": 5120,
+  "logit_mismatches": 0,
+  "token_mismatches": 0,
+  "image_bytes": 237632,
+  "cycles_per_token_mean": 930325.8,
+  "cycles_per_token_max": 930326,
+  "stream_bytes_per_token": 232554,
+  "busy_cycles_by_step": {
+    "embed": 7478,
+    "seek_layers": 20,
+    "rms_att": 208100,
+    "quant_att": 14700,
+    "wq": 720190,
+    "wk": 473600,
+    "wv": 473600,
+    "rope_q": 33700,
+    "rope_k": 16900,
+    "kv_store": 28100,
+    "attention": 310500,
+    "quant_o": 14700,
+    "wo": 543300,
+    "add_o": 25700,
+    "rms_ffn": 208100,
+    "quant_ffn": 14700,
+    "w1": 1255500,
+    "w3": 1478400,
+    "swiglu": 215100,
+    "quant_h": 39900,
+    "w2": 2336250,
+    "add_ffn": 25700,
+    "rms_final": 41620,
+    "quant_final": 2940,
+    "seek_cls": 20,
+    "classifier": 814430,
+    "done": 10
+  },
+  "golden_tokens": [
+    [
+      403,
+      407,
+      416,
+      432,
+      383,
+      286,
+      261,
+      376,
+      298,
+      315
+    ]
+  ],
+  "first_mismatches": [],
+  "vvp_command": "C:\\iverilog\\bin\\vvp.exe build/decode/e2e_tb.vvp",
+  "defines": [],
+  "sim_stdout_sha256": "ad4e147a237c37d93b1c156202760e02ca083f4b808770e656fc9d61946c01d0",
+  "summary": "SUMMARY steps=10 errors=0 token_errors=0 cycles=9303258",
+  "wall_seconds": 405.7
+}
