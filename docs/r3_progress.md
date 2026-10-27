@@ -159,7 +159,7 @@
 | e2e stories260K KV4, 1 B/cycle | 5 prompts, 169 steps, 86,528 logits + tokens, 0 mismatches, 424,026 cycles/token |
 | e2e stories260K KV8, 0.5 B/cycle | 2 prompts, 19 steps, 0 mismatches, 470,071 cycles/token (98.9% of stream bound) |
 | e2e stories260K KV8, 0.25 B/cycle | 1 prompt, 10 steps, 0 mismatches, 930,326 cycles/token (= stream bound) |
-| e2e stories15M KV4, 1 B/cycle | running (1 prompt, 11 steps, MAX_SEQ 128) |
+| e2e stories15M KV4, 1 B/cycle | "Once upon a" -> "time, there was a little girl named": 11 steps, 352,000 logits + tokens, 0 mismatches, 13,287,867 cycles/token (11,633,661 streamed bytes; 87.5% of stream bound; 3.76 tok/s at 50 MHz). Simulation of the 15M configuration only: it does not fit the xc7s50 as built. |
 
 Cycle counts are data-independent: the KV8 and KV4 runs produce different tokens but identical cycles.
 Cycles/token are means over the positions run (up to 35); attention cost grows with position.
