@@ -1108,6 +1108,8 @@ def _extract_requant_rightsizing(name: str, blob: Dict[str, Any]) -> List[Claim]
 
 
 def _generic_aggregate(name: str, blob: Dict[str, Any]) -> List[Claim]:
+    if not isinstance(blob, dict):   # list-shaped samples (chunk4_samples.json, chunk6_samples.json) carry no claims
+        return []
     tier = infer_tier(name, blob)
     claims: List[Claim] = []
     for section in ("aggregate", "summary"):

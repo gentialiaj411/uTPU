@@ -1,40 +1,89 @@
 {
   "meta": {
-    "generated_at_utc": "2026-08-04T18:22:51.154317+00:00",
-    "artifact_count": 50,
-    "claim_count": 75,
+    "generated_at_utc": "2026-10-28T01:59:23.134124+00:00",
+    "artifact_count": 106,
+    "claim_count": 86,
     "artifacts": [
-      "bench/results/_latency_vs_gpu_cuda_subprocess.json",
-      "bench/results/_latency_vs_gpu_cuda_subprocess.samples.json",
+      "bench/results/_buffer_resident_fashion_rtl20.json",
+      "bench/results/_buffer_resident_mnist_rtl20.json",
       "bench/results/baseline_8x8_current_rtl_synth.json",
       "bench/results/batched_gemm_correctness.json",
       "bench/results/board_fit_audit.json",
+      "bench/results/boolean_pin_check.json",
+      "bench/results/boolean_top_impl.json",
+      "bench/results/boolean_uart_rtl.json",
+      "bench/results/boolean_vec_unit_synth.json",
+      "bench/results/boolean_xc7s50_preflight.json",
+      "bench/results/boolean_xc7s50_synthesis_attempt.json",
       "bench/results/bstore_path_measure.json",
       "bench/results/bstore_wide_smoke.json",
       "bench/results/bstore_widen_lut_estimate.json",
+      "bench/results/buffer_resident_fashion_mlp.json",
+      "bench/results/buffer_resident_mnist_mlp.json",
+      "bench/results/chunk4_samples.json",
+      "bench/results/chunk6_samples.json",
       "bench/results/cost_model_heldout.json",
       "bench/results/cost_model_regression.json",
       "bench/results/cost_model_selection.json",
       "bench/results/cublas_baseline.json",
       "bench/results/cycle_attribution.json",
       "bench/results/cycle_attribution_mnist.json",
+      "bench/results/decode_act_quant_rtl.json",
+      "bench/results/decode_attention15_rtl.json",
+      "bench/results/decode_attention_rtl.json",
+      "bench/results/decode_bram_budget.json",
+      "bench/results/decode_classifier_rtl.json",
+      "bench/results/decode_e2e_rtl.json",
+      "bench/results/decode_e2e_rtl_15m_kv4_p1.json",
+      "bench/results/decode_e2e_rtl_kv4_p1.json",
+      "bench/results/decode_e2e_rtl_kv8_p1.json",
+      "bench/results/decode_e2e_rtl_kv8_p1_qspi.json",
+      "bench/results/decode_e2e_rtl_kv8_p2.json",
+      "bench/results/decode_e2e_rtl_kv8_p4.json",
+      "bench/results/decode_e2e_rtl_kv8_p4_1prompt.json",
+      "bench/results/decode_fault_injection.json",
+      "bench/results/decode_gemv15_rtl.json",
+      "bench/results/decode_gemv_rtl.json",
+      "bench/results/decode_qspi_rtl.json",
+      "bench/results/decode_residual_rtl.json",
+      "bench/results/decode_rms_rtl.json",
+      "bench/results/decode_rmsnorm_rtl.json",
+      "bench/results/decode_rope_rtl.json",
+      "bench/results/decode_silu_mul_rtl.json",
+      "bench/results/decode_synth_ooc.json",
+      "bench/results/decode_top_rtl.json",
+      "bench/results/decode_vec_alu_rtl.json",
       "bench/results/design_space_sweep.json",
-      "bench/results/double_buffer_overlap.json",
       "bench/results/fusion_payoff.json",
+      "bench/results/gptq_layer_report.json",
+      "bench/results/gptq_sanity.json",
+      "bench/results/isa_opcode_audit.json",
       "bench/results/latency_determinism.json",
       "bench/results/latency_determinism_vs_gpu.json",
       "bench/results/learned_cost_model_comparison.json",
+      "bench/results/legacy_isa_hashes.json",
+      "bench/results/llama2c_float_baseline.json",
       "bench/results/megakernel_payoff.json",
       "bench/results/multi_pe_sim.json",
+      "bench/results/numerics_v2_15m.json",
+      "bench/results/numerics_v2_15m_50k.json",
+      "bench/results/numerics_v2_15m_context.json",
+      "bench/results/numerics_v2_260k.json",
+      "bench/results/numerics_v2_chunk4.json",
+      "bench/results/numerics_v2_chunk5.json",
+      "bench/results/numerics_v2_chunk6.json",
       "bench/results/p4_2_vivado_reports.json",
       "bench/results/packed_array_cycle_compare.json",
       "bench/results/packed_dsp_synth.json",
       "bench/results/pe_array_packed_hardened.json",
       "bench/results/pe_array_packed_sim.json",
       "bench/results/pe_packed_pair_sim.json",
+      "bench/results/phase4a_vector_evidence.json",
       "bench/results/prog_depth_smoke.json",
       "bench/results/prog_depth_sweep.json",
       "bench/results/program_word_composition.json",
+      "bench/results/pruned_autotuner_replay.json",
+      "bench/results/pruning_policy_heldout.json",
       "bench/results/quantizer_pipe_depth_cost.json",
       "bench/results/real_model_accelerator.json",
       "bench/results/real_model_end_to_end.json",
@@ -44,10 +93,17 @@
       "bench/results/scheduler_rtl_crosscheck_bigmlp.json",
       "bench/results/selection_ab.json",
       "bench/results/steady_state_attribution.json",
+      "bench/results/stream_pack.json",
       "bench/results/superopt_payoff.json",
       "bench/results/systolic_characterization.json",
       "bench/results/tiling_correctness.json",
       "bench/results/timing_closure_sweep.json",
+      "bench/results/tiny_transformer_divergence.json",
+      "bench/results/tiny_transformer_numerics.json",
+      "bench/results/tiny_transformer_program_isa.json",
+      "bench/results/tiny_transformer_program_rtl.json",
+      "bench/results/tiny_transformer_vec_isa.json",
+      "bench/results/tiny_transformer_vec_rtl.json",
       "bench/results/top_packed_smoke.json",
       "bench/results/uart_preboard_roundtrip.json",
       "bench/results/utpu_attention_hybrid.json",
@@ -1490,6 +1546,160 @@
       }
     },
     {
+      "id": "pruned_autotuner_replay_summary_shape_count",
+      "category": "Pruned Autotuner Replay",
+      "headline": "shape count",
+      "value": 24,
+      "unit": "",
+      "tier": "sim",
+      "source_artifact": "bench/results/pruned_autotuner_replay.json",
+      "fence_note": "Auto-extracted from summary block.",
+      "tags": [],
+      "raw": {
+        "shape_count": 24
+      }
+    },
+    {
+      "id": "pruned_autotuner_replay_summary_full_candidate_count",
+      "category": "Pruned Autotuner Replay",
+      "headline": "full candidate count",
+      "value": 16,
+      "unit": "",
+      "tier": "sim",
+      "source_artifact": "bench/results/pruned_autotuner_replay.json",
+      "fence_note": "Auto-extracted from summary block.",
+      "tags": [],
+      "raw": {
+        "full_candidate_count": 16
+      }
+    },
+    {
+      "id": "pruned_autotuner_replay_summary_profiled_candidate_count",
+      "category": "Pruned Autotuner Replay",
+      "headline": "profiled candidate count",
+      "value": 5.125,
+      "unit": "",
+      "tier": "sim",
+      "source_artifact": "bench/results/pruned_autotuner_replay.json",
+      "fence_note": "Auto-extracted from summary block.",
+      "tags": [],
+      "raw": {
+        "profiled_candidate_count": 5.125
+      }
+    },
+    {
+      "id": "pruned_autotuner_replay_summary_search_reduction_x",
+      "category": "Pruned Autotuner Replay",
+      "headline": "search reduction x",
+      "value": 3.1219512195121952,
+      "unit": "",
+      "tier": "sim",
+      "source_artifact": "bench/results/pruned_autotuner_replay.json",
+      "fence_note": "Auto-extracted from summary block.",
+      "tags": [],
+      "raw": {
+        "search_reduction_x": 3.1219512195121952
+      }
+    },
+    {
+      "id": "pruned_autotuner_replay_summary_strict_top_k_profiled_candidate_count",
+      "category": "Pruned Autotuner Replay",
+      "headline": "strict top k profiled candidate count",
+      "value": 4,
+      "unit": "",
+      "tier": "sim",
+      "source_artifact": "bench/results/pruned_autotuner_replay.json",
+      "fence_note": "Auto-extracted from summary block.",
+      "tags": [],
+      "raw": {
+        "strict_top_k_profiled_candidate_count": 4
+      }
+    },
+    {
+      "id": "pruned_autotuner_replay_summary_strict_top_k_search_reduction_x",
+      "category": "Pruned Autotuner Replay",
+      "headline": "strict top k search reduction x",
+      "value": 4.0,
+      "unit": "",
+      "tier": "sim",
+      "source_artifact": "bench/results/pruned_autotuner_replay.json",
+      "fence_note": "Auto-extracted from summary block.",
+      "tags": [],
+      "raw": {
+        "strict_top_k_search_reduction_x": 4.0
+      }
+    },
+    {
+      "id": "pruning_policy_heldout_aggregate_fraction_best_in_menu_retained",
+      "category": "Pruning Policy Heldout",
+      "headline": "fraction best in menu retained",
+      "value": 0.6,
+      "unit": "",
+      "tier": "sim",
+      "source_artifact": "bench/results/pruning_policy_heldout.json",
+      "fence_note": "Auto-extracted from aggregate block.",
+      "tags": [],
+      "raw": {
+        "fraction_best_in_menu_retained": 0.6
+      }
+    },
+    {
+      "id": "pruning_policy_heldout_aggregate_fraction_within_1pct",
+      "category": "Pruning Policy Heldout",
+      "headline": "fraction within 1pct",
+      "value": 0.6,
+      "unit": "",
+      "tier": "sim",
+      "source_artifact": "bench/results/pruning_policy_heldout.json",
+      "fence_note": "Auto-extracted from aggregate block.",
+      "tags": [],
+      "raw": {
+        "fraction_within_1pct": 0.6
+      }
+    },
+    {
+      "id": "pruning_policy_heldout_aggregate_heldout_shape_count",
+      "category": "Pruning Policy Heldout",
+      "headline": "heldout shape count",
+      "value": 5,
+      "unit": "",
+      "tier": "sim",
+      "source_artifact": "bench/results/pruning_policy_heldout.json",
+      "fence_note": "Auto-extracted from aggregate block.",
+      "tags": [],
+      "raw": {
+        "heldout_shape_count": 5
+      }
+    },
+    {
+      "id": "pruning_policy_heldout_aggregate_max_regret_pct",
+      "category": "Pruning Policy Heldout",
+      "headline": "max regret pct",
+      "value": 2.9950305162172173,
+      "unit": "",
+      "tier": "sim",
+      "source_artifact": "bench/results/pruning_policy_heldout.json",
+      "fence_note": "Auto-extracted from aggregate block.",
+      "tags": [],
+      "raw": {
+        "max_regret_pct": 2.9950305162172173
+      }
+    },
+    {
+      "id": "pruning_policy_heldout_aggregate_mean_live_measurement_count_including_baseline",
+      "category": "Pruning Policy Heldout",
+      "headline": "mean live measurement count including baseline",
+      "value": 5.0,
+      "unit": "",
+      "tier": "sim",
+      "source_artifact": "bench/results/pruning_policy_heldout.json",
+      "fence_note": "Auto-extracted from aggregate block.",
+      "tags": [],
+      "raw": {
+        "mean_live_measurement_count_including_baseline": 5.0
+      }
+    },
+    {
       "id": "resnet18_eager_parity",
       "category": "Real model (CUDA)",
       "headline": "ResNet-18 eager parity (all seeds)",
@@ -1871,11 +2081,11 @@
         "cost_reduction_pct_max": 70.58823529411765,
         "cost_reduction_pct_median": 0.0,
         "median_egraph_cost": 95.0,
-        "median_pipeline_cost": 95.0,
+        "median_pipeline_cost": 105.0,
         "num_extractions_rejected_by_equiv_check": 0,
-        "num_graphs_evaluated": 36,
-        "num_phase_ordering_wins": 9,
-        "pct_graphs_with_any_win": 25.0
+        "num_graphs_evaluated": 516,
+        "num_phase_ordering_wins": 61,
+        "pct_graphs_with_any_win": 11.821705426356589
       }
     },
     {
@@ -1889,7 +2099,7 @@
       "fence_note": "Random-corpus baseline is often 0%; max shows upper bound.",
       "tags": [],
       "raw": {
-        "pct_graphs_with_any_win": 25.0
+        "pct_graphs_with_any_win": 11.821705426356589
       }
     },
     {
