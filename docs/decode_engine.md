@@ -1,25 +1,84 @@
 # R4 decode engine microarchitecture
 
-## As built (R3, simulation only) - 2026-10-26
+## As built (2026-10-27): RTL simulation and implementation only
 
-The sections below are the original plan. What exists in `rtl/decode/` and how it differs:
+Nothing in this section has run on hardware. No bitstream has been generated. Sources: `rtl/decode/top_decode.sv`,
+`rtl/decode/attention.sv`, `rtl/decode/qspi_reader.sv`, `rtl/board/*.sv`. Progress log and per-milestone detail: `docs/r3_progress.md`
+(M1 to M6). The original plan is kept, marked superseded, at the end of this file.
 
-- Units, each bit-exact against the numerics_v2 runtime function it implements (captured real
-  stories260K data + directed rounding-tie/range cases, mutation build, fault injection):
-  `gemv_unit` (16 MAC lanes + shared pipelined scaler), `act_quant` (qmax 127/7), `rmsnorm`
-  (sequential isqrt / restoring divider / radix-16 multiplier), `vec_alu` (RoPE, SwiGLU, residual
-  add, embedding scale), `attention` (on-chip KV cache, scores, softmax, 16-position AV blocks).
-- `top_decode`: a fixed-function sequencer FSM over the per-layer step list (no microcode ROM),
-  eight INT32 scratch buffers, a byte-wide valid/ready weight port with a seek request, and the
-  tile image format of `tools/decode/pack_decode_image.py` (classifier tiles double as the tied
-  embedding table). Results: see `docs/r3_progress.md` and `python tools/decode_gate.py`.
-- Deviations from the plan: the stream port is 8-bit with seek (not 32-bit with end-of-tensor);
-  there is no prefetch FIFO, so streaming and compute do not overlap (cycles/token = stream bytes
-  + about 160k compute cycles for stories260K at 1 B/cycle); scalar datapaths use DSP multipliers,
-  so the 260K build is 24,470 LUT / 73 DSP / 18.5 BRAM36 against the planned 11k LUT / 16 DSP.
-  Register-built arrays (tile buffers, scale register files) dominate FF/LUT and must move to
-  RAM before the stories15M configuration (D=288, H=768, KV cache ~56 BRAM36 at L128 KV4) fits.
+### Units
 
+Each unit is bit-exact against the numerics_v2 runtime function it implements, checked against golden captures from the real
+stories260K and stories15M runtimes plus directed rounding-tie and range cases, with mutation builds and fault injection
+(`bench/results/decode_fault_injection.json`).
+
+- `gemv_unit`: 16 signed lanes (`LANES = 16`), INT4 and INT8 weight rows, INT32 accumulation, shared pipelined scaler.
+- `act_quant`: dynamic group activation quantizer, qmax 127, or qmax 7 when `qmax7` is set (the INT4 KV-cache write path).
+- `rmsnorm`: sequential, one shared `seq_mul` plus a constant-divisor path (`div_const_pipe`).
+- `vec_alu`: RoPE, SwiGLU, residual add, embedding scale.
+- `attention`: on-chip KV cache, one merged memory for K and V. Codes are 8 bits per element for KV8 and 4 bits for KV4, with a
+  32-bit scale per head. Score, softmax, and 16-position AV blocks.
+
+### top_decode
+
+- Fixed-function sequencer FSM over a per-layer step list (embed, rms, quant, wq/wk/wv, rope, KV write, attention, wo, residual,
+  rms, quant, w1/w3, swiglu, quant, w2, residual; then final rms, classifier GEMV, argmax). There is no microcode ROM.
+- Eight INT32 scratch buffers (X, XB, Q, K, V, H1, H3, T) in one scratch RAM.
+- Weight stream: 8-bit `st_data` with valid/ready, plus a one-cycle `seek_req` with a 32-bit `seek_addr`. The data port is
+  8 bits wide, not 32.
+- Prefetch: a 4 KiB first-word-fall-through FIFO (`FIFO_DEPTH = 4096`), filled by a segment prefetcher that walks the four image
+  segments in consumption order (embedding codes, embedding scales, layers, classifier). Flash reads overlap compute through this
+  FIFO. The sequencer pops at most one byte per cycle, and GEMV compute between tiles is not hidden behind the stream.
+- Classifier GEMV over the tied INT4 table, with argmax (lowest index wins ties).
+
+### Board top (`rtl/board/`)
+
+- `boolean_top`: 100 MHz oscillator (pin F14) through an MMCM to a 50 MHz core clock, reset, QSPI pads (STARTUPE2 drives CCLK,
+  pad registers forced into the IOBs), UART (`UART_rxd` V12, `UART_txd` U11).
+- `boolean_core`: `board_ctrl` UART front end (`T` runs one decode step and probes a logit, `S` is single-bit SPI pass-through to
+  the flash, `V` is a link check), `top_decode`, and `qspi_reader`.
+- `qspi_reader`: Quad Output Read (6Bh, 3-byte address) on an S25FL128S, SPI mode 0, SCLK = clk/2, one byte every 4 core cycles.
+  The reader stops SCLK under backpressure and issues a fresh command on each seek.
+- Flash map: the weight image starts at `FLASH_BASE` = 0x280000 (2.5 MiB, above the bitstream). The image budget is
+  14,155,776 bytes. The stories15M image is 13,073,472 bytes.
+- Image format: `tools/decode/pack_decode_image.py` writes raw 16-row tiles (per-group scales before codes) with no compression.
+  The zlib1 codec exists only in `tools/decode/pack_stream.py`, a separate packer that the RTL path does not use.
+
+### Results
+
+Every number below is copied from the artifact named next to it. "Simulated" means RTL simulation (iverilog). "Implemented" means
+Vivado place-and-route, not a bitstream.
+
+| item | value | status | artifact |
+|---|---|---|---|
+| stories15M board top (`boolean_top`), xc7s50, post-route, 50 MHz | 20,735 LUT, 9,818 FF, 73 DSP, 67 BRAM36 of 75 physical (internal budget 68), WNS +1.565 ns, WHS +0.025 ns, 0 DRC errors, no bitstream | implemented | `bench/results/boolean_top_impl.json` |
+| stories15M ideal stream, 1 B/cycle, KV4, 1 prompt x 8 generated | 11 steps, 352,000 logits and tokens, 0 mismatches, 13,287,867 cycles/token mean (max 13,341,867), 11,633,661 streamed bytes/token | simulated | `bench/results/decode_e2e_rtl_15m_kv4_p1.json` |
+| stories260K through the QSPI flash model, KV8, 1 prompt x 8 | 10 steps, 0 mismatches, 930,680.6 cycles/token | simulated | `bench/results/decode_e2e_rtl_kv8_p1_qspi.json` |
+
+Derived values:
+
+- Ideal-stream throughput at 50 MHz: 50,000,000 / 13,287,867 = 3.76 tok/s. This is a simulated ideal-stream figure. It is not board
+  throughput.
+- Board throughput: about 1.07 tok/s. This is an ESTIMATE, not a measurement: 11,633,661 bytes/token x 4 core cycles/byte plus about
+  350 cycles of seeks, at 50 MHz (`docs/r3_progress.md`, M4). The 15M configuration has not been simulated through the QSPI model,
+  and no board run has been made.
+
+Other synthesis records (out-of-context, `bench/results/decode_synth_ooc.json`): `top_decode_15m` 20,289 LUT, 9,223 FF, 73 DSP,
+67 BRAM36, WNS +0.525 ns. `top_decode_260k` 15,492 LUT, 7,001 FF, 73 DSP, 12 BRAM36, WNS +0.829 ns.
+KV-cache BRAM36 for stories15M at context 128 is 104 for KV8 and 56 for KV4 (`bench/results/decode_bram_budget.json`).
+
+### Limits and open items
+
+- BRAM36 margin is 1 (67 of 68 internal budget). The gate in `tools/decode_gate.py` enforces the 68 limit.
+- Never run on hardware: STARTUPE2 start-up edges, the QUAD-enable state, and real pad and trace delays. The XDC timing assumptions
+  are in `docs/r3_progress.md` (M6).
+- The stories15M end-to-end run covers one prompt of 8 tokens (11 steps). The full prompt matrix ran on stories260K only.
+
+## Original plan (superseded, 2026-10-27)
+
+The plan below was written before R3 and is superseded by the as-built section above. Its budgets (11k LUT, 16 DSP, 1 microcoded
+sequencer, 32-bit stream, zlib image, under 58k compute cycles per token) are plan targets, not results. Where they disagree with the
+as-built section, the as-built section is correct.
 
 This is a separate `top_decode` build, with the frozen Phase-4 top and bitstream
 left untouched.  It is the safest integration boundary: the streaming-port model
