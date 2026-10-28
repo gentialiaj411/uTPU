@@ -47,6 +47,37 @@ module qspi_reader #(
     output logic [3:0]  io_oe,
     input  logic [3:0]  io_i
 );
+    // Elaboration guard: only parameter values exercised by tools/decode/run_qspi_rtl.py are accepted (audit N04: an untested
+    // value, e.g. a bug that only appears at HALF=4, must not be silently buildable). Tested sets: ADDR_BYTES {3,4},
+    // HALF {1,2,3,4}, DUMMY {0,8} (S25FL128S latency code 11 / 00), CAP_DLY {0,2}, STARTUP_PULSES {3,4} (UG470: the first
+    // 3 USRCCLKO cycles are lost, so < 3 would corrupt the first command), CS_HIGH {2}, SAMPLE_LATE {0,1}. Extend the
+    // test matrix before extending these sets. $error is ignored by some tools (iverilog 12), so an undefined module is
+    // instantiated as well to force an elaboration failure everywhere.
+    if (ADDR_BYTES != 3 && ADDR_BYTES != 4) begin : g_bad_addr_bytes
+        $error("qspi_reader: ADDR_BYTES=%0d untested (3 or 4)", ADDR_BYTES);
+        qspi_reader_untested_parameter_ADDR_BYTES u_bad ();
+    end
+    if (HALF < 1 || HALF > 4) begin : g_bad_half
+        $error("qspi_reader: HALF=%0d untested (1..4)", HALF);
+        qspi_reader_untested_parameter_HALF u_bad ();
+    end
+    if (DUMMY != 0 && DUMMY != 8) begin : g_bad_dummy
+        $error("qspi_reader: DUMMY=%0d untested (0 or 8)", DUMMY);
+        qspi_reader_untested_parameter_DUMMY u_bad ();
+    end
+    if (CAP_DLY != 0 && CAP_DLY != 2) begin : g_bad_cap_dly
+        $error("qspi_reader: CAP_DLY=%0d untested (0 or 2)", CAP_DLY);
+        qspi_reader_untested_parameter_CAP_DLY u_bad ();
+    end
+    if (STARTUP_PULSES != 3 && STARTUP_PULSES != 4) begin : g_bad_startup
+        $error("qspi_reader: STARTUP_PULSES=%0d untested (3 or 4; UG470 needs >= 3 cycles)", STARTUP_PULSES);
+        qspi_reader_untested_parameter_STARTUP_PULSES u_bad ();
+    end
+    if (CS_HIGH != 2) begin : g_bad_cs_high
+        $error("qspi_reader: CS_HIGH=%0d untested (2)", CS_HIGH);
+        qspi_reader_untested_parameter_CS_HIGH u_bad ();
+    end
+
     localparam int SHW = 8 + 8 * ADDR_BYTES;
     localparam int PRE = SHW + DUMMY;                 // rising edges before the first data rising edge
     localparam logic [7:0] OPC = (ADDR_BYTES == 4) ? 8'h6C : 8'h6B;

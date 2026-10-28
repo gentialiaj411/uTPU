@@ -2,9 +2,10 @@
 // only. Written from the S25FL128S datasheet (rev 05, sec. 10.4.4 Quad Output Read, tables 8.10/8.12,
 // AC characteristics), not from rtl/decode/qspi_reader.sv.
 //
-//  * SPI mode 0. Instruction 6Bh (3-byte address) or 6Ch (4-byte address) on IO0, then DUMMY
-//    clocks (8 for latency code 00 at <= 104 MHz), then 4 bits per SCLK on IO[3:0] on the falling
-//    edge, high nibble first. The address auto-increments. Data is driven X from tHO after a falling
+//  * SPI mode 0. Instruction 6Bh or 6Ch on IO0, then the address (3 bytes for 6Bh, 4 bytes for 6Ch, and also 4 bytes
+//    for 6Bh when BAR.EXTADD = 1; derived from the instruction and the register, NOT from a parameter that the reader
+//    could silently agree with), then the dummy clocks selected by the latency code LC = CR1[7:6] (table below), then
+//    4 bits per SCLK on IO[3:0] on the falling edge, high nibble first. The address auto-increments. Data is driven X from tHO after a falling
 //    edge until tV after it, so sampling inside that window (or during the dummy clocks, where the
 //    bus is Hi-Z) yields X/Z.
 //  * $fatal on: wrong instruction; address beyond the image; CS# raised in the middle of a byte of the
@@ -12,16 +13,29 @@
 //    bus while the flash drives data; host not driving IO0 in the instruction/address phase;
 //    SCLK pulses with CS# low but the instruction phase missing the quad bit (n/a).
 //  * Reads past the end of the image return 0xFF (erased flash) and are counted in over_read.
-//  * SCLK edges while CS# is high are ignored (the 7-series STARTUPE2 startup edges).
+//  * SCLK edges while CS# is high are ignored. The 7-series STARTUPE2 swallowing of the first USRCCLKO cycles is NOT
+//    modelled here; it is a separate shim (startupe2_cclk_shim) in the testbench between reader and flash.
+//
+// Dummy cycles for Quad Output Read 6Bh/6Ch per latency code (audit F08). Source: S25FL128S/S25FL256S datasheet
+// (rev 05, as read for docs/r3_progress.md M4): CR1[7:6] = LC1:LC0, non-volatile, default 00; latency code tables
+// 8.10/8.12 (SDR high-performance read latency vs. frequency) and Fig. 10.30 (8 dummy clocks shown): LC 00/01/10 give
+// 8 dummy cycles for 6Bh at <= 104 MHz, LC 11 gives 0 dummy cycles at <= 50 MHz. CAUTION: that table text came from a
+// PDF-to-text extraction with scrambled columns and could not be re-read graphically for this change (datasheet host
+// pages returned 403); the 01/10 entries are therefore the least certain. Only dummy_tbl below needs changing if
+// a graphical re-read differs. The frequency limits are not enforced (unit test: 25 MHz SCLK; e2e sims scale time by 10).
+// BAR (bank address register) EXTADD exists on the >= 256 Mb parts; it is modelled as a power-up parameter (EXTADD_INIT)
+// so a reader with 3-byte addressing against EXTADD=1 is detected. BAR writes (17h) are not modelled.
 `timescale 1ns/1ps
 module qspi_flash_model #(
     parameter string IMG = "",
     parameter int SIZE = 1024,           // flash bytes modelled (BASE + image bytes)
+    parameter bit SPARSE = 1'b0,         // 1: no stored image; every byte of the full 2^(8*alen) space is a hash of its address
+                                         //    (sparse_byte below) so address-path bugs on bits >= 14 are visible without a 16 MiB array
     parameter int BASE = 0,              // image offset in the flash (the bitstream lives below it)
     parameter bit QUAD_INIT = 1'b1,      // CR1[1] (QUAD) power-up value
+    parameter bit [1:0] LC_INIT = 2'b00, // CR1[7:6] (latency code) power-up value
+    parameter bit EXTADD_INIT = 1'b0,    // BAR[7] (4-byte address mode for 3-byte-address commands) power-up value
     parameter bit ALLOW_REG_CMDS = 1'b0, // also model RDID 9Fh, RDSR1 05h, RDCR 35h, WREN 06h, WRR 01h (single-bit)
-    parameter int ADDR_BYTES = 3,
-    parameter int DUMMY = 8,
     parameter real TV = 7.65,            // ns, falling SCLK to output valid
     parameter real THO = 2.0,            // ns, output hold after falling SCLK
     parameter real TCS = 10.0,           // ns, CS# high time between read commands
@@ -34,7 +48,18 @@ module qspi_flash_model #(
     input  logic [3:0] host_o, host_oe,
     output logic [3:0] flash_o, flash_oe
 );
-    localparam logic [7:0] OPCODE = (ADDR_BYTES == 4) ? 8'h6C : 8'h6B;
+    function automatic int dummy_tbl(input logic [1:0] lc);   // dummy clocks for 6Bh/6Ch per LC, see header
+        case (lc) 2'b00: return 8; 2'b01: return 8; 2'b10: return 8; default: return 0; endcase
+    endfunction
+    logic bar_extadd = EXTADD_INIT;
+    int alen = 3, dummy_n = 8;
+    function automatic logic [7:0] sparse_byte(input logic [31:0] a);   // arbitrary but address-dependent on all 32 bits
+        logic [31:0] h;
+        h = a ^ (a >> 13);
+        h = h * 32'h85EBCA6B;
+        h = h ^ (h >> 16);
+        return h[7:0] ^ h[15:8] ^ h[23:16] ^ h[31:24];
+    endfunction
     logic [7:0] mem [SIZE];
     initial begin
         for (int i = 0; i < SIZE; i++) mem[i] = 8'hFF;
@@ -52,7 +77,7 @@ module qspi_flash_model #(
             $fatal(1, "FLASH: host data changed %0.2f ns after SCLK rise (tHD %0.1f)", $realtime - t_rise, THD);
         t_chg = $realtime;
     end
-    logic [7:0] regsnap, sr1 = 8'h00, cr1 = {6'b0, QUAD_INIT, 1'b0}, regbyte, wrr_b0, wrr_b1;
+    logic [7:0] regsnap, sr1 = 8'h00, cr1 = {LC_INIT, 4'b0, QUAD_INIT, 1'b0}, regbyte, wrr_b0, wrr_b1;
     logic wel = 0; int wip_polls = 0, rbit = 0, ridx = 0; logic [7:0] id_bytes [6]; initial begin id_bytes[0] = 8'h01; id_bytes[1] = 8'h20; id_bytes[2] = 8'h18; id_bytes[3] = 8'h4D; id_bytes[4] = 8'h00; id_bytes[5] = 8'h80; end  // ID-CFI bytes 0..5, uniform 256 kB sectors
     int n_wrr = 0, n_quad_reads_blocked = 0;
     wire driving = (phase == 4);
@@ -98,8 +123,9 @@ module qspi_flash_model #(
                 instr = {instr[6:0], host_o[0]}; bitn++;
                 if (bitn == 8) begin
                     bitn = 0;
-                    if (instr === OPCODE) begin
+                    if (instr === 8'h6B || instr === 8'h6C) begin
                         if (!cr1[1]) $fatal(1, "FLASH: Quad Output Read issued with CR1.QUAD = 0");
+                        alen = (instr === 8'h6C || bar_extadd) ? 4 : 3;
                         phase = 2;
                     end else if (ALLOW_REG_CMDS && (instr === 8'h9F || instr === 8'h05 || instr === 8'h35)) begin
                         phase = 5; ridx = 0; rbit = 0;
@@ -107,19 +133,20 @@ module qspi_flash_model #(
                     end else if (ALLOW_REG_CMDS && instr === 8'h06) phase = 6;
                     else if (ALLOW_REG_CMDS && instr === 8'h04) phase = 8;     // WRDI
                     else if (ALLOW_REG_CMDS && instr === 8'h01) phase = 7;
-                    else $fatal(1, "FLASH: instruction %02h, expected %02h", instr, OPCODE);
+                    else $fatal(1, "FLASH: unsupported instruction %02h (expected 6Bh/6Ch)", instr);
                 end
             end
             2: begin
                 if (host_oe[0] !== 1'b1) $fatal(1, "FLASH: host not driving IO0 during address");
                 addr = {addr[30:0], host_o[0]}; bitn++;
-                if (bitn == 8 * ADDR_BYTES) begin
-                    if (addr >= SIZE) $fatal(1, "FLASH: address %0d beyond the image (%0d bytes)", addr, SIZE);
+                if (bitn == 8 * alen) begin
+                    if (!SPARSE && addr >= SIZE) $fatal(1, "FLASH: address %0d beyond the image (%0d bytes)", addr, SIZE);
                     rd_addr = addr; phase = 3; bitn = 0; ncmds++;
-                    if (DUMMY == 0) phase = 4;
+                    dummy_n = dummy_tbl(cr1[7:6]);     // latency code in force when the command is issued
+                    if (dummy_n == 0) phase = 4;
                 end
             end
-            3: begin bitn++; if (bitn == DUMMY) phase = 4; end   // data launches on the next falling edge
+            3: begin bitn++; if (bitn == dummy_n) phase = 4; end   // data launches on the next falling edge
             7: begin
                 if (host_oe[0] !== 1'b1) $fatal(1, "FLASH: host not driving IO0 during WRR data");
                 if (bitn < 8) wrr_b0 = {wrr_b0[6:0], host_o[0]}; else wrr_b1 = {wrr_b1[6:0], host_o[0]};
@@ -147,13 +174,13 @@ module qspi_flash_model #(
     // data launch: after the last dummy rising edge, each falling edge starts the next nibble
     always @(negedge sck) if (cs_n === 1'b0 && phase == 4) begin
         logic [7:0] b; logic [3:0] v;
-        b = (rd_addr < SIZE) ? mem[rd_addr] : 8'hFF;
+        b = SPARSE ? sparse_byte(rd_addr) : ((rd_addr < SIZE) ? mem[rd_addr] : 8'hFF);
         v = (nib == 0) ? b[7:4] : b[3:0];
-        if (rd_addr >= SIZE && nib == 0) over_read++;
+        if (!SPARSE && rd_addr >= SIZE && nib == 0) over_read++;
         if (host_oe !== 4'h0) $fatal(1, "FLASH: host drives the bus (oe=%b) at a data launch", host_oe);
         #(THO) if (cs_n === 1'b0) begin flash_o = 4'bx; flash_oe = 4'hF; end
         #(TV - THO) if (cs_n === 1'b0) flash_o = v;
-        if (nib == 1) begin rd_addr = (ADDR_BYTES == 4) ? rd_addr + 1 : (rd_addr + 1) & 32'hFFFFFF; nbytes_out++; end
+        if (nib == 1) begin rd_addr = (alen == 4) ? rd_addr + 1 : (rd_addr + 1) & 32'hFFFFFF; nbytes_out++; end
         nib = 1 - nib;
     end
 endmodule
