@@ -82,13 +82,29 @@ def pack(export, lut_dir_rel='rtl/decode/luts'):
     return bytes(img), params
 
 
+def load_export_15m():
+    """The stories15M export used by run_decode_rtl.py --model 15m (models/numerics_v2/gptq_qkv_wo_w2_int8_g32.npz)."""
+    root = Path(__file__).resolve().parents[2]
+    pay = np.load(root / 'models/numerics_v2/gptq_qkv_wo_w2_int8_g32.npz', allow_pickle=True)['payload'][0]
+    pay.pop('dynamic_base_scales')
+    return pay
+
+
 def main():
+    import argparse
     import sys
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     from harness import load_runtime_260k, BUILD
-    exp, _ = load_runtime_260k()
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--model', default='260k', choices=('260k', '15m'),
+                    help='which export to pack; output goes to build/decode/decode_image_<model>/')
+    a = ap.parse_args()
+    if a.model == '260k':
+        exp, _ = load_runtime_260k()
+    else:
+        exp = load_export_15m()
     img, params = pack(exp)
-    out = BUILD / 'decode_image_260k'
+    out = BUILD / f'decode_image_{a.model}'
     out.mkdir(parents=True, exist_ok=True)
     (out / 'image.bin').write_bytes(img)
     (out / 'params.json').write_text(json.dumps(params, indent=2) + '\n')

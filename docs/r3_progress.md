@@ -159,7 +159,7 @@
 | e2e stories260K KV4, 1 B/cycle | 5 prompts, 169 steps, 86,528 logits + tokens, 0 mismatches, 424,026 cycles/token |
 | e2e stories260K KV8, 0.5 B/cycle | 2 prompts, 19 steps, 0 mismatches, 470,071 cycles/token (98.9% of stream bound) |
 | e2e stories260K KV8, 0.25 B/cycle | 1 prompt, 10 steps, 0 mismatches, 930,326 cycles/token (= stream bound) |
-| e2e stories15M KV4, 1 B/cycle | "Once upon a" -> "time, there was a little girl named": 11 steps, 352,000 logits + tokens, 0 mismatches, 13,287,867 cycles/token (11,633,661 streamed bytes; 87.5% of stream bound; 3.76 tok/s at 50 MHz). Simulation of the 15M configuration only: it does not fit the xc7s50 as built. |
+| e2e stories15M KV4, 1 B/cycle | "Once upon a" -> "time, there was a little girl named": 11 steps, 352,000 logits + tokens, 0 mismatches, 13,287,867 cycles/token (11,633,661 streamed bytes; 87.5% of stream bound; 3.76 tok/s ideal-stream simulation at 50 MHz, not board throughput). Simulation of the 15M configuration only (no board run); the 15M build is implemented at 67 of 75 physical BRAM36 (see M2 and M6). |
 
 Cycle counts are data-independent: the KV8 and KV4 runs produce different tokens but identical cycles.
 Cycles/token are means over the positions run (up to 35); attention cost grows with position.
@@ -209,7 +209,7 @@ No numerics changed: every edit is storage mapping or read-pipeline timing; the 
 | BRAM36 | 112 | 67 | <= 68 |
 | WNS | n/a (not placed) | +0.525 ns | >= 0 |
 
-Margin warning: BRAM36 is 67 of the 68 budget (75 on the part). Anything that adds a memory needs to take one out.
+Margin warning: BRAM36 is 67 of 75 physical (68 internal budget). Anything that adds a memory needs to take one out.
 
 Per-array moves:
 
@@ -269,14 +269,14 @@ End to end (golden = runtime logits and tokens), all 0 logit and 0 token mismatc
 | 260K KV4, 1 B/cycle | 169 | 86,528 | 424,026 |
 | 260K KV8, 0.5 B/cycle | 169 | 86,528 | 514,861 |
 | 260K KV8, 0.25 B/cycle | 169 | 86,528 | 950,247 |
-| 15M KV4, 1 B/cycle, 1 prompt x 8 | 11 | 352,000 | 13,287,867 (3.76 tok/s at 50 MHz) |
+| 15M KV4, 1 B/cycle, 1 prompt x 8 | 11 | 352,000 | 13,287,867 (3.76 tok/s ideal-stream simulation at 50 MHz, not board throughput) |
 
 Note on the 0.5 / 0.25 B/cycle rows: the M3 numbers (514,861 / 950,247) cover 5 prompts and 169 steps. The older figures in the first gate table (470,071 / 930,326) cover 2 prompts / 19 steps and 1 prompt / 10 steps. Mean cycles/token grows with position, so the two sets are not comparable. It is not a regression: the coordinator reran the old 2-prompt workload on a69cc17 and got 470,070.84 cycles/token, identical to before.
 
 `tools/decode_gate.py` now also requires: gemv15/attention15 passes, the attn15 and top fault units, `top_decode_15m` timing met,
 <= 68 BRAM36 and <= 85% LUT for it, and the 15M e2e artifact. Gate output: unmet = [].
 
-Open: BRAM margin is 1 BRAM36 (67/68). The 15M e2e covers one prompt of 8 tokens (11 steps); the full matrix ran on 260K only.
+Open: BRAM margin is 1 BRAM36 (67 of 75 physical; 68 internal budget). The 15M e2e covers one prompt of 8 tokens (11 steps); the full matrix ran on 260K only.
 
 ## M4 - QSPI flash controller (2026-10-27, simulation + synthesis only, nothing run on hardware)
 
@@ -345,12 +345,12 @@ QSPI overhead: +347 cycles/token (+0.037%) over the ideal 0.25 B/cycle stream, a
 40 command SCLK cycles = 80 core cycles). The engine is stream-bound at 0.25 B/cycle, so on 260K the flash is the bottleneck.
 
 Stories15M through QSPI was NOT simulated (the 1 B/cycle run took about 3 hours; 0.25 B/cycle would take several times longer). Estimate: 11,633,661
-streamed bytes per token x 4 cycles/byte = 46.53 M cycles, plus about 350 for seeks, so **about 1.07 tok/s at 50 MHz**. The 260K run is within 0.04% of its
+streamed bytes per token x 4 cycles/byte = 46.53 M cycles, plus about 350 for seeks, so **about 1.07 tok/s at 50 MHz (ESTIMATE, not board throughput)**. The 260K run is within 0.04% of its
 stream bound at this rate, so compute should be hidden behind the slower stream. This is an estimate, not a measurement.
 
 ### Gate
 `tools/decode_gate.py` now also requires: `decode_qspi_rtl` pass (all configs), the `qspi` fault unit, `qspi_reader` (0 BRAM) and `top_decode_15m_qspi`
-(timing, <= 68 BRAM36, <= 85% LUT) synth entries, and the QSPI e2e artifact (flash == qspi). Gate: exit 0, unmet = [].
+(timing, <= 68 BRAM36, <= 85% LUT) synth entries, and the QSPI e2e artifact (flash == qspi). Gate: exit 0, unmet = [] on the M4 run. This does not show that the current RTL passes; the gate must be re-run after RTL changes.
 `tools/decode/run_decode_rtl.py` gained `--flash qspi`; the ideal path was re-run on a short workload and gives identical cycles to the previous
 script. top_decode and every other unit are untouched.
 
@@ -358,7 +358,7 @@ script. top_decode and every other unit are untouched.
 - Nothing ran on the board: STARTUPE2 startup-edge behaviour, the QUAD bit state, the sample point (early/late) against real pad and clock-to-out
   delays, and IO2/IO3 floating/high during the instruction phase (the reader drives them high) are all unverified.
 - The flash part is read from the schematic's symbol label; datasheet rev 05 was used.
-- BRAM margin is still 1 BRAM36 (67/68); the reader adds none.
+- BRAM margin is still 1 BRAM36 (67 of 75 physical; 68 internal budget); the reader adds none.
 - M5 (board top, UART, XDC) was not started. Real Digital's master constraints file lists the clock (F14), switches, LEDs, buttons, displays, UART_rxd (V12) and
   more, but no QSPI pins, and the QSPI pin locations in the schematic extraction are unreliable. They must not be guessed; someone needs to read them off the
   schematic (bank-14 dedicated D00..D03 / FCS_B pins) before `rtl/board/qspi_pads.sv` can be constrained.
@@ -433,7 +433,7 @@ All from the repo root. Vivado = `C:/AMDDesignTools/2025.2/Vivado/bin/vivado.bat
 - The ordering code suffix (sector size digit) is not known from the schematic; step 3 reads it from the chip.
 - No fault-injection set for `board_ctrl`/UART beyond the one mutation and the QUAD=0 negative test.
 - `boolean_core` defaults duplicate the 15M parameters (checked by `impl_top.py`, not generated).
-- BRAM margin is still 1 BRAM36 (67/68).
+- BRAM margin is still 1 BRAM36 (67 of 75 physical; 68 internal budget).
 
 ## M6 - board top hardening (2026-10-27, simulation + implementation only; no bitstream, no hardware)
 
@@ -547,8 +547,8 @@ All in `tools/decode/run_qspi_rtl.py`, `tools/decode/tb/qspi_flash_model.sv`, `r
   image base), the 14-bit boundary, 1/4/8 MiB points, the top of the 16 MiB flash (reads wrap), the 24-bit boundary and, for ADDR_BYTES=4, addresses up
   to `0xFFFFFFFF`. A mask of the seek address to 14 bits, or dropping bit 21 or bit 24, is now detected.
 - **N02 STARTUPE2.** All runs put `startupe2_cclk_shim` between the reader (or pad register) and the model: it holds the CCLK pin low for the first
-  `SWALLOW` USRCCLKO toggles. UG470 says the pin ignores the first three USRCCLKO clock cycles after configuration; the guide could not be re-read here,
-  so cycles vs edges is treated as ambiguous: default `SWALLOW=6` (three full cycles, worse case) in every run, plus `sw3edges_*` runs with 3 toggles; both pass
+  `SWALLOW` USRCCLKO toggles. UG470 v1.17 (Dec 2023) p. 89, verified by the coordinator from the AMD PDF: "The first three clock cycles on USRCCLKO after End of Startup
+  are used to switch the clock source and will not be output on the external CCLK pin." Default `SWALLOW=6` (three full cycles, matching that text) in every run, plus `sw3edges_*` runs with 3 toggles; both pass
   with `STARTUP_PULSES=4` (and 3). `STARTUP_PULSES` 0 (not clocked) is detected; the reader rejects `STARTUP_PULSES` outside {3,4}.
 - **N04 parameters.** Tested: ADDR_BYTES 3/4 x HALF 1..4 x SAMPLE_LATE 0/1 with direct pads; HALF 1..4 (3-byte, and 4-byte at HALF 1 and 4) behind the pad
   registers (CAP_DLY=2, SCLK/IO delay corners); DUMMY 0 (LC=11) and 8; STARTUP_PULSES 3 and 4; CS_HIGH 2. `qspi_reader` refuses any other
@@ -579,3 +579,11 @@ Sequence rule (decision): one sequence is positions 0,1,2,... in order. `next` a
 **F16:** `pin_check.py` parses `constraints/boolean_xc7s50.xdc` (PACKAGE_PIN and IOSTANDARD of every port, comments stripped), requires the XDC to constrain exactly the reviewed ports, compares each with the reviewed pin map, the bank VCCO-implied IOSTANDARD and the device PIN_FUNC, and, when `impl_top.py` has run, compares the placed PACKAGE_PIN/IOSTANDARD of the routed design (`ports_placed.txt`). The schematic PDF's sha256 (c4a874a7...1c4a, file `boolean.pdf` found in the audit scratch directory) and the revision string (KT-000-001-001-001 V2I1, as transcribed from the title block; the PDF text layer is scrambled so the revision is not machine-verified) are in `boolean_pin_check.json`.
 **Recovery:** simulated (robustness run): reset in the middle of a UART frame, in the middle of an SPI register read, in the middle of a decode step; after each the board answers V and RDID, produces no stray bytes, and the next decode steps match the golden. The flash model rejects a CS# rise inside a command byte, so the SPI reset is applied after the opcode (a real flash simply aborts the command).
 **Fault injection (board unit):** 13 new faults (token / pos / gap checks removed, watchdog disabled, abort not asserted / too short, pos bit 6 dropped, next-position never advances / not cleared by X / not cleared by reset, wrong error code, decode engine or flash reader not reset by the watchdog); all 12 behavioural faults detected (the unit testbench catches 11 of them within seconds, `decode_not_reset_by_watchdog` needs the stalled-stream full-system run), 1 documented equivalent (`reader_not_reset_by_watchdog`: the simulated stall does not hang the reader and the restarted engine's first seek aborts any burst, so the reader reset is defence in depth that no simulation stimulus can distinguish; stated as an argument, not a proof). The 15 earlier board faults are unchanged (13 detected, 2 equivalent). The `board` fault runner (`--fast`) now runs the unit testbench first and the 3.8M-cycle UART TB only if it passes.
+
+## Claim scope (2026-10-27)
+
+- Perplexity 2.918 is the stories15M integer model at KV8, context 256 (`bench/results/numerics_v2_15m_context.json`, config `ctx256_kv8`, perplexity 2.9177662). It is not the board configuration.
+- KV4/ctx128 (the board configuration): perplexity 3.4367 vs 3.0427 float at the same context (+12.9%), teacher-forced top-1 agreement 84.76%, 50,000 tokens (`bench/results/numerics_v2_15m_context.json`, config `ctx128_kv4`). This is the number to quote for the board.
+- Decode throughput: 3.76 tok/s is the simulated ideal-stream figure (`bench/results/decode_e2e_rtl_15m_kv4_p1.json`, 13,287,867 cycles/token at 50 MHz). Board throughput is an estimate (about 1.07 tok/s), not a measurement; nothing has run on a board.
+- BRAM36: 67 of 75 physical, against a 68 internal budget (`bench/results/boolean_top_impl.json`).
+- "Gate exit 0" in the M4 to M6 entries describes the artifacts present in that run. It does not by itself show that the current RTL passes.

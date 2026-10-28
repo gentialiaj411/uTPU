@@ -248,6 +248,7 @@ def _write_md(report: Dict[str, Any], output_md: Path) -> None:
             f"{row['exhaustive_best_latency_us']:.3f} | {row['pruned_best_latency_us']:.3f} | "
             f"{row['quality_regression_pct']:.2f}% |"
         )
+    Path(output_md).parent.mkdir(parents=True, exist_ok=True)
     Path(output_md).write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
