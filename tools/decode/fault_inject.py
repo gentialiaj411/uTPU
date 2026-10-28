@@ -24,6 +24,7 @@ FAULTS = {
     }),
     'vec': ('tools/decode/run_vec_rtl.py', 'rtl/decode/vec_alu.sv', {
         'rope_sign': ('rtl', "r0 = 32'(rshift_rne(t0 - t1, 7'd15));", "r0 = 32'(rshift_rne(t0 + t1, 7'd15));"),
+        'rope_h48_only_bitflip': ('rtl', "r0 = 32'(rshift_rne(t0 - t1, 7'd15));", "r0 = 32'(rshift_rne(t0 - t1, 7'd15)) ^ ((rope_half == 6'd24) ? 32'd2 : 32'd0);"),   # N07: only the 15M (HS=48) geometry corrupts
         'rope_cos_sin_lane_swap': ('rtl', "{c_r, s_r} <= rope_rom", "{s_r, c_r} <= rope_rom"),
         'rope_no_pair_wrap': ('rtl', "(pair_i + 1'b1 == rope_half) ? '0 :", "1'b0 ? '0 :"),
         'sigmoid_edge': ('rtl', "(idx_r > 64'sd512) ? 16'd32767", "(idx_r >= 64'sd512) ? 16'd32767"),
@@ -136,7 +137,8 @@ def main():
                 args = [sys.executable, str(ROOT / script), *extra, '--output', str(out), '--top-rtl', str(mutant)]
             else:
                 args = [sys.executable, str(ROOT / script), '--output', str(out), '--pkg' if which == 'pkg' else '--rtl', str(mutant)]
-            subprocess.run(args, check=True, capture_output=True)
+            r = subprocess.run(args, capture_output=True, text=True)   # runners exit 1 on a failing (i.e. detected) mutant
+            assert out.exists(), (unit, name, r.stderr[-400:])
             o = json.loads(out.read_text())
             if unit == 'top':
                 mm = o['logit_mismatches'] + o['token_mismatches']

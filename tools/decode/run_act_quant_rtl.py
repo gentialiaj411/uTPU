@@ -91,7 +91,7 @@ def main():
         'status': 'pass' if rc == 0 and errors == 0 and merrors == expected_mut else 'fail',
         'golden_source': man['source'], 'manifest_sha256': hashlib.sha256(man_bytes).hexdigest(),
         'real_groups': man['real_groups'], 'real_elements': man['real_elements'],
-        'random_directed_groups': man['random_directed_groups'], 'random_directed_elements': man['random_directed_elements'],
+        'random_directed_groups': man['random_directed_groups'], 'domain_edge_groups': man.get('domain_edge_groups', 0), 'random_directed_elements': man['random_directed_elements'],
         'mismatch_count': errors, 'real_mismatch_count': int(kv.get('real_errors', -1)),
         'first_mismatches': [x for x in out.splitlines() if x.startswith(('MISMATCH', 'SCALE'))],
         'mutation_mismatch_count': merrors, 'mutation_expected': expected_mut,
@@ -104,6 +104,8 @@ def main():
     a.output.parent.mkdir(parents=True, exist_ok=True)
     a.output.write_text(json.dumps(o, indent=2) + '\n')
     print(json.dumps({k: o[k] for k in ('status', 'mismatch_count', 'real_mismatch_count', 'mutation_mismatch_count', 'mutation_expected', 'cycles_per_group')}))
+    # TODO(integration): provenance
+    sys.exit(0 if o['status'] == 'pass' else 1)
 
 
 if __name__ == '__main__':

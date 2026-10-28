@@ -18,8 +18,9 @@ def i32(v):
     return [int(x) for x in np.asarray(v, dtype=np.int64).reshape(-1)]
 
 
-def main():
-    exp, rt = load_runtime_260k()
+def capture(exp, rt, run_real, accept, max_pos, tag):
+    """Build the case list for one geometry. run_real(rt) drives real decode; accept(kind, ctx) picks which real
+    captures to keep (the 15M decode is long); max_pos is the RoPE ROM position count."""
     cls = rr.RunQIntegerLlama
     half = int(exp['config']['head_size']) // 2
     base_cfg = {'silu_mult': rt.silu_index_multiplier, 'silu_shift': rt.silu_index_shift,
@@ -44,11 +45,17 @@ def main():
 
     # ---- real captures -------------------------------------------------------------------------
     orig_rope, orig_silu, orig_hidden, orig_emb = cls._rope_high, cls._silu_high, cls._hidden_high, cls._embedding_high
-    pending = {}
+    orig_fwd = cls._forward_hidden
+    pending, ctx = {}, {'pos': 0}
+
+    def fwd(self, token, position):
+        ctx['pos'] = int(position)
+        return orig_fwd(self, token, position)
 
     def rope(self, value, positions):
         out = orig_rope(self, value, positions)
-        rope_case(value, positions, out, 'real')
+        if accept('rope', int(positions)):
+            rope_case(value, positions, out, 'real')
         return out
 
     def silu(self, value):
@@ -58,11 +65,15 @@ def main():
 
     def hidden(self, s, h3):
         out = orig_hidden(self, s, h3)
-        swiglu_case(pending.pop('h1'), h3, out, base_cfg, 'real')
+        h1 = pending.pop('h1')
+        if accept('swiglu', ctx['pos']):
+            swiglu_case(h1, h3, out, base_cfg, 'real')
         return out
 
     def emb(self, ids):
         out = orig_emb(self, ids)
+        if not accept('emb', ctx['pos']):
+            return out
         code = self.embedding[ids].astype(np.int64)
         g = self.embedding_group_size
         groups = np.arange(code.size) // g
@@ -71,19 +82,21 @@ def main():
         mulshift_case(a, m, s, 'real')
         return out
 
-    cls._rope_high, cls._silu_high, cls._hidden_high, cls._embedding_high = rope, silu, hidden, emb
-    run_tokens(rt)
-    cls._rope_high, cls._silu_high, cls._hidden_high, cls._embedding_high = orig_rope, orig_silu, orig_hidden, orig_emb
+    cls._rope_high, cls._silu_high, cls._hidden_high, cls._embedding_high, cls._forward_hidden = rope, silu, hidden, emb, fwd
+    try:
+        run_real(rt)
+    finally:
+        cls._rope_high, cls._silu_high, cls._hidden_high, cls._embedding_high, cls._forward_hidden = orig_rope, orig_silu, orig_hidden, orig_emb, orig_fwd
     n_real = len(cases)
 
     rng = np.random.default_rng(55)
     # ---- RoPE: random positions/magnitudes and exact ties (x1 = 0, x0*c == 2^14 mod 2^15) ----------
     for i in range(60):
-        pos = int(rng.integers(0, 512)); mag = 1 << int(rng.integers(4, 31))
+        pos = int(rng.integers(0, max_pos)); mag = 1 << int(rng.integers(4, 31))
         x = rng.integers(-mag, mag, size=2 * half * 4)
         rope_case(x, pos, rt._rope_high(x, pos), 'random')
     for i in range(60):
-        pos = int(rng.integers(0, 512))
+        pos = int(rng.integers(0, max_pos))
         x = rng.integers(-(1 << 20), 1 << 20, size=2 * half).astype(np.int64)
         for j in range(half):
             c = int(rt.rope_cos[pos, j]); s = int(rt.rope_sin[pos, j])
@@ -122,10 +135,41 @@ def main():
         m = rng.integers(1, (1 << 31) - 1, 64) if i % 2 else ((2 * rng.integers(0, 4, 64) + 1) << (np.minimum(s, 28) - 1))
         mulshift_case(rng.integers(-128, 128, 64), m, s, 'random' if i % 2 else 'mulshift_tie')
 
-    meta = {'source': 'wrapped RunQIntegerLlama._rope_high/_silu_high/_hidden_high/_embedding_high',
+    # ---- directed range edges: int32 extremes at the ROM's first, last and wrap-adjacent positions -----
+    edge_vals = np.array([0, 1, -1, 2**31 - 1, -(2**31 - 1), -(2**31), 2**30, -(2**30), 12345, -12345], dtype=np.int64)
+    for pos in sorted({0, 1, max_pos // 2, max_pos - 2, max_pos - 1}):
+        x = np.tile(edge_vals, (2 * half * 2 // edge_vals.size) + 1)[:2 * half * 2]
+        rope_case(x, pos, rt._rope_high(x, pos), 'rope_edge')
+        x = np.roll(x, 3)
+        rope_case(x, pos, rt._rope_high(x, pos), 'rope_edge')
+
+    meta = {'source': 'wrapped RunQIntegerLlama._rope_high/_silu_high/_hidden_high/_embedding_high', 'geometry': tag,
+            'rope_half': half, 'rope_positions': max_pos,
+            'rope_positions_real': sorted({c['cfg']['rope_base'] // half for c in cases[:n_real] if c['op'] == OP_ROPE}),
             'real_cases': n_real, 'directed_random_cases': len(cases) - n_real}
+    return meta, cases
+
+
+def main():
+    exp, rt = load_runtime_260k()
+    meta, cases = capture(exp, rt, run_tokens, lambda kind, pos: True, 512, '260k')
     _, sha = save_cases('vec', meta, cases)
     print({**meta, 'beats': sum(len(c['beats']) for c in cases), 'sha256': sha})
+
+    # 15M geometry: HS=48 (RoPE half-width 24), h48 ROM with 128 positions, D=288, H=768. Real decode to position 127.
+    from numeric_domain import load_15m, eval_ids
+    exp15, rt15 = load_15m(8)
+    ids = eval_ids('15m', 200)
+    keep_rope = {0, 1, 2, 3, 4, 7, 8, 15, 16, 31, 32, 63, 64, 100, 126, 127}
+    keep_other = {0, 1, 2, 127}
+
+    def run15(rt):
+        for p in range(128):
+            rt._forward_hidden(ids[p], p)
+
+    meta15, cases15 = capture(exp15, rt15, run15, lambda kind, pos: pos in (keep_rope if kind == 'rope' else keep_other), 128, '15m')
+    _, sha15 = save_cases('vec15', meta15, cases15)
+    print({**meta15, 'beats': sum(len(c['beats']) for c in cases15), 'sha256': sha15})
 
 
 if __name__ == '__main__':

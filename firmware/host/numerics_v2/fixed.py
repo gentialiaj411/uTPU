@@ -57,12 +57,18 @@ def div127(value):
 
 
 def div_const_rne(value, denominator):
-    """Exact RNE division by a supported constant using reciprocal multiply.
+    """Division by a supported constant using a Q32 reciprocal multiply (no variable divide).
 
-    The reciprocal estimate is followed by a bounded residual correction (one
-    multiply/compare/subtract), so this contains no variable divide.  The
-    correction makes the Q32 approximation exact for every reachable numerator
-    (the runtime asserts |numerator| <= 2^31 before this boundary).
+    |numerator| <= 2^31 (narrow path): the reciprocal estimate plus a bounded residual
+    correction is exactly round-half-to-even division.
+
+    |numerator| > 2^31 (wide path): NOT exact RNE.  The estimate is rounded half up and
+    drifts from n/d by about |n| * |R/2^32 - 1/d| (R = reciprocal); the single +-1
+    correction cannot absorb that, so the result can be off by many units (e.g.
+    div_const_rne(288 * 2^32, 288) == 2^32 + 31).  Nothing asserts |numerator| <= 2^31 here.
+    The RTL reproduces this behaviour bit for bit.  Which call sites can reach the wide path,
+    and the measured error over their reachable ranges, are in docs/numeric_domain.md
+    (tools/decode/numeric_domain.py); only the RMSNorm mean (sum of squares) does.
     """
     d = int(denominator)
     if d <= 0:

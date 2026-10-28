@@ -30,6 +30,12 @@ def main():
  for token in (1,2,3): runtime.forward_argmax(token,len(runtime.tokens),4096)
  runtime4=RunQIntegerLlama(exp,ROOT/'firmware/host/numerics_v2/luts',kv_bits=4)
  for token in (1,2,3): runtime4.forward_argmax(token,len(runtime4.tokens),4096)
+ # 15M geometry: D=288 (4 groups of 64 + one of 32), H=768, KV groups of HS=48; real 15M activations at 15M scales.
+ from numeric_domain import load_15m, eval_ids
+ ids15=eval_ids('15m')
+ for kvb in (8,4):
+  _,rt15=load_15m(kvb)
+  for p in range(8): rt15._forward_hidden(ids15[p],p)
  rng=np.random.default_rng(77); directed=[np.zeros(64,dtype=np.int64),np.r_[1,np.zeros(63,dtype=np.int64)],np.r_[-(2**31-1),np.zeros(63,dtype=np.int64)],np.r_[2**31-1,np.zeros(63,dtype=np.int64)],np.arange(172,dtype=np.int64)]
  # Exact RNE ties in rshift_rne(x*recip, 24): peak=254*2^j gives recip=2^(23-j), so x = odd*2^j ties.
  for j in range(4):
@@ -50,5 +56,13 @@ def main():
    block=v[b:b+64]; qc=q.code[b:b+64]; qs=q.scale_multiplier[b//64]; records.append(save(a.output,len(records),block,type(q)(qc,np.asarray([qs]),len(block),q.qmax)))
  for i in range(300):
   n=64; v=rng.integers(-(2**31-1),2**31,size=n,dtype=np.int64); q=original(v,64); records.append(save(a.output,10000+i,v,q))
- n_rd=len(records)-n_real; manifest={'real_groups':n_real,'random_directed_groups':n_rd,'real_elements':sum(r['length'] for r in records[:n_real]),'random_directed_elements':sum(r['length'] for r in records[n_real:]),'records':records,'source':'wrapped runq_runtime._quantize'}; (a.output/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n'); print(json.dumps({k:manifest[k] for k in ('real_groups','random_directed_groups','real_elements','random_directed_elements')}))
+ # Domain edge (audit F11): INT32_MIN is outside the runtime's _quantize domain (peak cast to int32 -> ValueError).
+ # The RTL tracks |x| as an unsigned 32-bit magnitude, so INT32_MIN gives peak 2^31. The expected values below are the
+ # runtime's math with the peak kept in int64 (an extension of the domain, not a runtime behaviour); see docs/numeric_domain.md.
+ n_edge=0
+ for qm,n,first in ((127,64,-2**31),(7,48,-2**31),(127,64,2**31-1),(127,32,-2**31)):
+  v=np.zeros(n,dtype=np.int64); v[0]=first; v[1]=-(2**31) if first>0 else 2**31-1; v[2]=-(2**23) ; v[3]=3*2**22
+  pk=int(max(1,np.max(np.abs(v)))); rec=rr.reciprocal_rne(qm,pk); code=np.clip(rr.mul_recip(v,rec),-qm,qm).astype(np.int8)
+  records.append(save(a.output,20000+n_edge,v,rr.QValue(code,np.asarray([pk]),n,qm))); records[-1]['domain_edge']=True; n_edge+=1
+ n_rd=len(records)-n_real; manifest={'real_groups':n_real,'random_directed_groups':n_rd,'domain_edge_groups':n_edge,'real_elements':sum(r['length'] for r in records[:n_real]),'random_directed_elements':sum(r['length'] for r in records[n_real:]),'records':records,'source':'wrapped runq_runtime._quantize'}; (a.output/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n'); print(json.dumps({k:manifest[k] for k in ('real_groups','random_directed_groups','domain_edge_groups','real_elements','random_directed_elements')}))
 if __name__=='__main__': main()

@@ -142,3 +142,83 @@ def test_committed_int8_result_passes_quality_gate_and_reports_divergence():
     assert "logit_kl_float_to_candidate" in int8
     assert "median_first_divergence_step" in int8["greedy_agreement"]
     assert "identical_tokens_pct_vs_float" not in int8["greedy_agreement"]
+
+
+# ---- numeric domain contract (audit N07/F10/F11; see docs/numeric_domain.md) ---------------------------------------
+import importlib
+import sys
+
+import pytest
+
+
+def _numeric_domain():
+    sys.path.insert(0, str(ROOT / "tools/decode"))
+    return importlib.import_module("numeric_domain")
+
+
+HAVE_15M = (ROOT / "models/llama2c/stories15M.bin").exists() and (ROOT / "models/numerics_v2/gptq_qkv_wo_w2_int8_g32.npz").exists()
+
+
+def test_div_const_rne_is_exact_rne_up_to_2_pow_31():
+    nd = _numeric_domain()
+    rng = np.random.default_rng(5)
+    for d in (7, 64, 127, 288):
+        lim = 1 << 31
+        values = np.concatenate([rng.integers(-lim, lim + 1, 200_000), np.arange(-5000, 5001),
+                                 [lim, -lim, lim - 1, 1 - lim], (lim // d) * d + np.arange(-d, d + 1)])
+        values = values[np.abs(values) <= lim]
+        np.testing.assert_array_equal(div_const_rne(values, d), div_rne(values, d))
+
+
+def test_div_const_rne_wide_path_is_approximate_and_error_matches_first_order_bound():
+    # |n| > 2^31 takes the wide path: round-half-up estimate off by about n*|R/2^32 - 1/d| and one +-1 correction.
+    # Auditor example: mean of 288 squares of 65536 is exactly 2^32 but div_const_rne(288 * 2^32, 288) returns 2^32 + 31.
+    ss = np.int64(288) * (1 << 32)
+    assert int(div_const_rne(ss, 288)) == 4294967327 and int(div_rne(ss, 288)) == 1 << 32
+    nd = _numeric_domain()
+    rng = np.random.default_rng(6)
+    for d, hi in ((288, nd.RMS_SS_HI), (127, 127 * (1 << 31)), (7, 7 * (1 << 31)), (64, nd.RMS_SS_HI)):
+        prof = nd.error_profile(d, hi, 20_000, rng)
+        assert prof["max_err"] <= int(np.ceil(prof["first_order_err_at_hi"])) + 1, prof
+        if d == 64:
+            assert prof["max_err"] == 0          # power-of-two reciprocal is exact
+
+
+def _check_reachable(model, kv_bits, prompts, length):
+    nd = _numeric_domain()
+    probe, info, exp, rt = nd.probe_model(model, kv_bits, prompts, length, 8)
+    assert probe.sites, "no div_const_rne call sites observed"
+    for (site, d), r in probe.sites.items():
+        name = site.split(":")[0]
+        hi, _ = nd.site_hi(site, d, kv_bits)
+        if hi is not None:
+            assert r["max_abs_n"] <= hi, (model, kv_bits, site, d, r)
+        if name != "_rms_high":
+            # every non-RMSNorm site stays on the exact (|n| <= 2^31) path over eval text
+            assert r["max_abs_n"] <= nd.NARROW_LIMIT and r["wide_values"] == 0, (model, kv_bits, site, d, r)
+        else:
+            assert r["max_abs_n"] <= nd.RMS_SS_HI
+            bound = int(np.ceil(nd.error_profile(d, nd.RMS_SS_HI, 1000, np.random.default_rng(0))["first_order_err_at_hi"])) + 1
+            assert r["max_err"] <= bound, (site, d, r)
+    q = probe.quant
+    # F11: no quantizer input is INT32_MIN (the runtime's _quantize rejects it), and none comes close
+    assert q["int32_min_hits"] == 0 and q["min_raw"] > -(1 << 28) and q["max_raw"] < (1 << 28), q
+
+
+@pytest.mark.parametrize("kv_bits", (8, 4))
+def test_reachable_div_const_ranges_and_quantize_domain_260k(kv_bits):
+    _check_reachable("260k", kv_bits, 6, 40)
+
+
+@pytest.mark.skipif(not HAVE_15M, reason="stories15M model files not present")
+@pytest.mark.parametrize("kv_bits", (8, 4))
+def test_reachable_div_const_ranges_and_quantize_domain_15m(kv_bits):
+    _check_reachable("15m", kv_bits, 4, 24)
+
+
+def test_quantize_rejects_int32_min_and_accepts_int32_max():
+    from firmware.host.numerics_v2 import runq_runtime as rr
+    ok = rr._quantize(np.asarray([(1 << 31) - 1] + [0] * 63, dtype=np.int64))
+    assert int(ok.scale_multiplier[0]) == (1 << 31) - 1 and int(ok.code[0]) == 127
+    with pytest.raises(ValueError):
+        rr._quantize(np.asarray([-(1 << 31)] + [0] * 63, dtype=np.int64))

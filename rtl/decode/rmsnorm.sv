@@ -2,7 +2,8 @@
 //
 // Capture (one x/gamma pair per beat): ss += x*x in int64 (numpy wrap semantics).
 // Then, sequentially with one shared seq_mul:
-//   mean  = div_const_rne(ss, D) + eps          reciprocal estimate + correction (fixed.py)
+//   mean  = div_const_rne(ss, D) + eps          reciprocal estimate + correction (fixed.py); exact RNE only for ss <= 2^31,
+//                                               approximate above (docs/numeric_domain.md)
 //   root  = max(1, isqrt(mean << 30))           47-cycle digit-by-digit square root
 //   recip = div_rne(2^54, root)                 55-cycle restoring divider + RNE fixup
 // and per element (about 55 cycles each):
