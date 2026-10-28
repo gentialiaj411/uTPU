@@ -1,7 +1,7 @@
 """Differential test: rtl/decode/vec_alu.sv vs captured RoPE / SwiGLU / add / embedding-scale cases."""
 from __future__ import annotations
 import argparse, json
-from harness import ROOT, load_cases, write_mem, run_differential
+from harness import ROOT, load_cases, write_mem, run_differential, finish
 
 TB = r"""`timescale 1ns/1ps
 module vec_tb;
@@ -38,7 +38,8 @@ module vec_tb;
           got++;
         end
         #0.1;
-        if (cycles > 50000000) begin $display("TIMEOUT"); $finish; end
+        if (cycles > 50000000) begin errors++; $display("TIMEOUT case=%%0d: outputs never completed", c);
+          $display("SUMMARY cases=%%0d beats=%%0d errors=%%0d real_errors=%%0d cycles=%%0d", NC, NB, errors, real_errors, cycles); $finish; end
       end
       in_valid = 0;
       errors += bad; if (c < %(nreal)d) real_errors += bad;
@@ -75,8 +76,9 @@ def main():
                          {'golden_source': meta['source'], 'real_cases': meta['real_cases'],
                           'directed_random_cases': meta['directed_random_cases'], 'beats': len(beats),
                           'ops': {n: sum(1 for c in cases if c['op'] == i) for i, n in enumerate(('rope', 'swiglu', 'add', 'mulshift'))},
-                          'kinds': sorted({c['kind'] for c in cases})}, sha, a.output)
-    print(json.dumps({k: o[k] for k in ('status', 'mismatch_count', 'real_mismatch_count', 'mutation_mismatch_count', 'mutation_expected', 'cycles_total', 'first_mismatches')}))
+                          'kinds': sorted({c['kind'] for c in cases})}, sha, a.output, write=False,
+                         overrides={'rtl/decode/vec_alu.sv': a.rtl, 'rtl/decode/decode_pkg.sv': a.pkg})
+    finish(o, a.output, ('status', 'mismatch_count', 'real_mismatch_count', 'mutation_mismatch_count', 'mutation_expected', 'cycles_total', 'first_mismatches'))
 
 
 if __name__ == '__main__':

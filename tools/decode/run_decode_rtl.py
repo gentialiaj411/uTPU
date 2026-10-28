@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse, hashlib, json, time
 from pathlib import Path
 import numpy as np
-from harness import ROOT, BUILD, load_runtime_260k, write_mem, parse_summary
+from harness import ROOT, BUILD, load_runtime_260k, write_mem, parse_summary, provenance, e2e_sources, finish
 from sim import compile_and_run, VVP
 from pack_decode_image import pack
 
@@ -41,38 +41,51 @@ module e2e_tb;
   logic clk = 0, rst = 1, start = 0, st_valid, st_ready, seek_req, busy, done, logit_valid;
   logic [15:0] token, token_out, logit_idx; logic [%(pw)d-1:0] pos; logic [31:0] seek_addr, ptr = 0;
   logic [7:0] img [NB]; logic [7:0] st_data; logic signed [31:0] logit_val; logic [47:0] step_mem [NS]; logic [31:0] exp_logits [NS*V];
-  integer errors = 0, tok_errors = 0, cycles = 0, shown = 0, nlog, tcyc, phase = 0;
+  integer errors = 0, tok_errors = 0, idx_errors = 0, argmax_errors = 0, stray = 0, cycles = 0, shown = 0, nlog, tcyc, phase = 0;
+  integer expidx, besti; logic signed [31:0] bestv; logic in_step = 0;
   top_decode #(%(params)s) dut (.clk, .rst, .start, .token, .pos, .seek_req, .seek_addr, .st_valid,
     .st_data, .st_ready, .busy, .done, .token_out, .logit_valid, .logit_idx, .logit_val);
   integer prof [32]; initial for (int q = 0; q < 32; q++) prof[q] = 0;
   always @(posedge clk) if (dut.busy) prof[dut.step] <= prof[dut.step] + 1;
   always #1 clk = ~clk;
+  // a logit emitted outside a step's start..done window is an error too
+  always @(posedge clk) if (logit_valid && !in_step) begin stray++; errors++; end
 %(flash)s
   initial begin
     $readmemh("%(img)s", img); $readmemh("%(steps)s", step_mem); $readmemh("%(logits)s", exp_logits);
     @(posedge clk); #0.1 rst = 0;
     for (int s = 0; s < NS; s++) begin
       token = step_mem[s][47:32]; pos = step_mem[s][%(pw)d-1:0];
-      start = 1; @(posedge clk); #0.1 start = 0; nlog = 0; tcyc = 0;
+      start = 1; @(posedge clk); #0.1 start = 0; nlog = 0; tcyc = 0; expidx = 0; besti = -1; bestv = 0; in_step = 1;
       while (!done && tcyc < LIMIT) begin
         @(posedge clk); cycles++; tcyc++;
         if (logit_valid) begin
-          if (logit_val !== exp_logits[s*V + logit_idx]) begin
-            errors++;
-            if (shown < 8) begin shown++; $display("MISMATCH step=%%0d idx=%%0d got=%%0d exp=%%0d", s, logit_idx, logit_val, $signed(exp_logits[s*V + logit_idx])); end
+          // the scoreboard index, never the DUT-supplied one, selects the expected value; the DUT index must equal it
+          if (logit_idx !== expidx[15:0] || expidx >= V) begin
+            idx_errors++; errors++;
+            if (shown < 8) begin shown++; $display("INDEX step=%%0d got=%%0d exp=%%0d", s, logit_idx, expidx); end
           end
-          nlog++;
+          if (expidx < V) begin
+            if (logit_val !== exp_logits[s*V + expidx]) begin
+              errors++;
+              if (shown < 8) begin shown++; $display("MISMATCH step=%%0d idx=%%0d got=%%0d exp=%%0d", s, expidx, logit_val, $signed(exp_logits[s*V + expidx])); end
+            end
+            if (besti < 0 || $signed(logit_val) > bestv) begin bestv = logit_val; besti = expidx; end   // first maximum, like the runtime argmax
+          end
+          expidx++; nlog++;
         end
         #0.1;
       end
-      if (!done) begin errors += V; $display("TIMEOUT step=%%0d after %%0d cycles", s, tcyc); $display("SUMMARY steps=%%0d errors=%%0d token_errors=%%0d cycles=%%0d", NS, errors, tok_errors, cycles); $finish; end
-      if (nlog != V) errors += V;
+      in_step = 0;
+      if (!done) begin errors += V; in_step = 0; $display("TIMEOUT step=%%0d after %%0d cycles", s, tcyc); $display("SUMMARY steps=%%0d errors=%%0d token_errors=%%0d idx_errors=%%0d argmax_errors=%%0d stray=%%0d cycles=%%0d", NS, errors, tok_errors, idx_errors, argmax_errors, stray, cycles); $finish; end
+      if (nlog != V) begin errors += V; idx_errors++; $display("COUNT step=%%0d emitted %%0d logits, expected %%0d", s, nlog, V); end
+      if (token_out !== besti[15:0]) begin argmax_errors++; errors++; if (shown < 8) begin shown++; $display("ARGMAX step=%%0d token_out=%%0d argmax of emitted logits=%%0d", s, token_out, besti); end end
       if (token_out !== step_mem[s][31:16]) begin tok_errors++; if (shown < 8) begin shown++; $display("TOKEN step=%%0d got=%%0d exp=%%0d", s, token_out, step_mem[s][31:16]); end end
       $display("STEP %%0d token=%%0d pos=%%0d out=%%0d cycles=%%0d", s, token, pos, token_out, tcyc);
       @(posedge clk); #0.1;
     end
     for (int q = 0; q < 32; q++) if (prof[q] != 0) $display("PROF %%0d %%0d", q, prof[q]);
-    $display("SUMMARY steps=%%0d errors=%%0d token_errors=%%0d cycles=%%0d", NS, errors, tok_errors, cycles);
+    $display("SUMMARY steps=%%0d errors=%%0d token_errors=%%0d idx_errors=%%0d argmax_errors=%%0d stray=%%0d cycles=%%0d", NS, errors, tok_errors, idx_errors, argmax_errors, stray, cycles);
     $finish;
   end
 endmodule
@@ -113,6 +126,7 @@ def main():
     ap.add_argument('--prompts', type=int, default=1)
     ap.add_argument('--gen', type=int, default=8, help='generated tokens per prompt')
     ap.add_argument('--output', default=None)
+    ap.add_argument('--timeout', type=float, default=6 * 3600, help='wall-clock seconds for the vvp run')
     ap.add_argument('--top-rtl', default=None, help='replacement top_decode.sv (fault injection)')
     ap.add_argument('--define', action='append', default=[], help='iverilog define (mutation checks)')
     a = ap.parse_args()
@@ -140,11 +154,11 @@ def main():
     tb = BUILD / f'e2e_{tag}_tb.sv'
     flash_txt = (FLASH_IDEAL if a.flash == 'ideal' else FLASH_QSPI % dict(img=files['img']))
     tb.write_text(TB % dict(flash=flash_txt, ns=len(steps), vocab=params['VOCAB'], nbytes=len(img), period=a.period, params=plist,
-                            pw=max_seq.bit_length() - 1, limit=(2_000_000 if a.model == '260k' else 80_000_000) * (4 if a.flash == 'qspi' else a.period), **files))
+                            pw=max_seq.bit_length() - 1, limit=(2_000_000 if a.model == '260k' else 80_000_000) * (4 if a.flash == 'qspi' else a.period), **files))   # per-step cycle watchdog: a hang is an error
     srcs = [Path(a.top_rtl) if (a.top_rtl and s == 'top_decode.sv') else ROOT / 'rtl/decode' / s for s in SRCS]
     if a.flash == 'qspi':
         srcs += [ROOT / 'rtl/decode/qspi_reader.sv', ROOT / 'rtl/board/qspi_pad_regs.sv', ROOT / 'tools/decode/tb/qspi_flash_model.sv']
-    rc, out = compile_and_run(srcs, 'e2e_tb', tb, defines=tuple(a.define))
+    rc, out = compile_and_run(srcs, 'e2e_tb', tb, defines=tuple(a.define), timeout=a.timeout)
     line, kv = parse_summary(out)
     step_lines = [x for x in out.splitlines() if x.startswith('STEP')]
     cyc = [int(x.split('cycles=')[1]) for x in step_lines]
@@ -152,20 +166,26 @@ def main():
                   'attention', 'quant_o', 'wo', 'add_o', 'rms_ffn', 'quant_ffn', 'w1', 'w3', 'swiglu', 'quant_h', 'w2',
                   'add_ffn', 'rms_final', 'quant_final', 'seek_cls', 'classifier', 'done']
     prof = {step_names[int(x.split()[1])]: int(x.split()[2]) for x in out.splitlines() if x.startswith('PROF')}
-    o = {'status': 'pass' if rc == 0 and kv.get('errors') == '0' and kv.get('token_errors') == '0' and len(cyc) == len(steps) else 'fail',
+    idx_errors, argmax_errors, stray = (int(kv.get(k, -1)) for k in ('idx_errors', 'argmax_errors', 'stray'))
+    index_order_ok = idx_errors == 0 and stray == 0     # every step emitted exactly 0..VOCAB-1, in order, inside its window
+    clean = (rc == 0 and kv.get('errors') == '0' and kv.get('token_errors') == '0' and index_order_ok and argmax_errors == 0
+             and len(cyc) == len(steps) and len(steps) > 0)
+    o = {'status': 'pass' if clean else 'fail',
          'model': 'stories260K' if a.model == '260k' else 'stories15M', 'max_seq': max_seq, 'kv_bits': a.kv_bits, 'flash': a.flash, 'qspi_pad_regs_cap_dly': (2 if a.flash == 'qspi' else None), 'flash_bytes_per_cycle': (0.25 if a.flash == 'qspi' else 1 / a.period), 'prompts': prompts,
          'generated_tokens_per_prompt': a.gen, 'steps': len(steps), 'logits_compared': len(steps) * params['VOCAB'],
-         'logit_mismatches': int(kv.get('errors', -1)), 'token_mismatches': int(kv.get('token_errors', -1)),
+         'vocab': params['VOCAB'], 'logit_mismatches': int(kv.get('errors', -1)), 'token_mismatches': int(kv.get('token_errors', -1)),
+         'index_errors': idx_errors, 'argmax_errors': argmax_errors, 'stray_logits': stray, 'index_order_ok': index_order_ok,
          'image_bytes': len(img), 'cycles_per_token_mean': (sum(cyc) / len(cyc)) if cyc else None,
          'cycles_per_token_max': max(cyc) if cyc else None,
          'stream_bytes_per_token': params['IMAGE_BYTES'] - params['LAYERS_BASE'] + params['EMB_SCALE_BASE'] + params['CLS_KB'] + 5 * params['CLS_G'],
          'busy_cycles_by_step': prof,
          'golden_tokens': [s[1] for s in seqs], 'first_mismatches': [x for x in out.splitlines() if x.startswith(('MISMATCH', 'TOKEN'))][:8],
          'vvp_command': f'{VVP} build/decode/e2e_tb.vvp', 'defines': a.define, 'sim_stdout_sha256': hashlib.sha256(out.encode()).hexdigest(),
-         'summary': line or out[-500:], 'wall_seconds': round(time.time() - t0, 1)}
+         'summary': line or out[-500:], 'wall_seconds': round(time.time() - t0, 1),
+         'provenance': provenance(e2e_sources('stories260K' if a.model == '260k' else 'stories15M', a.flash),
+                                  {'rtl/decode/top_decode.sv': a.top_rtl} if a.top_rtl else None)}
     path = a.output or str(ROOT / f'bench/results/decode_e2e_rtl_{tag}.json')
-    open(path, 'w').write(json.dumps(o, indent=2) + '\n')
-    print(json.dumps({k: o[k] for k in ('status', 'steps', 'logit_mismatches', 'token_mismatches', 'cycles_per_token_mean', 'first_mismatches', 'summary', 'wall_seconds')}))
+    finish(o, path, ('status', 'steps', 'logit_mismatches', 'token_mismatches', 'index_errors', 'argmax_errors', 'cycles_per_token_mean', 'first_mismatches', 'summary', 'wall_seconds'))
 
 
 if __name__ == '__main__':

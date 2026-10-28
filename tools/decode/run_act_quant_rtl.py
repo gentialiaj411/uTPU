@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sim import compile_and_run, ROOT, VVP
+from harness import provenance, ARTIFACT_SOURCES, finish
 
 GOLDEN = ROOT / 'build/decode/golden_act_quant'
 
@@ -23,10 +24,10 @@ module act_quant_tb;
     $readmemh("%(scale)s", scale_mem); $readmemh("%(len)s", len_mem);
     @(posedge clk); #0.1 rst = 0;
     for (int g = 0; g < NG; g++) begin
-      int n, sent, bad; n = len_mem[g][7:0]; qmax7 = len_mem[g][8]; sent = 0; got = 0; bad = 0;
-      while (!done) begin
+      int n, sent, bad, wd; n = len_mem[g][7:0]; qmax7 = len_mem[g][8]; sent = 0; got = 0; bad = 0; wd = 0;
+      while (!done && wd < 2000000) begin
         in_valid = sent < n; in_last = sent == n - 1; raw_in = in_valid ? raw_mem[base + sent] : 0;
-        @(posedge clk); cycles++;
+        @(posedge clk); cycles++; wd++;
         if (in_valid && in_ready) sent++;
         if (code_valid) begin
           if (got >= n || code_out !== code_mem[base + got]) begin
@@ -37,6 +38,8 @@ module act_quant_tb;
         end
         #0.1;
       end
+      if (!done) begin errors++; $display("TIMEOUT group=%%0d: done never asserted", g);
+        $display("SUMMARY groups=%%0d elements=%%0d errors=%%0d real_errors=%%0d cycles=%%0d", NG, NE, errors, real_errors, cycles); $finish; end
       in_valid = 0; in_last = 0; @(posedge clk); #0.1;
       if (got != n) bad++;
       if (scale_out !== scale_mem[g]) begin
@@ -88,7 +91,7 @@ def main():
     expected_mut = sum(1 for n in lens if (n & 255) > 5)
     errors, merrors = int(kv.get('errors', -1)), int(mkv.get('errors', -1))
     o = {
-        'status': 'pass' if rc == 0 and errors == 0 and merrors == expected_mut else 'fail',
+        'status': 'pass' if rc == 0 and errors == 0 and expected_mut > 0 and merrors == expected_mut else 'fail',
         'golden_source': man['source'], 'manifest_sha256': hashlib.sha256(man_bytes).hexdigest(),
         'real_groups': man['real_groups'], 'real_elements': man['real_elements'],
         'random_directed_groups': man['random_directed_groups'], 'random_directed_elements': man['random_directed_elements'],
@@ -100,10 +103,9 @@ def main():
         'sim_stdout_sha256': hashlib.sha256(out.encode()).hexdigest(),
         'mutation_stdout_sha256': hashlib.sha256(mout.encode()).hexdigest(),
         'summary': line, 'mutation_summary': mline,
+        'provenance': provenance(ARTIFACT_SOURCES['decode_act_quant_rtl'], {'rtl/decode/act_quant.sv': a.rtl}),
     }
-    a.output.parent.mkdir(parents=True, exist_ok=True)
-    a.output.write_text(json.dumps(o, indent=2) + '\n')
-    print(json.dumps({k: o[k] for k in ('status', 'mismatch_count', 'real_mismatch_count', 'mutation_mismatch_count', 'mutation_expected', 'cycles_per_group')}))
+    finish(o, a.output, ('status', 'mismatch_count', 'real_mismatch_count', 'mutation_mismatch_count', 'mutation_expected', 'cycles_per_group'))
 
 
 if __name__ == '__main__':

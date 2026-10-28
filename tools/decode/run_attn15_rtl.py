@@ -3,7 +3,7 @@ vs stories15M runtime decode attention up to position 127 (golden_attn15.py) plu
 """
 from __future__ import annotations
 import argparse, hashlib, json
-from harness import ROOT, BUILD, load_cases, write_mem, parse_summary
+from harness import ROOT, BUILD, load_cases, write_mem, parse_summary, provenance, ARTIFACT_SOURCES, finish
 from sim import compile_and_run, VVP
 
 MAX_SEQ = 128
@@ -133,17 +133,16 @@ def main():
         res['stdout_sha'].append(hashlib.sha256(out.encode()).hexdigest())
         res['summaries'].append(f'kv{kv_bits}: ' + next((x for x in out.splitlines() if x.startswith('SUMMARY')), out[-300:]))
     expected_mut = res['calls'] * meta['head_size']
-    o = {'status': 'pass' if res['errors'] == 0 and res['mut_errors'] == expected_mut else 'fail',
+    o = {'status': 'pass' if res['errors'] == 0 and expected_mut > 0 and res['mut_errors'] == expected_mut else 'fail',
          'golden_sha256': sha, 'golden_source': meta['source'], 'real_head_calls': meta['real_cases'],
          'random_head_calls': meta['directed_random_cases'], 'output_elements': expected_mut,
          'mismatch_count': res['errors'], 'real_mismatch_count': res['real_errors'], 'first_mismatches': res['first'],
          'mutation_mismatch_count': res['mut_errors'], 'mutation_expected': expected_mut,
          'cycles_total': res['cycles'], 'cycles_per_head_call': res['cycles'] / max(1, res['calls']),
          'vvp_command': f'{VVP} build/decode/attn_tb.vvp (15M shape: HS48 L6 KVH6 SEQ128 CB=4)',
-         'sim_stdout_sha256': res['stdout_sha'], 'summary': res['summaries']}
-    ROOT.joinpath(a.output).parent.mkdir(parents=True, exist_ok=True)
-    open(a.output, 'w').write(json.dumps(o, indent=2) + '\n')
-    print(json.dumps({k: o[k] for k in ('status', 'mismatch_count', 'real_mismatch_count', 'mutation_mismatch_count', 'mutation_expected', 'cycles_per_head_call', 'first_mismatches', 'summary')}))
+         'sim_stdout_sha256': res['stdout_sha'], 'summary': res['summaries'],
+         'provenance': provenance(ARTIFACT_SOURCES['decode_attention15_rtl'], {'rtl/decode/attention.sv': a.rtl, 'rtl/decode/decode_pkg.sv': a.pkg})}
+    finish(o, ROOT.joinpath(a.output), ('status', 'mismatch_count', 'real_mismatch_count', 'mutation_mismatch_count', 'mutation_expected', 'cycles_per_head_call', 'first_mismatches', 'summary'))
 
 
 if __name__ == '__main__':

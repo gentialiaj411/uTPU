@@ -1,7 +1,7 @@
 """Differential test: rtl/decode/rmsnorm.sv vs captured runq_runtime._rms_high cases."""
 from __future__ import annotations
 import argparse, json
-from harness import ROOT, load_cases, write_mem, run_differential
+from harness import ROOT, load_cases, write_mem, run_differential, finish
 
 TB = r"""`timescale 1ns/1ps
 module rms_tb;
@@ -19,13 +19,13 @@ module rms_tb;
     $readmemh("%(inp)s", in_mem); $readmemh("%(exp)s", exp_mem); $readmemh("%(cfg)s", cfg_mem);
     @(posedge clk); #0.1 rst = 0;
     for (int c = 0; c < NC; c++) begin
-      int n, sent, got, bad;
+      int n, sent, got, bad, wd;
       {recip_d, gfb, mult, shift, eps} = cfg_mem[c][140:0]; n = cfg_mem[c][156:141];
-      sent = 0; got = 0; bad = 0;
-      while (!done) begin
+      sent = 0; got = 0; bad = 0; wd = 0;
+      while (!done && wd < 2000000) begin
         in_valid = sent < n; in_last = sent == n - 1;
         {x_in, gamma_in} = in_valid ? in_mem[base + sent] : 48'd0;
-        @(posedge clk); cycles++;
+        @(posedge clk); cycles++; wd++;
         if (in_valid && in_ready) sent++;
         if (out_valid) begin
           if (got >= n || out !== exp_mem[base + got]) begin
@@ -36,6 +36,8 @@ module rms_tb;
         end
         #0.1;
       end
+      if (!done) begin errors++; $display("TIMEOUT case=%%0d: done never asserted", c);
+        $display("SUMMARY cases=%%0d elements=%%0d errors=%%0d real_errors=%%0d cycles=%%0d", NC, NE, errors, real_errors, cycles); $finish; end
       in_valid = 0; in_last = 0; @(posedge clk); #0.1;
       if (got != n) bad += n;
       errors += bad; if (c < %(nreal)d) real_errors += bad;
@@ -69,8 +71,9 @@ def main():
     o = run_differential('rms', [a.pkg, ROOT / 'rtl/decode/seq_mul.sv', a.rtl], tb, 'RMS_MUTATE', len(exp),
                          {'golden_source': meta['source'], 'real_cases': meta['real_cases'],
                           'directed_random_cases': meta['directed_random_cases'], 'elements': len(exp),
-                          'kinds': sorted({c['kind'] for c in cases})}, sha, a.output)
-    print(json.dumps({k: o[k] for k in ('status', 'mismatch_count', 'real_mismatch_count', 'mutation_mismatch_count', 'mutation_expected', 'first_mismatches')}))
+                          'kinds': sorted({c['kind'] for c in cases})}, sha, a.output, write=False,
+                         overrides={'rtl/decode/rmsnorm.sv': a.rtl, 'rtl/decode/decode_pkg.sv': a.pkg})
+    finish(o, a.output, ('status', 'mismatch_count', 'real_mismatch_count', 'mutation_mismatch_count', 'mutation_expected', 'first_mismatches'))
 
 
 if __name__ == '__main__':

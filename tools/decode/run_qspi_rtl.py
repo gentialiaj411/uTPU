@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse, hashlib, json
 from pathlib import Path
 import numpy as np
-from harness import ROOT, BUILD, write_mem, parse_summary
+from harness import ROOT, BUILD, write_mem, parse_summary, provenance, ARTIFACT_SOURCES, finish
 from sim import compile_and_run, VVP
 
 NB = 16384
@@ -170,9 +170,9 @@ def main():
     o = {'status': 'pass' if runs and all(r['ok'] for r in runs) else 'fail', 'image_bytes': NB, 'image_seed': 20261027,
          'flash_model': 'tools/decode/tb/qspi_flash_model.sv', 'vvp_command': f'{VVP} build/decode/qspi_*_tb.vvp',
          'mismatch_count': tot_err, 'real_mismatch_count': tot_err, 'mutation_mismatch_count': tot_mut, 'mutation_expected': tot_exp, 'mutation': 'QSPI_MUTATE (nibble swap)',
-         'bytes_checked': sum(r['bytes_checked'] for r in runs), 'variants': runs}
-    Path(a.output).write_text(json.dumps(o, indent=2) + '\n')
-    print(o['status'])
+         'bytes_checked': sum(r['bytes_checked'] for r in runs), 'variants': runs,
+         'provenance': provenance(ARTIFACT_SOURCES['decode_qspi_rtl'], {'rtl/decode/qspi_reader.sv': a.rtl})}
+    finish(o, a.output, ('status',))
 
 
 if __name__ == '__main__':

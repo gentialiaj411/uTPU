@@ -1,12 +1,19 @@
 """Fault-inject decode RTL by source-text edits and confirm each runner reports mismatches.
 
-Usage: python tools/decode/fault_inject.py <unit> [<unit> ...]
-Results merge into bench/results/decode_fault_injection.json.
+Usage: python tools/decode/fault_inject.py [--out FILE] <unit> [<unit> ...]
+Results merge into bench/results/decode_fault_injection.json (or --out FILE).
+A runner exits 1 when its artifact says status=fail; that is a normal 'mutant detected' outcome only if the artifact was
+written with status 'fail' and real (non-sentinel) mismatch counts. A crash, compile error, timeout or missing artifact is
+recorded as an error (ok=False), never as a detection.
 """
 from __future__ import annotations
 import json, subprocess, sys
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from provenance import provenance, FAULT_SOURCES
 ROOT = Path(__file__).resolve().parents[2]
+SENTINEL = 10 ** 9      # runners report 1e9 mismatches when the simulation itself failed (rc != 0 / no SUMMARY)
+RUN_TIMEOUT_S = 6 * 3600
 PKG = 'rtl/decode/decode_pkg.sv'
 
 # unit -> (runner, {fault: (file, old, new)}); 'file' is the RTL or the shared package.
@@ -53,7 +60,7 @@ FAULTS = {
         'qmax7_clamp_8': ('rtl', "(q7 ? 64'd7 : 64'd127)) q = q7 ? 64'd7", "(q7 ? 64'd8 : 64'd127)) q = q7 ? 64'd8"),
         'qmax7_numerator_127': ('rtl', "qmax7_r ? 31'(7) << 24", "qmax7_r ? 31'(127) << 24"),
     }),
-    'top': ('tools/decode/run_decode_rtl.py --prompts 1 --gen 2', 'rtl/decode/top_decode.sv', {
+    'top': ('tools/decode/run_decode_rtl.py --prompts 1 --gen 8', 'rtl/decode/top_decode.sv', {
         # new in the BRAM move: byte-lane writes into the 128-bit tbuf word, per-row scale files, role-sized scratch
         'tbuf_lane_swap': ('rtl', "assign tb_wr = (state == E_CODES) ? 4'd0 : rr[3:0];", "assign tb_wr = (state == E_CODES) ? 4'd0 : rr[3:0] ^ 4'd1;"),
         'tbuf_embed_addr': ('rtl', "assign tb_wa = (state == E_CODES) ? g_kb : i;", "assign tb_wa = (state == E_CODES) ? g_kb + LW'(1) : i;"),
@@ -62,6 +69,11 @@ FAULTS = {
         'scale_row_select': ('rtl', "assign sc_wr = (state == E_SCALES) ? 5'd0 : rr;", "assign sc_wr = (state == E_SCALES) ? 5'd0 : (rr ^ 5'd1);"),
         'scratch_xb_overlap': ('rtl', "BXB:     off = SSZ;", "BXB:     off = SSZ - 1;"),
         'scratch_h3_overlap': ('rtl', "default: off = 6 * SSZ + H;", "default: off = 6 * SSZ + H - 1;"),
+        # verification-integrity faults at the logit output (audit F01): the e2e TB must check the emitted index sequence,
+        # not just the value at whatever index the DUT claims, and must reach positions >= 9
+        'top_duplicate_idx0': ('rtl', "logit_valid <= 1'b1; logit_idx <= row; logit_val <= v;", "logit_valid <= 1'b1; logit_idx <= 16'd0; logit_val <= v;"),
+        'top_idx_skip': ('rtl', "logit_valid <= 1'b1; logit_idx <= row; logit_val <= v;", "logit_valid <= 1'b1; logit_idx <= row + 16'd1; logit_val <= v;"),
+        'top_late_pos': ('rtl', "logit_valid <= 1'b1; logit_idx <= row; logit_val <= v;", "logit_valid <= 1'b1; logit_idx <= row; logit_val <= (pos >= 9) ? (v ^ 32'sd1) : v;"),
     }),
     'qspi': ('tools/decode/run_qspi_rtl.py', 'rtl/decode/qspi_reader.sv', {
         'dummy_count_off_by_one': ('rtl', "localparam int PRE = SHW + DUMMY; ", "localparam int PRE = SHW + DUMMY - 1; "),
@@ -115,42 +127,84 @@ FAULTS = {
 }
 
 
+def run_fault(unit, runner, rtl, name, spec):
+    """Build the mutant, run the unit's runner, classify. Returns the result dict for the fault."""
+    which, old, new, *why = spec
+    relsrc = PKG if which == 'pkg' else (rtl if which == 'rtl' else which)
+    text = (ROOT / relsrc).read_text()
+    assert text.count(old) == 1, (unit, name)
+    mutant = ROOT / 'build/decode' / f'fault_{unit}_{name}.sv'
+    mutant.write_text(text.replace(old, new))
+    out = ROOT / 'build/decode' / f'fault_{unit}_{name}.json'
+    out.unlink(missing_ok=True)                      # a stale artifact must never be mistaken for this run's
+    script, *extra = runner.split()
+    if unit == 'board':   # UART end-to-end runner in fast mode: the mutant replaces one source file
+        args = [sys.executable, str(ROOT / script), '--fast', '--output', str(out), '--replace', f'{relsrc}={mutant}']
+    elif unit == 'top':   # end-to-end runner: mutant top_decode.sv, mismatches = logits + indices + tokens
+        args = [sys.executable, str(ROOT / script), *extra, '--output', str(out), '--top-rtl', str(mutant)]
+    else:
+        args = [sys.executable, str(ROOT / script), '--output', str(out), '--pkg' if which == 'pkg' else '--rtl', str(mutant)]
+    res = {}
+    try:
+        proc = subprocess.run(args, capture_output=True, text=True, timeout=RUN_TIMEOUT_S)
+        rc, tail = proc.returncode, (proc.stdout + proc.stderr)[-400:]
+    except subprocess.TimeoutExpired:
+        rc, tail = None, 'runner wall-clock timeout'
+    o = None
+    if out.exists():
+        try:
+            o = json.loads(out.read_text())
+        except ValueError:
+            o = None
+    if unit == 'top' and o:
+        lm, tm = o.get('logit_mismatches', -1), o.get('token_mismatches', -1)
+        mm = (lm + tm + max(o.get('index_errors', 0), 0) + max(o.get('argmax_errors', 0), 0)) if min(lm, tm) >= 0 else -1
+        real = mm
+    elif o:
+        mm, real = o.get('mismatch_count', -1), o.get('real_mismatch_count', -1)
+    else:
+        mm = real = -1
+    # an error is: no artifact, a sentinel/negative count (the sim itself failed), or an exit code inconsistent with the status
+    consistent = o is not None and rc is not None and ((rc == 0 and o.get('status') == 'pass') or (rc in (0, 1) and o.get('status') == 'fail'))   # rc 0 with fail: legacy runner not yet on finish()
+    if not consistent or mm < 0 or mm >= SENTINEL or (real is not None and real >= SENTINEL):
+        res = {'error': f'runner rc={rc}, artifact={"missing" if o is None else o.get("status")}, mismatches={mm}: {tail.strip()[-300:]}',
+               'mismatches': mm, 'real_mismatches': real, 'detected': False, 'ok': False}
+    else:
+        res = {'mismatches': mm, 'real_mismatches': real, 'detected': mm > 0, 'runner_exit_code': rc}
+        res['ok'] = res['detected'] != bool(why)
+    if why:
+        res['equivalent_reason'] = why[0]
+    return res
+
+
 def main():
+    argv = sys.argv[1:]
     path = ROOT / 'bench/results/decode_fault_injection.json'
-    results = {}
-    for unit in sys.argv[1:]:
+    if argv[:1] == ['--out']:
+        path, argv = Path(argv[1]).resolve(), argv[2:]
+    results, prov, all_ok, partial = {}, {}, True, set()
+    for arg in argv:                                  # `unit` or `unit:fault1,fault2` (partial runs merge per fault)
+        unit, _, only = arg.partition(':')
+        if only:
+            partial.add(unit)
         runner, rtl, faults = FAULTS[unit]
         res = {}
-        for name, (which, old, new, *why) in faults.items():
-            relsrc = PKG if which == 'pkg' else (rtl if which == 'rtl' else which)
-            src = ROOT / relsrc
-            text = src.read_text()
-            assert text.count(old) == 1, (unit, name)
-            mutant = ROOT / 'build/decode' / f'fault_{unit}_{name}.sv'
-            mutant.write_text(text.replace(old, new))
-            out = ROOT / 'build/decode' / f'fault_{unit}_{name}.json'
-            script, *extra = runner.split()
-            if unit == 'board':   # UART end-to-end runner in fast mode: the mutant replaces one source file
-                args = [sys.executable, str(ROOT / script), '--fast', '--output', str(out), '--replace', f'{relsrc}={mutant}']
-            elif unit == 'top':   # end-to-end runner: mutant top_decode.sv, mismatches = logits + tokens
-                args = [sys.executable, str(ROOT / script), *extra, '--output', str(out), '--top-rtl', str(mutant)]
-            else:
-                args = [sys.executable, str(ROOT / script), '--output', str(out), '--pkg' if which == 'pkg' else '--rtl', str(mutant)]
-            subprocess.run(args, check=True, capture_output=True)
-            o = json.loads(out.read_text())
-            if unit == 'top':
-                mm = o['logit_mismatches'] + o['token_mismatches']
-                res[name] = {'mismatches': mm, 'real_mismatches': mm, 'detected': mm > 0}
-            else:
-                res[name] = {'mismatches': o['mismatch_count'], 'real_mismatches': o['real_mismatch_count'], 'detected': o['mismatch_count'] > 0}
-            if why:
-                res[name]['equivalent_reason'] = why[0]
-            res[name]['ok'] = res[name]['detected'] != bool(why)
-            print(unit, name, res[name])
-        results[unit] = res
+        for name, spec in faults.items():
+            if only and name not in only.split(','):
+                continue
+            res[name] = run_fault(unit, runner, rtl, name, spec)
+            all_ok &= res[name]['ok']
+            print(unit, name, res[name], flush=True)
+        results.setdefault(unit, {}).update(res)
+        if not only:                               # a partial run does not refresh the unit's provenance
+            prov[unit] = provenance(FAULT_SOURCES)
     merged = json.loads(path.read_text()) if path.exists() else {}   # re-read: other runs may have written
-    merged.update(results)
+    for u, r in results.items():       # a full-unit run replaces the unit's entry; unit:fault runs update single faults
+        merged[u] = {**merged.get(u, {}), **r} if u in partial else r
+    merged.setdefault('provenance', {}).update(prov)
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(merged, indent=2) + '\n')
+    sys.exit(0 if all_ok else 1)
 
 
 if __name__ == '__main__':

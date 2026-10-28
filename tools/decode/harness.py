@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sim import compile_and_run, ROOT, VVP
+from provenance import provenance, ARTIFACT_SOURCES, e2e_sources  # noqa: F401  (re-exported for runners)
 
 sys.path.insert(0, str(ROOT))
 BUILD = ROOT / 'build/decode'
@@ -56,8 +57,20 @@ def parse_summary(out):
     return line, (dict(t.split('=') for t in line.split()[1:]) if line else {})
 
 
-def run_differential(unit, rtl_sources, tb_text, mutate_define, expected_mutation, meta, sha, output, extra=None):
-    """Compile+run normal and mutated sims, write the artifact, return it."""
+def finish(o, path, print_keys=None):
+    """Write artifact `o` to `path`, print a summary line, exit 0 only if o['status'] == 'pass' (F12)."""
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).write_text(json.dumps(o, indent=2) + '\n')
+    print(json.dumps({k: o[k] for k in (print_keys or ('status',)) if k in o}))
+    sys.exit(0 if o.get('status') == 'pass' else 1)
+
+
+def run_differential(unit, rtl_sources, tb_text, mutate_define, expected_mutation, meta, sha, output, extra=None,
+                     write=True, overrides=None):
+    """Compile+run normal and mutated sims, build the artifact (written unless write=False), return it.
+
+    Status is 'pass' only if the clean run saw SUMMARY errors=0, the mutation run caught exactly expected_mutation
+    (which must be > 0), and the provenance block was recorded."""
     tb = BUILD / f'{unit}_tb.sv'
     tb.write_text(tb_text)
     rc, out = compile_and_run(rtl_sources, f'{unit}_tb', tb)
@@ -66,7 +79,7 @@ def run_differential(unit, rtl_sources, tb_text, mutate_define, expected_mutatio
     mline, mkv = parse_summary(mout)
     errors, merrors = int(kv.get('errors', -1)), int(mkv.get('errors', -1))
     o = {
-        'status': 'pass' if rc == 0 and errors == 0 and merrors == expected_mutation else 'fail',
+        'status': 'pass' if rc == 0 and errors == 0 and expected_mutation > 0 and merrors == expected_mutation else 'fail',
         'golden_sha256': sha, **meta,
         'mismatch_count': errors, 'real_mismatch_count': int(kv.get('real_errors', -1)),
         'first_mismatches': [x for x in out.splitlines() if x.startswith('MISMATCH')][:8],

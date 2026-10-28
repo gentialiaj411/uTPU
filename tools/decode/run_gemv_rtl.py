@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sim import compile_and_run, ROOT, VVP
+from harness import provenance, ARTIFACT_SOURCES, finish
 
 LANES = 16
 
@@ -78,19 +79,21 @@ module gemv_tb;
     b = '0; c = '0;
     @(posedge clk); #0.1 rst = 0;
     for (int t = 0; t < NT; t++) begin
-      int nbeats, rows, sent;
-      nbeats = meta_mem[t][23:0]; rows = meta_mem[t][31:24]; sent = 0;
+      int nbeats, rows, sent, wd;
+      nbeats = meta_mem[t][23:0]; rows = meta_mem[t][31:24]; sent = 0; wd = 0;
       start = 1; @(posedge clk); #0.1 start = 0;
-      while (!done) begin
+      while (!done && wd < 2000000) begin
         if (sent < nbeats) begin b = beat_mem[bi]; c = chunk_mem[ci]; in_valid = 1; end
         else in_valid = 0;
-        @(posedge clk); cycles++;
+        @(posedge clk); cycles++; wd++;
         if (in_valid && in_ready) begin
           if (b[138]) ci++;
           bi++; sent++;
         end
         #0.1;
       end
+      if (!done) begin errors++; $display("TIMEOUT tile=%%0d: done never asserted", t);
+        $display("SUMMARY tiles=%%0d errors=%%0d real_errors=%%0d cycles=%%0d", NT, errors, real_errors, cycles); $finish; end
       in_valid = 0;
       for (int r = 0; r < rows; r++)
         if (result[r*32 +: 32] !== exp_mem[t][r*32 +: 32]) begin
@@ -142,7 +145,7 @@ def main():
     tiles_with_row3 = sum(1 for r in recs if r['rows'] > 3)
     errors = int(kv.get('errors', -1)); merrors = int(mkv.get('errors', -1))
     o = {
-        'status': 'pass' if rc == 0 and errors == 0 and merrors == tiles_with_row3 else 'fail',
+        'status': 'pass' if rc == 0 and errors == 0 and tiles_with_row3 > 0 and merrors == tiles_with_row3 else 'fail',
         'golden_source': man['source'],
         'manifest_sha256': hashlib.sha256(man_bytes).hexdigest(),
         'real_tiles': len(man['records']), 'random_tiles': len(man['random_records']),
@@ -157,10 +160,10 @@ def main():
         'sim_stdout_sha256': hashlib.sha256(out.encode()).hexdigest(),
         'mutation_stdout_sha256': hashlib.sha256(mout.encode()).hexdigest(),
         'summary': summary, 'mutation_summary': msummary,
+        'provenance': provenance(ARTIFACT_SOURCES['decode_gemv15_rtl' if a.golden.name == 'golden_gemv15' else 'decode_gemv_rtl'],
+                                 {'rtl/decode/gemv_unit.sv': a.rtl}),
     }
-    a.output.parent.mkdir(parents=True, exist_ok=True)
-    a.output.write_text(json.dumps(o, indent=2) + '\n')
-    print(json.dumps({k: o[k] for k in ('status', 'mismatch_count', 'mutation_mismatch_count', 'mutation_expected', 'cycles_per_tile')}))
+    finish(o, a.output, ('status', 'mismatch_count', 'mutation_mismatch_count', 'mutation_expected', 'cycles_per_tile'))
 
 
 if __name__ == '__main__':
