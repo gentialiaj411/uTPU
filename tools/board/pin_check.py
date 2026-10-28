@@ -15,6 +15,8 @@ import hashlib, json, os, re, subprocess, sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / 'tools/decode'))
+from provenance import provenance, ARTIFACT_SOURCES   # noqa: E402
 VIVADO = r'C:\AMDDesignTools\2025.2\Vivado\bin\vivado.bat'
 PART = 'xc7s50csga324-1'
 SCH = 'Boolean schematic KT-000-001-001-001 V2I1 (realdigital.org/downloads/63f9a8205ebd9c2e8c2d265ad25097dc.pdf)'
@@ -127,7 +129,7 @@ def main():
          'cfgbvs': 'sheet 10: CFGBVS_0 (V9) tied to VCCp3V3, XDC sets CFGBVS VCCO / CONFIG_VOLTAGE 3.3',
          'vcco': 'sheet 13: VCCO_0, VCCO_14 and VCCO_15 are all VCCp3V3',
          'all_agree': not bad, 'disagreements': bad}
-    # TODO(integration): provenance
+    o['provenance'] = provenance(ARTIFACT_SOURCES['boolean_pin_check'])
     (ROOT / 'bench/results/boolean_pin_check.json').write_text(json.dumps(o, indent=2) + '\n')
     for r in rows:
         print(f"{r['signal']:52s} {r['pin']:4s} {r['device_pin_func']:34s} xdc={r['xdc_pin']}/{r['xdc_iostandard']} agrees={r['agrees']}")

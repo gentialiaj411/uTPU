@@ -44,7 +44,8 @@ def build_valid(d: Path):
         faults['provenance'][unit] = pv.provenance(pv.FAULT_SOURCES)
     put('decode_fault_injection', faults)
     put('decode_synth_ooc', {s: {'wns_ns': 0.5, 'lut': 100.0, 'dsp': 1.0, 'bram36_equiv': 0.0 if s == 'qspi_reader' else 10.0,
-                                 'timing_met': True, 'sources': TINY_SRC, 'provenance': pv.provenance(TINY_SRC)} for s in gate.SYNTH})
+                                 'timing_met': True, 'sources': TINY_SRC,
+                                 'provenance': pv.provenance(pv.SYNTH_SOURCES[s])} for s in gate.SYNTH})
     for e in gate.E2E:
         model = 'stories15M' if '15m' in e else 'stories260K'
         flash = 'qspi' if e.endswith('_qspi') else 'ideal'
@@ -56,13 +57,14 @@ def build_valid(d: Path):
                 'provenance': pv.provenance(pv.e2e_sources(model, flash))})
     put('boolean_uart_rtl', {'status': 'pass', 'mismatch_count': 0, 'mutation_mismatch_count': 3, 'steps': 1, 'checks': 1,
                              'negative_quad0_read_trips_flash_model': True, 'quad_enable_via_uart': {'wrr_commands_applied': 1},
-                             'provenance': pv.provenance(TINY_SRC)})
-    put('boolean_pin_check', {'pins': ['a'], 'all_agree': True, 'provenance': pv.provenance(TINY_SRC)})
+                             'provenance': pv.provenance(pv.ARTIFACT_SOURCES['boolean_uart_rtl'])})
+    put('boolean_pin_check', {'pins': ['a'], 'all_agree': True, 'provenance': pv.provenance(pv.ARTIFACT_SOURCES['boolean_pin_check'])})
     io = {'qspi_cs_n': {'out_setup': {'slack_ns': 1.0}, 'out_hold': {'slack_ns': 1.0}}}
     for i in range(4):
         io[f'qspi_dq[{i}]'] = {k: {'slack_ns': 1.0} for k in ('in_setup', 'in_hold', 'out_setup', 'out_hold')}
     put('boolean_top_impl', {'status': 'ok', 'wns_ns': 0.1, 'whs_ns': 0.1, 'lut': 1000, 'bram36_equiv': 10, 'drc_error_rules': [],
-                             'timing_met': True, 'qspi_io_slack': io, 'provenance': pv.provenance(TINY_SRC)})
+                             'timing_met': True, 'qspi_io_slack': io,
+                             'provenance': pv.provenance(pv.ARTIFACT_SOURCES['boolean_top_impl'])})
 
 
 @pytest.fixture(scope='module')
@@ -89,8 +91,8 @@ def edit(d, name, fn):
     p.write_text(json.dumps(o))
 
 
-def unmet(d, legacy=False):
-    return gate.run_gate(d, legacy)[0]
+def unmet(d):
+    return gate.run_gate(d)[0]
 
 
 def test_valid_set_passes(work):
@@ -112,10 +114,9 @@ def test_index_order_false_fails(work):
     assert any('decode_e2e_rtl_kv8_p1 not pass' in m for m in unmet(work))
 
 
-def test_index_order_missing_fails_strict_but_not_legacy(work):
+def test_index_order_missing_fails(work):
     edit(work, 'decode_e2e_rtl_kv8_p1', lambda o: o.pop('index_order_ok'))
     assert any('decode_e2e_rtl_kv8_p1 not pass' in m for m in unmet(work))
-    assert unmet(work, legacy=True) == []
 
 
 def test_empty_fault_dict_fails(work):
@@ -161,10 +162,25 @@ def test_stale_synth_fails(work):
     assert any(m.startswith('stale decode_synth_ooc[qspi_reader]') for m in unmet(work))
 
 
-def test_missing_provenance_strict_vs_legacy(work):
+def test_missing_provenance_fails(work):
     edit(work, 'decode_rms_rtl', lambda o: o.pop('provenance'))
     assert 'no provenance in decode_rms_rtl' in unmet(work)
-    assert unmet(work, legacy=True) == []
+
+
+@pytest.mark.parametrize('name', ['boolean_uart_rtl', 'boolean_pin_check', 'boolean_top_impl'])
+def test_board_artifacts_need_provenance_coverage_and_freshness(work, name):
+    edit(work, name, lambda o: o.pop('provenance'))
+    assert f'no provenance in {name}' in unmet(work)
+    edit(work, name, lambda o: o.update(provenance={'tools/decode/provenance.py': pv.sha256_file(pv.ROOT / 'tools/decode/provenance.py')}))
+    assert any(m.startswith(f'provenance of {name} lacks') for m in unmet(work))
+    edit(work, name, lambda o: o.update(provenance={**pv.provenance(pv.ARTIFACT_SOURCES[name]), 'constraints/boolean_xc7s50.xdc': '4' * 64}
+                                        if name != 'boolean_uart_rtl' else {**pv.provenance(pv.ARTIFACT_SOURCES[name]), 'rtl/board/board_ctrl.sv': '4' * 64}))
+    assert any(m.startswith(f'stale {name}') for m in unmet(work))
+
+
+def test_synth_entry_must_cover_its_rtl(work):
+    edit(work, 'decode_synth_ooc', lambda o: o['top_decode_260k'].update(provenance=pv.provenance(pv.SYNTH_SOURCES['gemv_unit']), sources=pv.SYNTH_SOURCES['gemv_unit']))
+    assert any(m.startswith('provenance of decode_synth_ooc[top_decode_260k] lacks') for m in unmet(work))
 
 
 def test_incomplete_provenance_fails(work):
@@ -172,6 +188,6 @@ def test_incomplete_provenance_fails(work):
     assert any('lacks rtl/decode/rmsnorm.sv' in m for m in unmet(work))
 
 
-def test_legacy_flag_does_not_waive_stale(work):
+def test_stale_gemv_names_the_file(work):
     edit(work, 'decode_gemv_rtl', lambda o: o['provenance'].update({'rtl/decode/gemv_unit.sv': '3' * 64}))
-    assert any(m.startswith('stale decode_gemv_rtl') for m in unmet(work, legacy=True))
+    assert any(m.startswith('stale decode_gemv_rtl') for m in unmet(work))

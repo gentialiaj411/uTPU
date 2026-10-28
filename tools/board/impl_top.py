@@ -7,6 +7,8 @@ import json, re, subprocess, sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / 'tools/decode'))
+from provenance import provenance, ARTIFACT_SOURCES   # noqa: E402
 VIVADO = r'C:\AMDDesignTools\2025.2\Vivado\bin\vivado.bat'
 PART = 'xc7s50csga324-1'
 SRCS = ['rtl/decode/decode_pkg.sv', 'rtl/decode/seq_mul.sv', 'rtl/decode/mul_pipe.sv', 'rtl/decode/div_const_pipe.sv', 'rtl/decode/gemv_unit.sv',
@@ -120,6 +122,7 @@ def main():
            'methodology': {'by_severity': msev, 'by_rule': {k: {'severity': v[0], 'count': v[1]} for k, v in mrules.items()}, 'report': 'build/decode/synth/boolean_top/methodology.rpt'},
            'cdc': {'by_severity': csev, 'by_rule': {k: {'severity': v[0], 'count': v[1]} for k, v in crules.items()}, 'report': 'build/decode/synth/boolean_top/cdc.rpt'},
            'reports': {n: f'build/decode/synth/boolean_top/{n}' for n in ('util.rpt', 'timing.rpt', 'drc.rpt', 'io.rpt', 'clock_util.rpt', 'qspi_io_slack.txt', 'qspi_in_paths.rpt', 'qspi_out_paths.rpt', 'methodology.rpt', 'cdc.rpt', 'ports_placed.txt', 'clocks.rpt', 'check_timing.rpt')}}
+    rec['provenance'] = provenance(ARTIFACT_SOURCES['boolean_top_impl'])
     rec['lut_pct'] = round(100 * rec['lut'] / 32600, 1) if rec['lut'] else None
     res_path.write_text(json.dumps(rec, indent=2) + '\n')
     print(json.dumps({k: rec[k] for k in ('lut', 'lut_pct', 'ff', 'dsp', 'bram36_equiv', 'wns_ns', 'whs_ns', 'timing_met', 'drc_checks_found', 'drc_error_rules')}))

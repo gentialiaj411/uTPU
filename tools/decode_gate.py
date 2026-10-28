@@ -14,7 +14,7 @@ Exits non-zero unless all of the following hold (artifacts under bench/results/,
     board_ctrl/UART fault unit is detected or proven equivalent;
   * integrity (audit F02/F03): every artifact carries a `provenance` block (sha256 of each RTL/TB/golden/LUT/model source it
     depended on, tools/decode/provenance.py) that is recomputed here ("stale <artifact>: <file> changed"); an artifact without
-    one fails ("no provenance") unless --allow-legacy; results must be non-vacuous (steps > 0, logits_compared == steps*VOCAB,
+    one fails ("no provenance"); results must be non-vacuous (steps > 0, logits_compared == steps*VOCAB,
     index_order_ok, element counts > 0, every fault unit holds exactly the names in fault_inject.FAULTS, each ok);
   * M5 board top: UART-driven simulation of boolean_core + flash model (tokens, probed logits, flash Quad-enable procedure,
     mutation caught, QUAD=0 read trips the flash model), boolean_pin_check all pins agree, and the full implementation of
@@ -28,7 +28,7 @@ ROOT = Path(__file__).resolve().parents[1]
 RES = ROOT / 'bench/results'
 sys.path.insert(0, str(ROOT / 'tools/decode'))
 import provenance as prov_mod                           # noqa: E402  (stdlib only; one source list per artifact type)
-from provenance import ARTIFACT_SOURCES, FAULT_SOURCES, e2e_sources   # noqa: E402
+from provenance import ARTIFACT_SOURCES, FAULT_SOURCES, SYNTH_SOURCES, e2e_sources   # noqa: E402
 import fault_inject                                     # noqa: E402  (FAULTS is the single source of expected fault names)
 
 UNITS = ['decode_gemv_rtl', 'decode_act_quant_rtl', 'decode_rms_rtl', 'decode_vec_alu_rtl', 'decode_attention_rtl',
@@ -52,7 +52,7 @@ E2E = ['decode_e2e_rtl_kv8_p1', 'decode_e2e_rtl_kv4_p1', 'decode_e2e_rtl_kv8_p2'
        'decode_e2e_rtl_kv8_p1_qspi']   # M4: top_decode + qspi_reader + independent flash model
 
 
-def run_gate(res_dir=RES, allow_legacy=False):
+def run_gate(res_dir=RES):
     """Returns (unmet, report). `res_dir` holds the artifact JSONs."""
     unmet, report = [], {}
 
@@ -61,12 +61,9 @@ def run_gate(res_dir=RES, allow_legacy=False):
         return json.loads(p.read_text()) if p.exists() else None
 
     def check_prov(name, pv, patterns=None):
-        """Provenance must exist (unless --allow-legacy), cover the artifact type's sources, and match the tree."""
+        """Provenance must exist, cover the artifact type's sources, and match the tree."""
         if not pv or not [k for k in pv if not k.startswith('tool:')]:
-            if allow_legacy:
-                report.setdefault('legacy_no_provenance', []).append(name)
-            else:
-                unmet.append(f'no provenance in {name}')
+            unmet.append(f'no provenance in {name}')
             return
         unmet.extend(prov_mod.stale(pv, name))
         if patterns is not None:
@@ -104,7 +101,7 @@ def run_gate(res_dir=RES, allow_legacy=False):
         r = synth.get(s)
         if r is None:
             unmet.append(f'synth missing {s}'); continue
-        check_prov(f'decode_synth_ooc[{s}]', r.get('provenance'), r.get('sources') or None)
+        check_prov(f'decode_synth_ooc[{s}]', r.get('provenance'), SYNTH_SOURCES[s])
         report[f'synth_{s}'] = f"WNS {r['wns_ns']:+.3f} ns, {int(r['lut'])} LUT, {int(r['dsp'])} DSP, {r['bram36_equiv']} BRAM36"
         if not r['timing_met']:
             unmet.append(f'synth {s} timing not met ({r["wns_ns"]} ns)')
@@ -124,8 +121,7 @@ def run_gate(res_dir=RES, allow_legacy=False):
         n_steps = sum(len(p) + o.get('generated_tokens_per_prompt', 0) - 1 for p in o.get('prompts', []))
         vocab = VOCAB.get(o.get('model'))
         ok = ok and o['steps'] > 0 and o['steps'] == n_steps and vocab is not None and o['logits_compared'] == o['steps'] * vocab
-        if 'index_order_ok' in o or not allow_legacy:       # legacy (pre-F01) artifacts never checked the emitted index sequence
-            ok = ok and o.get('index_order_ok') is True and o.get('index_errors') == 0 and o.get('argmax_errors') == 0
+        ok = ok and o.get('index_order_ok') is True and o.get('index_errors') == 0 and o.get('argmax_errors') == 0
         if e.endswith('_qspi') and o.get('flash') != 'qspi':
             ok = False
         check_prov(e, o.get('provenance'), e2e_sources(o.get('model', 'stories260K'), o.get('flash', 'ideal')))
@@ -140,7 +136,7 @@ def run_gate(res_dir=RES, allow_legacy=False):
     else:
         ok = (u.get('status') == 'pass' and u.get('mismatch_count') == 0 and u.get('mutation_mismatch_count', 0) > 0
               and u.get('negative_quad0_read_trips_flash_model') is True and u.get('quad_enable_via_uart', {}).get('wrr_commands_applied', 0) >= 1)
-        check_prov('boolean_uart_rtl', u.get('provenance'))
+        check_prov('boolean_uart_rtl', u.get('provenance'), ARTIFACT_SOURCES['boolean_uart_rtl'])
         report['boolean_uart_rtl'] = f"{'pass' if ok else 'FAIL'}: {u.get('steps')} steps, {u.get('checks')} checks, {u.get('mismatch_count')} mismatches"
         if not ok:
             unmet.append('boolean_uart_rtl not pass')
@@ -148,7 +144,7 @@ def run_gate(res_dir=RES, allow_legacy=False):
     if pc is None:
         unmet.append('missing boolean_pin_check')
     else:
-        check_prov('boolean_pin_check', pc.get('provenance'))
+        check_prov('boolean_pin_check', pc.get('provenance'), ARTIFACT_SOURCES['boolean_pin_check'])
         report['boolean_pin_check'] = f"{len(pc['pins'])} pins, all_agree={pc['all_agree']}"
         if not pc['all_agree'] or pc.get('disagreements'):
             unmet.append(f"boolean pin check disagreements: {pc.get('disagreements')}")
@@ -156,7 +152,7 @@ def run_gate(res_dir=RES, allow_legacy=False):
     if bi is None or bi.get('status') != 'ok':
         unmet.append('missing or failed boolean_top_impl')
     else:
-        check_prov('boolean_top_impl', bi.get('provenance'))
+        check_prov('boolean_top_impl', bi.get('provenance'), ARTIFACT_SOURCES['boolean_top_impl'])
         report['boolean_top_impl'] = f"WNS {bi['wns_ns']:+.3f} ns, WHS {bi['whs_ns']:+.3f} ns, {int(bi['lut'])} LUT, {bi['bram36_equiv']} BRAM36, DRC errors {len(bi['drc_error_rules'])}"
         if not bi['timing_met']:
             unmet.append('boolean_top_impl timing not met')
@@ -189,11 +185,8 @@ def run_gate(res_dir=RES, allow_legacy=False):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--results-dir', default=str(RES), help='directory holding the artifact JSONs (default bench/results)')
-    ap.add_argument('--allow-legacy', action='store_true',
-                    help='TRANSITIONAL: tolerate artifacts with no provenance block (and e2e without index_order_ok); '
-                         'the integration pass removes this once every runner writes provenance')
     a = ap.parse_args()
-    unmet, report = run_gate(Path(a.results_dir), a.allow_legacy)
+    unmet, report = run_gate(Path(a.results_dir))
     print(json.dumps({'exit_code': int(bool(unmet)), 'report': report, 'unmet': unmet}, indent=2))
     sys.exit(1 if unmet else 0)
 

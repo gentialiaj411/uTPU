@@ -7,7 +7,7 @@ from __future__ import annotations
 import json, re, subprocess, sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from provenance import provenance   # sha256 of every RTL source the numbers came from (gate recomputes)
+from provenance import provenance, SYNTH_SOURCES   # sha256 of every RTL source the numbers came from (gate recomputes)
 
 ROOT = Path(__file__).resolve().parents[2]
 VIVADO = r'C:\AMDDesignTools\2025.2\Vivado\bin\vivado.bat'
@@ -39,7 +39,7 @@ def main():
             break
     if not (out / 'timing.rpt').exists():
         errs = [l for l in log.read_text(errors='replace').splitlines() if 'ERROR' in l]
-        rec = {'part': PART, 'period_ns': PERIOD, 'top': top, 'sources': srcs, 'provenance': provenance(srcs), 'status': 'failed', 'timing_met': False,
+        rec = {'part': PART, 'period_ns': PERIOD, 'top': top, 'sources': srcs, 'provenance': provenance(sorted({*srcs, *SYNTH_SOURCES.get(name, [])})), 'status': 'failed', 'timing_met': False,
                'errors': errs[:5], 'wns_ns': None, 'lut': 0.0, 'ff': 0.0, 'dsp': 0.0, 'bram36_equiv': 0.0}
         if (out / 'synth_util.rpt').exists():   # a failed place/route still records the post-synthesis numbers
             su = (out / 'synth_util.rpt').read_text()
@@ -61,7 +61,7 @@ def main():
         return float(m.group(1)) if m else 0.0
 
     wns = float(re.search(r'WNS\(ns\).*?\n.*?\n\s*(-?[\d.]+)', timing, re.S).group(1))
-    rec = {'part': PART, 'period_ns': PERIOD, 'top': top, 'sources': srcs, 'provenance': provenance(srcs),
+    rec = {'part': PART, 'period_ns': PERIOD, 'top': top, 'sources': srcs, 'provenance': provenance(sorted({*srcs, *SYNTH_SOURCES.get(name, [])})),
            'lut': cell('Slice LUTs'), 'ff': cell('Slice Registers'), 'dsp': cell('DSPs'),
            'bram36_equiv': cell('Block RAM Tile'), 'wns_ns': wns, 'timing_met': wns >= 0}
     res_path = ROOT / 'bench/results/decode_synth_ooc.json'

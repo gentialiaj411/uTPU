@@ -15,7 +15,7 @@ import argparse, hashlib, json, sys, time
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'decode'))
 import numpy as np
-from harness import ROOT, BUILD, write_mem, parse_summary
+from harness import ROOT, BUILD, write_mem, parse_summary, finish, provenance, ARTIFACT_SOURCES
 from sim import compile_and_run, VVP
 import run_decode_rtl as rd
 from pack_decode_image import pack
@@ -287,11 +287,9 @@ def main():
             rrc, rout = compile_and_run(srcs, 'uart_tb', build(2, 1, 'robust_fast', wdog=1400000))
             rl, rk = parse_summary(rout)
             rerrs = (int(rk['errors']) if 'errors' in rk else 0) + (1 if rrc != 0 or 'errors' not in rk else 0)
-        o = {'mode': 'fast', 'mismatch_count': errs + uerrs + rerrs, 'real_mismatch_count': errs + uerrs + rerrs, 'summary': line, 'unit_summary': uline,
+        o = {'mode': 'fast', 'status': 'pass' if errs + uerrs + rerrs == 0 else 'fail', 'mismatch_count': errs + uerrs + rerrs, 'real_mismatch_count': errs + uerrs + rerrs, 'summary': line, 'unit_summary': uline,
              'first_mismatches': [x for x in (out + uout + rout).splitlines() if x.startswith(('MISMATCH', 'FATAL'))][:4]}
-        Path(a.output).write_text(json.dumps(o, indent=2) + chr(10))
-        print(json.dumps(o))
-        return
+        finish(o, a.output, tuple(o))   # exit 1 when a mismatch was seen (fault injection expects that for a detected mutant)
     # main run (QUAD powers up 0; the TB enables it through the UART SPI passthrough)
     tb = build(1, 0, 'main')
     rc, out = compile_and_run(srcs, 'uart_tb', tb)
@@ -326,11 +324,9 @@ def main():
          'negative_quad0_read_trips_flash_model': neg_caught, 'negative_stdout_tail': [x for x in nout.splitlines() if 'FLASH' in x][:2],
          'first_mismatches': [x for x in out.splitlines() if x.startswith('MISMATCH')][:8],
          'vvp_command': f'{VVP} build/decode/uart_main_tb.vvp', 'summary': line, 'sim_stdout_sha256': hashlib.sha256(out.encode()).hexdigest(),
-         'wall_seconds': round(time.time() - t0, 1)}
-    Path(a.output).write_text(json.dumps(o, indent=2) + '\n')
-    # TODO(integration): provenance
-    print(json.dumps({k: o[k] for k in ('status', 'steps', 'checks', 'mismatch_count', 'mutation_mismatch_count', 'negative_quad0_read_trips_flash_model', 'summary', 'wall_seconds')}))
-    sys.exit(0 if o['status'] == 'pass' else 1)
+         'wall_seconds': round(time.time() - t0, 1),
+         'provenance': provenance(ARTIFACT_SOURCES['boolean_uart_rtl'])}
+    finish(o, a.output, ('status', 'steps', 'checks', 'mismatch_count', 'mutation_mismatch_count', 'negative_quad0_read_trips_flash_model', 'summary', 'wall_seconds'))
 
 
 if __name__ == '__main__':

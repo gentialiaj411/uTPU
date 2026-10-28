@@ -31,6 +31,7 @@ FAULTS = {
     }),
     'vec': ('tools/decode/run_vec_rtl.py', 'rtl/decode/vec_alu.sv', {
         'rope_sign': ('rtl', "r0 = 32'(rshift_rne(t0 - t1, 7'd15));", "r0 = 32'(rshift_rne(t0 + t1, 7'd15));"),
+        'rope_h48_only_bitflip': ('rtl', "r0 = 32'(rshift_rne(t0 - t1, 7'd15));", "r0 = 32'(rshift_rne(t0 - t1, 7'd15)) ^ ((rope_half == 6'd24) ? 32'd2 : 32'd0);"),   # N07: only the 15M (HS=48) geometry corrupts
         'rope_cos_sin_lane_swap': ('rtl', "{c_r, s_r} <= rope_rom", "{s_r, c_r} <= rope_rom"),
         'rope_no_pair_wrap': ('rtl', "(pair_i + 1'b1 == rope_half) ? '0 :", "1'b0 ? '0 :"),
         'sigmoid_edge': ('rtl', "(idx_r > 64'sd512) ? 16'd32767", "(idx_r >= 64'sd512) ? 16'd32767"),
@@ -89,7 +90,21 @@ FAULTS = {
         'abort_mid_command_byte': ('rtl', "(data_phase || rise_n[2:0] == 3'd0);", "1'b1;"),
         'stale_capture_after_seek': ('rtl', "if (!seek_req && !pend) begin", "if (1'b1) begin"),
         'cs_high_gap_one_cycle': ('rtl', "state <= S_GAP; gcnt <= 4'(CS_HIGH - 1); cs_n_q <= 1'b1;", "state <= S_GAP; gcnt <= 4'd0; cs_n_q <= 1'b1;",
-                                  'equivalent at 50 MHz: CS# then stays high one core cycle (20 ns) which already exceeds tCS(read) = 10 ns; CS_HIGH=2 is only margin. The flash model checks tCS and the unit test (20 ns clock) and e2e (scaled) both pass it'),
+                                  'equivalent ONLY under the assumption that the core clock is 50 MHz (20 ns period; the unit test uses exactly that, the board runs the core at 50 MHz): CS# then stays high one core cycle (20 ns) which already exceeds tCS(read) = 10 ns, so CS_HIGH=2 is only margin. At a core clock faster than 100 MHz (period < 10 ns) this fault WOULD violate tCS and the model TCS check would catch it; the e2e sim uses a time-scaled 2 ns clock with a scaled tCS of 1 ns and so stays equivalent there too'),
+        # audit N01: address path above bit 13 (the unit image alone is 16 KiB); caught by the sparse full-address-space runs
+        'seek_address_masked_14_bits': ('rtl', "sh <= {OPC, pend_addr[8*ADDR_BYTES-1:0]};", "sh <= {OPC, pend_addr[8*ADDR_BYTES-1:0] & {{(8*ADDR_BYTES-14){1'b0}}, 14'h3FFF}};"),
+        'seek_address_bit24_dropped_4byte': ('rtl', "sh <= {OPC, pend_addr[8*ADDR_BYTES-1:0]};", "sh <= {OPC, pend_addr[8*ADDR_BYTES-1:0] & ~((8*ADDR_BYTES)'(1) << 24)};"),
+        'seek_address_bit21_dropped': ('rtl', "sh <= {OPC, pend_addr[8*ADDR_BYTES-1:0]};", "sh <= {OPC, pend_addr[8*ADDR_BYTES-1:0] & ~((8*ADDR_BYTES)'(1) << 21)};"),
+        # audit N02: STARTUPE2 swallows the first USRCCLKO cycles (startupe2_cclk_shim in the unit TB)
+        'startup_pulses_not_clocked': ('rtl', "su_cnt <= 8'(2 * STARTUP_PULSES);", "su_cnt <= 8'(0 * STARTUP_PULSES);"),
+        'startup_pulses_default_zero': ('rtl', "parameter int STARTUP_PULSES = 4,", "parameter int STARTUP_PULSES = 0,"),
+        'startup_pulses_default_two': ('rtl', "parameter int STARTUP_PULSES = 4,", "parameter int STARTUP_PULSES = 2,"),
+        # audit N04: corruption that exists only at one HALF value
+        'half4_only_nibble_swap': ('rtl', "ob_data <= {nib_hi, nib};", "ob_data <= (HALF == 4) ? {nib, nib_hi} : {nib_hi, nib};"),
+        'half3_only_nibble_swap': ('rtl', "ob_data <= {nib_hi, nib};", "ob_data <= (HALF == 3) ? {nib, nib_hi} : {nib_hi, nib};"),
+        # audit F08: reader assumes latency code 00 (8 dummy clocks); the model decodes CR1[7:6]
+        'dummy_clocks_assume_lc11_zero': ('rtl', "localparam int PRE = SHW + DUMMY; ", "localparam int PRE = SHW + 0; "),
+        'dummy_default_untested_value': ('rtl', "parameter int DUMMY          = 8,", "parameter int DUMMY          = 5,"),
         'abort_leaves_nib_ph': ('rtl', "ob_valid <= 1'b0; nib_ph <= 1'b0; tcnt <= '0;", "ob_valid <= 1'b0; tcnt <= '0;",
                                 'equivalent: the S_GAP exit that starts the next command also clears nib_ph, and nibbles are only captured in S_RUN, so the stale value is never observed'),
     }),

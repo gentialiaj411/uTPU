@@ -79,7 +79,8 @@ def run_differential(unit, rtl_sources, tb_text, mutate_define, expected_mutatio
     mline, mkv = parse_summary(mout)
     errors, merrors = int(kv.get('errors', -1)), int(mkv.get('errors', -1))
     o = {
-        'status': 'pass' if rc == 0 and errors == 0 and expected_mutation > 0 and merrors == expected_mutation else 'fail',
+        'status': 'pass' if (rc == 0 and errors == 0 and expected_mutation > 0 and merrors == expected_mutation
+                             and sources is not None) else 'fail',
         'golden_sha256': sha, **meta,
         'mismatch_count': errors, 'real_mismatch_count': int(kv.get('real_errors', -1)),
         'first_mismatches': [x for x in out.splitlines() if x.startswith('MISMATCH')][:8],
@@ -90,8 +91,11 @@ def run_differential(unit, rtl_sources, tb_text, mutate_define, expected_mutatio
         'mutation_stdout_sha256': hashlib.sha256(mout.encode()).hexdigest(),
         'summary': line, 'mutation_summary': mline, **(extra or {}),
     }
-    Path(output).parent.mkdir(parents=True, exist_ok=True)
-    Path(output).write_text(json.dumps(o, indent=2) + '\n')
+    if sources is not None:                      # recorded last, after the sims: hashes of what is on disk when the run finished
+        o['provenance'] = provenance(sources, overrides)
+    if write:
+        Path(output).parent.mkdir(parents=True, exist_ok=True)
+        Path(output).write_text(json.dumps(o, indent=2) + '\n')
     return o
 
 

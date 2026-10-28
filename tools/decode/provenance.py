@@ -23,6 +23,7 @@ M15 = ['models/numerics_v2/gptq_qkv_wo_w2_int8_g32.npz']
 TOP_RTL = [D + f for f in ('decode_pkg.sv', 'seq_mul.sv', 'mul_pipe.sv', 'div_const_pipe.sv', 'gemv_unit.sv', 'act_quant.sv',
                            'rmsnorm.sv', 'vec_alu.sv', 'attention.sv', 'top_decode.sv')]
 QSPI_RTL = [D + 'qspi_reader.sv', 'rtl/board/qspi_pad_regs.sv', 'tools/decode/tb/qspi_flash_model.sv']
+BOARD_RTL = ['rtl/board/*.sv']
 GOLD = lambda *n: [f'tools/decode/golden_{x}.py' for x in n]
 
 # artifact name (file stem under bench/results) -> dependency globs. The runner script itself is the TB template source.
@@ -40,10 +41,37 @@ ARTIFACT_SOURCES = {
     'decode_attention15_rtl': ['tools/decode/run_attn15_rtl.py', D + 'decode_pkg.sv', D + 'mul_pipe.sv', D + 'div_const_pipe.sv',
                                D + 'attention.sv', *GOLD('attn15', 'attn'), 'tools/decode/run_decode_rtl.py', *TOOLS, *NUMERICS, *LUTS, *M15],
     'decode_qspi_rtl': ['tools/decode/run_qspi_rtl.py', *QSPI_RTL, *TOOLS],
+    # M5 board top. The UART TB builds boolean_core (every rtl/board and rtl/decode source) around the flash model and plays
+    # the host tool's frames against the 260K golden (run_decode_rtl.golden + pack_decode_image).
+    'boolean_uart_rtl': ['tools/board/run_uart_rtl.py', 'tools/board/boolean_host.py', 'tools/board/tb/*.sv', *BOARD_RTL,
+                         'tools/decode/run_decode_rtl.py', 'tools/decode/pack_decode_image.py',
+                         *QSPI_RTL, *TOP_RTL, *TOOLS, *NUMERICS, *LUTS, *M260],
+    # pin check: the XDC is parsed; the placed ports come from the implementation run, so its artifact is an input
+    'boolean_pin_check': ['tools/board/pin_check.py', 'constraints/boolean_xc7s50.xdc', 'tools/board/impl_top.py',
+                          'bench/results/boolean_top_impl.json', 'tools/decode/provenance.py'],
+    # full implementation of boolean_top: every source in impl_top.SRCS, the XDC, and the 15M image parameters checked
+    'boolean_top_impl': ['tools/board/impl_top.py', 'constraints/boolean_xc7s50.xdc', *BOARD_RTL, *TOP_RTL, D + 'qspi_reader.sv',
+                         'tools/decode/pack_decode_image.py', 'tools/decode/provenance.py', *M15,
+                         'build/decode/decode_image_15m/params.json'],
+}
+# out-of-context synthesis records (decode_synth_ooc.json) by entry name; the 15M wrappers are generated into build/ from the 15M image
+# parameters by gen_15m_wrap.py / gen_qspi_wrap.py, so the generated wrapper, its generators and the packer are inputs too
+_W15 = ['build/decode/top_decode_15m_wrap.sv', 'tools/decode/gen_15m_wrap.py', 'tools/decode/pack_decode_image.py']
+SYNTH_SOURCES = {
+    'gemv_unit': [D + 'gemv_unit.sv', 'tools/decode/synth_ooc.py'],
+    'act_quant': [D + 'act_quant.sv', 'tools/decode/synth_ooc.py'],
+    'rmsnorm': [D + 'decode_pkg.sv', D + 'seq_mul.sv', D + 'rmsnorm.sv', 'tools/decode/synth_ooc.py'],
+    'vec_alu': [D + 'decode_pkg.sv', D + 'vec_alu.sv', 'tools/decode/synth_ooc.py'],
+    'attention': [D + 'decode_pkg.sv', D + 'mul_pipe.sv', D + 'div_const_pipe.sv', D + 'attention.sv', 'tools/decode/synth_ooc.py'],
+    'top_decode_260k': [*TOP_RTL, 'tools/decode/synth_ooc.py'],
+    'top_decode_15m': [*TOP_RTL, *_W15, 'build/decode/decode_image_15m/params.json', 'tools/decode/synth_ooc.py'],
+    'qspi_reader': [D + 'qspi_reader.sv', 'tools/decode/synth_ooc.py'],
+    'top_decode_15m_qspi': [*TOP_RTL, D + 'qspi_reader.sv', *_W15, 'build/decode/top_decode_15m_qspi_wrap.sv', 'build/decode/decode_image_15m/params.json',
+                            'tools/decode/gen_qspi_wrap.py', 'tools/decode/synth_ooc.py'],
 }
 # fault-injection results are per unit; they depend on every RTL file the faults can touch plus the injector and runners
 FAULT_SOURCES = [D + '*.sv', 'rtl/board/*.sv', 'tools/decode/tb/*.sv', 'tools/decode/fault_inject.py', 'tools/decode/run_*_rtl.py',
-                 'tools/board/run_uart_rtl.py', *TOOLS]
+                 'tools/board/run_uart_rtl.py', 'tools/board/tb/*.sv', 'tools/board/boolean_host.py', *TOOLS]
 
 
 def e2e_sources(model: str, flash: str) -> list:
