@@ -539,3 +539,27 @@ artifacts with the ideal stream and the 15M decode e2e do not depend on the read
 - The XDC numbers come from datasheet rev 05 (2012) and a docs-page summary of DS189; the current Infineon S25FL128S datasheet was not available.
 
 Synthesis records refreshed after the reader change (default CAP_DLY = 0 wrapper builds): `qspi_reader` 59 LUT / 98 FF / 0 BRAM, WNS +13.972 ns; `top_decode_15m_qspi` 20,376 LUT / 9,323 FF / 73 DSP / 67 BRAM36, WNS +1.169 ns.
+
+### Audit fixes: QSPI (N01, N02, N04, F08 model side)
+All in `tools/decode/run_qspi_rtl.py`, `tools/decode/tb/qspi_flash_model.sv`, `rtl/decode/qspi_reader.sv` (parameter guards only), `tools/decode/fault_inject.py` (`qspi`).
+- **N01 address path.** Every reader configuration also runs in `sparse` mode: the model stores no image and each byte of the full address space is a
+  hash of its address (model `sparse_byte`, checker `exp_byte`, coded separately). Seeks set/clear every address bit alone, hit `0x280000` (board
+  image base), the 14-bit boundary, 1/4/8 MiB points, the top of the 16 MiB flash (reads wrap), the 24-bit boundary and, for ADDR_BYTES=4, addresses up
+  to `0xFFFFFFFF`. A mask of the seek address to 14 bits, or dropping bit 21 or bit 24, is now detected.
+- **N02 STARTUPE2.** All runs put `startupe2_cclk_shim` between the reader (or pad register) and the model: it holds the CCLK pin low for the first
+  `SWALLOW` USRCCLKO toggles. UG470 says the pin ignores the first three USRCCLKO clock cycles after configuration; the guide could not be re-read here,
+  so cycles vs edges is treated as ambiguous: default `SWALLOW=6` (three full cycles, worse case) in every run, plus `sw3edges_*` runs with 3 toggles; both pass
+  with `STARTUP_PULSES=4` (and 3). `STARTUP_PULSES` 0 (not clocked) is detected; the reader rejects `STARTUP_PULSES` outside {3,4}.
+- **N04 parameters.** Tested: ADDR_BYTES 3/4 x HALF 1..4 x SAMPLE_LATE 0/1 with direct pads; HALF 1..4 (3-byte, and 4-byte at HALF 1 and 4) behind the pad
+  registers (CAP_DLY=2, SCLK/IO delay corners); DUMMY 0 (LC=11) and 8; STARTUP_PULSES 3 and 4; CS_HIGH 2. `qspi_reader` refuses any other
+  value at elaboration (`$error` plus an instantiation of an undefined module, because iverilog 12 silently ignores `$error` in generate blocks); the runner's
+  `rejected_parameters` section checks 13 illegal values. Corruption only at HALF=4 (or 3) is detected.
+- **F08 model.** The model no longer takes DUMMY or ADDR_BYTES. It decodes CR1[7:6] (LC, power-up value `LC_INIT`) and uses the datasheet dummy table for 6Bh/6Ch
+  (LC 00/01/10: 8, LC 11: 0; S25FL128S rev 05 tables 8.10/8.12, Fig. 10.30; the 01/10 entries come from a scrambled text extraction and are the least certain),
+  and takes the address length from the opcode (6Bh 3 bytes, 6Ch 4 bytes) or BAR.EXTADD (`EXTADD_INIT`, 4 bytes for 6Bh). Negative tests (must be detected):
+  model LC=11 vs reader DUMMY=8, model LC=00/01 vs DUMMY=0, model EXTADD=1 vs a 3-byte reader, shim swallowing more toggles than the startup train.
+  The positive counterpart LC=11 + DUMMY=0 passes.
+- **Fault injection `qspi`.** New named faults: 3 address-mask faults (N01), 3 STARTUP_PULSES faults (N02), HALF=4-only and HALF=3-only nibble swaps (N04),
+  zero dummy clocks and an untested DUMMY default (F08). The `cs_high_gap_one_cycle` equivalence is explicitly conditional on a 50 MHz core clock
+  (20 ns > tCS 10 ns); `abort_leaves_nib_ph` is unchanged.
+- Runner exits nonzero on failure; `fault_inject.py` no longer uses `check=True` (a failing mutant exits 1) and requires the artifact file instead.
