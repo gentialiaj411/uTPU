@@ -19,6 +19,8 @@ from harness import ROOT, BUILD, write_mem, parse_summary
 from sim import compile_and_run, VVP
 import run_decode_rtl as rd
 from pack_decode_image import pack
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import boolean_host as bh
 
 BASE = 0x280000
 CPB = 8
@@ -35,7 +37,7 @@ module uart_tb;
     assign bus[i] = !pad_io_t[i] ? pad_io_o[i] : 1'bz;
     assign bus[i] = f_oe[i] ? f_o[i] : 1'bz;
   end
-  boolean_core #(.CPB(CPB), .TMO(%(tmo)d), .PT_HALF(2), %(params)s) dut (.clk, .rst, .uart_rx, .uart_tx, .pad_sclk, .pad_cs_n, .pad_io_o, .pad_io_t, .pad_io_i(bus));
+  boolean_core #(.CPB(CPB), .TMO(%(tmo)d), .WDOG(%(wdog)d), .PT_HALF(2), %(params)s) dut (.clk, .rst, .uart_rx, .uart_tx, .pad_sclk, .pad_cs_n, .pad_io_o, .pad_io_t, .pad_io_i(bus));
   qspi_flash_model #(.IMG("%(img)s"), .SIZE(BASE + NB), .BASE(BASE), .QUAD_INIT(1'b0), .ALLOW_REG_CMDS(1'b1),
       .TV(0.765), .THO(0.2), .TCS(1.0), .TCSS(0.3), .TCSH(0.3), .TSU(0.3), .THD(0.2)) flash (.sck(pad_sclk), .cs_n(pad_cs_n), .host_o(pad_io_o), .host_oe(~pad_io_t), .flash_o(f_o), .flash_oe(f_oe));
   logic [47:0] step_mem [NS]; logic [31:0] exp_logits [NS*V];
@@ -43,8 +45,14 @@ module uart_tb;
   logic [7:0] rxq [4096];
   logic [31:0] rng = 32'h0bad_cafe;
   function automatic int rnd(input int n); rng ^= rng << 13; rng ^= rng >> 17; rng ^= rng << 5; return int'(rng %% 32'(n)); endfunction
-  integer t_start = 0, t_done = 0;
+  integer t_start = 0, t_done = 0, n_starts = 0, exp_steps = 0; logic [7:0] exp_pos = 0;
   always @(posedge clk) begin cycles++; if (dut.dec_start) t_start = cycles; if (dut.dec_done) t_done = cycles; end
+  // full-width position path: the pos byte of the request must arrive at the top_decode port unchanged (PW = 7 here)
+  always @(posedge clk) if (dut.dec_start) begin
+    n_starts++; checks++;
+    if (dut.dec_pos !== exp_pos[6:0] || exp_pos[7]) begin errors++; $display("MISMATCH dec_pos at top_decode port %%0d, request %%0d", dut.dec_pos, exp_pos); end
+    if (dut.u_dec.pos !== exp_pos[6:0]) begin errors++; $display("MISMATCH top_decode pos input %%0d, request %%0d", dut.u_dec.pos, exp_pos); end
+  end
   // UART receiver on uart_tx
   always begin : rx_proc
     logic [7:0] b;
@@ -80,6 +88,19 @@ module uart_tb;
     if (rd != wr) begin errors++; $display("MISMATCH unexpected response byte(s) after %%s: %%0d pending, first %%h", what, wr - rd, rxq[rd %% 4096]);
       if (%(stop)d) begin $display("SUMMARY errors=%%0d checks=%%0d cycles=%%0d", errors, checks, cycles); $finish; end end
   endtask
+  task automatic expect_err(input [7:0] code, input int next, input string what);
+    expect_byte(8'h45, {what, " E tag"}); expect_byte(code, {what, " E code"}); expect_byte(8'(next), {what, " E next"});
+    expect_idle(3000, what);
+  endtask
+  task automatic doreset;
+    @(negedge clk); rst = 1; repeat (4) @(negedge clk); rst = 0; repeat (8) @(negedge clk);
+  endtask
+  task automatic ping(input string what);
+    send(8'h56); expect_byte(8'h76, {what, " v"}); expect_byte(8'h01, {what, " v1"});
+  endtask
+  task automatic rdid(input string what);
+    spi(1, 6, {8'h9F, 56'd0}, {8'h01, 8'h20, 8'h18, 8'h4D, 8'h00, 8'h80, 16'd0}, what);
+  endtask
   task automatic spi(input int ntx, input int nrx, input [63:0] tx, input [63:0] exp_rx, input string what);   // tx[63:56] first
     send(8'h53); send(ntx); send(nrx);
     for (int i = 0; i < ntx; i++) send(tx[63 - 8*i -: 8]);
@@ -88,7 +109,7 @@ module uart_tb;
   endtask
   task automatic step(input int s, input int idx, input bit extra);   // extra: a second 'T' frame is sent while the step runs (must be ignored)
     int t0; logic [31:0] ev; logic [31:0] cyc_rep; logic [7:0] cb [4];
-    t0 = cycles;
+    t0 = cycles; exp_pos = step_mem[s][7:0]; exp_steps++;
     send(8'h54); send(step_mem[s][39:32]); send(step_mem[s][47:40]); send(step_mem[s][7:0]); send(idx[7:0]); send(idx[15:8]);
     if (extra) begin send(8'h54); send(8'h09); send(8'h00); send(8'h02); send(8'h00); send(8'h00); end
     expect_byte(8'h52, "R tag");
@@ -109,6 +130,37 @@ module uart_tb;
   initial begin
     $readmemh("%(steps)s", step_mem); $readmemh("%(logits)s", exp_logits);
     repeat (4) @(posedge clk); rst = 0; repeat (50) @(posedge clk);
+    if (MODE == 2) begin
+      // robustness: watchdog on a stalled byte stream, then reset in the middle of a frame, an SPI read and a decode step
+      send(8'h56); expect_byte(8'h76, "V tag"); expect_byte(8'h01, "V ver");
+      spi(1, 1, {8'h35, 56'd0}, {8'h00, 56'd0}, "RDCR");
+      spi(1, 0, {8'h06, 56'd0}, 64'd0, "WREN"); spi(3, 0, {8'h01, 8'h00, 8'h02, 40'd0}, 64'd0, "WRR");
+      spi(1, 1, {8'h05, 56'd0}, {8'h01, 56'd0}, "RDSR wip"); spi(1, 1, {8'h05, 56'd0}, {8'h01, 56'd0}, "RDSR wip 2"); spi(1, 1, {8'h05, 56'd0}, {8'h00, 56'd0}, "RDSR done");
+      step(0, 3, 0);                                             // pos 0 completes, next = 1
+      // stall: the flash byte stream stops (st_valid forced low) after the step has started; the watchdog must fire
+      exp_pos = 8'h01; send(8'h54); send(step_mem[1][39:32]); send(step_mem[1][47:40]); send(8'h01); send(8'h00); send(8'h00);
+      repeat (20000) @(posedge clk); force dut.st_valid = 1'b0;
+      expect_err(8'h04, 1, "watchdog");
+      release dut.st_valid;
+      // the engine and the reader were reset: a retry of pos 1 and the following steps must match the golden
+      step(1, 5, 0);
+      send(8'h58); expect_byte(8'h78, "x tag"); expect_byte(8'h01, "x ver");
+      step(0, 7, 0); step(1, 9, 0);
+      // reset in the middle of a UART frame
+      send(8'h54); send(8'h01); send(8'h00); doreset; expect_idle(2000, "reset mid frame");
+      ping("after reset mid frame"); rdid("RDID after reset mid frame");
+      // reset in the middle of an SPI register read (after the opcode: the flash model rejects a CS# rise inside the command byte)
+      send(8'h53); send(8'd1); send(8'd6); send(8'h9F);
+      repeat (380) @(posedge clk); doreset; expect_idle(2000, "reset mid SPI");
+      ping("after reset mid SPI"); rdid("RDID after reset mid SPI");
+      // reset in the middle of a decode step (data phase of a burst)
+      exp_pos = 8'h00; send(8'h54); send(step_mem[0][39:32]); send(step_mem[0][47:40]); send(8'h00); send(8'h00); send(8'h00);
+      repeat (300000) @(posedge clk); doreset; expect_idle(2000, "reset mid decode step");
+      ping("after reset mid decode"); rdid("RDID after reset mid decode");
+      step(0, 11, 0); step(1, 13, 0);
+      $display("SUMMARY errors=%%0d checks=%%0d cycles=%%0d starts=%%0d", errors, checks, cycles, n_starts);
+      $finish;
+    end
     if (MODE == 0) begin
       // negative: QUAD bit is 0, a decode request must trip the flash model's check (this sim is expected to end in $fatal)
       send(8'h54); send(1); send(0); send(0); send(0); send(0);
@@ -117,9 +169,19 @@ module uart_tb;
       $finish;
     end
     send(8'h56); expect_byte(8'h76, "V tag"); expect_byte(8'h01, "V ver");
-    send_bad_stop(8'h56); expect_idle(2000, "framing error");        // a byte with a bad stop bit must be dropped
+    send_bad_stop(8'h56); expect_idle(2000, "framing error");
+    // rejected requests run no decode and answer with E frames; X restarts the sequence
+    send(8'h58); expect_byte(8'h78, "x tag"); expect_byte(8'h01, "x ver");
+    send(8'h54); send(V[7:0]); send(V[15:8]); send(8'h00); send(8'h00); send(8'h00); expect_err(8'h01, 0, "token == VOCAB");
+    send(8'h54); send(8'h01); send(8'h00); send(8'h80); send(8'h00); send(8'h00); expect_err(8'h02, 0, "pos == MAX_SEQ");
+    send(8'h54); send(8'h01); send(8'h00); send(8'hFF); send(8'h00); send(8'h00); expect_err(8'h02, 0, "pos 255");
+    send(8'h54); send(8'h01); send(8'h00); send(8'h01); send(8'h00); send(8'h00); expect_err(8'h03, 0, "pos 1 before pos 0");
+    send(8'h53); send(8'd9); send(8'd1); expect_err(8'h05, 0, "S ntx 9");        // a byte with a bad stop bit must be dropped
     spi(1, 6, {8'h9F, 56'd0}, {8'h01, 8'h20, 8'h18, 8'h4D, 8'h00, 8'h80, 16'd0}, "RDID");
-    spi(1, 1, {8'h35, 56'd0}, {8'h00, 56'd0}, "RDCR before");
+    // the host tool's own register sequence (boolean_host.py: info, enable-quad, info) played against the RTL and the flash model;
+    // the expected response bytes come from the host's software stub (an independent Python model of board_ctrl + S25FL128S registers)
+%(hostseq)s
+    spi(1, 1, {8'h35, 56'd0}, {8'h02, 56'd0}, "RDCR after host enable-quad");
     send(8'h54); send(8'h01); send(8'h00);                        // truncated frame, must time out
     repeat (TMO_CYC) @(posedge clk);
     send(8'h56); expect_byte(8'h76, "V after timeout"); expect_byte(8'h01, "V ver 2");
@@ -138,13 +200,32 @@ module uart_tb;
         spi(1, 0, {8'h04, 56'd0}, 64'd0, "WRDI between steps");
         spi(1, 1, {8'h05, 56'd0}, {8'h00, 56'd0}, "RDSR WEL cleared between steps");
       end
+      if (s == 1) begin send(8'h54); send(8'h01); send(8'h00); send(8'h05); send(8'h00); send(8'h00); expect_err(8'h03, 1, "pos 5 with next 1"); end
       step(s, (s == 1) ? V + 5 : rnd(V), s == 0);          // step 0 also gets a second 'T' frame while busy
     end
+    checks++; if (n_starts != NS) begin errors++; $display("MISMATCH %%0d decode starts, expected %%0d (a rejected request ran a decode?)", n_starts, NS); end
     $display("SUMMARY errors=%%0d checks=%%0d cycles=%%0d ncmds=%%0d nwrr=%%0d", errors, checks, cycles, flash.ncmds, flash.n_wrr);
     $finish;
   end
 endmodule
 """
+
+
+class _Rec(bh.Stub):
+    def __init__(self):
+        super().__init__(); self.pairs = []
+    def write(self, b):
+        n0 = len(self.buf); super().write(b); self.pairs.append((bytes(b), self.buf[n0:]))
+
+
+def host_sequence():
+    """(frame, expected response) pairs produced by boolean_host.Board for info -> enable-quad -> info against the QUAD=0, LC=00 power-up state."""
+    r = _Rec(); b = bh.Board(r)
+    i0 = b.info(); assert not i0['compatible'] and b.enable_quad()[0] == 'set'; i1 = b.info(); assert i1['compatible']
+    lines = []
+    for k, (f, resp) in enumerate(r.pairs):
+        lines.append('    ' + ' '.join(f"send(8'h{x:02x});" for x in f) + ' ' + ' '.join(f"expect_byte(8'h{x:02x}, \"host seq {k}\");" for x in resp))
+    return chr(10).join(lines), len(r.pairs), r.n_wrr
 
 
 def main():
@@ -168,31 +249,53 @@ def main():
     keys = ['D', 'H', 'NL', 'NH', 'NKV', 'HS', 'VOCAB', 'CLS4', 'WQ4', 'WK4', 'WV4', 'WO4', 'W14', 'W34', 'W24',
             'CLS_BASE', 'EMB_SCALE_BASE', 'LAYERS_BASE', 'IMAGE_BYTES', 'CLS_TILE_BYTES', 'CLS_KB', 'CLS_G', 'RECIP_D', 'NORM_MULT',
             'EPS', 'GFB', 'NORM_SHIFT', 'SILU_MULT', 'SWIGLU_MULT', 'SCORE_MULT', 'SILU_SHIFT', 'SWIGLU_SHIFT', 'SCORE_SHIFT']
-    plist = ', '.join(f'.{k}({params[k]})' for k in keys) + ', .MAX_SEQ(64), .KV4(0), .ROPE_CS("rtl/decode/luts/rope_cs_q15_h8.mem"), .ROPE_DEPTH(2048)'
+    plist = ', '.join(f'.{k}({params[k]})' for k in keys) + ', .MAX_SEQ(128), .KV4(0), .ROPE_CS("rtl/decode/luts/rope_cs_q15_h8.mem"), .ROPE_DEPTH(2048)'
     srcs = [ROOT / 'rtl/decode' / s for s in rd.SRCS] + [ROOT / 'rtl/decode/qspi_reader.sv'] + \
            [ROOT / 'rtl/board' / s for s in ('uart_rx.sv', 'uart_tx.sv', 'qspi_pad_regs.sv', 'board_ctrl.sv', 'boolean_core.sv')] + [ROOT / 'tools/decode/tb/qspi_flash_model.sv']
 
+    ctrl_idx = [Path(x).name for x in srcs].index('board_ctrl.sv')
     for r in a.replace:
         orig, mut = r.split('=')
         srcs = [Path(mut) if Path(s).resolve() == (ROOT / orig).resolve() else s for s in srcs]
 
-    def build(mode, stop, name):
+    hostseq, n_host_frames, n_host_wrr = host_sequence()
+
+    def build(mode, stop, name, wdog=268435456):
         tb = BUILD / f'uart_{name}_tb.sv'
-        text = TB % dict(ns=len(steps), vocab=params['VOCAB'], nbytes=len(img), base=BASE, cpb=CPB, mode=mode, tmo=TMO, params=plist, stop=stop, **files)
+        text = TB % dict(ns=len(steps), vocab=params['VOCAB'], nbytes=len(img), base=BASE, cpb=CPB, mode=mode, tmo=TMO, params=plist, stop=stop, wdog=wdog, hostseq=hostseq, **files)
         tb.write_text(text.replace('TMO_CYC', str(3 * TMO)).replace('.QUAD_INIT(MODE == 0 ? 1\'b0 : 1\'b0)', '.QUAD_INIT(1\'b0)'))
         return tb
 
-    # main run (QUAD powers up 0; the TB enables it through the UART SPI passthrough)
-    tb = build(1, 1 if a.fast else 0, 'fast' if a.fast else 'main')
-    rc, out = compile_and_run(srcs, 'uart_tb', tb)
-    line, kv = parse_summary(out)
+    def unit_tb():
+        ut = ROOT / 'tools/board/tb/board_ctrl_unit_tb.sv'
+        urc, uout = compile_and_run([srcs[ctrl_idx]], 'board_ctrl_unit_tb', ut)
+        uline, ukv = parse_summary(uout)
+        return urc, uout, uline, ukv
+
     if a.fast:
-        errs = (int(kv['errors']) if 'errors' in kv else 0) + (1 if rc != 0 or 'errors' not in kv else 0)   # a flash-model $fatal counts as a detection
-        o = {'mode': 'fast', 'mismatch_count': errs, 'real_mismatch_count': errs, 'summary': line,
-             'first_mismatches': [x for x in out.splitlines() if x.startswith(('MISMATCH', 'FATAL'))][:4]}
+        # cheapest detector first: board_ctrl against a stub decoder (position width, bounds, sequence, watchdog, resets); the slower
+        # full-system runs only when the unit testbench passes
+        urc, uout, uline, ukv = unit_tb()
+        uerrs = (int(ukv['errors']) if 'errors' in ukv else 0) + (1 if urc != 0 or 'errors' not in ukv else 0)
+        errs, rerrs, out, rout, line = 0, 0, '', '', 'skipped (unit testbench already detected)'
+        if uerrs == 0:
+            tb = build(1, 1, 'fast')
+            rc, out = compile_and_run(srcs, 'uart_tb', tb)
+            line, kv = parse_summary(out)
+            errs = (int(kv['errors']) if 'errors' in kv else 0) + (1 if rc != 0 or 'errors' not in kv else 0)   # a flash-model $fatal counts as a detection
+        if uerrs + errs == 0 and any(Path(r.split('=')[0]).name == 'boolean_core.sv' for r in a.replace):    # wiring faults need the real engine and a stalled stream
+            rrc, rout = compile_and_run(srcs, 'uart_tb', build(2, 1, 'robust_fast', wdog=1400000))
+            rl, rk = parse_summary(rout)
+            rerrs = (int(rk['errors']) if 'errors' in rk else 0) + (1 if rrc != 0 or 'errors' not in rk else 0)
+        o = {'mode': 'fast', 'mismatch_count': errs + uerrs + rerrs, 'real_mismatch_count': errs + uerrs + rerrs, 'summary': line, 'unit_summary': uline,
+             'first_mismatches': [x for x in (out + uout + rout).splitlines() if x.startswith(('MISMATCH', 'FATAL'))][:4]}
         Path(a.output).write_text(json.dumps(o, indent=2) + chr(10))
         print(json.dumps(o))
         return
+    # main run (QUAD powers up 0; the TB enables it through the UART SPI passthrough)
+    tb = build(1, 0, 'main')
+    rc, out = compile_and_run(srcs, 'uart_tb', tb)
+    line, kv = parse_summary(out)
     # mutation: swapped token bytes in the response must be caught (stop at the first error)
     tbm = build(1, 1, 'mut')
     mrc, mout = compile_and_run(srcs, 'uart_tb', tbm, defines=('BOARD_MUTATE',))
@@ -201,20 +304,33 @@ def main():
     tbn = build(0, 0, 'neg')
     nrc, nout = compile_and_run(srcs, 'uart_tb', tbn)
     neg_caught = 'Quad Output Read issued with CR1.QUAD = 0' in nout
+    # robustness run: watchdog on a stalled byte stream + recovery, resets mid frame / SPI read / decode step
+    tbr = build(2, 0, 'robust', wdog=1400000)
+    rrc, rout = compile_and_run(srcs, 'uart_tb', tbr)
+    rline, rkv = parse_summary(rout)
+    robust_ok = rrc == 0 and rkv.get('errors') == '0'
+    urc, uout, uline, ukv = unit_tb()
+    unit_ok = urc == 0 and ukv.get('errors') == '0' and int(ukv.get('checks', 0)) > 0
     step_lines = [x for x in out.splitlines() if x.startswith('STEP')]
-    o = {'status': 'pass' if rc == 0 and kv.get('errors') == '0' and len(step_lines) == len(steps) and int(kv.get('nwrr', 0)) >= 1
-         and int(mkv.get('errors', 0)) > 0 and neg_caught else 'fail',
+    o = {'status': 'pass' if rc == 0 and kv.get('errors') == '0' and len(step_lines) == len(steps) and int(kv.get('nwrr', 0)) >= 1 + n_host_wrr
+         and int(mkv.get('errors', 0)) > 0 and neg_caught and robust_ok and unit_ok else 'fail',
          'model': 'stories260K (boolean_core with 260K parameters; the 15M configuration is the default of the same RTL)',
          'uart_cpb': CPB, 'flash_base': BASE, 'steps': len(steps), 'prompts': prompts, 'golden_tokens': [s[1] for s in seqs],
          'checks': int(kv.get('checks', -1)), 'mismatch_count': int(kv.get('errors', -1)), 'steps_log': step_lines,
-         'quad_enable_via_uart': {'flash_model_QUAD_powerup': 0, 'wrr_commands_applied': int(kv.get('nwrr', 0))},
+         'robustness_run': {'summary': rline, 'ok': robust_ok, 'steps_in_run': len([x for x in rout.splitlines() if x.startswith('STEP')]),
+                            'covers': 'watchdog (stalled byte stream) + retry, X, reset mid UART frame / mid SPI read / mid decode step, each followed by golden-checked steps', 'first_mismatches': [x for x in rout.splitlines() if x.startswith(('MISMATCH', 'FATAL'))][:6]},
+         'board_ctrl_unit': {'summary': uline, 'ok': unit_ok, 'covers': 'pos 0..127 reaches the decode port (PW=7), bounds, sequence rule, S errors, watchdog + abort pulse, resets', 'first_mismatches': [x for x in uout.splitlines() if x.startswith('MISMATCH')][:6]},
+         'max_seq': 128, 'position_width_bits': 7,
+         'host_sequence_frames': n_host_frames, 'quad_enable_via_uart': {'flash_model_QUAD_powerup': 0, 'host_tool_wrr_expected': n_host_wrr, 'wrr_commands_applied': int(kv.get('nwrr', 0))},
          'mutation_mismatch_count': int(mkv.get('errors', -1)), 'mutation_expected': '>0 (BOARD_MUTATE swaps the response token bytes)',
          'negative_quad0_read_trips_flash_model': neg_caught, 'negative_stdout_tail': [x for x in nout.splitlines() if 'FLASH' in x][:2],
          'first_mismatches': [x for x in out.splitlines() if x.startswith('MISMATCH')][:8],
          'vvp_command': f'{VVP} build/decode/uart_main_tb.vvp', 'summary': line, 'sim_stdout_sha256': hashlib.sha256(out.encode()).hexdigest(),
          'wall_seconds': round(time.time() - t0, 1)}
     Path(a.output).write_text(json.dumps(o, indent=2) + '\n')
+    # TODO(integration): provenance
     print(json.dumps({k: o[k] for k in ('status', 'steps', 'checks', 'mismatch_count', 'mutation_mismatch_count', 'negative_quad0_read_trips_flash_model', 'summary', 'wall_seconds')}))
+    sys.exit(0 if o['status'] == 'pass' else 1)
 
 
 if __name__ == '__main__':

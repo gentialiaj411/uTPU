@@ -52,7 +52,7 @@ set trace_max  0.5
 
 # SCLK as seen at the flash: the clock leaving the qspi_pad_regs SCLK register (a toggle clock, clk50/2 while it runs),
 # delayed by the USRCCLKO -> CCLK pin delay (early/late = TUSRCCLKO min/max).
-create_generated_clock -name clk_sck -source [get_pins -hierarchical -filter {NAME =~ *u_pr/sclk_r_reg/C}] -divide_by 2 [get_pins u_pads/u_startup/USRCCLKO]
+create_generated_clock -name clk_sck -source [get_pins u_core/u_pr/sclk_r_reg/C] -divide_by 2 [get_pins u_pads/u_startup/USRCCLKO]
 set_clock_latency -source -early $cclk_min [get_clocks clk_sck]
 set_clock_latency -source -late  $cclk_max [get_clocks clk_sck]
 
@@ -66,11 +66,11 @@ set_output_delay -clock clk_sck -min [expr {-$tcsh_flash + $trace_min}] [get_por
 # relation the tool would otherwise check (launch and sample on the same clk50/clk_sck edge) does not occur. Move the hold
 # check back one SCLK period; launch phases are guaranteed by rtl/decode/qspi_reader.sv (all io_o/io_oe/cs_n updates are
 # on fall ticks, load/abort cycles with SCLK low) and exercised by the flash model's tSU/tHD/tCSS/tCSH checks.
-set_multicycle_path 1 -hold -end -from [get_clocks clk50_raw] -to [get_ports {qspi_cs_n qspi_dq[*]}]
+set_multicycle_path 1 -hold -end -from [get_clocks -of_objects [get_pins u_mmcm/CLKOUT0]] -to [get_ports {qspi_cs_n qspi_dq[*]}]
 
 # Inputs (flash -> core): data is launched by the SCLK falling edge and is valid tV(max) + trace after it and held tHO(min) after
 # the next falling edge. The input register samples it two core cycles (one SCLK period) later: setup multicycle 2, hold 1.
 set_input_delay -clock clk_sck -clock_fall -max [expr {$tv_max + $trace_max}]  [get_ports {qspi_dq[*]}]
 set_input_delay -clock clk_sck -clock_fall -min [expr {$tho_min + $trace_min}] [get_ports {qspi_dq[*]}]
-set_multicycle_path 2 -setup -end -from [get_clocks clk_sck] -to [get_clocks clk50_raw]
-set_multicycle_path 1 -hold  -end -from [get_clocks clk_sck] -to [get_clocks clk50_raw]
+set_multicycle_path 2 -setup -end -from [get_clocks clk_sck] -to [get_clocks -of_objects [get_pins u_mmcm/CLKOUT0]]
+set_multicycle_path 1 -hold  -end -from [get_clocks clk_sck] -to [get_clocks -of_objects [get_pins u_mmcm/CLKOUT0]]
