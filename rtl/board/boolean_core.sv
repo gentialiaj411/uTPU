@@ -10,6 +10,7 @@ module boolean_core #(
     parameter int CPB = 434,                       // UART clocks per bit (50 MHz / 115200)
     parameter int PT_HALF = 2,                     // flash register-access SCLK half period in core clocks
     parameter int TMO = 16777216,                  // UART partial-frame timeout, core clocks
+    parameter int WDOG = 268435456,                // decode step watchdog, core clocks (board_ctrl.sv)
     parameter logic [31:0] FLASH_BASE = 32'h0028_0000,
     parameter int QSPI_HALF = 1,
     parameter bit QSPI_SAMPLE_LATE = 1'b1,
@@ -40,6 +41,8 @@ module boolean_core #(
     uart_rx #(.CPB(CPB)) u_rx (.clk, .rst, .rxd(uart_rx), .data(rx_data), .valid(rx_valid));
     uart_tx #(.CPB(CPB)) u_tx (.clk, .rst, .start(tx_start), .data(tx_data), .txd(uart_tx), .busy(tx_busy));
     // decode engine + flash reader
+    logic dec_abort;
+    wire  rst_dec = rst | dec_abort;                // watchdog reset of the decode engine and the flash reader
     logic dec_start, dec_busy, dec_done, dec_logit_valid, seek_req, st_valid, st_ready;
     logic [15:0] dec_token, dec_token_out, dec_logit_idx; logic [PW-1:0] dec_pos;
     logic signed [31:0] dec_logit_val; logic [31:0] seek_addr; logic [7:0] st_data;
@@ -49,18 +52,18 @@ module boolean_core #(
         .CLS_TILE_BYTES(CLS_TILE_BYTES), .CLS_KB(CLS_KB), .CLS_G(CLS_G), .RECIP_D(RECIP_D), .NORM_MULT(NORM_MULT), .EPS(EPS),
         .GFB(GFB), .NORM_SHIFT(NORM_SHIFT), .SILU_MULT(SILU_MULT), .SWIGLU_MULT(SWIGLU_MULT), .SCORE_MULT(SCORE_MULT),
         .SILU_SHIFT(SILU_SHIFT), .SWIGLU_SHIFT(SWIGLU_SHIFT), .SCORE_SHIFT(SCORE_SHIFT), .ROPE_CS(ROPE_CS), .ROPE_DEPTH(ROPE_DEPTH)) u_dec (
-        .clk, .rst, .start(dec_start), .token(dec_token), .pos(dec_pos), .seek_req, .seek_addr, .st_valid, .st_data, .st_ready,
+        .clk, .rst(rst_dec), .start(dec_start), .token(dec_token), .pos(dec_pos), .seek_req, .seek_addr, .st_valid, .st_data, .st_ready,
         .busy(dec_busy), .done(dec_done), .token_out(dec_token_out), .logit_valid(dec_logit_valid), .logit_idx(dec_logit_idx),
         .logit_val(dec_logit_val));
     logic r_sclk, r_cs_n; logic [3:0] r_io_o, r_io_oe, io_i;
     qspi_reader #(.HALF(QSPI_HALF), .SAMPLE_LATE(QSPI_SAMPLE_LATE), .CAP_DLY(QSPI_CAP_DLY)) u_rd (
-        .clk, .rst, .seek_req, .seek_addr(seek_addr + FLASH_BASE), .st_ready, .st_valid, .st_data,
+        .clk, .rst(rst_dec), .seek_req, .seek_addr(seek_addr + FLASH_BASE), .st_ready, .st_valid, .st_data,
         .sclk(r_sclk), .cs_n(r_cs_n), .io_o(r_io_o), .io_oe(r_io_oe), .io_i);
     // UART control + flash register access (single-bit SPI) multiplexed onto the flash pins
     logic pt_active, pt_sclk, pt_cs_n, pt_mosi;
-    board_ctrl #(.PW(PW), .PT_HALF(PT_HALF), .TMO(TMO)) u_ctl (
+    board_ctrl #(.PW(PW), .PT_HALF(PT_HALF), .TMO(TMO), .VOCAB(VOCAB), .MAX_SEQ(MAX_SEQ), .WDOG(WDOG)) u_ctl (
         .clk, .rst, .rx_data, .rx_valid, .tx_data, .tx_start, .tx_busy,
-        .dec_start, .dec_token, .dec_pos, .dec_done, .dec_token_out, .dec_logit_valid, .dec_logit_idx, .dec_logit_val,
+        .dec_start, .dec_abort, .dec_token, .dec_pos, .dec_done, .dec_token_out, .dec_logit_valid, .dec_logit_idx, .dec_logit_val,
         .pt_active, .pt_sclk, .pt_cs_n, .pt_mosi, .pt_miso(io_i[1]));
     logic sclk, cs_n; logic [3:0] io_o, io_oe;
     assign sclk  = pt_active ? pt_sclk : r_sclk;

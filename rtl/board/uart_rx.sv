@@ -5,7 +5,8 @@ module uart_rx #(parameter int CPB = 434) (
     output logic       valid
 );
     localparam int CW = $clog2(CPB + 1) + 1;
-    logic r0, r1;
+    (* ASYNC_REG = "TRUE" *) logic r0;   // two-flop synchronizer for the asynchronous rxd pin (constrained with a false path in the XDC)
+    (* ASYNC_REG = "TRUE" *) logic r1;
     logic [CW-1:0] cnt;
     logic [3:0] nbit;
     logic [7:0] sh;

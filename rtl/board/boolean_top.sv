@@ -21,7 +21,7 @@ module boolean_top (
     BUFG u_clk (.I(clk50_raw), .O(clk50));
 
     // ---- reset: held until the MMCM is locked, then 16 more cycles ----
-    logic [1:0] lk_sync = 2'b00;
+    (* ASYNC_REG = "TRUE" *) logic [1:0] lk_sync = 2'b00;   // MMCM LOCKED -> clk50 synchronizer
     logic [4:0] rst_cnt = 5'd0;
     logic       rst = 1'b1;
     always_ff @(posedge clk50) begin

@@ -7,9 +7,22 @@
 //                                                 on IO0, nrx bytes in on IO1, CS# high (flash register access)
 //     -> 's' (73h) nrx rx[0..nrx-1]
 //   'V' (56h)                                     -> 'v' (76h) 01h    (link check)
+//   'X' (58h)                                     -> 'x' (78h) 01h    start a new sequence: next expected position := 0
+//   Any rejected request           -> 'E' (45h) code next    code: 01 token >= VOCAB, 02 pos >= MAX_SEQ, 03 pos > next expected position,
+//                                                           04 step watchdog (decode engine and flash reader were reset),
+//                                                           05 S frame with ntx or nrx > 8 (the rest of that frame is NOT consumed);
+//                                                           next = next expected position (0..MAX_SEQ). A rejected T frame runs no decode.
+// Sequence rule: one sequence is positions 0, 1, 2, ... in order; the KV cache holds the keys/values of every position already
+// decoded. A T frame is accepted for pos <= next expected position (next is the position after the last one that completed;
+// re-running an earlier position is allowed and recomputes it from the KV entries below it, which is how a sequence is resumed
+// after an error or restarted: pos 0 is always accepted). pos > next would attend over KV entries that were never written
+// (stale data from an earlier sequence), so it is rejected with code 03. 'X' only resets the bookkeeping (pos 0 is accepted anyway).
+// A step that has not produced 'R' after WDOG core clocks is aborted: dec_abort resets top_decode and qspi_reader for 16 cycles,
+// then 'E' 04 is sent. The position stays at its old next value (the aborted position's KV entry is incomplete and is rewritten by a retry).
 // Other bytes are ignored; a partial frame is dropped after TMO idle cycles. Bytes that arrive while a step or an
 // SPI transaction runs are ignored, so the host must wait for the response before sending the next frame.
-module board_ctrl #(parameter int PW = 7, PT_HALF = 2, TMO = 16777216) (
+module board_ctrl #(parameter int PW = 7, PT_HALF = 2, TMO = 16777216, VOCAB = 32000, MAX_SEQ = 128,
+                   WDOG = 268435456 /* 2^28 clocks = 5.4 s at 50 MHz; worst measured 15M step ~ 5e7 clocks (0.25 B/clk stream bound) */) (
     input  logic          clk, rst,
     input  logic [7:0]    rx_data,
     input  logic          rx_valid,
@@ -17,6 +30,7 @@ module board_ctrl #(parameter int PW = 7, PT_HALF = 2, TMO = 16777216) (
     output logic          tx_start,
     input  logic          tx_busy,
     output logic          dec_start,
+    output logic          dec_abort,      // reset top_decode and qspi_reader (watchdog)
     output logic [15:0]   dec_token,
     output logic [PW-1:0] dec_pos,
     input  logic          dec_done,
@@ -27,12 +41,14 @@ module board_ctrl #(parameter int PW = 7, PT_HALF = 2, TMO = 16777216) (
     output logic          pt_active, pt_sclk, pt_cs_n, pt_mosi,
     input  logic          pt_miso
 );
-    typedef enum logic [3:0] {S_IDLE, S_GATHER, S_START, S_RUN, S_PT_WAIT, S_PT, S_TX, S_TXW} st_t;
+    typedef enum logic [3:0] {S_IDLE, S_GATHER, S_START, S_RUN, S_PT_WAIT, S_PT, S_TX, S_TXW, S_ABORT} st_t;
     st_t st;
     logic [7:0]  cmd;
     logic [7:0]  fb [10];
     logic [3:0]  have;
     logic [24:0] tmo;
+    logic [8:0]  next_pos;
+    logic [4:0]  ab_cnt;
     logic [31:0] cyc, probe;
     logic [15:0] pidx;
     logic [7:0]  resp [12];
@@ -54,10 +70,18 @@ module board_ctrl #(parameter int PW = 7, PT_HALF = 2, TMO = 16777216) (
     wire [3:0] need_now  = is_s ? ((nh >= 4'd2) ? 4'd2 + fb[0][3:0] : 4'd2) : 4'd5;
     wire       s_bad     = is_s && nh == 4'd2 && (fb[0] > 8'd8 || rx_data > 8'd8);
     wire [8:0] rx_pos    = bit_i - tx_bits;
+    wire [8:0] pos_in    = {1'b0, fb[2]};
+    wire tok_bad = {fb[1], fb[0]} >= 16'(VOCAB);
+    wire pos_bad = pos_in >= 9'(MAX_SEQ);
+    wire gap_bad = pos_in > next_pos;
+    task automatic err(input [7:0] code);
+        resp[0] <= 8'h45; resp[1] <= code; resp[2] <= next_pos[7:0]; rlen <= 4'd3; rptr <= '0; st <= S_TX;
+    endtask
 
     always_ff @(posedge clk) begin
         dec_start <= 1'b0; tx_start <= 1'b0;
         if (rst) begin
+            next_pos <= '0; dec_abort <= 1'b0; ab_cnt <= '0;
             st <= S_IDLE; have <= '0; pt_active <= 1'b0; cs_n_q <= 1'b1; sclk_q <= 1'b0; pt_wait <= '0;
         end else begin
             if (dec_logit_valid && dec_logit_idx == pidx) probe <= dec_logit_val;
@@ -68,6 +92,7 @@ module board_ctrl #(parameter int PW = 7, PT_HALF = 2, TMO = 16777216) (
                         cmd <= rx_data;
                         case (rx_data)
                             8'h54, 8'h53: st <= S_GATHER;
+                            8'h58: begin next_pos <= '0; resp[0] <= 8'h78; resp[1] <= 8'h01; rlen <= 4'd2; rptr <= '0; st <= S_TX; end
                             8'h56: begin resp[0] <= 8'h76; resp[1] <= 8'h01; rlen <= 4'd2; rptr <= '0; st <= S_TX; end
                             default: ;
                         endcase
@@ -78,17 +103,23 @@ module board_ctrl #(parameter int PW = 7, PT_HALF = 2, TMO = 16777216) (
                     if (tmo == 25'(TMO)) st <= S_IDLE;
                     else if (rx_valid) begin
                         fb[have] <= rx_data; have <= nh; tmo <= '0;
-                        if (s_bad) st <= S_IDLE;
+                        if (s_bad) err(8'h05);
                         else if (nh == need_now && (!is_s || nh >= 4'd2)) st <= is_s ? S_PT_WAIT : S_START;
                     end
                 end
-                S_START: begin
+                S_START: if (tok_bad) err(8'h01);
+                         else if (pos_bad) err(8'h02);
+                         else if (gap_bad) err(8'h03);
+                         else begin
                     dec_token <= {fb[1], fb[0]}; dec_pos <= fb[2][PW-1:0]; pidx <= {fb[4], fb[3]};
                     probe <= '0; cyc <= '0; dec_start <= 1'b1; st <= S_RUN;
-                end
+                         end
                 S_RUN: begin
                     cyc <= cyc + 1'b1;
-                    if (dec_done) begin
+                    if (!dec_done && cyc >= 32'(WDOG)) begin
+                        dec_abort <= 1'b1; ab_cnt <= '0; st <= S_ABORT;
+                    end else if (dec_done) begin
+                        if ({1'b0, fb[2]} == next_pos) next_pos <= next_pos + 1'b1;
                         resp[0] <= 8'h52;
 `ifdef BOARD_MUTATE
                         resp[1] <= dec_token_out[15:8]; resp[2] <= dec_token_out[7:0];
@@ -99,6 +130,10 @@ module board_ctrl #(parameter int PW = 7, PT_HALF = 2, TMO = 16777216) (
                         resp[7] <= probe[7:0]; resp[8] <= probe[15:8]; resp[9] <= probe[23:16]; resp[10] <= probe[31:24];
                         rlen <= 4'd11; rptr <= '0; st <= S_TX;
                     end
+                end
+                S_ABORT: begin
+                    ab_cnt <= ab_cnt + 1'b1;
+                    if (ab_cnt == 5'd16) begin dec_abort <= 1'b0; err(8'h04); end
                 end
                 // SPI passthrough: let the decode reader's tail clocks finish before the pins are taken over
                 S_PT_WAIT: begin

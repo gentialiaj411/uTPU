@@ -59,6 +59,10 @@ def main():
         'close $fh',
         f'report_timing -delay_type min_max -max_paths 1 -from [get_ports {{qspi_dq[*]}}] -file {rp("qspi_in_paths.rpt")}',
         f'report_timing -delay_type min_max -max_paths 1 -to [get_ports {{qspi_dq[*] qspi_cs_n}}] -file {rp("qspi_out_paths.rpt")}',
+        f'report_methodology -file {rp("methodology.rpt")}', f'report_cdc -details -file {rp("cdc.rpt")}',
+        f'set fp [open {rp("ports_placed.txt")} w]',
+        'foreach p [get_ports] { puts $fp "[get_property NAME $p]|[get_property PACKAGE_PIN $p]|[get_property IOSTANDARD $p]|[get_property DIRECTION $p]" }',
+        'close $fp',
         f'report_clocks -file {rp("clocks.rpt")}', f'check_timing -file {rp("check_timing.rpt")}', '']))
     reparse = '--reparse' in sys.argv      # re-read the reports of the last run without running Vivado
     log = out / 'vivado.log'
@@ -91,15 +95,35 @@ def main():
             sl.setdefault(parts[1], {})[parts[2]] = {'slack_ns': (None if parts[3] == 'NA' else float(parts[3])), 'from': parts[4], 'to': parts[5]}
         else:
             sl[parts[0].lower()] = {'slack_ns': float(parts[1]), 'from': parts[2], 'to': parts[3]}
+    def severity_counts(path):
+        """{severity: total violations} from the summary table of report_methodology / report_cdc, plus {rule id: (severity, count)}."""
+        text = (out / path).read_text(errors='replace')
+        sev, rules = {}, {}
+        for m in re.finditer(r'^\|\s*([A-Z][A-Z0-9-]+)\s*\|\s*(Critical Warning|Warning|Info|Error|Advisory)\s*\|[^|]*\|\s*(\d+)\s*\|\s*$', text, re.M):
+            rules[m.group(1)] = (m.group(2), int(m.group(3)))
+            sev[m.group(2)] = sev.get(m.group(2), 0) + int(m.group(3))
+        for m in re.finditer(r'^(CDC-\d+|DRC-\d+)\s+(Critical Warning|Critical|Warning|Info|Error|Advisory)\s+(\d+)\s+', text, re.M):   # report_cdc summary rows
+            rules[m.group(1)] = (m.group(2), int(m.group(3)))
+            sev[m.group(2)] = sev.get(m.group(2), 0) + int(m.group(3))
+        return sev, rules, text
+
+    msev, mrules, mtext = severity_counts('methodology.rpt')
+    csev, crules, ctext = severity_counts('cdc.rpt')
+    placed = {}
+    for line in (out / 'ports_placed.txt').read_text().splitlines():
+        n, pin, std, d = line.split('|'); placed[n] = {'package_pin': pin, 'iostandard': std, 'direction': d}
     rec = {'status': 'ok', 'part': PART, 'top': 'boolean_top', 'constraints': XDC, 'bitstream_generated': False, 'sources': SRCS,
            'lut': cell('Slice LUTs'), 'lut_pct': None, 'ff': cell('Slice Registers'), 'dsp': cell('DSPs'), 'bram36_equiv': cell('Block RAM Tile'),
            'wns_ns': wns, 'tns_ns': tns, 'whs_ns': whs, 'ths_ns': ths, 'timing_met': wns >= 0 and whs >= 0 and tns == 0 and ths == 0,
            'drc_checks_found': int(drc_sum.group(1)) if drc_sum else None, 'drc_summary_rules': re.findall(r'^\|\s*(\S+)\s*\|\s*(\w+(?: \w+)?)\s*\|[^|]*\|\s*(\d+)\s*\|', drc, re.M), 'drc_error_rules': errs_drc, 'bitstream_note': 'write_bitstream is not in the Tcl; no bitstream was generated',
-           'qspi_io_slack': sl,
-           'reports': {n: f'build/decode/synth/boolean_top/{n}' for n in ('util.rpt', 'timing.rpt', 'drc.rpt', 'io.rpt', 'clock_util.rpt', 'qspi_io_slack.txt', 'qspi_in_paths.rpt', 'qspi_out_paths.rpt', 'clocks.rpt', 'check_timing.rpt')}}
+           'qspi_io_slack': sl, 'bram36_physical_limit': 75, 'placed_ports': placed,
+           'methodology': {'by_severity': msev, 'by_rule': {k: {'severity': v[0], 'count': v[1]} for k, v in mrules.items()}, 'report': 'build/decode/synth/boolean_top/methodology.rpt'},
+           'cdc': {'by_severity': csev, 'by_rule': {k: {'severity': v[0], 'count': v[1]} for k, v in crules.items()}, 'report': 'build/decode/synth/boolean_top/cdc.rpt'},
+           'reports': {n: f'build/decode/synth/boolean_top/{n}' for n in ('util.rpt', 'timing.rpt', 'drc.rpt', 'io.rpt', 'clock_util.rpt', 'qspi_io_slack.txt', 'qspi_in_paths.rpt', 'qspi_out_paths.rpt', 'methodology.rpt', 'cdc.rpt', 'ports_placed.txt', 'clocks.rpt', 'check_timing.rpt')}}
     rec['lut_pct'] = round(100 * rec['lut'] / 32600, 1) if rec['lut'] else None
     res_path.write_text(json.dumps(rec, indent=2) + '\n')
     print(json.dumps({k: rec[k] for k in ('lut', 'lut_pct', 'ff', 'dsp', 'bram36_equiv', 'wns_ns', 'whs_ns', 'timing_met', 'drc_checks_found', 'drc_error_rules')}))
+    print('methodology', msev, 'cdc', csev)
 
 
 if __name__ == '__main__':
