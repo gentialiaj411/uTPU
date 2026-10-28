@@ -28,11 +28,11 @@ GOLD = lambda *n: [f'tools/decode/golden_{x}.py' for x in n]
 # artifact name (file stem under bench/results) -> dependency globs. The runner script itself is the TB template source.
 ARTIFACT_SOURCES = {
     'decode_gemv_rtl': ['tools/decode/run_gemv_rtl.py', D + 'gemv_unit.sv', *GOLD('gemv'), *TOOLS, *NUMERICS, *M260],
-    'decode_act_quant_rtl': ['tools/decode/run_act_quant_rtl.py', D + 'act_quant.sv', *GOLD('act_quant'), *TOOLS, *NUMERICS, *M260],
+    'decode_act_quant_rtl': ['tools/decode/run_act_quant_rtl.py', D + 'act_quant.sv', *GOLD('act_quant'), *TOOLS, *NUMERICS, *M260, *M15],
     'decode_rms_rtl': ['tools/decode/run_rms_rtl.py', D + 'decode_pkg.sv', D + 'seq_mul.sv', D + 'rmsnorm.sv',
-                       *GOLD('rms'), *TOOLS, *NUMERICS, *M260],
+                       *GOLD('rms'), *TOOLS, *NUMERICS, *M260, *M15],
     'decode_vec_alu_rtl': ['tools/decode/run_vec_rtl.py', D + 'decode_pkg.sv', D + 'vec_alu.sv', *GOLD('vec'), *TOOLS,
-                           *NUMERICS, *LUTS, *M260],
+                           *NUMERICS, *LUTS, *M260, *M15],
     'decode_attention_rtl': ['tools/decode/run_attn_rtl.py', D + 'decode_pkg.sv', D + 'mul_pipe.sv', D + 'div_const_pipe.sv',
                              D + 'attention.sv', *GOLD('attn'), *TOOLS, *NUMERICS, *LUTS, *M260],
     'decode_gemv15_rtl': ['tools/decode/run_gemv_rtl.py', D + 'gemv_unit.sv', *GOLD('gemv15', 'gemv'), 'tools/decode/run_decode_rtl.py',

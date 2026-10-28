@@ -33,6 +33,15 @@ def main():
     rr._rms_high = wrapped
     run_tokens(runtime)
     rr._rms_high = original
+    # stories15M (D=288) real captures: 15M gamma / multiplier / shift / epsilon, values at 15M magnitudes (wide mean path)
+    from numeric_domain import load_15m, eval_ids
+    ids15 = eval_ids('15m')
+    for kvb in (8,):
+        _, rt15 = load_15m(kvb)
+        rr._rms_high = wrapped
+        for p in range(6):
+            rt15._forward_hidden(ids15[p], p)
+        rr._rms_high = original
     n_real = len(cases)
 
     rng = np.random.default_rng(31)

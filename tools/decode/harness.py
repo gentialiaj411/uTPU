@@ -66,7 +66,7 @@ def finish(o, path, print_keys=None):
 
 
 def run_differential(unit, rtl_sources, tb_text, mutate_define, expected_mutation, meta, sha, output, extra=None,
-                     write=True, overrides=None):
+                     write=True, overrides=None, sources=None):
     """Compile+run normal and mutated sims, build the artifact (written unless write=False), return it.
 
     Status is 'pass' only if the clean run saw SUMMARY errors=0, the mutation run caught exactly expected_mutation

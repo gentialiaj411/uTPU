@@ -71,7 +71,9 @@ def _rms_high(value, gamma, gamma_fraction_bits, multiplier, shift, epsilon):
     x = np.asarray(value, dtype=np.int64)
     square_sum = np.sum(x * x, axis=-1, dtype=np.int64)
     # Hidden widths are fixed model constants; use reciprocal-multiply rather
-    # than a per-element divide.  The exactness proof is exercised in tests.
+    # than a per-element divide.  div_const_rne is exact RNE only for square_sum <= 2^31;
+    # the wide path (D=64/288 sums above 2^31 do occur) is approximate and is the spec the
+    # RTL matches.  Characterized in docs/numeric_domain.md.
     mean = div_const_rne(square_sum, x.shape[-1]).astype(np.int64) + int(epsilon)
     roots = np.fromiter((max(1, math.isqrt(int(item) << 30)) for item in mean.reshape(-1)), dtype=np.int64).reshape(mean.shape)
     reciprocal = reciprocal_rne(1 << 30, roots)

@@ -1,7 +1,7 @@
 """Differential test: rtl/decode/rmsnorm.sv vs captured runq_runtime._rms_high cases."""
 from __future__ import annotations
 import argparse, json
-from harness import ROOT, load_cases, write_mem, run_differential, finish
+from harness import ROOT, load_cases, write_mem, run_differential, finish, ARTIFACT_SOURCES
 
 TB = r"""`timescale 1ns/1ps
 module rms_tb;
@@ -72,7 +72,8 @@ def main():
                          {'golden_source': meta['source'], 'real_cases': meta['real_cases'],
                           'directed_random_cases': meta['directed_random_cases'], 'elements': len(exp),
                           'kinds': sorted({c['kind'] for c in cases})}, sha, a.output, write=False,
-                         overrides={'rtl/decode/rmsnorm.sv': a.rtl, 'rtl/decode/decode_pkg.sv': a.pkg})
+                         overrides={'rtl/decode/rmsnorm.sv': a.rtl, 'rtl/decode/decode_pkg.sv': a.pkg},
+                         sources=ARTIFACT_SOURCES['decode_rms_rtl'])
     finish(o, a.output, ('status', 'mismatch_count', 'real_mismatch_count', 'mutation_mismatch_count', 'mutation_expected', 'first_mismatches'))
 
 
