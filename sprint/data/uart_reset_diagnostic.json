@@ -1,0 +1,11 @@
+{
+  "mode": "fast",
+  "status": "fail",
+  "mismatch_count": 1,
+  "real_mismatch_count": 1,
+  "summary": "SUMMARY errors=0 checks=166 cycles=2661110 ncmds=12 nwrr=2",
+  "unit_summary": "SUMMARY errors=0 checks=911 starts=139",
+  "first_mismatches": [
+    "MISMATCH RDID after reset mid decode got=ff exp=01"
+  ]
+}

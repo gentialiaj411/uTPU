@@ -145,3 +145,49 @@
 - 2026-10-30T16:20:53.191726 regen_uart EXIT 0
 
 - 2026-10-30T16:20:53.198890 FINAL REPAIR C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe tools/board/run_uart_rtl.py --sim icarus --output sprint/data/uart_icarus.json
+
+- 2026-10-30T16:31:30.348411 final_uart_icarus EXIT 0
+
+- 2026-10-30T16:31:30.353983 FINAL REPAIR C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe tools/decode/fault_inject.py gemv
+
+- 2026-10-30T16:32:32.162371 fault_gemv EXIT 0
+
+- 2026-10-30T16:32:32.163371 FINAL REPAIR C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe tools/decode/fault_inject.py top
+
+- 2026-10-30T16:34:57.408004 fault_top EXIT 0
+
+- 2026-10-30T16:34:57.409006 FINAL REPAIR C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe tools/decode/fault_inject.py board
+
+- 2026-10-30T16:50:55.068030 fault_board EXIT 0
+
+- 2026-10-30T16:50:55.068536 FINAL REPAIR C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe tools/decode/fault_inject.py qspi
+
+- 2026-10-30T16:58:51.649553 fault_qspi EXIT 4294967295
+
+- 2026-10-30T16:58:51.654724 FINAL REPAIR C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe tools/decode/run_decode_rtl.py --model 260k --kv-bits 8 --flash qspi --gen 8 --sim verilator --output bench/results/decode_e2e_rtl_kv8_p1_qspi.json
+
+- 2026-10-30T16:58:51.695724 TIMEBOXED redundant Verilator QSPI fault sweep; full clean/mutation backend suite already passed. Re-running all remaining fault producers with Icarus, whose identical unit summaries were cross-checked; no checks removed.
+
+- 2026-10-30T16:59:10.000154 regen_e2e_kv8_p1_qspi EXIT 0
+
+- 2026-10-30T16:59:10.001150 FINAL REPAIR C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe tools/decode/run_decode_rtl.py --model 15m --kv-bits 4 --flash qspi --gen 1 --sim verilator --output sprint/data/15m_metadata.json
+
+- 2026-10-30T17:03:04.544987 final_15m_qspi EXIT 0
+
+- 2026-10-30T17:03:04.555069 FINAL REPAIR C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe sprint/scripts/compare.py
+
+- 2026-10-30T17:03:04.631461 compare_final EXIT 1
+
+- 2026-10-30T17:03:04.631461 FINAL REPAIR C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe tools/decode_gate.py
+
+- 2026-10-30T17:03:06.164970 strict_gate_final EXIT 1
+
+- 2026-10-30T17:03:29.543796 Finalization: all launched jobs ended or were explicitly TIMEBOXED at wall deadline. timedout=False
+
+- 2026-10-30T17:04:48.400199 UTPU_SIM=icarus C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe tools/decode/fault_inject.py actq EXIT 0
+
+- 2026-10-30T17:10:55.8304546-04:00 Final checks: python -m pytest tools/decode/test_gate.py -q -> 41 passed in 46.35s (sprint/data/test_gate_final.log); OWNER_RUN2 PowerShell parser PASS; git diff e8d9282 -- firmware/host/numerics_v2/runq_runtime.py firmware/host/numerics_v2/fixed.py -> zero bytes (sprint/data/golden_semantics_final.diff). No production arithmetic edits. Timeboxed QSPI 600s and RMS 300s recovery attempts preserved; remaining complete fault commands queued before physical jobs. Own orphan fault runner cleanup found zero remaining trees.
+
+- 2026-10-30T17:11:01.283151 Final validation TIMEBOXED at fixed sprint deadline; remaining full fault sweeps queued before Vivado in OWNER_RUN2. Strict gate EXIT 1; unmet categories sprint/data/gate_unmet_categories.json. No checks relaxed or artifacts patched.
+
+- 2026-10-30T17:12:01.8195806-04:00 Final strict gate EXIT 1 with 316 dependency reasons: only five unfinished fault-unit provenances and physical/synthesis/pin artifacts (sprint/data/gate_unmet_categories.json). All eleven backend comparisons pass identically. Source whitespace check clean after removing state-file EOF blank; two whitespace findings in archived metadata_implementation.diff are preserved verbatim as raw evidence. Final report and artifacts committed on perf; no push.

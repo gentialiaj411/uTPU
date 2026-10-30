@@ -15,8 +15,8 @@
   "cycles_total": 749686,
   "cycles_per_group": 137.63282540848172,
   "vvp_command": "C:\\iverilog\\bin\\vvp.exe build/decode/act_quant_tb.vvp",
-  "sim_stdout_sha256": "b1ffe7acdc962ce080bab7c6bc9431a87eeb979ef847a3f4b18f0be46d56b7c8",
-  "mutation_stdout_sha256": "743040c2da90a8ab522f813593644427f63b9d61be7ccdfbc506fe9fabd2c5f7",
+  "sim_stdout_sha256": "f9309bb8a125b6056160387188c0b4307bf23459e227af70be0bc14835aa5f1b",
+  "mutation_stdout_sha256": "7e2864f7c904cb618181a76ec25e547340a533929751b402d395d6ba5b0f7bba",
   "summary": "SUMMARY groups=5447 elements=282244 errors=0 real_errors=0 cycles=749686",
   "mutation_summary": "SUMMARY groups=5447 elements=282244 errors=5447 real_errors=5066 cycles=749686",
   "provenance": {
@@ -37,10 +37,19 @@
     "rtl/decode/act_quant.sv": "9782f0860b533496e4b159146fcd92bf5730af5d5e77932805cf62017f954dfe",
     "tools/decode/golden_act_quant.py": "0d13606bdec708793d7010b66df1e8df2bfffa8bc2ec918dd66f77bf4c54d1c2",
     "tools/decode/harness.py": "b4ebd345be9c6de82a0397eda8127643545e3d1a3aeecd5bd952ad5d98e74f6b",
-    "tools/decode/provenance.py": "b481bbdcd5a7125820c8c46c7785dbb19cce770d76eb3476cd2a98ee5df7c8a2",
-    "tools/decode/run_act_quant_rtl.py": "9959beb587badf5cef9f6afe689d21ea47b6adf7055fb2026409703284baae86",
-    "tools/decode/sim.py": "3d17c03bf537d08c3418b1c44a2beb515b403a3657e6415014ef9a50a4460110",
+    "tools/decode/provenance.py": "4d7a310a496f292013020646f48e6597842a8db7419492cf3499596bdbcd573d",
+    "tools/decode/run_act_quant_rtl.py": "60e11a9508ac2ee41e0d4c17484f7b63d7ffceb4338de30d0aaa7a03253b45ad",
+    "tools/decode/sim.py": "399c0a1ea8f77ad6ed9bc92900d4791553f8a553e6bc70d8cb2bc96f86a28b40",
     "tools/llama2c/reference.py": "70c7bc1078ab75dda3773ab9062e149db8d579eaa6d7a3689f6909ac7ae903a7",
-    "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96"
+    "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96",
+    "tool:simulator": {
+      "name": "verilator",
+      "version": "Verilator 5.032 2025-01-01 rev (Debian 5.032-1)",
+      "executable": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU-research\\research\\data\\tools\\usr\\bin\\verilator_bin",
+      "executable_sha256": "90fe12f3b2c752b607690cb05a566646398d1e07f38e83f5f7a7f35c20560247",
+      "compiler_sha256": "90fe12f3b2c752b607690cb05a566646398d1e07f38e83f5f7a7f35c20560247"
+    },
+    "runtime:python": "c0c26871ec1aae748b7914a09c9566d5234775c7a1a2915bf8f401eb6d5cd964",
+    "runtime:numpy": "4b0379678f664340b010747a4ad1436f29a4e92e8b245932f19cec020dff8770"
   }
 }

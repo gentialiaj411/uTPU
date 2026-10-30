@@ -1,0 +1,42 @@
+[
+  {
+    "label": "15m_small",
+    "returncode": 0,
+    "wall_seconds": 207.36707449999813,
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "tools/decode/run_decode_rtl.py",
+      "--model",
+      "15m",
+      "--kv-bits",
+      "4",
+      "--gen",
+      "8",
+      "--sim",
+      "verilator",
+      "--output",
+      "sprint/data/15m_small.json"
+    ]
+  },
+  {
+    "label": "15m_big",
+    "returncode": 0,
+    "wall_seconds": 4502.4,
+    "command": [
+      "python",
+      "tools/decode/run_decode_rtl.py",
+      "--model",
+      "15m",
+      "--kv-bits",
+      "4",
+      "--gen",
+      "32",
+      "--prompts",
+      "8",
+      "--sim",
+      "verilator",
+      "--output",
+      "sprint/data/15m_big.json"
+    ]
+  }
+]

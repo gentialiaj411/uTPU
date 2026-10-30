@@ -1,0 +1,9 @@
+P0 DONE: integration closed at e8d9282; all owner log tails EXIT 0, fresh strict gate PASS, stale-comment FAIL, restored gate PASS (MEASURED; sprint/data/p0_*).
+P1 DONE: 11/11 completed backend comparisons identical and passing (MEASURED; crosscheck_comparison.csv).
+P1 15M small: pass, 11 steps; wall 207.37 s (MEASURED; 15m_timing.json).
+P1 large: pass, 302 steps, 8 actual prompts; errors logit/index/argmax = 0/0/0 (MEASURED; 15m_big.json).
+P2 DONE code/tests: simulator executable/compiler identity, Python/NumPy identity and fault model/golden dependencies tracked; see test_gate_final.log (MEASURED).
+P3 NO-GO for hardware from these bounds; MEASURED max mean row skip 0.000000 over the final screening variants; best screening estimate 1.0741 tok/s at 0.25 B/clk (ESTIMATED), versus baseline bandwidth ceiling 1.0745 (DERIVED).
+P4 TIMEBOXED; large regression and unit suites pass, complete fault acceptance unfinished; 15M QSPI bytes/token 10,684,413, clocks/token 42,856,333.5 (MEASURED); 1.16669 tok/s at 50MHz (DERIVED).
+P5 TIMEBOXED design-only: existing autonomous prefetch already overlaps serial compute until FIFO full; no extra RTL feature retained.
+P6 TIMEBOXED until physical regeneration: strict gate kept strict; OWNER_RUN2.ps1 finishes timeboxed fault sweeps, then runs sequential logged Vivado jobs and final gate. No push or hardware programming.

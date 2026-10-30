@@ -1,0 +1,6 @@
+{
+  "status": "pass",
+  "cases": 10000,
+  "oracle": "Python arbitrary-precision integer ceil division",
+  "command": "python sprint/scripts/bound_math_property.py"
+}

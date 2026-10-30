@@ -1,0 +1,9 @@
+{
+  "models\\numerics_v2\\gptq_qkv_wo_w2_int8_g32.npz": "ecf950f452d052ce5909add99d7443d5d5be75dd12d78900e7bcb0ca38afe03d",
+  "models\\llama2c\\stories260K\\stories260K.bin": "b0a507e7ad0f626624f17112325e66691f9076d622e1d3274d103d00299f2696",
+  "models\\llama2c\\TinyStories-valid.txt": "94e431816c4cce81ff71e4408ff8d3bda9a42e8d2663986697c3954288cb38b4",
+  "models\\llama2c\\tokenizer.bin": "50a52ef822ee9e83de5ce9d0be0a025a773d019437f58b5ff9dcafb063ece361",
+  "sprint\\data\\argmax_prompts.json": "6ecbfe0d8467275be5bb88dcaf01ae386354f7e162e013a0a9839aa85bf52481",
+  "firmware\\host\\numerics_v2\\runq_runtime.py": "fd77ac218662b3e972f52d5c217ef0f1174fa71e2975b5e00842b02943a74502",
+  "firmware\\host\\numerics_v2\\fixed.py": "18eae3922d591da09416e577f739781487c056f09d75766459aeb10411af6534"
+}

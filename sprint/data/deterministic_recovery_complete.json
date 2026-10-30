@@ -1,0 +1,22 @@
+[
+  {
+    "label": "uart_verilator",
+    "returncode": 0,
+    "seconds": 119.07235569998738
+  },
+  {
+    "label": "uart_icarus",
+    "returncode": 0,
+    "seconds": 608.8840572999907
+  },
+  {
+    "label": "qspi_verilator",
+    "returncode": 0,
+    "seconds": 2161.3073139000044
+  },
+  {
+    "label": "qspi_icarus",
+    "returncode": 0,
+    "seconds": 93.28878640000767
+  }
+]

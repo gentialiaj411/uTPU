@@ -1,0 +1,6 @@
+from pathlib import Path
+p=Path('sprint/scripts/metadata_preflight.py');s=p.read_text().replace('import sys,csv,hashlib,json','import sys,csv,hashlib,json,subprocess')
+s=s.replace('from tools.decode.pack_decode_image import tensor_bytes,load_export_15m', "from tools.decode.pack_decode_image import load_export_15m\nbaseline_text=subprocess.run(['git','show','e8d9282:tools/decode/pack_decode_image.py'],capture_output=True,text=True,check=True).stdout\nbaseline={'__name__':'integration_baseline_readonly','__file__':str(R/'tools/decode/pack_decode_image.py')}\nexec(compile(baseline_text,'integration_baseline_packer','exec'),baseline)\ntensor_bytes=baseline['tensor_bytes']")
+s=s.replace("  n=record['weight'].shape[0];compact", "  n=record['weight'].shape[0];tiles=(n+15)//16;old_stride=len(old)//tiles;new_stride=len(new)//tiles;code_bytes=16*(width//2 if record['qmax']==7 else width)\n  for tile in range(tiles):assert old[(tile+1)*old_stride-code_bytes:(tile+1)*old_stride]==new[(tile+1)*new_stride-code_bytes:(tile+1)*new_stride]\n  compact")
+s=s.replace('all_metadata_equal=True,integer_forward_equal=True', 'all_metadata_equal=True,all_packed_codes_equal=True,integer_forward_equal=True')
+p.write_text(s)

@@ -1,0 +1,489 @@
+{
+  "compare_final": {
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "sprint/scripts/compare.py"
+    ],
+    "rc": 1,
+    "seconds": 0.0758163999998942
+  },
+  "15m_qspi_before_metadata": {
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "tools/decode/run_decode_rtl.py",
+      "--model",
+      "15m",
+      "--kv-bits",
+      "4",
+      "--flash",
+      "qspi",
+      "--gen",
+      "1",
+      "--sim",
+      "verilator",
+      "--output",
+      "sprint/data/15m_qspi_before_metadata.json"
+    ],
+    "rc": 0,
+    "seconds": 250.80238459999964
+  },
+  "metadata_apply": {
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "sprint/scripts/implement_metadata.py"
+    ],
+    "rc": 0,
+    "seconds": 1.035935399995651
+  },
+  "metadata_python_exactness": {
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "-m",
+      "pytest",
+      "sprint/scripts/test_compact_metadata.py",
+      "-q"
+    ],
+    "rc": 0,
+    "seconds": 0.46756989999266807
+  },
+  "260k_metadata": {
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "tools/decode/run_decode_rtl.py",
+      "--model",
+      "260k",
+      "--kv-bits",
+      "4",
+      "--flash",
+      "qspi",
+      "--gen",
+      "8",
+      "--sim",
+      "verilator",
+      "--output",
+      "sprint/data/260k_metadata.json"
+    ],
+    "rc": 0,
+    "seconds": 16.981577200000174
+  },
+  "15m_metadata": {
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "tools/decode/run_decode_rtl.py",
+      "--model",
+      "15m",
+      "--kv-bits",
+      "4",
+      "--flash",
+      "qspi",
+      "--gen",
+      "1",
+      "--sim",
+      "verilator",
+      "--output",
+      "sprint/data/15m_metadata.json"
+    ],
+    "rc": 0,
+    "seconds": 228.71073059999617
+  },
+  "P4": {
+    "status": "IN-PROGRESS",
+    "reason": "smokes pass; regeneration/fault acceptance required"
+  },
+  "regen_gemv": {
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "tools/decode/run_gemv_rtl.py",
+      "--sim",
+      "verilator"
+    ],
+    "rc": 0,
+    "seconds": 11.788511999999173
+  },
+  "regen_gemv15": {
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "tools/decode/run_gemv_rtl.py",
+      "--golden",
+      "build/decode/golden_gemv15",
+      "--output",
+      "bench/results/decode_gemv15_rtl.json",
+      "--sim",
+      "verilator"
+    ],
+    "rc": 0,
+    "seconds": 17.601305100004538
+  },
+  "regen_actq": {
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "tools/decode/run_act_quant_rtl.py",
+      "--sim",
+      "verilator"
+    ],
+    "rc": 0,
+    "seconds": 34.52695230000245
+  },
+  "regen_rms": {
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "tools/decode/run_rms_rtl.py",
+      "--sim",
+      "verilator"
+    ],
+    "rc": 0,
+    "seconds": 13.089373599999817
+  },
+  "regen_vec": {
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "tools/decode/run_vec_rtl.py",
+      "--sim",
+      "verilator"
+    ],
+    "rc": 0,
+    "seconds": 22.609386799987988
+  },
+  "regen_attn": {
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "tools/decode/run_attn_rtl.py",
+      "--sim",
+      "verilator"
+    ],
+    "rc": 0,
+    "seconds": 28.45140380000521
+  },
+  "regen_attn15": {
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "tools/decode/run_attn15_rtl.py",
+      "--sim",
+      "verilator"
+    ],
+    "rc": 0,
+    "seconds": 49.68031539999356
+  },
+  "regen_qspi": {
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "sprint/scripts/promote_fresh_qspi.py"
+    ],
+    "rc": 0,
+    "seconds": 0.31150239999988116
+  },
+  "regen_uart": {
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "tools/board/run_uart_rtl.py",
+      "--sim",
+      "verilator"
+    ],
+    "rc": 0,
+    "seconds": 144.57316230000288
+  },
+  "fault_gemv": {
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "tools/decode/fault_inject.py",
+      "gemv"
+    ],
+    "rc": 0,
+    "seconds": 61.80800970000564
+  },
+  "fault_top": {
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "tools/decode/fault_inject.py",
+      "top"
+    ],
+    "rc": 0,
+    "seconds": 145.2438525000034
+  },
+  "fault_board": {
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "tools/decode/fault_inject.py",
+      "board"
+    ],
+    "rc": 0,
+    "seconds": 957.6584226999985
+  },
+  "regen_e2e_kv8_p1": {
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "tools/decode/run_decode_rtl.py",
+      "--model",
+      "260k",
+      "--kv-bits",
+      "8",
+      "--gen",
+      "8",
+      "--sim",
+      "verilator",
+      "--output",
+      "bench/results/decode_e2e_rtl_kv8_p1.json"
+    ],
+    "rc": 0,
+    "seconds": 12.482736699996167
+  },
+  "regen_e2e_kv4_p1": {
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "tools/decode/run_decode_rtl.py",
+      "--model",
+      "260k",
+      "--kv-bits",
+      "4",
+      "--gen",
+      "8",
+      "--sim",
+      "verilator",
+      "--output",
+      "bench/results/decode_e2e_rtl_kv4_p1.json"
+    ],
+    "rc": 0,
+    "seconds": 12.279066500006593
+  },
+  "regen_e2e_kv8_p2": {
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "tools/decode/run_decode_rtl.py",
+      "--model",
+      "260k",
+      "--kv-bits",
+      "8",
+      "--period",
+      "2",
+      "--gen",
+      "8",
+      "--sim",
+      "verilator",
+      "--output",
+      "bench/results/decode_e2e_rtl_kv8_p2.json"
+    ],
+    "rc": 0,
+    "seconds": 12.946799099998316
+  },
+  "regen_e2e_kv8_p4": {
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "tools/decode/run_decode_rtl.py",
+      "--model",
+      "260k",
+      "--kv-bits",
+      "8",
+      "--period",
+      "4",
+      "--gen",
+      "8",
+      "--sim",
+      "verilator",
+      "--output",
+      "bench/results/decode_e2e_rtl_kv8_p4.json"
+    ],
+    "rc": 0,
+    "seconds": 15.41038019998814
+  },
+  "regen_e2e_kv8_p1_qspi": {
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "tools/decode/run_decode_rtl.py",
+      "--model",
+      "260k",
+      "--kv-bits",
+      "8",
+      "--flash",
+      "qspi",
+      "--gen",
+      "8",
+      "--sim",
+      "verilator",
+      "--output",
+      "bench/results/decode_e2e_rtl_kv8_p1_qspi.json"
+    ],
+    "rc": 0,
+    "seconds": 18.345273700004327
+  },
+  "regen_e2e_15m_kv4_p1": {
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "tools/decode/run_decode_rtl.py",
+      "--model",
+      "15m",
+      "--kv-bits",
+      "4",
+      "--gen",
+      "8",
+      "--sim",
+      "verilator",
+      "--output",
+      "bench/results/decode_e2e_rtl_15m_kv4_p1.json"
+    ],
+    "rc": 0,
+    "seconds": 158.40988129998732
+  },
+  "final_uart_icarus": {
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "tools/board/run_uart_rtl.py",
+      "--sim",
+      "icarus",
+      "--output",
+      "sprint/data/uart_icarus.json"
+    ],
+    "rc": 0,
+    "seconds": 637.149156200001
+  },
+  "fault_qspi": {
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "tools/decode/fault_inject.py",
+      "qspi"
+    ],
+    "backend": "icarus",
+    "status": "TIMEBOXED",
+    "rc": 124,
+    "reason": "Final sprint timebox; exact complete producer command is queued in OWNER_RUN2.ps1"
+  },
+  "final_15m_qspi": {
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "tools/decode/run_decode_rtl.py",
+      "--model",
+      "15m",
+      "--kv-bits",
+      "4",
+      "--flash",
+      "qspi",
+      "--gen",
+      "1",
+      "--sim",
+      "verilator",
+      "--output",
+      "sprint/data/15m_metadata.json"
+    ],
+    "rc": 0,
+    "seconds": 234.5434596999985
+  },
+  "final_qspi_verilator": {
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "sprint/scripts/final_qspi_validation.py",
+      "verilator",
+      "bench/results/decode_qspi_rtl.json"
+    ],
+    "rc": 0,
+    "seconds": 2675.9411024
+  },
+  "final_qspi_icarus": {
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "sprint/scripts/final_qspi_validation.py",
+      "icarus",
+      "sprint/data/qspi_icarus.json"
+    ],
+    "rc": 0,
+    "seconds": 2675.9440365000046
+  },
+  "postfix_decode_icarus": {
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "sprint/scripts/postfix_decode_pair.py",
+      "icarus"
+    ],
+    "rc": 0,
+    "seconds": 2675.9407615999953
+  },
+  "postfix_decode_verilator": {
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "sprint/scripts/postfix_decode_pair.py",
+      "verilator"
+    ],
+    "rc": 0,
+    "seconds": 2675.9366293000057
+  },
+  "strict_gate_final": {
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "tools/decode_gate.py"
+    ],
+    "rc": 1,
+    "seconds": 1.5323503999970853
+  },
+  "P6": {
+    "status": "TIMEBOXED: complete stale fault producers and physical jobs via OWNER_RUN2; strict gate unchanged"
+  },
+  "fault_qspi_prior_attempt": {
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "tools/decode/fault_inject.py",
+      "qspi"
+    ],
+    "rc": 4294967295,
+    "seconds": 476.57997869999963
+  },
+  "fault_actq": {
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "tools/decode/fault_inject.py",
+      "actq"
+    ],
+    "rc": 0,
+    "seconds": 42.310221099993214,
+    "backend": "icarus"
+  },
+  "fault_rms": {
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "tools/decode/fault_inject.py",
+      "rms"
+    ],
+    "backend": "icarus",
+    "status": "TIMEBOXED",
+    "rc": 124,
+    "reason": "Final sprint timebox; exact complete producer command is queued in OWNER_RUN2.ps1"
+  },
+  "fault_vec": {
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "tools/decode/fault_inject.py",
+      "vec"
+    ],
+    "backend": "icarus",
+    "status": "NOT RUN",
+    "rc": null,
+    "reason": "Final sprint timebox; exact complete producer command is queued in OWNER_RUN2.ps1"
+  },
+  "fault_attn": {
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "tools/decode/fault_inject.py",
+      "attn"
+    ],
+    "backend": "icarus",
+    "status": "NOT RUN",
+    "rc": null,
+    "reason": "Final sprint timebox; exact complete producer command is queued in OWNER_RUN2.ps1"
+  },
+  "fault_attn15": {
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "tools/decode/fault_inject.py",
+      "attn15"
+    ],
+    "backend": "icarus",
+    "status": "NOT RUN",
+    "rc": null,
+    "reason": "Final sprint timebox; exact complete producer command is queued in OWNER_RUN2.ps1"
+  },
+  "strict_gate_closed": {
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "tools/decode_gate.py"
+    ],
+    "rc": 1,
+    "seconds": 4.085399499992491
+  }
+}

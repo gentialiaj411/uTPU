@@ -1,0 +1,11 @@
+{
+  "status": "pass",
+  "shift_min": 18,
+  "shift_max": 23,
+  "effective_multiplier_max": 16384,
+  "weight_l1_max": 150,
+  "max_legal_scale": 2147483647,
+  "max_linear_product_bound": 670262287980134400,
+  "int64_product_safe": true,
+  "command": "python sprint/scripts/bound_domain_proof.py"
+}

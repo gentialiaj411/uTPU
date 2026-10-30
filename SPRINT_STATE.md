@@ -1,8 +1,9 @@
-# Sprint state
-P0 DONE: audit-fixes e8d9282; owner logs EXIT 0, strict PASS, stale comment FAIL, restore PASS.
-P1 IN-PROGRESS final revalidation: baseline 11/11 backend comparisons identical; both original and compact 15M large regressions requested. TB time precision, RNG evaluation order and UART polling races fixed without removing checks. Final flash-model interface repair is being checked on both backends.
-P2 DONE code/tests: 41 gate cases pass; simulator/compiler hashes, Python/NumPy versions, fault model/golden/packer inputs required. Final artifacts being regenerated.
-P3 DONE / NO-GO for tested bounds: 50 distinct prefixes x120 tokens, zero rows skipped, exact argmax/max-logit. Overflow-safe coefficient math independently checked against arbitrary-precision integers; original repeated-prefix data excluded.
-P4 IN-PROGRESS validation: compact metadata applied; independent 79-tensor preflight and seeded tie tests pass; 15M QSPI traffic 11633661 ->10684413 B/token and clocks 46653325.5 ->42856333.5 measured on identical four-position runs. Wrong-expansion fault detected. Full final-model suites and large compact regression still running.
-P5 TIMEBOXED design-only: autonomous FIFO prefetch already exists; measured short QSPI case is essentially bandwidth-limited. No speculative RTL retained.
-P6 IN-PROGRESS final repair: adopted only known inactive flash_o data when explicit flash_oe=0; preserved driven X windows, all protocol/timing checks. This fixes a Verilator-only RDID-after-reset failure (Icarus reference passed). All affected suites regenerating under frozen final sources. Vivado remains NOT RUN; OWNER_RUN2.ps1 prepared.
+# Final package status (updated by validation evidence; no physical results claimed).
+P0 DONE: integration audit-fixes e8d9282; all owner logs EXIT 0, strict gate pass, stale-comment rejection demonstrated and original restored.
+P1 DONE: 11/11 complete backend comparisons identical and passing after timing/RNG/UART/flash-model fixes. Both baseline and compact 15M eight-prompt regressions pass: 302 steps each, zero logit/index/argmax errors.
+P2 DONE code/tests: 41 gate tests pass; simulator/compiler content identities, Python/NumPy versions, fault model/golden/packer inputs tracked. Historical physical artifacts remain stale until regeneration.
+P3 DONE / NO-GO for tested bounds: 50 distinct prefixes x120 tokens, zero rows skipped. Exact max-logit/argmax equality; sound bounds and independent big-integer arithmetic checks documented.
+P4 TIMEBOXED acceptance: compact metadata implemented; independent 79-tensor checks, full unit suites, wrong-expansion fault and compact large regression pass. Identical four-position 15M QSPI workload: 11633661 ->10684413 bytes/token; 46653325.5 ->42856333.5 clocks/token. Full QSPI and remaining scalar/attention fault regeneration remains unfinished; OWNER_RUN2 reruns it without reducing cases.
+P5 TIMEBOXED design-only: existing autonomous prefetch already overlaps serial compute until FIFO full. No experimental prefetch RTL retained.
+P6 TIMEBOXED full closure: generated fast artifacts committed, final strict gate remains strict. Full remaining fault regeneration and Vivado/implementation/pin artifacts require OWNER_RUN2.ps1. No push, bitstream or hardware programming.
+New confirmed reporting bug: total SystemVerilog cycle counter overflows signed32 in both long regressions; per-step means and numerical checks remain valid. Deferred counter widening documented in report.

@@ -1,0 +1,14 @@
+[
+  {
+    "flash": "ideal",
+    "backend": "verilator",
+    "rc": 0,
+    "seconds": 14.338805100007448
+  },
+  {
+    "flash": "qspi",
+    "backend": "verilator",
+    "rc": 0,
+    "seconds": 21.28021539999463
+  }
+]

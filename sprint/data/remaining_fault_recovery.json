@@ -1,0 +1,12 @@
+{
+  "fault_actq": {
+    "command": [
+      "C:\\Users\\bhask\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+      "tools/decode/fault_inject.py",
+      "actq"
+    ],
+    "rc": 0,
+    "seconds": 42.310221099993214,
+    "backend": "icarus"
+  }
+}

@@ -22,13 +22,13 @@
   "checks": 178,
   "mismatch_count": 0,
   "steps_log": [
-    "STEP 0 idx=359 token=147 cycles_reported=930682 wall_cycles=932062",
-    "STEP 1 idx=517 token=151 cycles_reported=930682 wall_cycles=932062",
-    "STEP 2 idx=173 token=160 cycles_reported=930682 wall_cycles=932062",
-    "STEP 3 idx=38 token=176 cycles_reported=930682 wall_cycles=932062"
+    "STEP 0 idx=359 token=147 cycles_reported=863610 wall_cycles=864991",
+    "STEP 1 idx=517 token=151 cycles_reported=863610 wall_cycles=864991",
+    "STEP 2 idx=173 token=160 cycles_reported=863610 wall_cycles=864991",
+    "STEP 3 idx=38 token=176 cycles_reported=863610 wall_cycles=864991"
   ],
   "robustness_run": {
-    "summary": "SUMMARY errors=0 checks=113 cycles=7314647 starts=8",
+    "summary": "SUMMARY errors=0 checks=113 cycles=6912233 starts=8",
     "ok": true,
     "steps_in_run": 6,
     "covers": "watchdog (stalled byte stream) + retry, X, reset mid UART frame / mid SPI read / mid decode step, each followed by golden-checked steps",
@@ -52,13 +52,13 @@
   "mutation_expected": ">0 (BOARD_MUTATE swaps the response token bytes)",
   "negative_quad0_read_trips_flash_model": true,
   "negative_stdout_tail": [
-    "FATAL: C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU-integ\\tools\\decode\\tb\\qspi_flash_model.sv:127: FLASH: Quad Output Read issued with CR1.QUAD = 0"
+    "[1115000] %Fatal: qspi_flash_model.sv:127: Assertion failed in uart_tb.flash: FLASH: Quad Output Read issued with CR1.QUAD = 0"
   ],
   "first_mismatches": [],
   "vvp_command": "C:\\iverilog\\bin\\vvp.exe build/decode/uart_main_tb.vvp",
-  "summary": "SUMMARY errors=0 checks=178 cycles=3795247 ncmds=16 nwrr=2",
-  "sim_stdout_sha256": "1a984653e958157eb39381f151407f72613397f028801d08d065a22697dc7c50",
-  "wall_seconds": 520.5,
+  "summary": "SUMMARY errors=0 checks=178 cycles=3527003 ncmds=16 nwrr=2",
+  "sim_stdout_sha256": "d6e28cc3e8eed17aed7609635dc91835af577046bf63c109c85394b827114eef",
+  "wall_seconds": 144.2,
   "provenance": {
     "C:/Users/bhask/Documents/PROJECTS/uTPU/models/llama2c/stories260K/stories260K.bin": "b0a507e7ad0f626624f17112325e66691f9076d622e1d3274d103d00299f2696",
     "firmware/host/numerics_v2/calibration_260k.json": "2d406de4f90ebe287cef9a00b01d3d750ab8e1aab3bfb8a678150a02205a6802",
@@ -74,7 +74,7 @@
     "firmware/host/numerics_v2/luts/silu_i8.mem": "11b20028ff80e1dc97b7bb7676417a73647c0401777255434cc14b1aca078c00",
     "firmware/host/numerics_v2/runq_runtime.py": "fd77ac218662b3e972f52d5c217ef0f1174fa71e2975b5e00842b02943a74502",
     "rtl/board/board_ctrl.sv": "91cd6956cf588f2ba37643ed85897a5e779e0333f7c4faeaf8fdfba5b62e9114",
-    "rtl/board/boolean_core.sv": "e8a4e82eeb1f42ebafd6c16275e3ba7925126ee97af1d9cabfc7ce0e18c7b3a3",
+    "rtl/board/boolean_core.sv": "0ee428555442eb8a522bb06d301c3f80bbf6b189f9c1ddd71dcb13f9b4d45db8",
     "rtl/board/boolean_top.sv": "e32bc52e4ae4f6cee7abb65c4f5dacbb19ad04051cbc1b90157ee68876447d2a",
     "rtl/board/qspi_pad_regs.sv": "28bac64b4ef18bcdff7281f5ad080cb3a5a069ae6ca32bad20fb740b148d6408",
     "rtl/board/qspi_pads.sv": "ce900c1e4c91dfeecef305f030a02f664b827beab5291602e399aad0a636a62c",
@@ -100,19 +100,28 @@
     "rtl/decode/qspi_reader.sv": "27494542f9f4750eecc9cb1dc84ab1fa90b7d3026b091094b1454fb3a53e74db",
     "rtl/decode/rmsnorm.sv": "18d097372a48fcb40f3b1217994975fa19beaa2b746bbbe9aeb7154055a1ca70",
     "rtl/decode/seq_mul.sv": "93e0db89fd1746bc1aa234a3cd8957a81d7c0920d5a13aa720e6b7845033cec5",
-    "rtl/decode/top_decode.sv": "7e35843420580281145d26521a56b8d260b5be22d0b45d89531735a7b038f42d",
+    "rtl/decode/top_decode.sv": "52fedf0fbe94f76f263a8778d0253d760d11ec8ee9e47ede842c00f92e42d1f3",
     "rtl/decode/vec_alu.sv": "9dbfa131e5e4a1c5c2363eee7ad92f59ac810f29371b5170206a3325b3e3b055",
     "tools/board/boolean_host.py": "5097117577956fe5ed4fa274a799978020f13157c1a3d6f1464c5b5863e5e103",
-    "tools/board/run_uart_rtl.py": "dc6a404e8c2190417f68bccab2aacac86608c9871d4bf3a428b11f6271b67c1d",
+    "tools/board/run_uart_rtl.py": "f2adfad58c6f6d5cc78a80862cb2e71af2630678b7b6ad43cb8976f109b495c1",
     "tools/board/tb/board_ctrl_unit_tb.sv": "13dc94c977845f49bbd370e1094ac3ee9127cf47f486021349cc0a378c344801",
     "tools/decode/gen_luts.py": "aa8c16d0f7e9b8c3ebe88a88506df3583a713bf9b0dec2748bc7911fc29c1d76",
     "tools/decode/harness.py": "b4ebd345be9c6de82a0397eda8127643545e3d1a3aeecd5bd952ad5d98e74f6b",
-    "tools/decode/pack_decode_image.py": "d3a4c229f1d449b40a5df2bf93c24fb5d0bb49949a420dc52d070a4236d57e80",
-    "tools/decode/provenance.py": "b481bbdcd5a7125820c8c46c7785dbb19cce770d76eb3476cd2a98ee5df7c8a2",
-    "tools/decode/run_decode_rtl.py": "6a12029be731abaf42a6be2574ff4c85ba3336f93a6dd8b93ba69a93c1d4a821",
-    "tools/decode/sim.py": "3d17c03bf537d08c3418b1c44a2beb515b403a3657e6415014ef9a50a4460110",
-    "tools/decode/tb/qspi_flash_model.sv": "c82ab623829f398e0832c74b1757ce09388ca1ed7d3fbd1ff48e0b288e8cfeff",
+    "tools/decode/pack_decode_image.py": "e26cc3779e106ed01de7a660ddaa9d1ff4e2b41af8e3b4309f1b5634dda74fca",
+    "tools/decode/provenance.py": "4d7a310a496f292013020646f48e6597842a8db7419492cf3499596bdbcd573d",
+    "tools/decode/run_decode_rtl.py": "71ba37255bdd15975f297149683db1b0a6882e6b465dcedac4bf489fb87e2dbc",
+    "tools/decode/sim.py": "399c0a1ea8f77ad6ed9bc92900d4791553f8a553e6bc70d8cb2bc96f86a28b40",
+    "tools/decode/tb/qspi_flash_model.sv": "b7734dce4119ea3bd425dfdd47087b569b273a82bb75583cd702e7da1f54a3f3",
     "tools/llama2c/reference.py": "70c7bc1078ab75dda3773ab9062e149db8d579eaa6d7a3689f6909ac7ae903a7",
-    "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96"
+    "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96",
+    "tool:simulator": {
+      "name": "verilator",
+      "version": "Verilator 5.032 2025-01-01 rev (Debian 5.032-1)",
+      "executable": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU-research\\research\\data\\tools\\usr\\bin\\verilator_bin",
+      "executable_sha256": "90fe12f3b2c752b607690cb05a566646398d1e07f38e83f5f7a7f35c20560247",
+      "compiler_sha256": "90fe12f3b2c752b607690cb05a566646398d1e07f38e83f5f7a7f35c20560247"
+    },
+    "runtime:python": "c0c26871ec1aae748b7914a09c9566d5234775c7a1a2915bf8f401eb6d5cd964",
+    "runtime:numpy": "4b0379678f664340b010747a4ad1436f29a4e92e8b245932f19cec020dff8770"
   }
 }

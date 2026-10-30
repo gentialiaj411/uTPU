@@ -14,7 +14,7 @@
   "cycles_per_head_call": 21121.343822843824,
   "vvp_command": "C:\\iverilog\\bin\\vvp.exe build/decode/attn_tb.vvp (15M shape: HS48 L6 KVH6 SEQ128 CB=4)",
   "sim_stdout_sha256": [
-    "28d151d1df5049bc927072e56d41e3fc9ec6394a99e8c0c5d251c0ad06b627d3"
+    "47dabb99b75a337b0dbe0edb05952ff764e2f394a6579b36413add8b0bef39c9"
   ],
   "summary": [
     "kv4: SUMMARY calls=858 errors=0 real_errors=0 cycles=18122113"
@@ -52,11 +52,20 @@
     "tools/decode/golden_attn.py": "3d44cb9ab7c02709707a4672bfa0143faa012cdbb9c2c0a65b159e2680dbf0fc",
     "tools/decode/golden_attn15.py": "17c0ed6bd9daa12cbe85e62a7a14b1ec38b939bef3ead6affcc9a1c6fbfefff8",
     "tools/decode/harness.py": "b4ebd345be9c6de82a0397eda8127643545e3d1a3aeecd5bd952ad5d98e74f6b",
-    "tools/decode/provenance.py": "b481bbdcd5a7125820c8c46c7785dbb19cce770d76eb3476cd2a98ee5df7c8a2",
-    "tools/decode/run_attn15_rtl.py": "703c27aab0add33b1879d6a2ae57a0cac61faa2e5275206c1c4f8a866da92b21",
-    "tools/decode/run_decode_rtl.py": "6a12029be731abaf42a6be2574ff4c85ba3336f93a6dd8b93ba69a93c1d4a821",
-    "tools/decode/sim.py": "3d17c03bf537d08c3418b1c44a2beb515b403a3657e6415014ef9a50a4460110",
+    "tools/decode/provenance.py": "4d7a310a496f292013020646f48e6597842a8db7419492cf3499596bdbcd573d",
+    "tools/decode/run_attn15_rtl.py": "5fed8982f0cbb4e5afa6cfd97fe1e5969ceea49596d3446b239083cab0baf8d3",
+    "tools/decode/run_decode_rtl.py": "71ba37255bdd15975f297149683db1b0a6882e6b465dcedac4bf489fb87e2dbc",
+    "tools/decode/sim.py": "399c0a1ea8f77ad6ed9bc92900d4791553f8a553e6bc70d8cb2bc96f86a28b40",
     "tools/llama2c/reference.py": "70c7bc1078ab75dda3773ab9062e149db8d579eaa6d7a3689f6909ac7ae903a7",
-    "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96"
+    "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96",
+    "tool:simulator": {
+      "name": "verilator",
+      "version": "Verilator 5.032 2025-01-01 rev (Debian 5.032-1)",
+      "executable": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU-research\\research\\data\\tools\\usr\\bin\\verilator_bin",
+      "executable_sha256": "90fe12f3b2c752b607690cb05a566646398d1e07f38e83f5f7a7f35c20560247",
+      "compiler_sha256": "90fe12f3b2c752b607690cb05a566646398d1e07f38e83f5f7a7f35c20560247"
+    },
+    "runtime:python": "c0c26871ec1aae748b7914a09c9566d5234775c7a1a2915bf8f401eb6d5cd964",
+    "runtime:numpy": "4b0379678f664340b010747a4ad1436f29a4e92e8b245932f19cec020dff8770"
   }
 }

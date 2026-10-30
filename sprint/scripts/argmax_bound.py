@@ -12,11 +12,7 @@ assert np.all((SH>=0)&(SH<=63)) and np.all(M>=0)
 # Immutable precomputed norm/scale coefficients; ceil coefficient rounding is outward.
 coeff=np.array([[(int(l1[r,g])*int(M[r,g])*(1<<32)+(1<<int(SH[r,g]))-1)//(1<<int(SH[r,g])) for g in range(9)] for r in range(32000)],dtype=np.int64)
 assert coeff.max() < 2**32
-old_prompts=json.loads((R.parent/'uTPU-research/research/data/prompts.json').read_text())
-prompts=[];first_indices=[]
-for i,prompt in enumerate(old_prompts):
- if prompt not in prompts:prompts.append(prompt);first_indices.append(i)
-reused=len(prompts)
+prompts=[]
 from tools.llama2c.tokenizer import Tokenizer
 tokenizer=Tokenizer(R/'models/llama2c/tokenizer.bin',32000)
 for story in (R/'models/llama2c/TinyStories-valid.txt').read_text(encoding='utf-8').split('<|endoftext|>'):
@@ -27,15 +23,9 @@ for story in (R/'models/llama2c/TinyStories-valid.txt').read_text(encoding='utf-
 assert len(prompts)==50 and len({tuple(x) for x in prompts})==50
 (D/'argmax_prompts.json').write_text(json.dumps(prompts))
 records=[]
-if (D/'argmax_repeated_prefix_dataset.csv').exists():
- mapping={old:new for new,old in enumerate(first_indices)}
- with (D/'argmax_repeated_prefix_dataset.csv').open() as source:
-  for row in csv.DictReader(source):
-   if int(row['prompt']) in mapping:
-    row['prompt']=mapping[int(row['prompt'])];records.append(row)
+(D/'argmax_unique_complete.json').write_text(json.dumps(dict(status='in-progress')))
 deadline=time.monotonic()+90*60
 for pi,prompt in enumerate(prompts[:50]):
- if pi<reused:continue
  rt.reset()
  for pos,t in enumerate(prompt[:-1]):rt.forward_argmax(t,pos)
  token=prompt[-1]
@@ -83,7 +73,9 @@ for pi,prompt in enumerate(prompts[:50]):
   token=best
  with (D/'argmax_sweep.csv').open('w',newline='') as f:
   w=csv.DictWriter(f,fieldnames=records[0]);w.writeheader();w.writerows(records)
- (D/'argmax_progress.json').write_text(json.dumps(dict(prompts=pi+1,steps=(pi+1)*120,records=len(records))))
+ (D/'argmax_progress.json').write_text(json.dumps(dict(prompts_evaluated=pi+1,steps=len(records)//36,records=len(records))))
  if time.monotonic()>deadline:break
 
-(D/"argmax_unique_complete.json").write_text(json.dumps(dict(unique_prompts=len(prompts),records=len(records))))
+complete=len(records)==50*120*36
+(D/'argmax_unique_complete.json').write_text(json.dumps(dict(status='pass' if complete else 'timeboxed',unique_prompts=len(prompts),positions=len(records)//36,records=len(records))))
+if not complete:raise SystemExit(124)

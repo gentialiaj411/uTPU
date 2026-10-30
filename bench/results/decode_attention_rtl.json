@@ -14,8 +14,8 @@
   "cycles_per_head_call": 2336.2627071823204,
   "vvp_command": "C:\\iverilog\\bin\\vvp.exe build/decode/attn_tb.vvp (kv8 CB=8, kv4 CB=4)",
   "sim_stdout_sha256": [
-    "35b9d5366331423a4cf914ab1f41ac4a9fdf86b29eade6ae52155c8ff933cac7",
-    "a13bbbc626f69349a18b52c632b38106008456dfab031732b2790a6f7760ded5"
+    "2c339c8004f546a6e2fe317703191430b8811061468890ef901b08f859e9606f",
+    "98f4b43bb920a016cade86b2b0d57b528ecdf11c428669afe9ac312945ea4683"
   ],
   "summary": [
     "kv8: SUMMARY calls=1810 errors=0 real_errors=0 cycles=4207711",
@@ -53,10 +53,19 @@
     "tools/decode/gen_luts.py": "aa8c16d0f7e9b8c3ebe88a88506df3583a713bf9b0dec2748bc7911fc29c1d76",
     "tools/decode/golden_attn.py": "3d44cb9ab7c02709707a4672bfa0143faa012cdbb9c2c0a65b159e2680dbf0fc",
     "tools/decode/harness.py": "b4ebd345be9c6de82a0397eda8127643545e3d1a3aeecd5bd952ad5d98e74f6b",
-    "tools/decode/provenance.py": "b481bbdcd5a7125820c8c46c7785dbb19cce770d76eb3476cd2a98ee5df7c8a2",
-    "tools/decode/run_attn_rtl.py": "5aac006b73f8165ff3982e027d57b108a6094379bef9da442353f0795e3bee5c",
-    "tools/decode/sim.py": "3d17c03bf537d08c3418b1c44a2beb515b403a3657e6415014ef9a50a4460110",
+    "tools/decode/provenance.py": "4d7a310a496f292013020646f48e6597842a8db7419492cf3499596bdbcd573d",
+    "tools/decode/run_attn_rtl.py": "dff42dd638b03c8da15750db98c1dc9007e9837623c69c8359b3ffd2284c72c0",
+    "tools/decode/sim.py": "399c0a1ea8f77ad6ed9bc92900d4791553f8a553e6bc70d8cb2bc96f86a28b40",
     "tools/llama2c/reference.py": "70c7bc1078ab75dda3773ab9062e149db8d579eaa6d7a3689f6909ac7ae903a7",
-    "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96"
+    "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96",
+    "tool:simulator": {
+      "name": "verilator",
+      "version": "Verilator 5.032 2025-01-01 rev (Debian 5.032-1)",
+      "executable": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU-research\\research\\data\\tools\\usr\\bin\\verilator_bin",
+      "executable_sha256": "90fe12f3b2c752b607690cb05a566646398d1e07f38e83f5f7a7f35c20560247",
+      "compiler_sha256": "90fe12f3b2c752b607690cb05a566646398d1e07f38e83f5f7a7f35c20560247"
+    },
+    "runtime:python": "c0c26871ec1aae748b7914a09c9566d5234775c7a1a2915bf8f401eb6d5cd964",
+    "runtime:numpy": "4b0379678f664340b010747a4ad1436f29a4e92e8b245932f19cec020dff8770"
   }
 }

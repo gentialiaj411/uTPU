@@ -20,6 +20,11 @@ $py = 'python'
 Invoke-Logged -Name 'pack_15m' -Exe $py -CommandArgs @('tools/decode/pack_decode_image.py','--model','15m')
 Invoke-Logged -Name 'wrap_15m' -Exe $py -CommandArgs @('tools/decode/gen_15m_wrap.py')
 Invoke-Logged -Name 'wrap_qspi' -Exe $py -CommandArgs @('tools/decode/gen_qspi_wrap.py')
+# Finish timeboxed fault-provenance regeneration before physical closure.
+$env:UTPU_SIM = 'icarus'
+foreach ($unit in @('qspi','rms','vec','attn','attn15')) {
+    Invoke-Logged -Name ('fault_' + $unit) -Exe $py -CommandArgs @('tools/decode/fault_inject.py',$unit)
+}
 $synthJobs = @(
     @('gemv_unit','decode_gemv_unit','rtl/decode/gemv_unit.sv'),
     @('act_quant','act_quant','rtl/decode/act_quant.sv'),

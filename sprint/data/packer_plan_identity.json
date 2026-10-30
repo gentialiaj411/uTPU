@@ -1,0 +1,5 @@
+{
+  "status": "pass",
+  "normalized_sha256": "525ab2e8a4c588a7d92ecc330bf98aa4420092607ec8237b5108bd78507d09b7",
+  "command": "independent normalized-source digest comparison against readonly preflight"
+}
