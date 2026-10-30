@@ -1,6 +1,6 @@
 import subprocess,sys,time,json,datetime,csv,os
 from pathlib import Path
-D=Path('sprint/data');deadline=time.monotonic()+3*3600
+D=Path('sprint/data');deadline=time.monotonic()+max(1,json.loads((D/'wall_deadline.json').read_text())['unix']-time.time())
 state={}
 def log(msg):
  with Path('SPRINT_LOG.md').open('a') as f:f.write('\n- '+datetime.datetime.now().isoformat()+' '+msg+'\n')
@@ -19,7 +19,7 @@ while time.monotonic()<deadline:
   if len(timing)>=2 or any(x['returncode'] for x in timing):break
  except (FileNotFoundError,json.JSONDecodeError):pass
  time.sleep(30)
-while not (D/'backend_recovery_complete.json').exists() and time.monotonic()<deadline:time.sleep(30)
+while not (D/'deterministic_recovery_complete.json').exists() and time.monotonic()<deadline:time.sleep(30)
 run([sys.executable,'sprint/scripts/compare.py'],'compare_final',60)
 rows=list(csv.DictReader((D/'crosscheck_comparison.csv').open()))
 passed=len(rows)==11 and all(x['identical']=='True' and x['icarus']==x['verilator']=='pass' for x in rows)
@@ -29,12 +29,13 @@ if not passed:
 else:
  backups={str(p):p.read_bytes() for p in map(Path,['tools/decode/pack_decode_image.py','rtl/decode/top_decode.sv','rtl/board/boolean_core.sv','tools/decode/fault_inject.py'])}
  (D/'metadata_baseline.json').write_text(json.dumps({str(p):json.loads(p.read_text()) for p in [D/'e2e_qspi_verilator.json',D/'15m_small.json']}))
- rc=run([sys.executable,'sprint/scripts/implement_metadata.py'],'metadata_apply',180)
+ rc=run([sys.executable,'tools/decode/run_decode_rtl.py','--model','15m','--kv-bits','4','--flash','qspi','--gen','1','--sim','verilator','--output','sprint/data/15m_qspi_before_metadata.json'],'15m_qspi_before_metadata',1200)
+ if not rc:rc=run([sys.executable,'sprint/scripts/implement_metadata.py'],'metadata_apply',180)
  if not rc:
   rc=run([sys.executable,'-m','pytest','sprint/scripts/test_compact_metadata.py','-q'],'metadata_python_exactness',180)
  if not rc:
   os.environ['UTPU_SIM']='verilator'
-  checks=[('260k_metadata',['--model','260k','--kv-bits','4','--flash','qspi','--gen','8']),('15m_metadata',['--model','15m','--kv-bits','4','--flash','qspi','--gen','8'])]
+  checks=[('260k_metadata',['--model','260k','--kv-bits','4','--flash','qspi','--gen','8']),('15m_metadata',['--model','15m','--kv-bits','4','--flash','qspi','--gen','1'])]
   for name,args in checks:
    rc=run([sys.executable,'tools/decode/run_decode_rtl.py',*args,'--sim','verilator','--output',f'sprint/data/{name}.json'],name,2700)
    if rc:break
@@ -47,6 +48,7 @@ backend='verilator' if passed else 'icarus';os.environ['UTPU_SIM']=backend
 jobs=[('gemv',['tools/decode/run_gemv_rtl.py']),('gemv15',['tools/decode/run_gemv_rtl.py','--golden','build/decode/golden_gemv15','--output','bench/results/decode_gemv15_rtl.json']),('actq',['tools/decode/run_act_quant_rtl.py']),('rms',['tools/decode/run_rms_rtl.py']),('vec',['tools/decode/run_vec_rtl.py']),('attn',['tools/decode/run_attn_rtl.py']),('attn15',['tools/decode/run_attn15_rtl.py']),('qspi',['tools/decode/run_qspi_rtl.py']),('uart',['tools/board/run_uart_rtl.py'])]
 for name,cmd in jobs:
  if time.monotonic()>deadline-2700:break
+ if name=='qspi' and passed and run([sys.executable,'sprint/scripts/promote_fresh_qspi.py'],'regen_qspi',180)==0:continue
  if run([sys.executable,*cmd,'--sim',backend],'regen_'+name,1800):break
 # Fault suites depend on every model/numeric source: produce them under final inputs.
 for unit in ['gemv','actq','rms','vec','attn','attn15','top','qspi','board']:

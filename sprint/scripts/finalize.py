@@ -3,13 +3,17 @@ from pathlib import Path
 K=ctypes.windll.kernel32
 K.OpenProcess.restype=ctypes.c_void_p
 new=json.loads(Path('sprint/data/restarted_jobs.json').read_text())
-jobs={new['crosscheck']:'crosscheck',6420:'regress15',23124:'argmax_bound',new['engineering']:'engineering_driver'}
+jobs={33636:'argmax_bound',new['engineering']:'engineering_launcher'}
+snapshot=subprocess.run(['powershell','-NoProfile','-Command',"Get-CimInstance Win32_Process -Filter \"name = 'python.exe'\" | Select-Object ProcessId,CommandLine | ConvertTo-Json"],capture_output=True,text=True)
+current=json.loads(snapshot.stdout or '[]')
+if isinstance(current,dict):current=[current]
+jobs={pid:name for pid,name in jobs.items() if any(row['ProcessId']==pid and 'sprint/scripts/'+name+'.py' in (row['CommandLine'] or '') for row in current)}
 handles={pid:K.OpenProcess(0x100000,False,pid) for pid in jobs};start=time.monotonic();timedout=False
 while True:
  active=[pid for pid,h in handles.items() if h and K.WaitForSingleObject(ctypes.c_void_p(h),0)==258]
  Path('sprint/data/completion_status.json').write_text(json.dumps(dict(active=[jobs[p] for p in active],seconds=time.monotonic()-start,timestamp=datetime.datetime.now().isoformat())))
  if not active:break
- if time.monotonic()-start>3.1*3600:
+ if time.time()>json.loads(Path('sprint/data/wall_deadline.json').read_text())['unix']+300:
   timedout=True
   # Only terminate roots whose current command still names our known sprint script; descendants first.
   for pid in active:

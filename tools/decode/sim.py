@@ -15,6 +15,11 @@ if "--sim" in sys.argv:
     i = sys.argv.index("--sim")
     SIMULATOR = sys.argv[i+1]
     del sys.argv[i:i+2]
+for i, arg in enumerate(sys.argv):
+    if arg.startswith('--sim='):
+        SIMULATOR = arg.split('=',1)[1]
+        del sys.argv[i]
+        break
 if SIMULATOR not in ("icarus", "verilator"):
     raise ValueError("--sim must be icarus or verilator")
 os.environ["UTPU_SIM"] = SIMULATOR

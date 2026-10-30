@@ -11,3 +11,24 @@
 - P3 final screening completed all 50x120 positions, 216000 variant/rate records, exact argmax and maximum-logit checks passed. Norm and coefficient bounds skipped zero rows in every tested variant; no-go for implementing these bounds in hardware. This does not rule out tighter progressive or geometric bounds.
 - Big 15M regression was still executing near its wrapper one-hour cap. Preserved the existing child simulation and replaced only its wrapper with an adoption waiter (45 minute additional cap), avoiding a wasteful restart. No stimulus/check changed; its runner-measured wall_seconds will be authoritative.
 - Confirmed tool infrastructure failure: /tmp is a 7.7GB tmpfs and variant object/PCH directories exhausted it. Verilator silently wrote zero-byte makefiles, so negative QSPI and UART compilation failed with make No targets, correctly causing runner FAIL. Preserved failed outputs; cleaned only completed owned /tmp/utpu-perf/*_obj directories after checking active executable paths. Backend now removes each generated object directory after run/failure while preserving raw compile logs. Full QSPI/UART Verilator suites rerunning; no failure treated as a pass.
+- Confirmed research data-quality hole: 50 prompt records represented only 9 distinct eight-token prefixes. Fixed P3 sampling to require 50 distinct prefixes; reused the nine distinct completed measurements and launched the remaining 41 prompts. The repeated-prefix CSV is archived and excluded from final evidence. All new positions remain <=127. P3 final no-go will be re-evaluated from the repaired sweep.
+
+- 2026-10-30T14:22:17.306576 RUN C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe sprint/scripts/compare.py -> sprint/data/compare_final.log
+
+- 2026-10-30T14:22:17.427267 compare_final EXIT 0
+
+- 2026-10-30T14:22:17.443146 P4 BLOCKED by P1 full backend equivalence; arithmetic and packed format preserved.
+
+- 2026-10-30T14:22:17.443146 RUN C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe tools/decode/run_gemv_rtl.py --sim icarus -> sprint/data/regen_gemv.log
+
+- 2026-10-30T14:22:45.992823 regen_gemv EXIT 0
+
+- 2026-10-30T14:22:45.992823 RUN C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe tools/decode/run_gemv_rtl.py --golden build/decode/golden_gemv15 --output bench/results/decode_gemv15_rtl.json --sim icarus -> sprint/data/regen_gemv15.log
+
+- 2026-10-30T14:25:02.597677 regen_gemv15 EXIT 0
+
+- 2026-10-30T14:25:02.597677 RUN C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe tools/decode/run_act_quant_rtl.py --sim icarus -> sprint/data/regen_actq.log
+- P1 found real cross-simulator TB gaps after infrastructure recovery: sparse QSPI stimulus used multiple stateful RNG calls in the same task argument list (unspecified evaluation order); UART queue polling shared the active clock-edge region with monitor updates, producing a four-cycle summary skew. Split every multi-RNG argument into ordered assignments and sample UART task polls 0.1ns after the clock on BOTH backends. No stimulus cases, checks or tolerances removed; full QSPI/UART comparison rerunning. Paused downstream engineering until this acceptance is resolved.
+
+- 2026-10-30T14:25:52.069456 Finalization: all launched jobs ended or were explicitly TIMEBOXED at wall deadline. timedout=False
+- Final plan preserves a fair four-position 15M QSPI before/after benchmark. P6 may promote the complete final P1 QSPI producer output unchanged only after checking all current dependency hashes, required identity coverage and byte-identical SHA256; otherwise it reruns. P4 does not change the QSPI unit or its inputs. This saves redundant compilation without removing any test or editing an artifact.

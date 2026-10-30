@@ -1,0 +1,10 @@
+from pathlib import Path
+p=Path('sprint/scripts/engineering_driver.py');s=p.read_text()
+s=s.replace(" rc=run([sys.executable,'sprint/scripts/implement_metadata.py'],'metadata_apply',180)", " rc=run([sys.executable,'tools/decode/run_decode_rtl.py','--model','15m','--kv-bits','4','--flash','qspi','--gen','1','--sim','verilator','--output','sprint/data/15m_qspi_before_metadata.json'],'15m_qspi_before_metadata',1200)\n if not rc:rc=run([sys.executable,'sprint/scripts/implement_metadata.py'],'metadata_apply',180)")
+s=s.replace("('15m_metadata',['--model','15m','--kv-bits','4','--flash','qspi','--gen','8'])", "('15m_metadata',['--model','15m','--kv-bits','4','--flash','qspi','--gen','1'])")
+s=s.replace(" if run([sys.executable,*cmd,'--sim',backend],'regen_'+name,1800):break", " if name=='qspi' and passed and run([sys.executable,'sprint/scripts/promote_fresh_qspi.py'],'regen_qspi',180)==0:continue\n if run([sys.executable,*cmd,'--sim',backend],'regen_'+name,1800):break")
+p.write_text(s)
+p=Path('sprint/scripts/report.py');s=p.read_text().replace("('15M QSPI',None,'15m_metadata.json')", "('15M QSPI','15m_qspi_before_metadata.json','15m_metadata.json')")
+s=s.replace('The 15M baseline in 15m_small.json is IDEAL 1 B/clk and cannot serve as a measured pre-change QSPI baseline.', 'The before/after 15M QSPI microbenchmark uses the same four positions (--gen 1 with the original four-token prompt). The separate 15m_small.json is IDEAL 1 B/clk and is not substituted as a QSPI baseline.')
+s=s.replace('Every artifact is produced by its runner; there are no copied/hash-patched artifacts.', 'Every artifact is produced by its runner. The full QSPI unit producer output from the final P1 cross-check may be promoted byte-for-byte after full provenance freshness/coverage checks, since metadata format changes do not touch that unit or its inputs; this avoids rerunning its identical complete protocol suite. Promotion verifies identical SHA256 and never patches an artifact hash or field.')
+p.write_text(s)

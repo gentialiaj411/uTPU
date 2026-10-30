@@ -70,7 +70,7 @@ module uart_tb;
   endtask
   task automatic expect_byte(input [7:0] e, input string what);
     int guard; guard = 0;
-    while (rd >= wr && guard < 4000000) begin @(posedge clk); guard++; end
+    while (rd >= wr && guard < 4000000) begin @(posedge clk); #0.1; guard++; end
     if (rd >= wr) begin errors++; $display("MISMATCH timeout waiting for %%s", what); $display("SUMMARY errors=%%0d checks=%%0d cycles=%%0d", errors, checks, cycles); $finish; end
     checks++;
     if (rxq[rd %% 4096] !== e) begin errors++; if (shown < 12) begin shown++; $display("MISMATCH %%s got=%%h exp=%%h", what, rxq[rd %% 4096], e); end end
@@ -83,7 +83,7 @@ module uart_tb;
     uart_rx = 0; #(BIT); uart_rx = 1; #(BIT);
   endtask
   task automatic expect_idle(input int ncyc, input string what);   // no response byte may arrive
-    repeat (ncyc) @(posedge clk);
+    repeat (ncyc) @(posedge clk); #0.1;
     checks++;
     if (rd != wr) begin errors++; $display("MISMATCH unexpected response byte(s) after %%s: %%0d pending, first %%h", what, wr - rd, rxq[rd %% 4096]);
       if (%(stop)d) begin $display("SUMMARY errors=%%0d checks=%%0d cycles=%%0d", errors, checks, cycles); $finish; end end
@@ -116,7 +116,7 @@ module uart_tb;
     expect_byte(step_mem[s][23:16], "token lo"); expect_byte(step_mem[s][31:24], "token hi");
     ev = (idx < V) ? exp_logits[s*V + idx] : 32'd0;
     for (int i = 0; i < 4; i++) begin
-      while (rd >= wr) @(posedge clk);
+      while (rd >= wr) begin @(posedge clk); #0.1; end
       cb[i] = rxq[rd %% 4096]; rd++;
     end
     cyc_rep = {cb[3], cb[2], cb[1], cb[0]};
@@ -129,7 +129,7 @@ module uart_tb;
   endtask
   initial begin
     $readmemh("%(steps)s", step_mem); $readmemh("%(logits)s", exp_logits);
-    repeat (4) @(posedge clk); rst = 0; repeat (50) @(posedge clk);
+    repeat (4) @(posedge clk); #0.1; rst = 0; repeat (50) @(posedge clk); #0.1;
     if (MODE == 2) begin
       // robustness: watchdog on a stalled byte stream, then reset in the middle of a frame, an SPI read and a decode step
       send(8'h56); expect_byte(8'h76, "V tag"); expect_byte(8'h01, "V ver");
@@ -139,7 +139,7 @@ module uart_tb;
       step(0, 3, 0);                                             // pos 0 completes, next = 1
       // stall: the flash byte stream stops (st_valid forced low) after the step has started; the watchdog must fire
       exp_pos = 8'h01; send(8'h54); send(step_mem[1][39:32]); send(step_mem[1][47:40]); send(8'h01); send(8'h00); send(8'h00);
-      repeat (20000) @(posedge clk); force dut.st_valid = 1'b0;
+      repeat (20000) @(posedge clk); #0.1; force dut.st_valid = 1'b0;
       expect_err(8'h04, 1, "watchdog");
       release dut.st_valid;
       // the engine and the reader were reset: a retry of pos 1 and the following steps must match the golden
@@ -151,11 +151,11 @@ module uart_tb;
       ping("after reset mid frame"); rdid("RDID after reset mid frame");
       // reset in the middle of an SPI register read (after the opcode: the flash model rejects a CS# rise inside the command byte)
       send(8'h53); send(8'd1); send(8'd6); send(8'h9F);
-      repeat (380) @(posedge clk); doreset; expect_idle(2000, "reset mid SPI");
+      repeat (380) @(posedge clk); #0.1; doreset; expect_idle(2000, "reset mid SPI");
       ping("after reset mid SPI"); rdid("RDID after reset mid SPI");
       // reset in the middle of a decode step (data phase of a burst)
       exp_pos = 8'h00; send(8'h54); send(step_mem[0][39:32]); send(step_mem[0][47:40]); send(8'h00); send(8'h00); send(8'h00);
-      repeat (300000) @(posedge clk); doreset; expect_idle(2000, "reset mid decode step");
+      repeat (300000) @(posedge clk); #0.1; doreset; expect_idle(2000, "reset mid decode step");
       ping("after reset mid decode"); rdid("RDID after reset mid decode");
       step(0, 11, 0); step(1, 13, 0);
       $display("SUMMARY errors=%%0d checks=%%0d cycles=%%0d starts=%%0d", errors, checks, cycles, n_starts);
@@ -164,7 +164,7 @@ module uart_tb;
     if (MODE == 0) begin
       // negative: QUAD bit is 0, a decode request must trip the flash model's check (this sim is expected to end in $fatal)
       send(8'h54); send(1); send(0); send(0); send(0); send(0);
-      repeat (200000) @(posedge clk);
+      repeat (200000) @(posedge clk); #0.1;
       $display("SUMMARY errors=%%0d checks=%%0d cycles=%%0d NO_FATAL", errors, checks, cycles);
       $finish;
     end
@@ -183,7 +183,7 @@ module uart_tb;
 %(hostseq)s
     spi(1, 1, {8'h35, 56'd0}, {8'h02, 56'd0}, "RDCR after host enable-quad");
     send(8'h54); send(8'h01); send(8'h00);                        // truncated frame, must time out
-    repeat (TMO_CYC) @(posedge clk);
+    repeat (TMO_CYC) @(posedge clk); #0.1;
     send(8'h56); expect_byte(8'h76, "V after timeout"); expect_byte(8'h01, "V ver 2");
     spi(1, 0, {8'h06, 56'd0}, 64'd0, "WREN");
     spi(1, 1, {8'h05, 56'd0}, {8'h02, 56'd0}, "RDSR wel set");

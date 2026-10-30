@@ -191,15 +191,15 @@ module qspi_tb;
         sp(32'h0100_0000, 8); sp(32'h1000_0000, 8); sp(32'h8000_0000, 8); sp(32'hDEAD_BEE0, 16); sp(32'hFFFF_FFF0, 8);
         sp(32'h0128_0000, 8); sp(32'hFF28_0000, 8);
       end
-      for (int k = 0; k < 150; k++) begin sp(ra(), 1 + rnd(12)); cyc(rnd(30)); end
+      for (int k = 0; k < 150; k++) begin logic [31:0] address; int count; address = ra(); count = 1 + rnd(12); sp(address, count); cyc(rnd(30)); end
       for (int k = 0; k < 40; k++) begin                         // consumer with random backpressure
-        seek(ra()); take(4 + rnd(10), 100 - 20 * rnd(4));
+        int count, pct; seek(ra()); count = 4 + rnd(10); pct = 100 - 20 * rnd(4); take(count, pct);
       end
       sp(ra(), 5);                                               // long stall: SCLK must stop
       cyc(50); stall_watch = 1; cyc(4000); stall_watch = 0;
       take(100, 100);
       for (int k = 0; k < 60; k++) begin                         // seek in the cycle a byte would be handed off
-        sp(ra(), 3 + rnd(5)); st_ready = 1;
+        logic [31:0] address; int count; address = ra(); count = 3 + rnd(5); sp(address, count); st_ready = 1;
         while (!(dut.ob_valid && st_ready)) @(negedge clk);
         seek_addr = ra(); seek_req = 1; @(negedge clk) seek_req = 0; st_ready = 0;
         take(4, 100);
