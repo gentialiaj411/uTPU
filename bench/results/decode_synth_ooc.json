@@ -8,6 +8,13 @@
       "rtl/decode/seq_mul.sv",
       "rtl/decode/rmsnorm.sv"
     ],
+    "provenance": {
+      "rtl/decode/decode_pkg.sv": "21804faff80721c8b4f91620fcf5b1d2ceb3d8bf18a46935cf3bace24fc1d8c3",
+      "rtl/decode/rmsnorm.sv": "18d097372a48fcb40f3b1217994975fa19beaa2b746bbbe9aeb7154055a1ca70",
+      "rtl/decode/seq_mul.sv": "93e0db89fd1746bc1aa234a3cd8957a81d7c0920d5a13aa720e6b7845033cec5",
+      "tools/decode/synth_ooc.py": "e1212a74d1c45817e879a7bbda3dcf8b82fb7f7cb603ad0fe5887baad1b94f76",
+      "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96"
+    },
     "lut": 3224.0,
     "ff": 992.0,
     "dsp": 12.0,
@@ -23,6 +30,12 @@
       "rtl/decode/decode_pkg.sv",
       "rtl/decode/vec_alu.sv"
     ],
+    "provenance": {
+      "rtl/decode/decode_pkg.sv": "21804faff80721c8b4f91620fcf5b1d2ceb3d8bf18a46935cf3bace24fc1d8c3",
+      "rtl/decode/vec_alu.sv": "9dbfa131e5e4a1c5c2363eee7ad92f59ac810f29371b5170206a3325b3e3b055",
+      "tools/decode/synth_ooc.py": "e1212a74d1c45817e879a7bbda3dcf8b82fb7f7cb603ad0fe5887baad1b94f76",
+      "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96"
+    },
     "lut": 4375.0,
     "ff": 605.0,
     "dsp": 4.0,
@@ -40,6 +53,14 @@
       "rtl/decode/div_const_pipe.sv",
       "rtl/decode/attention.sv"
     ],
+    "provenance": {
+      "rtl/decode/attention.sv": "fb6b4284c5fff6fc2869d15473194e5d4ae69b83f4f0bd0ade94016aedeb574e",
+      "rtl/decode/decode_pkg.sv": "21804faff80721c8b4f91620fcf5b1d2ceb3d8bf18a46935cf3bace24fc1d8c3",
+      "rtl/decode/div_const_pipe.sv": "bdab503b9ef9ff779eccaccbdbdb98738938a1abe200dff12b73fc7470f3b2a6",
+      "rtl/decode/mul_pipe.sv": "771c9319db4133d8ecdeb8a057e90f79c5dedb29ee0509515198b595a086d10e",
+      "tools/decode/synth_ooc.py": "e1212a74d1c45817e879a7bbda3dcf8b82fb7f7cb603ad0fe5887baad1b94f76",
+      "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96"
+    },
     "lut": 4692.0,
     "ff": 1913.0,
     "dsp": 27.0,
@@ -63,6 +84,20 @@
       "rtl/decode/attention.sv",
       "rtl/decode/top_decode.sv"
     ],
+    "provenance": {
+      "rtl/decode/act_quant.sv": "9782f0860b533496e4b159146fcd92bf5730af5d5e77932805cf62017f954dfe",
+      "rtl/decode/attention.sv": "fb6b4284c5fff6fc2869d15473194e5d4ae69b83f4f0bd0ade94016aedeb574e",
+      "rtl/decode/decode_pkg.sv": "21804faff80721c8b4f91620fcf5b1d2ceb3d8bf18a46935cf3bace24fc1d8c3",
+      "rtl/decode/div_const_pipe.sv": "bdab503b9ef9ff779eccaccbdbdb98738938a1abe200dff12b73fc7470f3b2a6",
+      "rtl/decode/gemv_unit.sv": "af8c19c5fd448717ed60e6bef4bd0f009ee97f59a225d0f0d81217010fbb2dc9",
+      "rtl/decode/mul_pipe.sv": "771c9319db4133d8ecdeb8a057e90f79c5dedb29ee0509515198b595a086d10e",
+      "rtl/decode/rmsnorm.sv": "18d097372a48fcb40f3b1217994975fa19beaa2b746bbbe9aeb7154055a1ca70",
+      "rtl/decode/seq_mul.sv": "93e0db89fd1746bc1aa234a3cd8957a81d7c0920d5a13aa720e6b7845033cec5",
+      "rtl/decode/top_decode.sv": "7e35843420580281145d26521a56b8d260b5be22d0b45d89531735a7b038f42d",
+      "rtl/decode/vec_alu.sv": "9dbfa131e5e4a1c5c2363eee7ad92f59ac810f29371b5170206a3325b3e3b055",
+      "tools/decode/synth_ooc.py": "e1212a74d1c45817e879a7bbda3dcf8b82fb7f7cb603ad0fe5887baad1b94f76",
+      "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96"
+    },
     "lut": 15492.0,
     "ff": 7001.0,
     "dsp": 73.0,
@@ -77,6 +112,11 @@
     "sources": [
       "rtl/decode/gemv_unit.sv"
     ],
+    "provenance": {
+      "rtl/decode/gemv_unit.sv": "af8c19c5fd448717ed60e6bef4bd0f009ee97f59a225d0f0d81217010fbb2dc9",
+      "tools/decode/synth_ooc.py": "e1212a74d1c45817e879a7bbda3dcf8b82fb7f7cb603ad0fe5887baad1b94f76",
+      "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96"
+    },
     "lut": 4953.0,
     "ff": 2499.0,
     "dsp": 25.0,
@@ -91,6 +131,11 @@
     "sources": [
       "rtl/decode/act_quant.sv"
     ],
+    "provenance": {
+      "rtl/decode/act_quant.sv": "9782f0860b533496e4b159146fcd92bf5730af5d5e77932805cf62017f954dfe",
+      "tools/decode/synth_ooc.py": "e1212a74d1c45817e879a7bbda3dcf8b82fb7f7cb603ad0fe5887baad1b94f76",
+      "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96"
+    },
     "lut": 477.0,
     "ff": 203.0,
     "dsp": 4.0,
@@ -115,6 +160,24 @@
       "rtl/decode/top_decode.sv",
       "build/decode/top_decode_15m_wrap.sv"
     ],
+    "provenance": {
+      "build/decode/decode_image_15m/params.json": "7cc473ad50ece06101de4c0295dc597503cfd72a108043b3222db3d5b2932df1",
+      "build/decode/top_decode_15m_wrap.sv": "b539fd9b44d7caf7b1fc32591d3605999ea1e4344cd13e85d24f37f0da1e47eb",
+      "rtl/decode/act_quant.sv": "9782f0860b533496e4b159146fcd92bf5730af5d5e77932805cf62017f954dfe",
+      "rtl/decode/attention.sv": "fb6b4284c5fff6fc2869d15473194e5d4ae69b83f4f0bd0ade94016aedeb574e",
+      "rtl/decode/decode_pkg.sv": "21804faff80721c8b4f91620fcf5b1d2ceb3d8bf18a46935cf3bace24fc1d8c3",
+      "rtl/decode/div_const_pipe.sv": "bdab503b9ef9ff779eccaccbdbdb98738938a1abe200dff12b73fc7470f3b2a6",
+      "rtl/decode/gemv_unit.sv": "af8c19c5fd448717ed60e6bef4bd0f009ee97f59a225d0f0d81217010fbb2dc9",
+      "rtl/decode/mul_pipe.sv": "771c9319db4133d8ecdeb8a057e90f79c5dedb29ee0509515198b595a086d10e",
+      "rtl/decode/rmsnorm.sv": "18d097372a48fcb40f3b1217994975fa19beaa2b746bbbe9aeb7154055a1ca70",
+      "rtl/decode/seq_mul.sv": "93e0db89fd1746bc1aa234a3cd8957a81d7c0920d5a13aa720e6b7845033cec5",
+      "rtl/decode/top_decode.sv": "7e35843420580281145d26521a56b8d260b5be22d0b45d89531735a7b038f42d",
+      "rtl/decode/vec_alu.sv": "9dbfa131e5e4a1c5c2363eee7ad92f59ac810f29371b5170206a3325b3e3b055",
+      "tools/decode/gen_15m_wrap.py": "ee0410450723cf182acffc8e3ce7447686b62ba8fff4a24ceaee760bab1dde21",
+      "tools/decode/pack_decode_image.py": "d3a4c229f1d449b40a5df2bf93c24fb5d0bb49949a420dc52d070a4236d57e80",
+      "tools/decode/synth_ooc.py": "e1212a74d1c45817e879a7bbda3dcf8b82fb7f7cb603ad0fe5887baad1b94f76",
+      "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96"
+    },
     "lut": 20289.0,
     "ff": 9223.0,
     "dsp": 73.0,
@@ -129,6 +192,11 @@
     "sources": [
       "rtl/decode/qspi_reader.sv"
     ],
+    "provenance": {
+      "rtl/decode/qspi_reader.sv": "27494542f9f4750eecc9cb1dc84ab1fa90b7d3026b091094b1454fb3a53e74db",
+      "tools/decode/synth_ooc.py": "e1212a74d1c45817e879a7bbda3dcf8b82fb7f7cb603ad0fe5887baad1b94f76",
+      "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96"
+    },
     "lut": 59.0,
     "ff": 98.0,
     "dsp": 0.0,
@@ -154,6 +222,27 @@
       "rtl/decode/qspi_reader.sv",
       "build/decode/top_decode_15m_qspi_wrap.sv"
     ],
+    "provenance": {
+      "build/decode/decode_image_15m/params.json": "7cc473ad50ece06101de4c0295dc597503cfd72a108043b3222db3d5b2932df1",
+      "build/decode/top_decode_15m_qspi_wrap.sv": "9d9abc9dc22009ba23635fcc57f8870edaccce3fdb3a90bc1c62c23b5d475c44",
+      "build/decode/top_decode_15m_wrap.sv": "b539fd9b44d7caf7b1fc32591d3605999ea1e4344cd13e85d24f37f0da1e47eb",
+      "rtl/decode/act_quant.sv": "9782f0860b533496e4b159146fcd92bf5730af5d5e77932805cf62017f954dfe",
+      "rtl/decode/attention.sv": "fb6b4284c5fff6fc2869d15473194e5d4ae69b83f4f0bd0ade94016aedeb574e",
+      "rtl/decode/decode_pkg.sv": "21804faff80721c8b4f91620fcf5b1d2ceb3d8bf18a46935cf3bace24fc1d8c3",
+      "rtl/decode/div_const_pipe.sv": "bdab503b9ef9ff779eccaccbdbdb98738938a1abe200dff12b73fc7470f3b2a6",
+      "rtl/decode/gemv_unit.sv": "af8c19c5fd448717ed60e6bef4bd0f009ee97f59a225d0f0d81217010fbb2dc9",
+      "rtl/decode/mul_pipe.sv": "771c9319db4133d8ecdeb8a057e90f79c5dedb29ee0509515198b595a086d10e",
+      "rtl/decode/qspi_reader.sv": "27494542f9f4750eecc9cb1dc84ab1fa90b7d3026b091094b1454fb3a53e74db",
+      "rtl/decode/rmsnorm.sv": "18d097372a48fcb40f3b1217994975fa19beaa2b746bbbe9aeb7154055a1ca70",
+      "rtl/decode/seq_mul.sv": "93e0db89fd1746bc1aa234a3cd8957a81d7c0920d5a13aa720e6b7845033cec5",
+      "rtl/decode/top_decode.sv": "7e35843420580281145d26521a56b8d260b5be22d0b45d89531735a7b038f42d",
+      "rtl/decode/vec_alu.sv": "9dbfa131e5e4a1c5c2363eee7ad92f59ac810f29371b5170206a3325b3e3b055",
+      "tools/decode/gen_15m_wrap.py": "ee0410450723cf182acffc8e3ce7447686b62ba8fff4a24ceaee760bab1dde21",
+      "tools/decode/gen_qspi_wrap.py": "e54c516aca810bc084d942be7f121b68b7cae8d21c156aaaa2126c81918a8828",
+      "tools/decode/pack_decode_image.py": "d3a4c229f1d449b40a5df2bf93c24fb5d0bb49949a420dc52d070a4236d57e80",
+      "tools/decode/synth_ooc.py": "e1212a74d1c45817e879a7bbda3dcf8b82fb7f7cb603ad0fe5887baad1b94f76",
+      "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96"
+    },
     "lut": 20376.0,
     "ff": 9323.0,
     "dsp": 73.0,

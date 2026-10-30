@@ -4,88 +4,109 @@
       "mismatches": 4,
       "real_mismatches": 0,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "small_path_half_up": {
       "mismatches": 0,
       "real_mismatches": 0,
       "detected": false,
-      "equivalent_reason": "equivalent: on an exact tie the half-up estimate is odd and the tie_odd correction restores RNE",
-      "ok": true
+      "runner_exit_code": 0,
+      "ok": true,
+      "equivalent_reason": "equivalent: on an exact tie the half-up estimate is odd and the tie_odd correction restores RNE"
     },
     "recip_half_up": {
       "mismatches": 0,
       "real_mismatches": 0,
       "detected": false,
-      "equivalent_reason": "equivalent: 2^54 mod root == root/2 has no solution, so div_rne(2^54, root) never ties",
-      "ok": true
+      "runner_exit_code": 0,
+      "ok": true,
+      "equivalent_reason": "equivalent: 2^54 mod root == root/2 has no solution, so div_rne(2^54, root) never ties"
     },
     "gamma_shift_off_by_one": {
-      "mismatches": 44092,
-      "real_mismatches": 2084,
+      "mismatches": 66252,
+      "real_mismatches": 24244,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "seq_mul_drop_top_nibble": {
       "mismatches": 3086,
       "real_mismatches": 0,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "shift_ties_away": {
-      "mismatches": 4536,
-      "real_mismatches": 1,
+      "mismatches": 4537,
+      "real_mismatches": 2,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "isqrt_no_max1": {
       "mismatches": 42,
       "real_mismatches": 0,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     }
   },
   "vec": {
     "rope_sign": {
-      "mismatches": 1550,
-      "real_mismatches": 479,
+      "mismatches": 33782,
+      "real_mismatches": 26085,
       "detected": true,
+      "runner_exit_code": 1,
+      "ok": true
+    },
+    "rope_h48_only_bitflip": {
+      "mismatches": 35328,
+      "real_mismatches": 27648,
+      "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "rope_cos_sin_lane_swap": {
-      "mismatches": 1920,
-      "real_mismatches": 720,
+      "mismatches": 37311,
+      "real_mismatches": 28368,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "rope_no_pair_wrap": {
-      "mismatches": 1284,
-      "real_mismatches": 600,
+      "mismatches": 28117,
+      "real_mismatches": 23019,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "sigmoid_edge": {
       "mismatches": 1,
       "real_mismatches": 0,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "swiglu_drop_high_word": {
-      "mismatches": 3382,
-      "real_mismatches": 1270,
+      "mismatches": 14561,
+      "real_mismatches": 10298,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "shift_ties_away": {
-      "mismatches": 999,
-      "real_mismatches": 7,
+      "mismatches": 2469,
+      "real_mismatches": 37,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "add_saturate": {
-      "mismatches": 151,
+      "mismatches": 322,
       "real_mismatches": 0,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     }
   },
@@ -94,68 +115,79 @@
       "mismatches": 0,
       "real_mismatches": 0,
       "detected": false,
-      "equivalent_reason": "equivalent: exp_q15 is 0 for every index >= 710, so clipping at 1023 or 1024 reads 0",
-      "ok": true
+      "runner_exit_code": 0,
+      "ok": true,
+      "equivalent_reason": "equivalent: exp_q15 is 0 for every index >= 710, so clipping at 1023 or 1024 reads 0"
     },
     "exp_clip_512": {
       "mismatches": 14221,
       "real_mismatches": 12831,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "kv4_score_div127": {
       "mismatches": 14056,
       "real_mismatches": 12475,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "av_clip_127": {
       "mismatches": 236,
       "real_mismatches": 0,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "softmax_recip_trunc": {
       "mismatches": 54,
       "real_mismatches": 22,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "kv_v_region_offset": {
       "mismatches": 28934,
       "real_mismatches": 25575,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "kv_tail_bank_half": {
       "mismatches": 2767,
       "real_mismatches": 2543,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "kv_write_v_offset": {
       "mismatches": 28943,
       "real_mismatches": 25585,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "kv_bank_sel_undelayed": {
       "mismatches": 0,
       "real_mismatches": 0,
       "detected": false,
-      "equivalent_reason": "equivalent: raddr is written in SC_RD/AV_VRD and kvq_r is first consumed three states later (SC_DOT/AV_VISSUE), by which time raddr == raddr_d",
-      "ok": true
+      "runner_exit_code": 0,
+      "ok": true,
+      "equivalent_reason": "equivalent: raddr is written in SC_RD/AV_VRD and kvq_r is first consumed three states later (SC_DOT/AV_VISSUE), by which time raddr == raddr_d"
     },
     "kv4_zero_extend": {
       "mismatches": 14372,
       "real_mismatches": 12699,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "block_recip_trunc": {
       "mismatches": 1143,
       "real_mismatches": 180,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     }
   },
@@ -164,107 +196,145 @@
       "mismatches": 640,
       "real_mismatches": 0,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "no_div127_up_correction": {
       "mismatches": 0,
       "real_mismatches": 0,
       "detected": false,
-      "equivalent_reason": "equivalent: INV127_Q32 = 33818641 > 2^32/127, so the estimate never falls below the true quotient and the +1 branch is unreachable",
-      "ok": true
+      "runner_exit_code": 0,
+      "ok": true,
+      "equivalent_reason": "equivalent: INV127_Q32 = 33818641 > 2^32/127, so the estimate never falls below the true quotient and the +1 branch is unreachable"
     },
     "no_div127_down_correction": {
       "mismatches": 563,
       "real_mismatches": 0,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "drop_last_beat_product": {
       "mismatches": 11876,
       "real_mismatches": 10442,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "int4_nibble_swap": {
       "mismatches": 8052,
       "real_mismatches": 6695,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     }
   },
   "actq": {
     "ties_half_up": {
-      "mismatches": 1036,
-      "real_mismatches": 0,
+      "mismatches": 1040,
+      "real_mismatches": 1,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "recip_truncate": {
-      "mismatches": 7979,
-      "real_mismatches": 5,
+      "mismatches": 8012,
+      "real_mismatches": 29,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "peak_off_by_one": {
-      "mismatches": 1688,
-      "real_mismatches": 503,
+      "mismatches": 6887,
+      "real_mismatches": 5699,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "qmax7_clamp_8": {
       "mismatches": 4,
       "real_mismatches": 0,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "qmax7_numerator_127": {
-      "mismatches": 1793,
-      "real_mismatches": 815,
+      "mismatches": 28301,
+      "real_mismatches": 27320,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     }
   },
   "top": {
     "tbuf_lane_swap": {
-      "mismatches": 2052,
-      "real_mismatches": 2052,
+      "mismatches": 5130,
+      "real_mismatches": 5130,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "tbuf_embed_addr": {
-      "mismatches": 2052,
-      "real_mismatches": 2052,
+      "mismatches": 5130,
+      "real_mismatches": 5130,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "scale_write_group": {
-      "mismatches": 2052,
-      "real_mismatches": 2052,
+      "mismatches": 5130,
+      "real_mismatches": 5130,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "scale_embed_read_group": {
-      "mismatches": 2052,
-      "real_mismatches": 2052,
+      "mismatches": 5130,
+      "real_mismatches": 5130,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "scale_row_select": {
-      "mismatches": 2051,
-      "real_mismatches": 2051,
+      "mismatches": 5127,
+      "real_mismatches": 5127,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "scratch_xb_overlap": {
-      "mismatches": 2049,
-      "real_mismatches": 2049,
+      "mismatches": 5121,
+      "real_mismatches": 5121,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "scratch_h3_overlap": {
-      "mismatches": 2048,
-      "real_mismatches": 2048,
+      "mismatches": 5119,
+      "real_mismatches": 5119,
       "detected": true,
+      "runner_exit_code": 1,
+      "ok": true
+    },
+    "top_duplicate_idx0": {
+      "mismatches": 10220,
+      "real_mismatches": 10220,
+      "detected": true,
+      "runner_exit_code": 1,
+      "ok": true
+    },
+    "top_idx_skip": {
+      "mismatches": 10240,
+      "real_mismatches": 10240,
+      "detected": true,
+      "runner_exit_code": 1,
+      "ok": true
+    },
+    "top_late_pos": {
+      "mismatches": 512,
+      "real_mismatches": 512,
+      "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     }
   },
@@ -273,95 +343,180 @@
       "mismatches": 41052,
       "real_mismatches": 30982,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     }
   },
   "qspi": {
     "dummy_count_off_by_one": {
-      "mismatches": 15334,
-      "real_mismatches": 15334,
+      "mismatches": 271067,
+      "real_mismatches": 271067,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "nibble_order_swapped": {
-      "mismatches": 148199,
-      "real_mismatches": 148199,
+      "mismatches": 500950,
+      "real_mismatches": 500950,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "address_byte_order_swapped": {
-      "mismatches": 10,
-      "real_mismatches": 10,
+      "mismatches": 73826,
+      "real_mismatches": 73826,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "wrong_opcode_fast_read": {
-      "mismatches": 8,
-      "real_mismatches": 8,
+      "mismatches": 38,
+      "real_mismatches": 38,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "cs_not_raised_on_seek": {
-      "mismatches": 10,
-      "real_mismatches": 10,
+      "mismatches": 58,
+      "real_mismatches": 58,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "byte_valid_in_seek_cycle": {
-      "mismatches": 2203,
-      "real_mismatches": 2203,
+      "mismatches": 11489,
+      "real_mismatches": 11489,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "seek_keeps_stale_byte": {
-      "mismatches": 1711,
-      "real_mismatches": 1711,
+      "mismatches": 15546,
+      "real_mismatches": 15546,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "no_backpressure_stall": {
-      "mismatches": 54250,
-      "real_mismatches": 54250,
+      "mismatches": 104197,
+      "real_mismatches": 104197,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "inflight_captures_ignored": {
-      "mismatches": 38559,
-      "real_mismatches": 38559,
+      "mismatches": 46164,
+      "real_mismatches": 46164,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "capture_strobe_one_cycle_early": {
-      "mismatches": 19810,
-      "real_mismatches": 19810,
+      "mismatches": 28749,
+      "real_mismatches": 28749,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "abort_mid_command_byte": {
-      "mismatches": 10,
-      "real_mismatches": 10,
+      "mismatches": 29,
+      "real_mismatches": 29,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "stale_capture_after_seek": {
-      "mismatches": 53750,
-      "real_mismatches": 53750,
+      "mismatches": 92036,
+      "real_mismatches": 92036,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "cs_high_gap_one_cycle": {
       "mismatches": 0,
       "real_mismatches": 0,
       "detected": false,
-      "equivalent_reason": "equivalent at 50 MHz: CS# then stays high one core cycle (20 ns) which already exceeds tCS(read) = 10 ns; CS_HIGH=2 is only margin. The flash model checks tCS and the unit test (20 ns clock) and e2e (scaled) both pass it",
+      "runner_exit_code": 0,
+      "ok": true,
+      "equivalent_reason": "equivalent ONLY under the assumption that the core clock is 50 MHz (20 ns period; the unit test uses exactly that, the board runs the core at 50 MHz): CS# then stays high one core cycle (20 ns) which already exceeds tCS(read) = 10 ns, so CS_HIGH=2 is only margin. At a core clock faster than 100 MHz (period < 10 ns) this fault WOULD violate tCS and the model TCS check would catch it; the e2e sim uses a time-scaled 2 ns clock with a scaled tCS of 1 ns and so stays equivalent there too"
+    },
+    "seek_address_masked_14_bits": {
+      "mismatches": 70708,
+      "real_mismatches": 70708,
+      "detected": true,
+      "runner_exit_code": 1,
+      "ok": true
+    },
+    "seek_address_bit24_dropped_4byte": {
+      "mismatches": 12084,
+      "real_mismatches": 12084,
+      "detected": true,
+      "runner_exit_code": 1,
+      "ok": true
+    },
+    "seek_address_bit21_dropped": {
+      "mismatches": 36482,
+      "real_mismatches": 36482,
+      "detected": true,
+      "runner_exit_code": 1,
+      "ok": true
+    },
+    "startup_pulses_not_clocked": {
+      "mismatches": 58,
+      "real_mismatches": 58,
+      "detected": true,
+      "runner_exit_code": 1,
+      "ok": true
+    },
+    "startup_pulses_default_zero": {
+      "mismatches": 54,
+      "real_mismatches": 54,
+      "detected": true,
+      "runner_exit_code": 1,
+      "ok": true
+    },
+    "startup_pulses_default_two": {
+      "mismatches": 54,
+      "real_mismatches": 54,
+      "detected": true,
+      "runner_exit_code": 1,
+      "ok": true
+    },
+    "half4_only_nibble_swap": {
+      "mismatches": 102707,
+      "real_mismatches": 102707,
+      "detected": true,
+      "runner_exit_code": 1,
+      "ok": true
+    },
+    "half3_only_nibble_swap": {
+      "mismatches": 85057,
+      "real_mismatches": 85057,
+      "detected": true,
+      "runner_exit_code": 1,
+      "ok": true
+    },
+    "dummy_clocks_assume_lc11_zero": {
+      "mismatches": 54,
+      "real_mismatches": 54,
+      "detected": true,
+      "runner_exit_code": 1,
+      "ok": true
+    },
+    "dummy_default_untested_value": {
+      "mismatches": 54,
+      "real_mismatches": 54,
+      "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "abort_leaves_nib_ph": {
       "mismatches": 0,
       "real_mismatches": 0,
       "detected": false,
-      "equivalent_reason": "equivalent: the S_GAP exit that starts the next command also clears nib_ph, and nibbles are only captured in S_RUN, so the stale value is never observed",
-      "ok": true
+      "runner_exit_code": 0,
+      "ok": true,
+      "equivalent_reason": "equivalent: the S_GAP exit that starts the next command also clears nib_ph, and nibbles are only captured in S_RUN, so the stale value is never observed"
     }
   },
   "board": {
@@ -369,99 +524,542 @@
       "mismatches": 2,
       "real_mismatches": 2,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "rx_seven_data_bits": {
       "mismatches": 1,
       "real_mismatches": 1,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "rx_ignores_stop_bit": {
       "mismatches": 1,
       "real_mismatches": 1,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "response_logit_bytes_swapped": {
       "mismatches": 1,
       "real_mismatches": 1,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "response_cycle_bytes_swapped": {
       "mismatches": 1,
       "real_mismatches": 1,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "request_token_bytes_swapped": {
-      "mismatches": 1,
-      "real_mismatches": 1,
+      "mismatches": 405,
+      "real_mismatches": 405,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "request_pos_from_wrong_byte": {
-      "mismatches": 1,
-      "real_mismatches": 1,
+      "mismatches": 130,
+      "real_mismatches": 130,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "probe_index_off_by_one": {
       "mismatches": 1,
       "real_mismatches": 1,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "spi_response_one_byte_short": {
       "mismatches": 1,
       "real_mismatches": 1,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "spi_clocks_one_bit_short": {
       "mismatches": 1,
       "real_mismatches": 1,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "frame_timeout_never_fires": {
       "mismatches": 1,
       "real_mismatches": 1,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "response_before_done": {
       "mismatches": 1,
       "real_mismatches": 1,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "cs_not_released_after_spi": {
       "mismatches": 0,
       "real_mismatches": 0,
       "detected": false,
-      "equivalent_reason": "equivalent at the pins: when the S transaction ends the pins go back to qspi_reader, whose CS# is high (idle: CS# rises there, 8 cycles late) or low (burst parked by backpressure: CS# stays low with SCLK low and no clocks). The CS# rise that latches WREN/WRDI/WRR is only deferred to the next CS# rise, which always comes before any further command byte is clocked: the next S frame forces CS# high first (S_PT_WAIT sets cs_n_q=1 before pt_active) and a decode seek raises it in qspi_reader. WEL/WIP are only observed through S frames or take effect before the next decode read, so the deferral is unobservable; the directed WREN/RDSR/WRDI/RDSR cases between decode steps (reader parked with CS# low) pass with the fault",
-      "ok": true
+      "runner_exit_code": 0,
+      "ok": true,
+      "equivalent_reason": "equivalent at the pins: when the S transaction ends the pins go back to qspi_reader, whose CS# is high (idle: CS# rises there, 8 cycles late) or low (burst parked by backpressure: CS# stays low with SCLK low and no clocks). The CS# rise that latches WREN/WRDI/WRR is only deferred to the next CS# rise, which always comes before any further command byte is clocked: the next S frame forces CS# high first (S_PT_WAIT sets cs_n_q=1 before pt_active) and a decode seek raises it in qspi_reader. WEL/WIP are only observed through S frames or take effect before the next decode read, so the deferral is unobservable; the directed WREN/RDSR/WRDI/RDSR cases between decode steps (reader parked with CS# low) pass with the fault"
     },
     "flash_image_offset_wrong": {
       "mismatches": 1,
       "real_mismatches": 1,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
     },
     "cycle_count_off_by_one": {
       "mismatches": 1,
       "real_mismatches": 1,
       "detected": true,
+      "runner_exit_code": 1,
       "ok": true
+    },
+    "token_bound_removed": {
+      "mismatches": 87,
+      "real_mismatches": 87,
+      "detected": true,
+      "runner_exit_code": 1,
+      "ok": true
+    },
+    "pos_bound_removed": {
+      "mismatches": 83,
+      "real_mismatches": 83,
+      "detected": true,
+      "runner_exit_code": 1,
+      "ok": true
+    },
+    "sequence_gap_check_removed": {
+      "mismatches": 66,
+      "real_mismatches": 66,
+      "detected": true,
+      "runner_exit_code": 1,
+      "ok": true
+    },
+    "watchdog_disabled": {
+      "mismatches": 34,
+      "real_mismatches": 34,
+      "detected": true,
+      "runner_exit_code": 1,
+      "ok": true
+    },
+    "watchdog_abort_not_asserted": {
+      "mismatches": 1,
+      "real_mismatches": 1,
+      "detected": true,
+      "runner_exit_code": 1,
+      "ok": true
+    },
+    "watchdog_abort_too_short": {
+      "mismatches": 1,
+      "real_mismatches": 1,
+      "detected": true,
+      "runner_exit_code": 1,
+      "ok": true
+    },
+    "pos_bit6_dropped": {
+      "mismatches": 64,
+      "real_mismatches": 64,
+      "detected": true,
+      "runner_exit_code": 1,
+      "ok": true
+    },
+    "next_pos_never_advances": {
+      "mismatches": 866,
+      "real_mismatches": 866,
+      "detected": true,
+      "runner_exit_code": 1,
+      "ok": true
+    },
+    "x_does_not_clear_next_pos": {
+      "mismatches": 65,
+      "real_mismatches": 65,
+      "detected": true,
+      "runner_exit_code": 1,
+      "ok": true
+    },
+    "reset_keeps_next_pos": {
+      "mismatches": 18,
+      "real_mismatches": 18,
+      "detected": true,
+      "runner_exit_code": 1,
+      "ok": true
+    },
+    "error_frame_wrong_code_for_pos": {
+      "mismatches": 3,
+      "real_mismatches": 3,
+      "detected": true,
+      "runner_exit_code": 1,
+      "ok": true
+    },
+    "decode_not_reset_by_watchdog": {
+      "mismatches": 1,
+      "real_mismatches": 1,
+      "detected": true,
+      "runner_exit_code": 1,
+      "ok": true
+    },
+    "reader_not_reset_by_watchdog": {
+      "mismatches": 0,
+      "real_mismatches": 0,
+      "detected": false,
+      "runner_exit_code": 0,
+      "ok": true,
+      "equivalent_reason": "equivalent under every stimulus the simulation can create: the stall is injected on the byte stream (st_valid forced low), which does not hang the reader, and a freshly reset top_decode issues seek_req for its first read, which makes the reader abort whatever burst it was in (newer address wins, unit qspi tests) and drop its pending byte. The reader reset in the watchdog path is defence in depth against a reader hang; a hang inside the reader cannot be produced without editing the reader, whose own unit tests and faults cover its seek/abort handling"
     },
     "spi_takeover_without_settle_wait": {
       "mismatches": 0,
       "real_mismatches": 0,
       "detected": false,
-      "equivalent_reason": "equivalent: the 256-cycle wait only guards against taking the pins while the reader still clocks its last prefetched byte. The reader parks within about 16 cycles of the last byte top_decode accepts, which is before done; the host cannot send an S frame before it has received the 11-byte R response (11 x 10 bit times >= 880 cycles at 115200 baud, 880 cycles even at CPB=8 x 10 x 11) and the S header itself takes 3 more byte times, so the wait is always already elapsed in a protocol-conforming exchange. Removing it is unobservable",
-      "ok": true
+      "runner_exit_code": 0,
+      "ok": true,
+      "equivalent_reason": "equivalent: the 256-cycle wait only guards against taking the pins while the reader still clocks its last prefetched byte. The reader parks within about 16 cycles of the last byte top_decode accepts, which is before done; the host cannot send an S frame before it has received the 11-byte R response (11 x 10 bit times >= 880 cycles at 115200 baud, 880 cycles even at CPB=8 x 10 x 11) and the S header itself takes 3 more byte times, so the wait is always already elapsed in a protocol-conforming exchange. Removing it is unobservable"
+    }
+  },
+  "provenance": {
+    "gemv": {
+      "rtl/board/board_ctrl.sv": "91cd6956cf588f2ba37643ed85897a5e779e0333f7c4faeaf8fdfba5b62e9114",
+      "rtl/board/boolean_core.sv": "e8a4e82eeb1f42ebafd6c16275e3ba7925126ee97af1d9cabfc7ce0e18c7b3a3",
+      "rtl/board/boolean_top.sv": "e32bc52e4ae4f6cee7abb65c4f5dacbb19ad04051cbc1b90157ee68876447d2a",
+      "rtl/board/qspi_pad_regs.sv": "28bac64b4ef18bcdff7281f5ad080cb3a5a069ae6ca32bad20fb740b148d6408",
+      "rtl/board/qspi_pads.sv": "ce900c1e4c91dfeecef305f030a02f664b827beab5291602e399aad0a636a62c",
+      "rtl/board/uart_rx.sv": "5c3544533cedd9ac9997bb18b4f3726486d639df4a9bd2218216ce0565181827",
+      "rtl/board/uart_tx.sv": "45869e2ae2bea2655e5c4308e015219facc61269c1f3b30d015e924e98c71fca",
+      "rtl/decode/act_quant.sv": "9782f0860b533496e4b159146fcd92bf5730af5d5e77932805cf62017f954dfe",
+      "rtl/decode/attention.sv": "fb6b4284c5fff6fc2869d15473194e5d4ae69b83f4f0bd0ade94016aedeb574e",
+      "rtl/decode/decode_pkg.sv": "21804faff80721c8b4f91620fcf5b1d2ceb3d8bf18a46935cf3bace24fc1d8c3",
+      "rtl/decode/div_const_pipe.sv": "bdab503b9ef9ff779eccaccbdbdb98738938a1abe200dff12b73fc7470f3b2a6",
+      "rtl/decode/gemv_unit.sv": "af8c19c5fd448717ed60e6bef4bd0f009ee97f59a225d0f0d81217010fbb2dc9",
+      "rtl/decode/mul_pipe.sv": "771c9319db4133d8ecdeb8a057e90f79c5dedb29ee0509515198b595a086d10e",
+      "rtl/decode/qspi_reader.sv": "27494542f9f4750eecc9cb1dc84ab1fa90b7d3026b091094b1454fb3a53e74db",
+      "rtl/decode/rmsnorm.sv": "18d097372a48fcb40f3b1217994975fa19beaa2b746bbbe9aeb7154055a1ca70",
+      "rtl/decode/seq_mul.sv": "93e0db89fd1746bc1aa234a3cd8957a81d7c0920d5a13aa720e6b7845033cec5",
+      "rtl/decode/top_decode.sv": "7e35843420580281145d26521a56b8d260b5be22d0b45d89531735a7b038f42d",
+      "rtl/decode/vec_alu.sv": "9dbfa131e5e4a1c5c2363eee7ad92f59ac810f29371b5170206a3325b3e3b055",
+      "tools/board/boolean_host.py": "5097117577956fe5ed4fa274a799978020f13157c1a3d6f1464c5b5863e5e103",
+      "tools/board/run_uart_rtl.py": "dc6a404e8c2190417f68bccab2aacac86608c9871d4bf3a428b11f6271b67c1d",
+      "tools/board/tb/board_ctrl_unit_tb.sv": "13dc94c977845f49bbd370e1094ac3ee9127cf47f486021349cc0a378c344801",
+      "tools/decode/fault_inject.py": "7f4400708ccdfe62e1540c39e99f10c423720dd74febe2e98db968c0a203e95c",
+      "tools/decode/harness.py": "b4ebd345be9c6de82a0397eda8127643545e3d1a3aeecd5bd952ad5d98e74f6b",
+      "tools/decode/provenance.py": "b481bbdcd5a7125820c8c46c7785dbb19cce770d76eb3476cd2a98ee5df7c8a2",
+      "tools/decode/run_act_quant_rtl.py": "9959beb587badf5cef9f6afe689d21ea47b6adf7055fb2026409703284baae86",
+      "tools/decode/run_attn15_rtl.py": "703c27aab0add33b1879d6a2ae57a0cac61faa2e5275206c1c4f8a866da92b21",
+      "tools/decode/run_attn_rtl.py": "5aac006b73f8165ff3982e027d57b108a6094379bef9da442353f0795e3bee5c",
+      "tools/decode/run_decode_rtl.py": "6a12029be731abaf42a6be2574ff4c85ba3336f93a6dd8b93ba69a93c1d4a821",
+      "tools/decode/run_gemv_rtl.py": "68d635cbe0e875ab0cc6d3874ed364b52e0506955b1e7648d9506b2465d4d28b",
+      "tools/decode/run_qspi_rtl.py": "42e3c3ea53c94207265fecefb189650891cf7c3746e24e4680a38eeef745cd4f",
+      "tools/decode/run_rms_rtl.py": "1a3efbc4f632d5c0a897f49fab7bdf58047a520082a59aac6edb453c6e938d04",
+      "tools/decode/run_vec_rtl.py": "9bf12644e33d91c94bcb5cdaa9722565cf22ce077fc320eea3f2606617fbfa0a",
+      "tools/decode/sim.py": "3d17c03bf537d08c3418b1c44a2beb515b403a3657e6415014ef9a50a4460110",
+      "tools/decode/tb/qspi_flash_model.sv": "c82ab623829f398e0832c74b1757ce09388ca1ed7d3fbd1ff48e0b288e8cfeff",
+      "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96"
+    },
+    "actq": {
+      "rtl/board/board_ctrl.sv": "91cd6956cf588f2ba37643ed85897a5e779e0333f7c4faeaf8fdfba5b62e9114",
+      "rtl/board/boolean_core.sv": "e8a4e82eeb1f42ebafd6c16275e3ba7925126ee97af1d9cabfc7ce0e18c7b3a3",
+      "rtl/board/boolean_top.sv": "e32bc52e4ae4f6cee7abb65c4f5dacbb19ad04051cbc1b90157ee68876447d2a",
+      "rtl/board/qspi_pad_regs.sv": "28bac64b4ef18bcdff7281f5ad080cb3a5a069ae6ca32bad20fb740b148d6408",
+      "rtl/board/qspi_pads.sv": "ce900c1e4c91dfeecef305f030a02f664b827beab5291602e399aad0a636a62c",
+      "rtl/board/uart_rx.sv": "5c3544533cedd9ac9997bb18b4f3726486d639df4a9bd2218216ce0565181827",
+      "rtl/board/uart_tx.sv": "45869e2ae2bea2655e5c4308e015219facc61269c1f3b30d015e924e98c71fca",
+      "rtl/decode/act_quant.sv": "9782f0860b533496e4b159146fcd92bf5730af5d5e77932805cf62017f954dfe",
+      "rtl/decode/attention.sv": "fb6b4284c5fff6fc2869d15473194e5d4ae69b83f4f0bd0ade94016aedeb574e",
+      "rtl/decode/decode_pkg.sv": "21804faff80721c8b4f91620fcf5b1d2ceb3d8bf18a46935cf3bace24fc1d8c3",
+      "rtl/decode/div_const_pipe.sv": "bdab503b9ef9ff779eccaccbdbdb98738938a1abe200dff12b73fc7470f3b2a6",
+      "rtl/decode/gemv_unit.sv": "af8c19c5fd448717ed60e6bef4bd0f009ee97f59a225d0f0d81217010fbb2dc9",
+      "rtl/decode/mul_pipe.sv": "771c9319db4133d8ecdeb8a057e90f79c5dedb29ee0509515198b595a086d10e",
+      "rtl/decode/qspi_reader.sv": "27494542f9f4750eecc9cb1dc84ab1fa90b7d3026b091094b1454fb3a53e74db",
+      "rtl/decode/rmsnorm.sv": "18d097372a48fcb40f3b1217994975fa19beaa2b746bbbe9aeb7154055a1ca70",
+      "rtl/decode/seq_mul.sv": "93e0db89fd1746bc1aa234a3cd8957a81d7c0920d5a13aa720e6b7845033cec5",
+      "rtl/decode/top_decode.sv": "7e35843420580281145d26521a56b8d260b5be22d0b45d89531735a7b038f42d",
+      "rtl/decode/vec_alu.sv": "9dbfa131e5e4a1c5c2363eee7ad92f59ac810f29371b5170206a3325b3e3b055",
+      "tools/board/boolean_host.py": "5097117577956fe5ed4fa274a799978020f13157c1a3d6f1464c5b5863e5e103",
+      "tools/board/run_uart_rtl.py": "dc6a404e8c2190417f68bccab2aacac86608c9871d4bf3a428b11f6271b67c1d",
+      "tools/board/tb/board_ctrl_unit_tb.sv": "13dc94c977845f49bbd370e1094ac3ee9127cf47f486021349cc0a378c344801",
+      "tools/decode/fault_inject.py": "7f4400708ccdfe62e1540c39e99f10c423720dd74febe2e98db968c0a203e95c",
+      "tools/decode/harness.py": "b4ebd345be9c6de82a0397eda8127643545e3d1a3aeecd5bd952ad5d98e74f6b",
+      "tools/decode/provenance.py": "b481bbdcd5a7125820c8c46c7785dbb19cce770d76eb3476cd2a98ee5df7c8a2",
+      "tools/decode/run_act_quant_rtl.py": "9959beb587badf5cef9f6afe689d21ea47b6adf7055fb2026409703284baae86",
+      "tools/decode/run_attn15_rtl.py": "703c27aab0add33b1879d6a2ae57a0cac61faa2e5275206c1c4f8a866da92b21",
+      "tools/decode/run_attn_rtl.py": "5aac006b73f8165ff3982e027d57b108a6094379bef9da442353f0795e3bee5c",
+      "tools/decode/run_decode_rtl.py": "6a12029be731abaf42a6be2574ff4c85ba3336f93a6dd8b93ba69a93c1d4a821",
+      "tools/decode/run_gemv_rtl.py": "68d635cbe0e875ab0cc6d3874ed364b52e0506955b1e7648d9506b2465d4d28b",
+      "tools/decode/run_qspi_rtl.py": "42e3c3ea53c94207265fecefb189650891cf7c3746e24e4680a38eeef745cd4f",
+      "tools/decode/run_rms_rtl.py": "1a3efbc4f632d5c0a897f49fab7bdf58047a520082a59aac6edb453c6e938d04",
+      "tools/decode/run_vec_rtl.py": "9bf12644e33d91c94bcb5cdaa9722565cf22ce077fc320eea3f2606617fbfa0a",
+      "tools/decode/sim.py": "3d17c03bf537d08c3418b1c44a2beb515b403a3657e6415014ef9a50a4460110",
+      "tools/decode/tb/qspi_flash_model.sv": "c82ab623829f398e0832c74b1757ce09388ca1ed7d3fbd1ff48e0b288e8cfeff",
+      "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96"
+    },
+    "rms": {
+      "rtl/board/board_ctrl.sv": "91cd6956cf588f2ba37643ed85897a5e779e0333f7c4faeaf8fdfba5b62e9114",
+      "rtl/board/boolean_core.sv": "e8a4e82eeb1f42ebafd6c16275e3ba7925126ee97af1d9cabfc7ce0e18c7b3a3",
+      "rtl/board/boolean_top.sv": "e32bc52e4ae4f6cee7abb65c4f5dacbb19ad04051cbc1b90157ee68876447d2a",
+      "rtl/board/qspi_pad_regs.sv": "28bac64b4ef18bcdff7281f5ad080cb3a5a069ae6ca32bad20fb740b148d6408",
+      "rtl/board/qspi_pads.sv": "ce900c1e4c91dfeecef305f030a02f664b827beab5291602e399aad0a636a62c",
+      "rtl/board/uart_rx.sv": "5c3544533cedd9ac9997bb18b4f3726486d639df4a9bd2218216ce0565181827",
+      "rtl/board/uart_tx.sv": "45869e2ae2bea2655e5c4308e015219facc61269c1f3b30d015e924e98c71fca",
+      "rtl/decode/act_quant.sv": "9782f0860b533496e4b159146fcd92bf5730af5d5e77932805cf62017f954dfe",
+      "rtl/decode/attention.sv": "fb6b4284c5fff6fc2869d15473194e5d4ae69b83f4f0bd0ade94016aedeb574e",
+      "rtl/decode/decode_pkg.sv": "21804faff80721c8b4f91620fcf5b1d2ceb3d8bf18a46935cf3bace24fc1d8c3",
+      "rtl/decode/div_const_pipe.sv": "bdab503b9ef9ff779eccaccbdbdb98738938a1abe200dff12b73fc7470f3b2a6",
+      "rtl/decode/gemv_unit.sv": "af8c19c5fd448717ed60e6bef4bd0f009ee97f59a225d0f0d81217010fbb2dc9",
+      "rtl/decode/mul_pipe.sv": "771c9319db4133d8ecdeb8a057e90f79c5dedb29ee0509515198b595a086d10e",
+      "rtl/decode/qspi_reader.sv": "27494542f9f4750eecc9cb1dc84ab1fa90b7d3026b091094b1454fb3a53e74db",
+      "rtl/decode/rmsnorm.sv": "18d097372a48fcb40f3b1217994975fa19beaa2b746bbbe9aeb7154055a1ca70",
+      "rtl/decode/seq_mul.sv": "93e0db89fd1746bc1aa234a3cd8957a81d7c0920d5a13aa720e6b7845033cec5",
+      "rtl/decode/top_decode.sv": "7e35843420580281145d26521a56b8d260b5be22d0b45d89531735a7b038f42d",
+      "rtl/decode/vec_alu.sv": "9dbfa131e5e4a1c5c2363eee7ad92f59ac810f29371b5170206a3325b3e3b055",
+      "tools/board/boolean_host.py": "5097117577956fe5ed4fa274a799978020f13157c1a3d6f1464c5b5863e5e103",
+      "tools/board/run_uart_rtl.py": "dc6a404e8c2190417f68bccab2aacac86608c9871d4bf3a428b11f6271b67c1d",
+      "tools/board/tb/board_ctrl_unit_tb.sv": "13dc94c977845f49bbd370e1094ac3ee9127cf47f486021349cc0a378c344801",
+      "tools/decode/fault_inject.py": "7f4400708ccdfe62e1540c39e99f10c423720dd74febe2e98db968c0a203e95c",
+      "tools/decode/harness.py": "b4ebd345be9c6de82a0397eda8127643545e3d1a3aeecd5bd952ad5d98e74f6b",
+      "tools/decode/provenance.py": "b481bbdcd5a7125820c8c46c7785dbb19cce770d76eb3476cd2a98ee5df7c8a2",
+      "tools/decode/run_act_quant_rtl.py": "9959beb587badf5cef9f6afe689d21ea47b6adf7055fb2026409703284baae86",
+      "tools/decode/run_attn15_rtl.py": "703c27aab0add33b1879d6a2ae57a0cac61faa2e5275206c1c4f8a866da92b21",
+      "tools/decode/run_attn_rtl.py": "5aac006b73f8165ff3982e027d57b108a6094379bef9da442353f0795e3bee5c",
+      "tools/decode/run_decode_rtl.py": "6a12029be731abaf42a6be2574ff4c85ba3336f93a6dd8b93ba69a93c1d4a821",
+      "tools/decode/run_gemv_rtl.py": "68d635cbe0e875ab0cc6d3874ed364b52e0506955b1e7648d9506b2465d4d28b",
+      "tools/decode/run_qspi_rtl.py": "42e3c3ea53c94207265fecefb189650891cf7c3746e24e4680a38eeef745cd4f",
+      "tools/decode/run_rms_rtl.py": "1a3efbc4f632d5c0a897f49fab7bdf58047a520082a59aac6edb453c6e938d04",
+      "tools/decode/run_vec_rtl.py": "9bf12644e33d91c94bcb5cdaa9722565cf22ce077fc320eea3f2606617fbfa0a",
+      "tools/decode/sim.py": "3d17c03bf537d08c3418b1c44a2beb515b403a3657e6415014ef9a50a4460110",
+      "tools/decode/tb/qspi_flash_model.sv": "c82ab623829f398e0832c74b1757ce09388ca1ed7d3fbd1ff48e0b288e8cfeff",
+      "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96"
+    },
+    "vec": {
+      "rtl/board/board_ctrl.sv": "91cd6956cf588f2ba37643ed85897a5e779e0333f7c4faeaf8fdfba5b62e9114",
+      "rtl/board/boolean_core.sv": "e8a4e82eeb1f42ebafd6c16275e3ba7925126ee97af1d9cabfc7ce0e18c7b3a3",
+      "rtl/board/boolean_top.sv": "e32bc52e4ae4f6cee7abb65c4f5dacbb19ad04051cbc1b90157ee68876447d2a",
+      "rtl/board/qspi_pad_regs.sv": "28bac64b4ef18bcdff7281f5ad080cb3a5a069ae6ca32bad20fb740b148d6408",
+      "rtl/board/qspi_pads.sv": "ce900c1e4c91dfeecef305f030a02f664b827beab5291602e399aad0a636a62c",
+      "rtl/board/uart_rx.sv": "5c3544533cedd9ac9997bb18b4f3726486d639df4a9bd2218216ce0565181827",
+      "rtl/board/uart_tx.sv": "45869e2ae2bea2655e5c4308e015219facc61269c1f3b30d015e924e98c71fca",
+      "rtl/decode/act_quant.sv": "9782f0860b533496e4b159146fcd92bf5730af5d5e77932805cf62017f954dfe",
+      "rtl/decode/attention.sv": "fb6b4284c5fff6fc2869d15473194e5d4ae69b83f4f0bd0ade94016aedeb574e",
+      "rtl/decode/decode_pkg.sv": "21804faff80721c8b4f91620fcf5b1d2ceb3d8bf18a46935cf3bace24fc1d8c3",
+      "rtl/decode/div_const_pipe.sv": "bdab503b9ef9ff779eccaccbdbdb98738938a1abe200dff12b73fc7470f3b2a6",
+      "rtl/decode/gemv_unit.sv": "af8c19c5fd448717ed60e6bef4bd0f009ee97f59a225d0f0d81217010fbb2dc9",
+      "rtl/decode/mul_pipe.sv": "771c9319db4133d8ecdeb8a057e90f79c5dedb29ee0509515198b595a086d10e",
+      "rtl/decode/qspi_reader.sv": "27494542f9f4750eecc9cb1dc84ab1fa90b7d3026b091094b1454fb3a53e74db",
+      "rtl/decode/rmsnorm.sv": "18d097372a48fcb40f3b1217994975fa19beaa2b746bbbe9aeb7154055a1ca70",
+      "rtl/decode/seq_mul.sv": "93e0db89fd1746bc1aa234a3cd8957a81d7c0920d5a13aa720e6b7845033cec5",
+      "rtl/decode/top_decode.sv": "7e35843420580281145d26521a56b8d260b5be22d0b45d89531735a7b038f42d",
+      "rtl/decode/vec_alu.sv": "9dbfa131e5e4a1c5c2363eee7ad92f59ac810f29371b5170206a3325b3e3b055",
+      "tools/board/boolean_host.py": "5097117577956fe5ed4fa274a799978020f13157c1a3d6f1464c5b5863e5e103",
+      "tools/board/run_uart_rtl.py": "dc6a404e8c2190417f68bccab2aacac86608c9871d4bf3a428b11f6271b67c1d",
+      "tools/board/tb/board_ctrl_unit_tb.sv": "13dc94c977845f49bbd370e1094ac3ee9127cf47f486021349cc0a378c344801",
+      "tools/decode/fault_inject.py": "7f4400708ccdfe62e1540c39e99f10c423720dd74febe2e98db968c0a203e95c",
+      "tools/decode/harness.py": "b4ebd345be9c6de82a0397eda8127643545e3d1a3aeecd5bd952ad5d98e74f6b",
+      "tools/decode/provenance.py": "b481bbdcd5a7125820c8c46c7785dbb19cce770d76eb3476cd2a98ee5df7c8a2",
+      "tools/decode/run_act_quant_rtl.py": "9959beb587badf5cef9f6afe689d21ea47b6adf7055fb2026409703284baae86",
+      "tools/decode/run_attn15_rtl.py": "703c27aab0add33b1879d6a2ae57a0cac61faa2e5275206c1c4f8a866da92b21",
+      "tools/decode/run_attn_rtl.py": "5aac006b73f8165ff3982e027d57b108a6094379bef9da442353f0795e3bee5c",
+      "tools/decode/run_decode_rtl.py": "6a12029be731abaf42a6be2574ff4c85ba3336f93a6dd8b93ba69a93c1d4a821",
+      "tools/decode/run_gemv_rtl.py": "68d635cbe0e875ab0cc6d3874ed364b52e0506955b1e7648d9506b2465d4d28b",
+      "tools/decode/run_qspi_rtl.py": "42e3c3ea53c94207265fecefb189650891cf7c3746e24e4680a38eeef745cd4f",
+      "tools/decode/run_rms_rtl.py": "1a3efbc4f632d5c0a897f49fab7bdf58047a520082a59aac6edb453c6e938d04",
+      "tools/decode/run_vec_rtl.py": "9bf12644e33d91c94bcb5cdaa9722565cf22ce077fc320eea3f2606617fbfa0a",
+      "tools/decode/sim.py": "3d17c03bf537d08c3418b1c44a2beb515b403a3657e6415014ef9a50a4460110",
+      "tools/decode/tb/qspi_flash_model.sv": "c82ab623829f398e0832c74b1757ce09388ca1ed7d3fbd1ff48e0b288e8cfeff",
+      "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96"
+    },
+    "attn": {
+      "rtl/board/board_ctrl.sv": "91cd6956cf588f2ba37643ed85897a5e779e0333f7c4faeaf8fdfba5b62e9114",
+      "rtl/board/boolean_core.sv": "e8a4e82eeb1f42ebafd6c16275e3ba7925126ee97af1d9cabfc7ce0e18c7b3a3",
+      "rtl/board/boolean_top.sv": "e32bc52e4ae4f6cee7abb65c4f5dacbb19ad04051cbc1b90157ee68876447d2a",
+      "rtl/board/qspi_pad_regs.sv": "28bac64b4ef18bcdff7281f5ad080cb3a5a069ae6ca32bad20fb740b148d6408",
+      "rtl/board/qspi_pads.sv": "ce900c1e4c91dfeecef305f030a02f664b827beab5291602e399aad0a636a62c",
+      "rtl/board/uart_rx.sv": "5c3544533cedd9ac9997bb18b4f3726486d639df4a9bd2218216ce0565181827",
+      "rtl/board/uart_tx.sv": "45869e2ae2bea2655e5c4308e015219facc61269c1f3b30d015e924e98c71fca",
+      "rtl/decode/act_quant.sv": "9782f0860b533496e4b159146fcd92bf5730af5d5e77932805cf62017f954dfe",
+      "rtl/decode/attention.sv": "fb6b4284c5fff6fc2869d15473194e5d4ae69b83f4f0bd0ade94016aedeb574e",
+      "rtl/decode/decode_pkg.sv": "21804faff80721c8b4f91620fcf5b1d2ceb3d8bf18a46935cf3bace24fc1d8c3",
+      "rtl/decode/div_const_pipe.sv": "bdab503b9ef9ff779eccaccbdbdb98738938a1abe200dff12b73fc7470f3b2a6",
+      "rtl/decode/gemv_unit.sv": "af8c19c5fd448717ed60e6bef4bd0f009ee97f59a225d0f0d81217010fbb2dc9",
+      "rtl/decode/mul_pipe.sv": "771c9319db4133d8ecdeb8a057e90f79c5dedb29ee0509515198b595a086d10e",
+      "rtl/decode/qspi_reader.sv": "27494542f9f4750eecc9cb1dc84ab1fa90b7d3026b091094b1454fb3a53e74db",
+      "rtl/decode/rmsnorm.sv": "18d097372a48fcb40f3b1217994975fa19beaa2b746bbbe9aeb7154055a1ca70",
+      "rtl/decode/seq_mul.sv": "93e0db89fd1746bc1aa234a3cd8957a81d7c0920d5a13aa720e6b7845033cec5",
+      "rtl/decode/top_decode.sv": "7e35843420580281145d26521a56b8d260b5be22d0b45d89531735a7b038f42d",
+      "rtl/decode/vec_alu.sv": "9dbfa131e5e4a1c5c2363eee7ad92f59ac810f29371b5170206a3325b3e3b055",
+      "tools/board/boolean_host.py": "5097117577956fe5ed4fa274a799978020f13157c1a3d6f1464c5b5863e5e103",
+      "tools/board/run_uart_rtl.py": "dc6a404e8c2190417f68bccab2aacac86608c9871d4bf3a428b11f6271b67c1d",
+      "tools/board/tb/board_ctrl_unit_tb.sv": "13dc94c977845f49bbd370e1094ac3ee9127cf47f486021349cc0a378c344801",
+      "tools/decode/fault_inject.py": "7f4400708ccdfe62e1540c39e99f10c423720dd74febe2e98db968c0a203e95c",
+      "tools/decode/harness.py": "b4ebd345be9c6de82a0397eda8127643545e3d1a3aeecd5bd952ad5d98e74f6b",
+      "tools/decode/provenance.py": "b481bbdcd5a7125820c8c46c7785dbb19cce770d76eb3476cd2a98ee5df7c8a2",
+      "tools/decode/run_act_quant_rtl.py": "9959beb587badf5cef9f6afe689d21ea47b6adf7055fb2026409703284baae86",
+      "tools/decode/run_attn15_rtl.py": "703c27aab0add33b1879d6a2ae57a0cac61faa2e5275206c1c4f8a866da92b21",
+      "tools/decode/run_attn_rtl.py": "5aac006b73f8165ff3982e027d57b108a6094379bef9da442353f0795e3bee5c",
+      "tools/decode/run_decode_rtl.py": "6a12029be731abaf42a6be2574ff4c85ba3336f93a6dd8b93ba69a93c1d4a821",
+      "tools/decode/run_gemv_rtl.py": "68d635cbe0e875ab0cc6d3874ed364b52e0506955b1e7648d9506b2465d4d28b",
+      "tools/decode/run_qspi_rtl.py": "42e3c3ea53c94207265fecefb189650891cf7c3746e24e4680a38eeef745cd4f",
+      "tools/decode/run_rms_rtl.py": "1a3efbc4f632d5c0a897f49fab7bdf58047a520082a59aac6edb453c6e938d04",
+      "tools/decode/run_vec_rtl.py": "9bf12644e33d91c94bcb5cdaa9722565cf22ce077fc320eea3f2606617fbfa0a",
+      "tools/decode/sim.py": "3d17c03bf537d08c3418b1c44a2beb515b403a3657e6415014ef9a50a4460110",
+      "tools/decode/tb/qspi_flash_model.sv": "c82ab623829f398e0832c74b1757ce09388ca1ed7d3fbd1ff48e0b288e8cfeff",
+      "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96"
+    },
+    "attn15": {
+      "rtl/board/board_ctrl.sv": "91cd6956cf588f2ba37643ed85897a5e779e0333f7c4faeaf8fdfba5b62e9114",
+      "rtl/board/boolean_core.sv": "e8a4e82eeb1f42ebafd6c16275e3ba7925126ee97af1d9cabfc7ce0e18c7b3a3",
+      "rtl/board/boolean_top.sv": "e32bc52e4ae4f6cee7abb65c4f5dacbb19ad04051cbc1b90157ee68876447d2a",
+      "rtl/board/qspi_pad_regs.sv": "28bac64b4ef18bcdff7281f5ad080cb3a5a069ae6ca32bad20fb740b148d6408",
+      "rtl/board/qspi_pads.sv": "ce900c1e4c91dfeecef305f030a02f664b827beab5291602e399aad0a636a62c",
+      "rtl/board/uart_rx.sv": "5c3544533cedd9ac9997bb18b4f3726486d639df4a9bd2218216ce0565181827",
+      "rtl/board/uart_tx.sv": "45869e2ae2bea2655e5c4308e015219facc61269c1f3b30d015e924e98c71fca",
+      "rtl/decode/act_quant.sv": "9782f0860b533496e4b159146fcd92bf5730af5d5e77932805cf62017f954dfe",
+      "rtl/decode/attention.sv": "fb6b4284c5fff6fc2869d15473194e5d4ae69b83f4f0bd0ade94016aedeb574e",
+      "rtl/decode/decode_pkg.sv": "21804faff80721c8b4f91620fcf5b1d2ceb3d8bf18a46935cf3bace24fc1d8c3",
+      "rtl/decode/div_const_pipe.sv": "bdab503b9ef9ff779eccaccbdbdb98738938a1abe200dff12b73fc7470f3b2a6",
+      "rtl/decode/gemv_unit.sv": "af8c19c5fd448717ed60e6bef4bd0f009ee97f59a225d0f0d81217010fbb2dc9",
+      "rtl/decode/mul_pipe.sv": "771c9319db4133d8ecdeb8a057e90f79c5dedb29ee0509515198b595a086d10e",
+      "rtl/decode/qspi_reader.sv": "27494542f9f4750eecc9cb1dc84ab1fa90b7d3026b091094b1454fb3a53e74db",
+      "rtl/decode/rmsnorm.sv": "18d097372a48fcb40f3b1217994975fa19beaa2b746bbbe9aeb7154055a1ca70",
+      "rtl/decode/seq_mul.sv": "93e0db89fd1746bc1aa234a3cd8957a81d7c0920d5a13aa720e6b7845033cec5",
+      "rtl/decode/top_decode.sv": "7e35843420580281145d26521a56b8d260b5be22d0b45d89531735a7b038f42d",
+      "rtl/decode/vec_alu.sv": "9dbfa131e5e4a1c5c2363eee7ad92f59ac810f29371b5170206a3325b3e3b055",
+      "tools/board/boolean_host.py": "5097117577956fe5ed4fa274a799978020f13157c1a3d6f1464c5b5863e5e103",
+      "tools/board/run_uart_rtl.py": "dc6a404e8c2190417f68bccab2aacac86608c9871d4bf3a428b11f6271b67c1d",
+      "tools/board/tb/board_ctrl_unit_tb.sv": "13dc94c977845f49bbd370e1094ac3ee9127cf47f486021349cc0a378c344801",
+      "tools/decode/fault_inject.py": "7f4400708ccdfe62e1540c39e99f10c423720dd74febe2e98db968c0a203e95c",
+      "tools/decode/harness.py": "b4ebd345be9c6de82a0397eda8127643545e3d1a3aeecd5bd952ad5d98e74f6b",
+      "tools/decode/provenance.py": "b481bbdcd5a7125820c8c46c7785dbb19cce770d76eb3476cd2a98ee5df7c8a2",
+      "tools/decode/run_act_quant_rtl.py": "9959beb587badf5cef9f6afe689d21ea47b6adf7055fb2026409703284baae86",
+      "tools/decode/run_attn15_rtl.py": "703c27aab0add33b1879d6a2ae57a0cac61faa2e5275206c1c4f8a866da92b21",
+      "tools/decode/run_attn_rtl.py": "5aac006b73f8165ff3982e027d57b108a6094379bef9da442353f0795e3bee5c",
+      "tools/decode/run_decode_rtl.py": "6a12029be731abaf42a6be2574ff4c85ba3336f93a6dd8b93ba69a93c1d4a821",
+      "tools/decode/run_gemv_rtl.py": "68d635cbe0e875ab0cc6d3874ed364b52e0506955b1e7648d9506b2465d4d28b",
+      "tools/decode/run_qspi_rtl.py": "42e3c3ea53c94207265fecefb189650891cf7c3746e24e4680a38eeef745cd4f",
+      "tools/decode/run_rms_rtl.py": "1a3efbc4f632d5c0a897f49fab7bdf58047a520082a59aac6edb453c6e938d04",
+      "tools/decode/run_vec_rtl.py": "9bf12644e33d91c94bcb5cdaa9722565cf22ce077fc320eea3f2606617fbfa0a",
+      "tools/decode/sim.py": "3d17c03bf537d08c3418b1c44a2beb515b403a3657e6415014ef9a50a4460110",
+      "tools/decode/tb/qspi_flash_model.sv": "c82ab623829f398e0832c74b1757ce09388ca1ed7d3fbd1ff48e0b288e8cfeff",
+      "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96"
+    },
+    "qspi": {
+      "rtl/board/board_ctrl.sv": "91cd6956cf588f2ba37643ed85897a5e779e0333f7c4faeaf8fdfba5b62e9114",
+      "rtl/board/boolean_core.sv": "e8a4e82eeb1f42ebafd6c16275e3ba7925126ee97af1d9cabfc7ce0e18c7b3a3",
+      "rtl/board/boolean_top.sv": "e32bc52e4ae4f6cee7abb65c4f5dacbb19ad04051cbc1b90157ee68876447d2a",
+      "rtl/board/qspi_pad_regs.sv": "28bac64b4ef18bcdff7281f5ad080cb3a5a069ae6ca32bad20fb740b148d6408",
+      "rtl/board/qspi_pads.sv": "ce900c1e4c91dfeecef305f030a02f664b827beab5291602e399aad0a636a62c",
+      "rtl/board/uart_rx.sv": "5c3544533cedd9ac9997bb18b4f3726486d639df4a9bd2218216ce0565181827",
+      "rtl/board/uart_tx.sv": "45869e2ae2bea2655e5c4308e015219facc61269c1f3b30d015e924e98c71fca",
+      "rtl/decode/act_quant.sv": "9782f0860b533496e4b159146fcd92bf5730af5d5e77932805cf62017f954dfe",
+      "rtl/decode/attention.sv": "fb6b4284c5fff6fc2869d15473194e5d4ae69b83f4f0bd0ade94016aedeb574e",
+      "rtl/decode/decode_pkg.sv": "21804faff80721c8b4f91620fcf5b1d2ceb3d8bf18a46935cf3bace24fc1d8c3",
+      "rtl/decode/div_const_pipe.sv": "bdab503b9ef9ff779eccaccbdbdb98738938a1abe200dff12b73fc7470f3b2a6",
+      "rtl/decode/gemv_unit.sv": "af8c19c5fd448717ed60e6bef4bd0f009ee97f59a225d0f0d81217010fbb2dc9",
+      "rtl/decode/mul_pipe.sv": "771c9319db4133d8ecdeb8a057e90f79c5dedb29ee0509515198b595a086d10e",
+      "rtl/decode/qspi_reader.sv": "27494542f9f4750eecc9cb1dc84ab1fa90b7d3026b091094b1454fb3a53e74db",
+      "rtl/decode/rmsnorm.sv": "18d097372a48fcb40f3b1217994975fa19beaa2b746bbbe9aeb7154055a1ca70",
+      "rtl/decode/seq_mul.sv": "93e0db89fd1746bc1aa234a3cd8957a81d7c0920d5a13aa720e6b7845033cec5",
+      "rtl/decode/top_decode.sv": "7e35843420580281145d26521a56b8d260b5be22d0b45d89531735a7b038f42d",
+      "rtl/decode/vec_alu.sv": "9dbfa131e5e4a1c5c2363eee7ad92f59ac810f29371b5170206a3325b3e3b055",
+      "tools/board/boolean_host.py": "5097117577956fe5ed4fa274a799978020f13157c1a3d6f1464c5b5863e5e103",
+      "tools/board/run_uart_rtl.py": "dc6a404e8c2190417f68bccab2aacac86608c9871d4bf3a428b11f6271b67c1d",
+      "tools/board/tb/board_ctrl_unit_tb.sv": "13dc94c977845f49bbd370e1094ac3ee9127cf47f486021349cc0a378c344801",
+      "tools/decode/fault_inject.py": "7f4400708ccdfe62e1540c39e99f10c423720dd74febe2e98db968c0a203e95c",
+      "tools/decode/harness.py": "b4ebd345be9c6de82a0397eda8127643545e3d1a3aeecd5bd952ad5d98e74f6b",
+      "tools/decode/provenance.py": "b481bbdcd5a7125820c8c46c7785dbb19cce770d76eb3476cd2a98ee5df7c8a2",
+      "tools/decode/run_act_quant_rtl.py": "9959beb587badf5cef9f6afe689d21ea47b6adf7055fb2026409703284baae86",
+      "tools/decode/run_attn15_rtl.py": "703c27aab0add33b1879d6a2ae57a0cac61faa2e5275206c1c4f8a866da92b21",
+      "tools/decode/run_attn_rtl.py": "5aac006b73f8165ff3982e027d57b108a6094379bef9da442353f0795e3bee5c",
+      "tools/decode/run_decode_rtl.py": "6a12029be731abaf42a6be2574ff4c85ba3336f93a6dd8b93ba69a93c1d4a821",
+      "tools/decode/run_gemv_rtl.py": "68d635cbe0e875ab0cc6d3874ed364b52e0506955b1e7648d9506b2465d4d28b",
+      "tools/decode/run_qspi_rtl.py": "42e3c3ea53c94207265fecefb189650891cf7c3746e24e4680a38eeef745cd4f",
+      "tools/decode/run_rms_rtl.py": "1a3efbc4f632d5c0a897f49fab7bdf58047a520082a59aac6edb453c6e938d04",
+      "tools/decode/run_vec_rtl.py": "9bf12644e33d91c94bcb5cdaa9722565cf22ce077fc320eea3f2606617fbfa0a",
+      "tools/decode/sim.py": "3d17c03bf537d08c3418b1c44a2beb515b403a3657e6415014ef9a50a4460110",
+      "tools/decode/tb/qspi_flash_model.sv": "c82ab623829f398e0832c74b1757ce09388ca1ed7d3fbd1ff48e0b288e8cfeff",
+      "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96"
+    },
+    "board": {
+      "rtl/board/board_ctrl.sv": "91cd6956cf588f2ba37643ed85897a5e779e0333f7c4faeaf8fdfba5b62e9114",
+      "rtl/board/boolean_core.sv": "e8a4e82eeb1f42ebafd6c16275e3ba7925126ee97af1d9cabfc7ce0e18c7b3a3",
+      "rtl/board/boolean_top.sv": "e32bc52e4ae4f6cee7abb65c4f5dacbb19ad04051cbc1b90157ee68876447d2a",
+      "rtl/board/qspi_pad_regs.sv": "28bac64b4ef18bcdff7281f5ad080cb3a5a069ae6ca32bad20fb740b148d6408",
+      "rtl/board/qspi_pads.sv": "ce900c1e4c91dfeecef305f030a02f664b827beab5291602e399aad0a636a62c",
+      "rtl/board/uart_rx.sv": "5c3544533cedd9ac9997bb18b4f3726486d639df4a9bd2218216ce0565181827",
+      "rtl/board/uart_tx.sv": "45869e2ae2bea2655e5c4308e015219facc61269c1f3b30d015e924e98c71fca",
+      "rtl/decode/act_quant.sv": "9782f0860b533496e4b159146fcd92bf5730af5d5e77932805cf62017f954dfe",
+      "rtl/decode/attention.sv": "fb6b4284c5fff6fc2869d15473194e5d4ae69b83f4f0bd0ade94016aedeb574e",
+      "rtl/decode/decode_pkg.sv": "21804faff80721c8b4f91620fcf5b1d2ceb3d8bf18a46935cf3bace24fc1d8c3",
+      "rtl/decode/div_const_pipe.sv": "bdab503b9ef9ff779eccaccbdbdb98738938a1abe200dff12b73fc7470f3b2a6",
+      "rtl/decode/gemv_unit.sv": "af8c19c5fd448717ed60e6bef4bd0f009ee97f59a225d0f0d81217010fbb2dc9",
+      "rtl/decode/mul_pipe.sv": "771c9319db4133d8ecdeb8a057e90f79c5dedb29ee0509515198b595a086d10e",
+      "rtl/decode/qspi_reader.sv": "27494542f9f4750eecc9cb1dc84ab1fa90b7d3026b091094b1454fb3a53e74db",
+      "rtl/decode/rmsnorm.sv": "18d097372a48fcb40f3b1217994975fa19beaa2b746bbbe9aeb7154055a1ca70",
+      "rtl/decode/seq_mul.sv": "93e0db89fd1746bc1aa234a3cd8957a81d7c0920d5a13aa720e6b7845033cec5",
+      "rtl/decode/top_decode.sv": "7e35843420580281145d26521a56b8d260b5be22d0b45d89531735a7b038f42d",
+      "rtl/decode/vec_alu.sv": "9dbfa131e5e4a1c5c2363eee7ad92f59ac810f29371b5170206a3325b3e3b055",
+      "tools/board/boolean_host.py": "5097117577956fe5ed4fa274a799978020f13157c1a3d6f1464c5b5863e5e103",
+      "tools/board/run_uart_rtl.py": "dc6a404e8c2190417f68bccab2aacac86608c9871d4bf3a428b11f6271b67c1d",
+      "tools/board/tb/board_ctrl_unit_tb.sv": "13dc94c977845f49bbd370e1094ac3ee9127cf47f486021349cc0a378c344801",
+      "tools/decode/fault_inject.py": "7f4400708ccdfe62e1540c39e99f10c423720dd74febe2e98db968c0a203e95c",
+      "tools/decode/harness.py": "b4ebd345be9c6de82a0397eda8127643545e3d1a3aeecd5bd952ad5d98e74f6b",
+      "tools/decode/provenance.py": "b481bbdcd5a7125820c8c46c7785dbb19cce770d76eb3476cd2a98ee5df7c8a2",
+      "tools/decode/run_act_quant_rtl.py": "9959beb587badf5cef9f6afe689d21ea47b6adf7055fb2026409703284baae86",
+      "tools/decode/run_attn15_rtl.py": "703c27aab0add33b1879d6a2ae57a0cac61faa2e5275206c1c4f8a866da92b21",
+      "tools/decode/run_attn_rtl.py": "5aac006b73f8165ff3982e027d57b108a6094379bef9da442353f0795e3bee5c",
+      "tools/decode/run_decode_rtl.py": "6a12029be731abaf42a6be2574ff4c85ba3336f93a6dd8b93ba69a93c1d4a821",
+      "tools/decode/run_gemv_rtl.py": "68d635cbe0e875ab0cc6d3874ed364b52e0506955b1e7648d9506b2465d4d28b",
+      "tools/decode/run_qspi_rtl.py": "42e3c3ea53c94207265fecefb189650891cf7c3746e24e4680a38eeef745cd4f",
+      "tools/decode/run_rms_rtl.py": "1a3efbc4f632d5c0a897f49fab7bdf58047a520082a59aac6edb453c6e938d04",
+      "tools/decode/run_vec_rtl.py": "9bf12644e33d91c94bcb5cdaa9722565cf22ce077fc320eea3f2606617fbfa0a",
+      "tools/decode/sim.py": "3d17c03bf537d08c3418b1c44a2beb515b403a3657e6415014ef9a50a4460110",
+      "tools/decode/tb/qspi_flash_model.sv": "c82ab623829f398e0832c74b1757ce09388ca1ed7d3fbd1ff48e0b288e8cfeff",
+      "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96"
+    },
+    "top": {
+      "rtl/board/board_ctrl.sv": "91cd6956cf588f2ba37643ed85897a5e779e0333f7c4faeaf8fdfba5b62e9114",
+      "rtl/board/boolean_core.sv": "e8a4e82eeb1f42ebafd6c16275e3ba7925126ee97af1d9cabfc7ce0e18c7b3a3",
+      "rtl/board/boolean_top.sv": "e32bc52e4ae4f6cee7abb65c4f5dacbb19ad04051cbc1b90157ee68876447d2a",
+      "rtl/board/qspi_pad_regs.sv": "28bac64b4ef18bcdff7281f5ad080cb3a5a069ae6ca32bad20fb740b148d6408",
+      "rtl/board/qspi_pads.sv": "ce900c1e4c91dfeecef305f030a02f664b827beab5291602e399aad0a636a62c",
+      "rtl/board/uart_rx.sv": "5c3544533cedd9ac9997bb18b4f3726486d639df4a9bd2218216ce0565181827",
+      "rtl/board/uart_tx.sv": "45869e2ae2bea2655e5c4308e015219facc61269c1f3b30d015e924e98c71fca",
+      "rtl/decode/act_quant.sv": "9782f0860b533496e4b159146fcd92bf5730af5d5e77932805cf62017f954dfe",
+      "rtl/decode/attention.sv": "fb6b4284c5fff6fc2869d15473194e5d4ae69b83f4f0bd0ade94016aedeb574e",
+      "rtl/decode/decode_pkg.sv": "21804faff80721c8b4f91620fcf5b1d2ceb3d8bf18a46935cf3bace24fc1d8c3",
+      "rtl/decode/div_const_pipe.sv": "bdab503b9ef9ff779eccaccbdbdb98738938a1abe200dff12b73fc7470f3b2a6",
+      "rtl/decode/gemv_unit.sv": "af8c19c5fd448717ed60e6bef4bd0f009ee97f59a225d0f0d81217010fbb2dc9",
+      "rtl/decode/mul_pipe.sv": "771c9319db4133d8ecdeb8a057e90f79c5dedb29ee0509515198b595a086d10e",
+      "rtl/decode/qspi_reader.sv": "27494542f9f4750eecc9cb1dc84ab1fa90b7d3026b091094b1454fb3a53e74db",
+      "rtl/decode/rmsnorm.sv": "18d097372a48fcb40f3b1217994975fa19beaa2b746bbbe9aeb7154055a1ca70",
+      "rtl/decode/seq_mul.sv": "93e0db89fd1746bc1aa234a3cd8957a81d7c0920d5a13aa720e6b7845033cec5",
+      "rtl/decode/top_decode.sv": "7e35843420580281145d26521a56b8d260b5be22d0b45d89531735a7b038f42d",
+      "rtl/decode/vec_alu.sv": "9dbfa131e5e4a1c5c2363eee7ad92f59ac810f29371b5170206a3325b3e3b055",
+      "tools/board/boolean_host.py": "5097117577956fe5ed4fa274a799978020f13157c1a3d6f1464c5b5863e5e103",
+      "tools/board/run_uart_rtl.py": "dc6a404e8c2190417f68bccab2aacac86608c9871d4bf3a428b11f6271b67c1d",
+      "tools/board/tb/board_ctrl_unit_tb.sv": "13dc94c977845f49bbd370e1094ac3ee9127cf47f486021349cc0a378c344801",
+      "tools/decode/fault_inject.py": "7f4400708ccdfe62e1540c39e99f10c423720dd74febe2e98db968c0a203e95c",
+      "tools/decode/harness.py": "b4ebd345be9c6de82a0397eda8127643545e3d1a3aeecd5bd952ad5d98e74f6b",
+      "tools/decode/provenance.py": "b481bbdcd5a7125820c8c46c7785dbb19cce770d76eb3476cd2a98ee5df7c8a2",
+      "tools/decode/run_act_quant_rtl.py": "9959beb587badf5cef9f6afe689d21ea47b6adf7055fb2026409703284baae86",
+      "tools/decode/run_attn15_rtl.py": "703c27aab0add33b1879d6a2ae57a0cac61faa2e5275206c1c4f8a866da92b21",
+      "tools/decode/run_attn_rtl.py": "5aac006b73f8165ff3982e027d57b108a6094379bef9da442353f0795e3bee5c",
+      "tools/decode/run_decode_rtl.py": "6a12029be731abaf42a6be2574ff4c85ba3336f93a6dd8b93ba69a93c1d4a821",
+      "tools/decode/run_gemv_rtl.py": "68d635cbe0e875ab0cc6d3874ed364b52e0506955b1e7648d9506b2465d4d28b",
+      "tools/decode/run_qspi_rtl.py": "42e3c3ea53c94207265fecefb189650891cf7c3746e24e4680a38eeef745cd4f",
+      "tools/decode/run_rms_rtl.py": "1a3efbc4f632d5c0a897f49fab7bdf58047a520082a59aac6edb453c6e938d04",
+      "tools/decode/run_vec_rtl.py": "9bf12644e33d91c94bcb5cdaa9722565cf22ce077fc320eea3f2606617fbfa0a",
+      "tools/decode/sim.py": "3d17c03bf537d08c3418b1c44a2beb515b403a3657e6415014ef9a50a4460110",
+      "tools/decode/tb/qspi_flash_model.sv": "c82ab623829f398e0832c74b1757ce09388ca1ed7d3fbd1ff48e0b288e8cfeff",
+      "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96"
     }
   }
 }

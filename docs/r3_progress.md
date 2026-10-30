@@ -587,3 +587,6 @@ Sequence rule (decision): one sequence is positions 0,1,2,... in order. `next` a
 - Decode throughput: 3.76 tok/s is the simulated ideal-stream figure (`bench/results/decode_e2e_rtl_15m_kv4_p1.json`, 13,287,867 cycles/token at 50 MHz). Board throughput is an estimate (about 1.07 tok/s), not a measurement; nothing has run on a board.
 - BRAM36: 67 of 75 physical, against a 68 internal budget (`bench/results/boolean_top_impl.json`).
 - "Gate exit 0" in the M4 to M6 entries describes the artifacts present in that run. It does not by itself show that the current RTL passes.
+
+## Integration closure
+Owner sequential simulations, fault suites, synthesis and implementation completed. Fresh strict gate passes with unmet []; comment-only GEMV stale-artifact demonstration fails and restoring original bytes passes. Simulation/implementation evidence does not constitute a hardware inference claim. See INTEGRATION_PROGRESS.md and build/sprint_logs.

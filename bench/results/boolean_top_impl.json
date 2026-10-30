@@ -24,14 +24,14 @@
     "rtl/board/qspi_pads.sv",
     "rtl/board/boolean_top.sv"
   ],
-  "lut": 20735.0,
-  "lut_pct": 63.6,
-  "ff": 9818.0,
+  "lut": 20781.0,
+  "lut_pct": 63.7,
+  "ff": 9825.0,
   "dsp": 73.0,
   "bram36_equiv": 67.0,
-  "wns_ns": 1.565,
+  "wns_ns": 1.275,
   "tns_ns": 0.0,
-  "whs_ns": 0.025,
+  "whs_ns": 0.032,
   "ths_ns": 0.0,
   "timing_met": true,
   "drc_checks_found": 36,
@@ -146,15 +146,94 @@
       }
     },
     "worst_hold": {
-      "slack_ns": 0.025,
-      "from": "u_core/u_dec/hcodes_reg[286]/C",
-      "to": "u_core/u_dec/attn/qc_reg[35][6]/D"
+      "slack_ns": 0.032,
+      "from": "u_core/u_dec/attn/p_reg[31]/C",
+      "to": "u_core/u_dec/attn/dp_n_reg[31]/D"
     },
     "worst_setup": {
-      "slack_ns": 1.565,
-      "from": "u_core/u_dec/gemv/s3_reg[0]/C",
-      "to": "u_core/u_dec/gemv/q4_reg[63]/D"
+      "slack_ns": 1.275,
+      "from": "u_core/u_dec/attn/x__1/CLK",
+      "to": "u_core/u_dec/attn/pbuf_reg_0_15_14_14/SP/I"
     }
+  },
+  "bram36_physical_limit": 75,
+  "placed_ports": {
+    "UART_rxd": {
+      "package_pin": "V12",
+      "iostandard": "LVCMOS33",
+      "direction": "IN"
+    },
+    "UART_txd": {
+      "package_pin": "U11",
+      "iostandard": "LVCMOS33",
+      "direction": "OUT"
+    },
+    "clk": {
+      "package_pin": "F14",
+      "iostandard": "LVCMOS33",
+      "direction": "IN"
+    },
+    "qspi_cs_n": {
+      "package_pin": "M13",
+      "iostandard": "LVCMOS33",
+      "direction": "OUT"
+    },
+    "qspi_dq[0]": {
+      "package_pin": "K17",
+      "iostandard": "LVCMOS33",
+      "direction": "INOUT"
+    },
+    "qspi_dq[1]": {
+      "package_pin": "K18",
+      "iostandard": "LVCMOS33",
+      "direction": "INOUT"
+    },
+    "qspi_dq[2]": {
+      "package_pin": "L14",
+      "iostandard": "LVCMOS33",
+      "direction": "INOUT"
+    },
+    "qspi_dq[3]": {
+      "package_pin": "M15",
+      "iostandard": "LVCMOS33",
+      "direction": "INOUT"
+    }
+  },
+  "methodology": {
+    "by_severity": {
+      "Warning": 146
+    },
+    "by_rule": {
+      "SYNTH-6": {
+        "severity": "Warning",
+        "count": 68
+      },
+      "SYNTH-9": {
+        "severity": "Warning",
+        "count": 9
+      },
+      "SYNTH-10": {
+        "severity": "Warning",
+        "count": 68
+      },
+      "SYNTH-16": {
+        "severity": "Warning",
+        "count": 1
+      }
+    },
+    "report": "build/decode/synth/boolean_top/methodology.rpt"
+  },
+  "cdc": {
+    "by_severity": {
+      "Info": 1
+    },
+    "by_rule": {
+      "CDC-3": {
+        "severity": "Info",
+        "count": 1
+      }
+    },
+    "report": "build/decode/synth/boolean_top/cdc.rpt"
   },
   "reports": {
     "util.rpt": "build/decode/synth/boolean_top/util.rpt",
@@ -165,7 +244,37 @@
     "qspi_io_slack.txt": "build/decode/synth/boolean_top/qspi_io_slack.txt",
     "qspi_in_paths.rpt": "build/decode/synth/boolean_top/qspi_in_paths.rpt",
     "qspi_out_paths.rpt": "build/decode/synth/boolean_top/qspi_out_paths.rpt",
+    "methodology.rpt": "build/decode/synth/boolean_top/methodology.rpt",
+    "cdc.rpt": "build/decode/synth/boolean_top/cdc.rpt",
+    "ports_placed.txt": "build/decode/synth/boolean_top/ports_placed.txt",
     "clocks.rpt": "build/decode/synth/boolean_top/clocks.rpt",
     "check_timing.rpt": "build/decode/synth/boolean_top/check_timing.rpt"
+  },
+  "provenance": {
+    "C:/Users/bhask/Documents/PROJECTS/uTPU/models/numerics_v2/gptq_qkv_wo_w2_int8_g32.npz": "ecf950f452d052ce5909add99d7443d5d5be75dd12d78900e7bcb0ca38afe03d",
+    "build/decode/decode_image_15m/params.json": "7cc473ad50ece06101de4c0295dc597503cfd72a108043b3222db3d5b2932df1",
+    "constraints/boolean_xc7s50.xdc": "9a9e136f5cd3d0d4c93a3cfbfec4b6d8bcd94522edc2b5926d37aa4e34028e0e",
+    "rtl/board/board_ctrl.sv": "91cd6956cf588f2ba37643ed85897a5e779e0333f7c4faeaf8fdfba5b62e9114",
+    "rtl/board/boolean_core.sv": "e8a4e82eeb1f42ebafd6c16275e3ba7925126ee97af1d9cabfc7ce0e18c7b3a3",
+    "rtl/board/boolean_top.sv": "e32bc52e4ae4f6cee7abb65c4f5dacbb19ad04051cbc1b90157ee68876447d2a",
+    "rtl/board/qspi_pad_regs.sv": "28bac64b4ef18bcdff7281f5ad080cb3a5a069ae6ca32bad20fb740b148d6408",
+    "rtl/board/qspi_pads.sv": "ce900c1e4c91dfeecef305f030a02f664b827beab5291602e399aad0a636a62c",
+    "rtl/board/uart_rx.sv": "5c3544533cedd9ac9997bb18b4f3726486d639df4a9bd2218216ce0565181827",
+    "rtl/board/uart_tx.sv": "45869e2ae2bea2655e5c4308e015219facc61269c1f3b30d015e924e98c71fca",
+    "rtl/decode/act_quant.sv": "9782f0860b533496e4b159146fcd92bf5730af5d5e77932805cf62017f954dfe",
+    "rtl/decode/attention.sv": "fb6b4284c5fff6fc2869d15473194e5d4ae69b83f4f0bd0ade94016aedeb574e",
+    "rtl/decode/decode_pkg.sv": "21804faff80721c8b4f91620fcf5b1d2ceb3d8bf18a46935cf3bace24fc1d8c3",
+    "rtl/decode/div_const_pipe.sv": "bdab503b9ef9ff779eccaccbdbdb98738938a1abe200dff12b73fc7470f3b2a6",
+    "rtl/decode/gemv_unit.sv": "af8c19c5fd448717ed60e6bef4bd0f009ee97f59a225d0f0d81217010fbb2dc9",
+    "rtl/decode/mul_pipe.sv": "771c9319db4133d8ecdeb8a057e90f79c5dedb29ee0509515198b595a086d10e",
+    "rtl/decode/qspi_reader.sv": "27494542f9f4750eecc9cb1dc84ab1fa90b7d3026b091094b1454fb3a53e74db",
+    "rtl/decode/rmsnorm.sv": "18d097372a48fcb40f3b1217994975fa19beaa2b746bbbe9aeb7154055a1ca70",
+    "rtl/decode/seq_mul.sv": "93e0db89fd1746bc1aa234a3cd8957a81d7c0920d5a13aa720e6b7845033cec5",
+    "rtl/decode/top_decode.sv": "7e35843420580281145d26521a56b8d260b5be22d0b45d89531735a7b038f42d",
+    "rtl/decode/vec_alu.sv": "9dbfa131e5e4a1c5c2363eee7ad92f59ac810f29371b5170206a3325b3e3b055",
+    "tools/board/impl_top.py": "38b11fb149f7971637677ddba1f66ece798ffd652b84200af06fb7268622fc3f",
+    "tools/decode/pack_decode_image.py": "d3a4c229f1d449b40a5df2bf93c24fb5d0bb49949a420dc52d070a4236d57e80",
+    "tools/decode/provenance.py": "b481bbdcd5a7125820c8c46c7785dbb19cce770d76eb3476cd2a98ee5df7c8a2",
+    "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96"
   }
 }

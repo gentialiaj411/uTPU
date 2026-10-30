@@ -2,6 +2,50 @@
   "part": "xc7s50csga324-1",
   "vivado": "C:\\AMDDesignTools\\2025.2\\Vivado\\bin\\vivado.bat",
   "package_pins_queried": 324,
+  "xdc_file": "constraints\\boolean_xc7s50.xdc",
+  "xdc_sha256": "9a9e136f5cd3d0d4c93a3cfbfec4b6d8bcd94522edc2b5926d37aa4e34028e0e",
+  "xdc_ports_parsed": {
+    "clk": {
+      "pin": "F14",
+      "iostandard": "LVCMOS33"
+    },
+    "UART_rxd": {
+      "pin": "V12",
+      "iostandard": "LVCMOS33"
+    },
+    "UART_txd": {
+      "pin": "U11",
+      "iostandard": "LVCMOS33"
+    },
+    "qspi_cs_n": {
+      "pin": "M13",
+      "iostandard": "LVCMOS33"
+    },
+    "qspi_dq[0]": {
+      "pin": "K17",
+      "iostandard": "LVCMOS33"
+    },
+    "qspi_dq[1]": {
+      "pin": "K18",
+      "iostandard": "LVCMOS33"
+    },
+    "qspi_dq[2]": {
+      "pin": "L14",
+      "iostandard": "LVCMOS33"
+    },
+    "qspi_dq[3]": {
+      "pin": "M15",
+      "iostandard": "LVCMOS33"
+    }
+  },
+  "placed_design_checked": true,
+  "schematic": {
+    "file": "boolean.pdf",
+    "sha256": "c4a874a781e60491897f2eaebf6fd5eb0c95cd983eb1cc92fc75d952b2381c4a",
+    "bytes": 3044755,
+    "revision": "KT-000-001-001-001 V2I1 (revision string as transcribed by the reviewer from the title block; the PDF text layer is scrambled)",
+    "source_url": "Boolean schematic KT-000-001-001-001 V2I1 (realdigital.org/downloads/63f9a8205ebd9c2e8c2d265ad25097dc.pdf)"
+  },
   "pins": [
     {
       "signal": "clk (100 MHz)",
@@ -9,11 +53,19 @@
       "device_pin_func": "IO_L13P_T2_MRCC_15",
       "device_bank": "15",
       "required_function": "MRCC_15",
+      "xdc_port": "clk",
+      "xdc_pin": "F14",
+      "xdc_iostandard": "LVCMOS33",
+      "placed": {
+        "pin": "F14",
+        "iostandard": "LVCMOS33"
+      },
       "master_xdc": "Real Digital Boolean master constraints (realdigital.org/downloads/8d5c167add28c014173edcf51db78bb9.txt): clk on F14",
       "schematic": "Boolean schematic KT-000-001-001-001 V2I1 (realdigital.org/downloads/63f9a8205ebd9c2e8c2d265ad25097dc.pdf) sheet 11: UCLK, driven by IC9 ASEM1-100.000MHZ",
       "schematic_bank_vcco_v": 3.3,
-      "iostandard": "LVCMOS33",
-      "agrees": true
+      "required_iostandard": "LVCMOS33",
+      "agrees": true,
+      "problems": []
     },
     {
       "signal": "uart_rxd (FPGA RX)",
@@ -21,11 +73,19 @@
       "device_pin_func": "IO_L24N_T3_D16_14",
       "device_bank": "14",
       "required_function": "_14",
+      "xdc_port": "UART_rxd",
+      "xdc_pin": "V12",
+      "xdc_iostandard": "LVCMOS33",
+      "placed": {
+        "pin": "V12",
+        "iostandard": "LVCMOS33"
+      },
       "master_xdc": "Real Digital Boolean master constraints (realdigital.org/downloads/8d5c167add28c014173edcf51db78bb9.txt): UART_rxd on V12",
       "schematic": "Boolean schematic KT-000-001-001-001 V2I1 (realdigital.org/downloads/63f9a8205ebd9c2e8c2d265ad25097dc.pdf) sheet 11: UART_TXD_IN (USB-UART bridge TX into the FPGA)",
       "schematic_bank_vcco_v": 3.3,
-      "iostandard": "LVCMOS33",
-      "agrees": true
+      "required_iostandard": "LVCMOS33",
+      "agrees": true,
+      "problems": []
     },
     {
       "signal": "uart_txd (FPGA TX)",
@@ -33,11 +93,19 @@
       "device_pin_func": "IO_L24P_T3_D17_14",
       "device_bank": "14",
       "required_function": "_14",
+      "xdc_port": "UART_txd",
+      "xdc_pin": "U11",
+      "xdc_iostandard": "LVCMOS33",
+      "placed": {
+        "pin": "U11",
+        "iostandard": "LVCMOS33"
+      },
       "master_xdc": "Real Digital Boolean master constraints (realdigital.org/downloads/8d5c167add28c014173edcf51db78bb9.txt): UART_txd on U11",
       "schematic": "Boolean schematic KT-000-001-001-001 V2I1 (realdigital.org/downloads/63f9a8205ebd9c2e8c2d265ad25097dc.pdf) sheet 11: UART_RXD_OUT (FPGA TX to the USB-UART bridge)",
       "schematic_bank_vcco_v": 3.3,
-      "iostandard": "LVCMOS33",
-      "agrees": true
+      "required_iostandard": "LVCMOS33",
+      "agrees": true,
+      "problems": []
     },
     {
       "signal": "qspi_cs_n",
@@ -45,11 +113,19 @@
       "device_pin_func": "IO_L6P_T0_FCS_B_14",
       "device_bank": "14",
       "required_function": "FCS_B_14",
+      "xdc_port": "qspi_cs_n",
+      "xdc_pin": "M13",
+      "xdc_iostandard": "LVCMOS33",
+      "placed": {
+        "pin": "M13",
+        "iostandard": "LVCMOS33"
+      },
       "master_xdc": "not listed in the master XDC",
       "schematic": "Boolean schematic KT-000-001-001-001 V2I1 (realdigital.org/downloads/63f9a8205ebd9c2e8c2d265ad25097dc.pdf) sheet 11: QSPI_CS to IC8 pin 7 (CS)",
       "schematic_bank_vcco_v": 3.3,
-      "iostandard": "LVCMOS33",
-      "agrees": true
+      "required_iostandard": "LVCMOS33",
+      "agrees": true,
+      "problems": []
     },
     {
       "signal": "qspi_dq[0]",
@@ -57,11 +133,19 @@
       "device_pin_func": "IO_L1P_T0_D00_MOSI_14",
       "device_bank": "14",
       "required_function": "D00_MOSI_14",
+      "xdc_port": "qspi_dq[0]",
+      "xdc_pin": "K17",
+      "xdc_iostandard": "LVCMOS33",
+      "placed": {
+        "pin": "K17",
+        "iostandard": "LVCMOS33"
+      },
       "master_xdc": "not listed in the master XDC",
       "schematic": "Boolean schematic KT-000-001-001-001 V2I1 (realdigital.org/downloads/63f9a8205ebd9c2e8c2d265ad25097dc.pdf) sheet 11: QSPI_DQ0 to IC8 pin 15 (SDI/DQ0)",
       "schematic_bank_vcco_v": 3.3,
-      "iostandard": "LVCMOS33",
-      "agrees": true
+      "required_iostandard": "LVCMOS33",
+      "agrees": true,
+      "problems": []
     },
     {
       "signal": "qspi_dq[1]",
@@ -69,11 +153,19 @@
       "device_pin_func": "IO_L1N_T0_D01_DIN_14",
       "device_bank": "14",
       "required_function": "D01_DIN_14",
+      "xdc_port": "qspi_dq[1]",
+      "xdc_pin": "K18",
+      "xdc_iostandard": "LVCMOS33",
+      "placed": {
+        "pin": "K18",
+        "iostandard": "LVCMOS33"
+      },
       "master_xdc": "not listed in the master XDC",
       "schematic": "Boolean schematic KT-000-001-001-001 V2I1 (realdigital.org/downloads/63f9a8205ebd9c2e8c2d265ad25097dc.pdf) sheet 11: QSPI_DQ1 to IC8 pin 8 (SDO/DQ1)",
       "schematic_bank_vcco_v": 3.3,
-      "iostandard": "LVCMOS33",
-      "agrees": true
+      "required_iostandard": "LVCMOS33",
+      "agrees": true,
+      "problems": []
     },
     {
       "signal": "qspi_dq[2]",
@@ -81,11 +173,19 @@
       "device_pin_func": "IO_L2P_T0_D02_14",
       "device_bank": "14",
       "required_function": "D02_14",
+      "xdc_port": "qspi_dq[2]",
+      "xdc_pin": "L14",
+      "xdc_iostandard": "LVCMOS33",
+      "placed": {
+        "pin": "L14",
+        "iostandard": "LVCMOS33"
+      },
       "master_xdc": "not listed in the master XDC",
       "schematic": "Boolean schematic KT-000-001-001-001 V2I1 (realdigital.org/downloads/63f9a8205ebd9c2e8c2d265ad25097dc.pdf) sheet 11: QSPI_DQ2 to IC8 pin 9 (WP#/DQ2), 1.8k pull-up",
       "schematic_bank_vcco_v": 3.3,
-      "iostandard": "LVCMOS33",
-      "agrees": true
+      "required_iostandard": "LVCMOS33",
+      "agrees": true,
+      "problems": []
     },
     {
       "signal": "qspi_dq[3]",
@@ -93,23 +193,36 @@
       "device_pin_func": "IO_L2N_T0_D03_14",
       "device_bank": "14",
       "required_function": "D03_14",
+      "xdc_port": "qspi_dq[3]",
+      "xdc_pin": "M15",
+      "xdc_iostandard": "LVCMOS33",
+      "placed": {
+        "pin": "M15",
+        "iostandard": "LVCMOS33"
+      },
       "master_xdc": "not listed in the master XDC",
       "schematic": "Boolean schematic KT-000-001-001-001 V2I1 (realdigital.org/downloads/63f9a8205ebd9c2e8c2d265ad25097dc.pdf) sheet 11: QSPI_DQ3 to IC8 pin 1 (HOLD#/DQ3), 1.8k pull-up",
       "schematic_bank_vcco_v": 3.3,
-      "iostandard": "LVCMOS33",
-      "agrees": true
+      "required_iostandard": "LVCMOS33",
+      "agrees": true,
+      "problems": []
     },
     {
-      "signal": "flash SCLK (CCLK_0, via STARTUPE2, no constraint)",
+      "signal": "flash SCLK (CCLK_0, via STARTUPE2, no port)",
       "pin": "C8",
       "device_pin_func": "CCLK_0",
       "device_bank": "0",
       "required_function": "CCLK_0",
+      "xdc_port": null,
+      "xdc_pin": null,
+      "xdc_iostandard": null,
+      "placed": null,
       "master_xdc": "not listed in the master XDC",
       "schematic": "Boolean schematic KT-000-001-001-001 V2I1 (realdigital.org/downloads/63f9a8205ebd9c2e8c2d265ad25097dc.pdf) sheet 10: QSPI_SCK to IC8 pin 16 (SCK)",
       "schematic_bank_vcco_v": 3.3,
-      "iostandard": "LVCMOS33",
-      "agrees": true
+      "required_iostandard": "LVCMOS33",
+      "agrees": true,
+      "problems": []
     }
   ],
   "recalled_pins_checked": [
@@ -131,5 +244,13 @@
   "cfgbvs": "sheet 10: CFGBVS_0 (V9) tied to VCCp3V3, XDC sets CFGBVS VCCO / CONFIG_VOLTAGE 3.3",
   "vcco": "sheet 13: VCCO_0, VCCO_14 and VCCO_15 are all VCCp3V3",
   "all_agree": true,
-  "disagreements": []
+  "disagreements": [],
+  "provenance": {
+    "bench/results/boolean_top_impl.json": "2fec87dc6dc340fc86538e93931c5831510399ecf8c2e61fbd532d1ee0b9d1ca",
+    "constraints/boolean_xc7s50.xdc": "9a9e136f5cd3d0d4c93a3cfbfec4b6d8bcd94522edc2b5926d37aa4e34028e0e",
+    "tools/board/impl_top.py": "38b11fb149f7971637677ddba1f66ece798ffd652b84200af06fb7268622fc3f",
+    "tools/board/pin_check.py": "06edababe8bf77e350d1c31dfcef4bf64808a2bc5a0d3ec844d7460b9dd373e5",
+    "tools/decode/provenance.py": "b481bbdcd5a7125820c8c46c7785dbb19cce770d76eb3476cd2a98ee5df7c8a2",
+    "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96"
+  }
 }

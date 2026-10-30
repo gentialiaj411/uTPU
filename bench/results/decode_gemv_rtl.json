@@ -21,8 +21,31 @@
     "shift": 42
   },
   "vvp_command": "C:\\iverilog\\bin\\vvp.exe build/decode/gemv_tb.vvp",
-  "sim_stdout_sha256": "f671c56376fa869cfa80113444aeb9ea54d8acc083576da302e8aa94c2560037",
-  "mutation_stdout_sha256": "f7b5c14e0e478aebc7ef8986f4f578e8783b6519f209258f4b437a2116ecbd2c",
+  "sim_stdout_sha256": "2ee517168a50ae41161d1be6f6f9d9556ac540b9b0b3e260a80d619f7968062e",
+  "mutation_stdout_sha256": "9fea2403a9236467f8afdb22cb12d600a0ee2d3620626e86b36a4153b274c3d8",
   "summary": "SUMMARY tiles=1006 errors=0 real_errors=0 cycles=101873",
-  "mutation_summary": "SUMMARY tiles=1006 errors=1006 real_errors=666 cycles=101873"
+  "mutation_summary": "SUMMARY tiles=1006 errors=1006 real_errors=666 cycles=101873",
+  "provenance": {
+    "C:/Users/bhask/Documents/PROJECTS/uTPU/models/llama2c/stories260K/stories260K.bin": "b0a507e7ad0f626624f17112325e66691f9076d622e1d3274d103d00299f2696",
+    "firmware/host/numerics_v2/calibration_260k.json": "2d406de4f90ebe287cef9a00b01d3d750ab8e1aab3bfb8a678150a02205a6802",
+    "firmware/host/numerics_v2/export.py": "25789bb126406575a4b9537da8b1c4b634288876b6c0f7a176e9fdeb7bb3c544",
+    "firmware/host/numerics_v2/fixed.py": "18eae3922d591da09416e577f739781487c056f09d75766459aeb10411af6534",
+    "firmware/host/numerics_v2/luts/exp_q15.mem": "3acb53114ff8b954b7c349c5ec465255170361ce1961d19c7b27f0ca1f531991",
+    "firmware/host/numerics_v2/luts/luts.json": "276db855f7144256d1a0351bfc1f1680504d685d00fecfd66a21b97b305f3be2",
+    "firmware/host/numerics_v2/luts/rope_cos_q15_h48.mem": "128f30f119a05855fcac6ed9a394db1d4ce23a7d744e4dc6bc73a4a7f850fda2",
+    "firmware/host/numerics_v2/luts/rope_cos_q15_h8.mem": "aa5870f9cdcfbee5d79430ec7c56dcd3ce73854fa4f98c7038891ecb8350a067",
+    "firmware/host/numerics_v2/luts/rope_sin_q15_h48.mem": "d13a1844dab3963ceb4c5b082ad128f3acbc013af52179451172be7544a68f16",
+    "firmware/host/numerics_v2/luts/rope_sin_q15_h8.mem": "1dd8d6483579324ea55f17ce1b8309b3a7451d5441fe6fd5bf1360b9cd327eaf",
+    "firmware/host/numerics_v2/luts/sigmoid_q15.mem": "4f4c87eec3130f32bb1e92b0d1f3f04b10d399ddaf8fc5437fe23812d3d95554",
+    "firmware/host/numerics_v2/luts/silu_i8.mem": "11b20028ff80e1dc97b7bb7676417a73647c0401777255434cc14b1aca078c00",
+    "firmware/host/numerics_v2/runq_runtime.py": "fd77ac218662b3e972f52d5c217ef0f1174fa71e2975b5e00842b02943a74502",
+    "rtl/decode/gemv_unit.sv": "af8c19c5fd448717ed60e6bef4bd0f009ee97f59a225d0f0d81217010fbb2dc9",
+    "tools/decode/golden_gemv.py": "cd051847456f06065d977af55c055e39b9e128bfb8a1a63427eee0fa3649c59d",
+    "tools/decode/harness.py": "b4ebd345be9c6de82a0397eda8127643545e3d1a3aeecd5bd952ad5d98e74f6b",
+    "tools/decode/provenance.py": "b481bbdcd5a7125820c8c46c7785dbb19cce770d76eb3476cd2a98ee5df7c8a2",
+    "tools/decode/run_gemv_rtl.py": "68d635cbe0e875ab0cc6d3874ed364b52e0506955b1e7648d9506b2465d4d28b",
+    "tools/decode/sim.py": "3d17c03bf537d08c3418b1c44a2beb515b403a3657e6415014ef9a50a4460110",
+    "tools/llama2c/reference.py": "70c7bc1078ab75dda3773ab9062e149db8d579eaa6d7a3689f6909ac7ae903a7",
+    "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96"
+  }
 }
