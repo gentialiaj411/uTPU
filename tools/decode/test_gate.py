@@ -201,7 +201,7 @@ def test_simulator_identity_changes_invalidate(work,field):
     edit(work,'decode_gemv_rtl',lambda o:o['provenance']['tool:simulator'].update({field:'changed'}))
     assert any('simulator identity changed' in x for x in unmet(work))
 
-@pytest.mark.parametrize('path', [*pv.M260,*pv.M15,*pv.NUMERICS])
+@pytest.mark.parametrize('path', [*pv.M260,*pv.M15,*pv.NUMERICS,'tools/decode/pack_decode_image.py','tools/decode/golden_*.py'])
 def test_fault_dependencies_invalidate(work,path):
     expanded=pv.expand([path])
     edit(work,'decode_fault_injection',lambda o:o['provenance']['gemv'].update({expanded[0]:'0'*64}))
@@ -211,3 +211,15 @@ def test_fault_dependencies_invalidate(work,path):
 def test_new_identity_inputs_required(work,key):
     edit(work,'decode_gemv_rtl',lambda o:o['provenance'].pop(key))
     assert any('lacks '+key in x for x in unmet(work))
+@pytest.mark.parametrize('which',['python','numpy'])
+def test_actual_runtime_change_invalidates(work,monkeypatch,which):
+    if which=='numpy':monkeypatch.setattr(pv.np,'__version__',pv.np.__version__+'+sprint-mutation')
+    else:monkeypatch.setattr(pv.sys,'version',pv.sys.version+' sprint-mutation')
+    assert any('runtime:'+which+' changed' in x for x in unmet(work))
+
+def test_actual_simulator_digest_change_invalidates(work,monkeypatch):
+    original=pv.simulator_identity
+    def changed():
+        result=dict(original());result['executable_sha256']='changed executable bytes';return result
+    monkeypatch.setattr(pv,'simulator_identity',changed)
+    assert any('simulator identity changed' in x for x in unmet(work))

@@ -1,0 +1,25 @@
+import ctypes,time,json,subprocess,datetime
+from pathlib import Path
+K=ctypes.windll.kernel32
+K.OpenProcess.restype=ctypes.c_void_p
+jobs={8448:'crosscheck',6420:'regress15',23124:'argmax_bound',38748:'engineering_driver'}
+handles={pid:K.OpenProcess(0x100000,False,pid) for pid in jobs};start=time.monotonic();timedout=False
+while True:
+ active=[pid for pid,h in handles.items() if h and K.WaitForSingleObject(ctypes.c_void_p(h),0)==258]
+ Path('sprint/data/completion_status.json').write_text(json.dumps(dict(active=[jobs[p] for p in active],seconds=time.monotonic()-start,timestamp=datetime.datetime.now().isoformat())))
+ if not active:break
+ if time.monotonic()-start>4*3600:
+  timedout=True
+  # Only terminate roots whose current command still names our known sprint script; descendants first.
+  for pid in active:
+   expected=jobs[pid]
+   command=f"$r=Get-CimInstance Win32_Process -Filter 'ProcessId = {pid}'; if ($r.CommandLine -like '*sprint/scripts/{expected}.py*') {{ function Stop-SprintTree($id) {{ Get-CimInstance Win32_Process -Filter \"ParentProcessId = $id\" | ForEach-Object {{ Stop-SprintTree $_.ProcessId }}; Stop-Process -Id $id -Force -ErrorAction SilentlyContinue }}; Stop-SprintTree {pid} }}"
+   subprocess.run(['powershell','-NoProfile','-Command',command],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+  break
+ time.sleep(30)
+for h in handles.values():
+ if h:K.CloseHandle(ctypes.c_void_p(h))
+with Path('SPRINT_LOG.md').open('a') as f:f.write('\n- '+datetime.datetime.now().isoformat()+' Finalization: all launched jobs ended or were explicitly TIMEBOXED at wall deadline. timedout='+str(timedout)+'\n')
+for name,cmd in [('compare_last',[ 'python','sprint/scripts/compare.py']),('report',[ 'python','sprint/scripts/report.py'])]:
+ with open('sprint/data/'+name+'.log','w') as f:subprocess.run(cmd,stdout=f,stderr=subprocess.STDOUT)
+Path('sprint/data/finalization_complete.json').write_text(json.dumps(dict(timedout=timedout,timestamp=datetime.datetime.now().isoformat())))

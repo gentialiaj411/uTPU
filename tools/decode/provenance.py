@@ -73,7 +73,7 @@ SYNTH_SOURCES = {
                             'tools/decode/gen_qspi_wrap.py', 'tools/decode/synth_ooc.py'],
 }
 # fault-injection results are per unit; they depend on every RTL file the faults can touch plus the injector and runners
-FAULT_SOURCES = [*NUMERICS, *M260, *M15, *LUTS, D + '*.sv', 'rtl/board/*.sv', 'tools/decode/tb/*.sv', 'tools/decode/fault_inject.py', 'tools/decode/run_*_rtl.py',
+FAULT_SOURCES = [*NUMERICS, *M260, *M15, *LUTS, 'tools/decode/pack_decode_image.py', 'tools/decode/golden_*.py', D + '*.sv', 'rtl/board/*.sv', 'tools/decode/tb/*.sv', 'tools/decode/fault_inject.py', 'tools/decode/run_*_rtl.py',
                  'tools/board/run_uart_rtl.py', 'tools/board/tb/*.sv', 'tools/board/boolean_host.py', *TOOLS]
 
 

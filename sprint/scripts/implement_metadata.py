@@ -2,7 +2,7 @@ from pathlib import Path
 # Prepared but not applied until all baseline runs finish, preserving honest input provenance.
 p=Path('tools/decode/pack_decode_image.py');s=p.read_text()
 s=s.replace('    mult, shift = np.asarray(rec[\'multiplier\'], dtype=np.int64), np.asarray(rec[\'shift\'], dtype=np.int64)',"    from firmware.host.numerics_v2.fixed import rshift_rne\n    mult, shift = rshift_rne(np.asarray(rec['multiplier'], dtype=np.int64), 16), np.asarray(rec['shift'], dtype=np.int64)")
-s=s.replace('mult < (1 << 32)','mult < (1 << 16)').replace("m.to_bytes(4, 'little')", "m.to_bytes(2, 'little')")
+s=s.replace('mult < (1 << 32)','mult < (1 << 15)').replace("m.to_bytes(4, 'little')", "m.to_bytes(2, 'little')")
 s=s.replace('gcls * TILE_ROWS * 5','gcls * TILE_ROWS * 3')
 s=s.replace('multiplier u32, shift u8','effective multiplier u16, shift u8')
 p.write_text(s)

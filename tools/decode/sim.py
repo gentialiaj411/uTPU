@@ -1,4 +1,4 @@
-"""Small iverilog/vvp compile-and-run helper for decode unit tests."""
+"""Shared Icarus/Verilator compile-and-run helper for decode tests."""
 from __future__ import annotations
 import subprocess
 import os, sys, re, shlex, hashlib, json
@@ -52,7 +52,7 @@ def run_verilator(sources, top, tb, plusargs, defines, timeout, compile_timeout)
     command = "export VERILATOR_ROOT="+shlex.quote(linux_path(VERILATOR_TOOLS/"share/verilator"))+"; "+shlex.join(args)
     result = subprocess.run(["wsl","-d","Ubuntu","--","bash","-lc",command], cwd=ROOT, capture_output=True,text=True,timeout=compile_timeout)
     (BUILD/(tag+"_compile.log")).write_text(result.stdout+result.stderr)
-    if result.returncode: raise RuntimeError("Verilator compile failed: "+(result.stdout+result.stderr)[-4000:])
+    if result.returncode: raise subprocess.CalledProcessError(result.returncode, args, output=result.stdout, stderr=result.stderr)
     try:
         r = subprocess.run(["wsl","-d","Ubuntu","--",linux_path(obj/("V"+top)),*map(str,plusargs)],cwd=ROOT,capture_output=True,text=True,timeout=timeout)
         return r.returncode,r.stdout+r.stderr
