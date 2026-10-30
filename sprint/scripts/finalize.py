@@ -2,13 +2,14 @@ import ctypes,time,json,subprocess,datetime
 from pathlib import Path
 K=ctypes.windll.kernel32
 K.OpenProcess.restype=ctypes.c_void_p
-jobs={8448:'crosscheck',6420:'regress15',23124:'argmax_bound',38748:'engineering_driver'}
+new=json.loads(Path('sprint/data/restarted_jobs.json').read_text())
+jobs={new['crosscheck']:'crosscheck',6420:'regress15',23124:'argmax_bound',new['engineering']:'engineering_driver'}
 handles={pid:K.OpenProcess(0x100000,False,pid) for pid in jobs};start=time.monotonic();timedout=False
 while True:
  active=[pid for pid,h in handles.items() if h and K.WaitForSingleObject(ctypes.c_void_p(h),0)==258]
  Path('sprint/data/completion_status.json').write_text(json.dumps(dict(active=[jobs[p] for p in active],seconds=time.monotonic()-start,timestamp=datetime.datetime.now().isoformat())))
  if not active:break
- if time.monotonic()-start>4*3600:
+ if time.monotonic()-start>3.1*3600:
   timedout=True
   # Only terminate roots whose current command still names our known sprint script; descendants first.
   for pid in active:
@@ -23,3 +24,4 @@ with Path('SPRINT_LOG.md').open('a') as f:f.write('\n- '+datetime.datetime.now()
 for name,cmd in [('compare_last',[ 'python','sprint/scripts/compare.py']),('report',[ 'python','sprint/scripts/report.py'])]:
  with open('sprint/data/'+name+'.log','w') as f:subprocess.run(cmd,stdout=f,stderr=subprocess.STDOUT)
 Path('sprint/data/finalization_complete.json').write_text(json.dumps(dict(timedout=timedout,timestamp=datetime.datetime.now().isoformat())))
+

@@ -41,6 +41,10 @@ def simulator_identity():
         version = _version(exe, hashlib.sha256(exe.read_bytes()).hexdigest(), True)
     return {"name": SIMULATOR, "version": version, "executable": str(exe), "executable_sha256": hashlib.sha256(exe.read_bytes()).hexdigest(), "compiler_sha256": hashlib.sha256(compiler.read_bytes()).hexdigest()}
 
+def _cleanup_verilator_build(directory):
+    script = "import sys,shutil;from pathlib import Path;p=Path(sys.argv[1]);root=Path('/tmp/utpu-perf');assert p.parent.resolve()==root.resolve() and p.name.endswith('_obj');shutil.rmtree(p) if p.exists() else None"
+    subprocess.run(['wsl','-d','Ubuntu','--','python3','-c',script,directory],capture_output=True,timeout=120,check=True)
+
 def run_verilator(sources, top, tb, plusargs, defines, timeout, compile_timeout):
     tag = Path(tb).stem + ("_"+"_".join(defines) if defines else "")
     converted = BUILD / (tag+"_verilator.sv")
@@ -48,15 +52,20 @@ def run_verilator(sources, top, tb, plusargs, defines, timeout, compile_timeout)
     text = re.sub(r"([A-Za-z]):/", lambda m: "/mnt/"+m[1].lower()+"/", text)
     converted.write_text(text)
     obj = BUILD / (tag+"_obj")
-    args = [linux_path(VERILATOR_TOOLS/"bin/verilator_bin"), "--binary", "--timing", "-Wno-fatal", "-j", "1", "--top-module", top, "--Mdir", linux_path(obj), *["-D"+x for x in defines], *[linux_path(x) for x in sources], linux_path(converted)]
-    command = "export VERILATOR_ROOT="+shlex.quote(linux_path(VERILATOR_TOOLS/"share/verilator"))+"; "+shlex.join(args)
+    obj_linux = "/tmp/utpu-perf/"+tag+"_obj"
+    args = [linux_path(VERILATOR_TOOLS/"bin/verilator_bin"), "--binary", "--timing", "-Wno-fatal", "-j", "1", "--top-module", top, "--Mdir", obj_linux, *["-D"+x for x in defines], *[linux_path(x) for x in sources], linux_path(converted)]
+    command = "mkdir -p /tmp/utpu-perf; export VERILATOR_ROOT="+shlex.quote(linux_path(VERILATOR_TOOLS/"share/verilator"))+"; "+shlex.join(args)
     result = subprocess.run(["wsl","-d","Ubuntu","--","bash","-lc",command], cwd=ROOT, capture_output=True,text=True,timeout=compile_timeout)
     (BUILD/(tag+"_compile.log")).write_text(result.stdout+result.stderr)
-    if result.returncode: raise subprocess.CalledProcessError(result.returncode, args, output=result.stdout, stderr=result.stderr)
+    if result.returncode:
+        _cleanup_verilator_build(obj_linux)
+        raise subprocess.CalledProcessError(result.returncode, args, output=result.stdout, stderr=result.stderr)
     try:
-        r = subprocess.run(["wsl","-d","Ubuntu","--",linux_path(obj/("V"+top)),*map(str,plusargs)],cwd=ROOT,capture_output=True,text=True,timeout=timeout)
+        r = subprocess.run(["wsl","-d","Ubuntu","--",obj_linux+"/V"+top,*map(str,plusargs)],cwd=ROOT,capture_output=True,text=True,timeout=timeout)
+        _cleanup_verilator_build(obj_linux)
         return r.returncode,r.stdout+r.stderr
     except subprocess.TimeoutExpired as e:
+        _cleanup_verilator_build(obj_linux)
         return TIMEOUT_RC,_text(e.stdout)+"\nTIMEOUT Verilator wall cap exceeded\n"
 
 TIMEOUT_RC = 124                   # returned (like coreutils timeout) when vvp is killed by the wall-clock cap

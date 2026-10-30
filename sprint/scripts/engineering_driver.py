@@ -1,6 +1,6 @@
 import subprocess,sys,time,json,datetime,csv,os
 from pathlib import Path
-D=Path('sprint/data');deadline=time.monotonic()+4*3600
+D=Path('sprint/data');deadline=time.monotonic()+3*3600
 state={}
 def log(msg):
  with Path('SPRINT_LOG.md').open('a') as f:f.write('\n- '+datetime.datetime.now().isoformat()+' '+msg+'\n')
@@ -19,6 +19,7 @@ while time.monotonic()<deadline:
   if len(timing)>=2 or any(x['returncode'] for x in timing):break
  except (FileNotFoundError,json.JSONDecodeError):pass
  time.sleep(30)
+while not (D/'backend_recovery_complete.json').exists() and time.monotonic()<deadline:time.sleep(30)
 run([sys.executable,'sprint/scripts/compare.py'],'compare_final',60)
 rows=list(csv.DictReader((D/'crosscheck_comparison.csv').open()))
 passed=len(rows)==11 and all(x['identical']=='True' and x['icarus']==x['verilator']=='pass' for x in rows)
