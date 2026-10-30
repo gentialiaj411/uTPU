@@ -19,9 +19,9 @@ module top_decode
     parameter int D = 64, H = 172, NL = 5, NH = 8, NKV = 4, HS = 8, VOCAB = 512, MAX_SEQ = 64,
     parameter int KV4 = 0,
     parameter int CLS4 = 1, WQ4 = 0, WK4 = 0, WV4 = 0, WO4 = 0, W14 = 1, W34 = 1, W24 = 0,
-    parameter longint CLS_BASE = 0, EMB_SCALE_BASE = 21504, LAYERS_BASE = 26624, IMAGE_BYTES = 237632,
+    parameter longint CLS_BASE = 0, EMB_SCALE_BASE = 19456, LAYERS_BASE = 24576, IMAGE_BYTES = 220864,
     parameter int FIFO_DEPTH = 4096,
-    parameter int CLS_TILE_BYTES = 672, CLS_KB = 32, CLS_G = 2,
+    parameter int CLS_TILE_BYTES = 608, CLS_KB = 32, CLS_G = 2,
     parameter longint RECIP_D = 67108864, NORM_MULT = 1072658993, EPS = 297,
     parameter int GFB = 12, NORM_SHIFT = 33,
     parameter longint SILU_MULT = 930645194, SWIGLU_MULT = 888647850, SCORE_MULT = 1028527294,
@@ -233,13 +233,13 @@ module top_decode
     assign tb_wr = (state == E_CODES) ? 4'd0 : rr[3:0];
     assign tb_wa = (state == E_CODES) ? g_kb : i;
     // per-row scale files (multiplier + shift per weight group), distributed RAM, asynchronous read
-    assign sc_we = byte_ok && bc == 3'd4 && ((state == E_SCALES) || (state == G_SCALES));
+    assign sc_we = byte_ok && (((state == E_SCALES) && bc == 3'd4) || ((state == G_SCALES) && bc == 3'd2));
     assign sc_wr = (state == E_SCALES) ? 5'd0 : rr;
     assign sc_wg = gg;
     for (genvar r = 0; r < 16; r++) begin : g_sc
         logic [31:0] m [GMAX];
         logic [7:0]  sh [GMAX];
-        always_ff @(posedge clk) if (sc_we && sc_wr == 5'(r)) begin m[sc_wg] <= btmp; sh[sc_wg] <= st_byte; end
+        always_ff @(posedge clk) if (sc_we && sc_wr == 5'(r)) begin m[sc_wg] <= (state == G_SCALES) ? {btmp[31:16], 16'b0} : btmp; sh[sc_wg] <= st_byte; end
         assign mrf_q[r] = m[sc_ra];
         assign srf_q[r] = sh[sc_ra];
     end
@@ -261,7 +261,7 @@ module top_decode
             if (pf_seek) begin
                 seek_req <= 1'b1; pf_seek <= 1'b0;
                 case (pf_seg)
-                    2'd0: begin seek_addr <= 32'(CLS_BASE) + 32'(pf_tok >> 4) * CLS_TILE_BYTES + CLS_G * 80 + 32'(pf_tok[3:0]) * CLS_KB;
+                    2'd0: begin seek_addr <= 32'(CLS_BASE) + 32'(pf_tok >> 4) * CLS_TILE_BYTES + CLS_G * 48 + 32'(pf_tok[3:0]) * CLS_KB;
                                 pf_left <= 32'(CLS_KB); end
                     2'd1: begin seek_addr <= 32'(EMB_SCALE_BASE) + 32'(pf_tok) * (CLS_G * 5); pf_left <= 32'(CLS_G * 5); end
                     2'd2: begin seek_addr <= 32'(LAYERS_BASE); pf_left <= 32'(IMAGE_BYTES - LAYERS_BASE); end
@@ -421,7 +421,7 @@ module top_decode
 
             // ---------------- GEMV tiles ----------------
             G_SCALES: if (byte_ok) begin
-                if (bc == 3'd4) begin
+                if (bc == 3'd2) begin
                     bc <= '0; rr <= rr + 1'b1;
                     if (rr == 5'd15) begin
                         rr <= '0; gg <= gg + 1'b1;

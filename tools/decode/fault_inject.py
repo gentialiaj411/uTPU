@@ -62,6 +62,7 @@ FAULTS = {
         'qmax7_numerator_127': ('rtl', "qmax7_r ? 31'(7) << 24", "qmax7_r ? 31'(127) << 24"),
     }),
     'top': ('tools/decode/run_decode_rtl.py --prompts 1 --gen 8', 'rtl/decode/top_decode.sv', {
+        'missing_effective_multiplier_expansion': ('rtl', "{btmp[31:16], 16'b0}", "{16'b0, btmp[31:16]}"),
         # new in the BRAM move: byte-lane writes into the 128-bit tbuf word, per-row scale files, role-sized scratch
         'tbuf_lane_swap': ('rtl', "assign tb_wr = (state == E_CODES) ? 4'd0 : rr[3:0];", "assign tb_wr = (state == E_CODES) ? 4'd0 : rr[3:0] ^ 4'd1;"),
         'tbuf_embed_addr': ('rtl', "assign tb_wa = (state == E_CODES) ? g_kb : i;", "assign tb_wa = (state == E_CODES) ? g_kb + LW'(1) : i;"),

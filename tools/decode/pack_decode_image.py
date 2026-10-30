@@ -2,10 +2,10 @@
 
 Layout (little-endian):
   CLS        classifier tiles (also the tied embedding codes)
-  EMB_SCALE  per vocab row, per 32-wide group: multiplier u32, shift u8
+  EMB_SCALE  per vocab row, per 32-wide group: effective multiplier u16, shift u8
   LAYERS     per layer: gamma_att (D x u16), wq, wk, wv, wo, gamma_ffn, w1, w3, w2; then gamma_final
 Tensor tile format (rows padded to a multiple of 16):
-  per tile: for each 32-wide weight group g: for each of the 16 rows: multiplier u32, shift u8
+  per tile: for each 32-wide weight group g: for each of the 16 rows: effective multiplier u16, shift u8
             then for each of the 16 rows: its codes (INT8: K bytes; INT4: K/2 bytes, even k in the low nibble)
 The embedding row for token t is the classifier tile row: CLS + (t//16)*TILE + G*80 + (t%16)*KB.
 """
@@ -24,14 +24,15 @@ def tensor_bytes(rec):
     assert all(int(groups[1, g] - groups[0, g]) == GROUP or g == groups.shape[1] - 1 for g in range(groups.shape[1]))
     assert all(int(groups[0, g]) == GROUP * g for g in range(groups.shape[1]))
     int4 = int(rec['qmax']) == 7
-    mult, shift = np.asarray(rec['multiplier'], dtype=np.int64), np.asarray(rec['shift'], dtype=np.int64)
-    assert np.all(mult >= 0) and np.all(mult < (1 << 32)) and np.all((shift >= 0) & (shift < 128))
+    from firmware.host.numerics_v2.fixed import rshift_rne
+    mult, shift = rshift_rne(np.asarray(rec['multiplier'], dtype=np.int64), 16), np.asarray(rec['shift'], dtype=np.int64)
+    assert np.all(mult >= 0) and np.all(mult < (1 << 15)) and np.all((shift >= 0) & (shift < 128))
     out = bytearray()
     for t0 in range(0, rows, TILE_ROWS):
         for g in range(groups.shape[1]):
             for r in range(t0, t0 + TILE_ROWS):
                 m, s = (int(mult[r, g]), int(shift[r, g])) if r < rows else (0, 0)
-                out += m.to_bytes(4, 'little') + bytes([s])
+                out += m.to_bytes(2, 'little') + bytes([s])
         for r in range(t0, t0 + TILE_ROWS):
             codes = w[r] if r < rows else np.zeros(k, dtype=np.int64)
             if int4:
@@ -72,7 +73,7 @@ def pack(export, lut_dir_rel='rtl/decode/luts'):
         'D': d, 'H': hdim, 'NL': nl, 'NH': int(c['n_heads']), 'NKV': int(c['n_kv_heads']), 'HS': int(c['head_size']),
         'VOCAB': int(c['vocab_size']), **base, 'IMAGE_BYTES': len(img),
         'CLS4': int(cls4), **{f'{k.upper()}4': int(v) for k, v in int4.items()},
-        'CLS_TILE_BYTES': gcls * TILE_ROWS * 5 + TILE_ROWS * kb_cls, 'CLS_KB': kb_cls, 'CLS_G': gcls,
+        'CLS_TILE_BYTES': gcls * TILE_ROWS * 3 + TILE_ROWS * kb_cls, 'CLS_KB': kb_cls, 'CLS_G': gcls,
         'RECIP_D': int(round((1 << 32) / d)), 'GFB': int(export['gamma_fraction_bits']),
         'NORM_MULT': int(export['norm_multiplier']), 'NORM_SHIFT': int(export['norm_shift']), 'EPS': int(export['rms_epsilon_x']),
         'SILU_MULT': int(export['silu_index_multiplier']), 'SILU_SHIFT': int(export['silu_index_shift']),

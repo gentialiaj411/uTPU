@@ -1,0 +1,5 @@
+from pathlib import Path
+import hashlib,json,datetime
+paths=[Path('models/numerics_v2/gptq_qkv_wo_w2_int8_g32.npz'),Path('models/llama2c/stories260K/stories260K.bin'),Path('models/llama2c/TinyStories-valid.txt'),Path('models/llama2c/tokenizer.bin'),Path('sprint/data/argmax_prompts.json'),Path('firmware/host/numerics_v2/runq_runtime.py'),Path('firmware/host/numerics_v2/fixed.py')]
+Path('sprint/data/sprint_input_hashes.json').write_text(json.dumps({str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in paths},indent=2))
+with Path('SPRINT_LOG.md').open('a') as f:f.write('\n- '+datetime.datetime.now().isoformat()+' Independent work alongside simulations: readonly compact-packer preview independently decoded all 79 model tensors and matched both effective multiplier arrays and integer forwards (two activations/tensor). Measured serialized 15M saving 949248 bytes. No production source was changed by this preflight. Artifact sprint/data/metadata_preflight.csv. Refreshed provenance tests and hashed model/text/prompt/numeric inputs.\n')

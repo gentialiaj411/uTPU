@@ -1,8 +1,8 @@
 # Sprint state
-P0 DONE: integration e8d9282, all owner logs EXIT 0; gate/stale/restore verified.
-P1 IN-PROGRESS: backend and CLI implemented; explicit TB timescale fixes a cross-simulator race. Baseline cross-check sweep and 15M regressions running.
-P2 DONE code/tests: runtime and simulator identities plus fault model/golden inputs; 36 gate tests pass. Artifact regeneration deferred P6.
-P3 DONE / NO-GO for tested bounds: repaired sweep contains 50 distinct prefixes and 6000 generated positions, with zero rows skipped and exact argmax/max-logit agreement. The original repeated-prefix data is excluded.
-P4 TODO: implementation script prepared but deliberately not applied until baseline P1 runs finish; production arithmetic unchanged.
-P5 TIMEBOXED: integrated RTL already independently prefetches through serial phases. No extra overlap RTL retained; design review in sprint/P5_PREFETCH_REVIEW.md.
-P6 TODO: owner Vivado script drafted, no Vivado executed.
+P0 DONE: audit-fixes e8d9282; owner logs EXIT 0, strict PASS, stale comment FAIL, restore PASS.
+P1 IN-PROGRESS final revalidation: baseline 11/11 backend comparisons identical; both original and compact 15M large regressions requested. TB time precision, RNG evaluation order and UART polling races fixed without removing checks. Final flash-model interface repair is being checked on both backends.
+P2 DONE code/tests: 41 gate cases pass; simulator/compiler hashes, Python/NumPy versions, fault model/golden/packer inputs required. Final artifacts being regenerated.
+P3 DONE / NO-GO for tested bounds: 50 distinct prefixes x120 tokens, zero rows skipped, exact argmax/max-logit. Overflow-safe coefficient math independently checked against arbitrary-precision integers; original repeated-prefix data excluded.
+P4 IN-PROGRESS validation: compact metadata applied; independent 79-tensor preflight and seeded tie tests pass; 15M QSPI traffic 11633661 ->10684413 B/token and clocks 46653325.5 ->42856333.5 measured on identical four-position runs. Wrong-expansion fault detected. Full final-model suites and large compact regression still running.
+P5 TIMEBOXED design-only: autonomous FIFO prefetch already exists; measured short QSPI case is essentially bandwidth-limited. No speculative RTL retained.
+P6 IN-PROGRESS final repair: adopted only known inactive flash_o data when explicit flash_oe=0; preserved driven X windows, all protocol/timing checks. This fixes a Verilator-only RDID-after-reset failure (Icarus reference passed). All affected suites regenerating under frozen final sources. Vivado remains NOT RUN; OWNER_RUN2.ps1 prepared.

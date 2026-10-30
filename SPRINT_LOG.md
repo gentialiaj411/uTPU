@@ -32,3 +32,116 @@
 
 - 2026-10-30T14:25:52.069456 Finalization: all launched jobs ended or were explicitly TIMEBOXED at wall deadline. timedout=False
 - Final plan preserves a fair four-position 15M QSPI before/after benchmark. P6 may promote the complete final P1 QSPI producer output unchanged only after checking all current dependency hashes, required identity coverage and byte-identical SHA256; otherwise it reruns. P4 does not change the QSPI unit or its inputs. This saves redundant compilation without removing any test or editing an artifact.
+
+- 2026-10-30T15:09:41.504788 Independent work alongside simulations: readonly compact-packer preview independently decoded all 79 model tensors and matched both effective multiplier arrays and integer forwards (two activations/tensor). Measured serialized 15M saving 949248 bytes. No production source was changed by this preflight. Artifact sprint/data/metadata_preflight.csv. Refreshed provenance tests and hashed model/text/prompt/numeric inputs.
+- Validation scheduling decision: run touched-unit fault suites first (GEMV, top, board, QSPI), then remaining suites. Reserved final regeneration time also runs any not-yet-started fault suites before the unchanged strict gate; no failed suite is silently skipped or retried as a pass.
+
+- 2026-10-30T15:15:30.045644 RUN C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe sprint/scripts/compare.py -> sprint/data/compare_final.log
+
+- 2026-10-30T15:15:30.098550 compare_final EXIT 0
+
+- 2026-10-30T15:15:30.103595 RUN C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe tools/decode/run_decode_rtl.py --model 15m --kv-bits 4 --flash qspi --gen 1 --sim verilator --output sprint/data/15m_qspi_before_metadata.json -> sprint/data/15m_qspi_before_metadata.log
+
+- 2026-10-30T15:19:40.906510 15m_qspi_before_metadata EXIT 0
+
+- 2026-10-30T15:19:40.906510 RUN C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe sprint/scripts/implement_metadata.py -> sprint/data/metadata_apply.log
+
+- 2026-10-30T15:19:41.943373 metadata_apply EXIT 0
+
+- 2026-10-30T15:19:41.943373 RUN C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe -m pytest sprint/scripts/test_compact_metadata.py -q -> sprint/data/metadata_python_exactness.log
+
+- 2026-10-30T15:19:42.412434 metadata_python_exactness EXIT 0
+
+- 2026-10-30T15:19:42.412434 RUN C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe tools/decode/run_decode_rtl.py --model 260k --kv-bits 4 --flash qspi --gen 8 --sim verilator --output sprint/data/260k_metadata.json -> sprint/data/260k_metadata.log
+
+- 2026-10-30T15:19:59.394172 260k_metadata EXIT 0
+
+- 2026-10-30T15:19:59.395172 RUN C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe tools/decode/run_decode_rtl.py --model 15m --kv-bits 4 --flash qspi --gen 1 --sim verilator --output sprint/data/15m_metadata.json -> sprint/data/15m_metadata.log
+- Independent bound-proof review hardened coefficient arithmetic for the full declared input range: split c*a into Q32 limbs before multiplying by max-code, rather than forming a potentially 71-bit product in int64. Verified 10000 triples against Python arbitrary-precision ceil arithmetic. This is algebraically identical on the measured inputs, all of which passed the prior overflow guards; retained the measured script digest. No new skip or throughput result claimed.
+
+- 2026-10-30T15:23:48.105939 15m_metadata EXIT 0
+
+- 2026-10-30T15:23:48.106942 RUN C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe tools/decode/run_gemv_rtl.py --sim verilator -> sprint/data/regen_gemv.log
+
+- 2026-10-30T15:23:59.896035 regen_gemv EXIT 0
+
+- 2026-10-30T15:23:59.896035 RUN C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe tools/decode/run_gemv_rtl.py --golden build/decode/golden_gemv15 --output bench/results/decode_gemv15_rtl.json --sim verilator -> sprint/data/regen_gemv15.log
+
+- 2026-10-30T15:24:17.498069 regen_gemv15 EXIT 0
+
+- 2026-10-30T15:24:17.498069 RUN C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe tools/decode/run_act_quant_rtl.py --sim verilator -> sprint/data/regen_actq.log
+
+- 2026-10-30T15:24:52.025782 regen_actq EXIT 0
+
+- 2026-10-30T15:24:52.025782 RUN C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe tools/decode/run_rms_rtl.py --sim verilator -> sprint/data/regen_rms.log
+
+- 2026-10-30T15:25:05.116019 regen_rms EXIT 0
+
+- 2026-10-30T15:25:05.116019 RUN C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe tools/decode/run_vec_rtl.py --sim verilator -> sprint/data/regen_vec.log
+
+- 2026-10-30T15:25:27.725979 regen_vec EXIT 0
+
+- 2026-10-30T15:25:27.726978 RUN C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe tools/decode/run_attn_rtl.py --sim verilator -> sprint/data/regen_attn.log
+
+- 2026-10-30T15:25:56.178571 regen_attn EXIT 0
+
+- 2026-10-30T15:25:56.179572 RUN C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe tools/decode/run_attn15_rtl.py --sim verilator -> sprint/data/regen_attn15.log
+
+- 2026-10-30T15:26:45.860314 regen_attn15 EXIT 0
+
+- 2026-10-30T15:26:45.860314 RUN C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe sprint/scripts/promote_fresh_qspi.py -> sprint/data/regen_qspi.log
+
+- 2026-10-30T15:26:46.172348 regen_qspi EXIT 0
+
+- 2026-10-30T15:26:46.173354 RUN C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe tools/board/run_uart_rtl.py --sim verilator -> sprint/data/regen_uart.log
+
+- 2026-10-30T15:28:43.516943 regen_uart EXIT 1
+
+- 2026-10-30T15:28:43.517929 RUN C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe tools/decode/fault_inject.py gemv -> sprint/data/fault_gemv.log
+
+- 2026-10-30T15:29:42.319396 fault_gemv EXIT 0
+
+- 2026-10-30T15:29:42.319396 RUN C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe tools/decode/fault_inject.py top -> sprint/data/fault_top.log
+- Started the same 8-prompt x32-token 15M regression again after compact metadata was applied, with isolated generated inputs and an unused compile tag. The existing producer records the wrapper as an extra provenance input. This is required validation of the new image ABI, not a new numerical experiment; all golden comparisons remain unchanged.
+
+- 2026-10-30T15:32:00.554116 fault_top EXIT 0
+
+- 2026-10-30T15:32:00.554116 RUN C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe tools/decode/fault_inject.py board -> sprint/data/fault_board.log
+
+- 2026-10-30T15:47:13.439711 fault_board EXIT 1
+
+- 2026-10-30T15:47:13.439711 RUN C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe tools/decode/run_decode_rtl.py --model 260k --kv-bits 8 --gen 8 --sim verilator --output bench/results/decode_e2e_rtl_kv8_p1.json -> sprint/data/regen_e2e_kv8_p1.log
+
+- 2026-10-30T15:47:25.923164 regen_e2e_kv8_p1 EXIT 0
+
+- 2026-10-30T15:47:25.924164 RUN C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe tools/decode/run_decode_rtl.py --model 260k --kv-bits 4 --gen 8 --sim verilator --output bench/results/decode_e2e_rtl_kv4_p1.json -> sprint/data/regen_e2e_kv4_p1.log
+
+- 2026-10-30T15:47:38.203511 regen_e2e_kv4_p1 EXIT 0
+
+- 2026-10-30T15:47:38.203511 RUN C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe tools/decode/run_decode_rtl.py --model 260k --kv-bits 8 --period 2 --gen 8 --sim verilator --output bench/results/decode_e2e_rtl_kv8_p2.json -> sprint/data/regen_e2e_kv8_p2.log
+
+- 2026-10-30T15:47:51.151281 regen_e2e_kv8_p2 EXIT 0
+
+- 2026-10-30T15:47:51.151281 RUN C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe tools/decode/run_decode_rtl.py --model 260k --kv-bits 8 --period 4 --gen 8 --sim verilator --output bench/results/decode_e2e_rtl_kv8_p4.json -> sprint/data/regen_e2e_kv8_p4.log
+
+- 2026-10-30T15:48:06.562422 regen_e2e_kv8_p4 EXIT 0
+
+- 2026-10-30T15:48:06.563420 RUN C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe tools/decode/run_decode_rtl.py --model 260k --kv-bits 8 --flash qspi --gen 8 --sim verilator --output bench/results/decode_e2e_rtl_kv8_p1_qspi.json -> sprint/data/regen_e2e_kv8_p1_qspi.log
+
+- 2026-10-30T15:48:23.722310 regen_e2e_kv8_p1_qspi EXIT 0
+
+- 2026-10-30T15:48:23.722310 RUN C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe tools/decode/run_decode_rtl.py --model 15m --kv-bits 4 --gen 8 --sim verilator --output bench/results/decode_e2e_rtl_15m_kv4_p1.json -> sprint/data/regen_e2e_15m_kv4_p1.log
+
+- 2026-10-30T15:51:02.132996 regen_e2e_15m_kv4_p1 EXIT 0
+
+- 2026-10-30T15:51:02.132996 RUN C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe tools/decode/fault_inject.py qspi -> sprint/data/fault_qspi.log
+- Validation found a real unresolved failure after compaction: UART main clean/mutation tests pass, but reset-mid-decode robustness returns six FF bytes for subsequent RDID; a previously declared equivalent watchdog-reader mutation is now detected. These failures remain failures. Running a minimal diagnostic with read-only flash/control traces; no stimulus/check was removed from the acceptance suite and no equivalence waiver was changed.
+- Reset diagnosis narrowed the failure to simulation-model behavior: Icarus passes the identical robust scenario; under Verilator the flash instruction is correctly 9F and regbyte is correct, but flash_o retains an old array-data nibble through the register read. Prototyping a single timed output process for mutually exclusive register/array phases; all setup/hold/command checks and delays remain unchanged.
+- Combining timed model writers did not resolve the Verilator reset failure; that prototype is NOT adopted. Testing the smaller interface correction: when flash_oe=0, drive a known inactive data value instead of a second redundant Z on flash_o. The external bus remains tri-stated by flash_oe, and every driven-X transition, timing check and data value is preserved.
+
+- 2026-10-30T16:18:28.617218 FINAL REPAIR C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe tools/board/run_uart_rtl.py --sim verilator
+- Confirmed minimal fix: replacing only the two inactive flash_o=Z assignments (both paired with flash_oe=0) by a known inactive value makes Verilator pass the identical 113-check reset robustness scenario, matching Icarus. The external bus remains identically Z when disabled, and driven X windows/timing checks are untouched. Adopted this two-line model-interface correction, not the failed timed-process refactor. Regenerating both simulator protocol suites, UART cross-checks, touched and remaining faults, and QSPI e2e under the frozen final model. Extended validation budget by 30 minutes within the owner five-hour limit to finish this required repair.
+
+- 2026-10-30T16:20:53.191726 regen_uart EXIT 0
+
+- 2026-10-30T16:20:53.198890 FINAL REPAIR C:\Users\bhask\AppData\Local\Programs\Python\Python311\python.exe tools/board/run_uart_rtl.py --sim icarus --output sprint/data/uart_icarus.json

@@ -3,7 +3,8 @@ from pathlib import Path
 K=ctypes.windll.kernel32
 K.OpenProcess.restype=ctypes.c_void_p
 new=json.loads(Path('sprint/data/restarted_jobs.json').read_text())
-jobs={33636:'argmax_bound',new['engineering']:'engineering_launcher'}
+jobs={33636:'argmax_bound',new['engineering']:'final_flash_repair'}
+extra=json.loads(Path('sprint/data/compact_big_job.json').read_text());jobs[extra['pid']]='compact_big'
 snapshot=subprocess.run(['powershell','-NoProfile','-Command',"Get-CimInstance Win32_Process -Filter \"name = 'python.exe'\" | Select-Object ProcessId,CommandLine | ConvertTo-Json"],capture_output=True,text=True)
 current=json.loads(snapshot.stdout or '[]')
 if isinstance(current,dict):current=[current]

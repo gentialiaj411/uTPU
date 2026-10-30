@@ -64,7 +64,7 @@ module qspi_flash_model #(
     initial begin
         for (int i = 0; i < SIZE; i++) mem[i] = 8'hFF;
         $readmemh(IMG, mem, BASE);
-        flash_o = 4'bz; flash_oe = 4'h0;
+        flash_o = 4'h0; flash_oe = 4'h0; // inactive data is masked by explicit output enable
     end
     // phase: 0 idle, 1 instruction, 2 address, 3 dummy, 4 data
     int phase = 0, bitn = 0, rises = 0;          // rises: rising edges in this command
@@ -109,7 +109,7 @@ module qspi_flash_model #(
             end
         end
         phase = 0; last_cs_rise = $realtime;
-        flash_o = 4'bz; flash_oe = 4'h0;
+        flash_o = 4'h0; flash_oe = 4'h0; // inactive data is masked by explicit output enable
     end
     always @(posedge sck) if (cs_n === 1'b0) begin
         rises++;

@@ -14,7 +14,7 @@ def status():
  es=load('engineering_status.json',{});cc=[]
  if (D/'crosscheck_comparison.csv').exists():cc=list(csv.DictReader((D/'crosscheck_comparison.csv').open()))
  return es,cc
-es,cc=status();small=load('15m_small.json',{});big=load('15m_big.json',{});p4=es.get('P4',{});runtime=load('15m_timing.json',[])
+es,cc=status();small=load('15m_small.json',{});big=load('15m_big.json',{});compact_big=load('15m_big_compact.json',{});p4=es.get('P4',{});runtime=load('15m_timing.json',[])
 bounds={}
 if (D/'argmax_sweep.csv').exists():
  with (D/'argmax_sweep.csv').open() as f:
@@ -29,6 +29,7 @@ p4status=p4.get('status','TIMEBOXED')
 if p4status=='IN-PROGRESS':
  required=['regen_'+x for x in ['gemv','gemv15','actq','rms','vec','attn','attn15','qspi','uart']]+['fault_top','fault_gemv','fault_qspi','fault_board']
  p4status='DONE' if all(es.get(k,{}).get('rc')==0 for k in required) else 'TIMEBOXED; metadata smokes passed but full fault/suite acceptance incomplete'
+if p4status=='DONE' and compact_big.get('status')!='pass':p4status='TIMEBOXED; standard suite passed, post-compaction large regression incomplete'
 summary=[
  'P0 DONE: integration closed at e8d9282; all owner log tails EXIT 0, fresh strict gate PASS, stale-comment FAIL, restored gate PASS (MEASURED; sprint/data/p0_*).',
  f'P1 {"DONE" if complete_p1 else "TIMEBOXED / acceptance incomplete"}: {sum(r["identical"]=="True" and r["icarus"]==r["verilator"]=="pass" for r in cc)}/{len(cc)} completed backend comparisons identical and passing (MEASURED; crosscheck_comparison.csv).',
@@ -40,6 +41,9 @@ summary=[
  'P5 TIMEBOXED design-only: existing autonomous prefetch already overlaps serial compute until FIFO full; no extra RTL feature retained.',
  'P6 TIMEBOXED until physical regeneration: strict gate kept strict; OWNER_RUN2.ps1 contains sequential logged Vivado jobs and final gate. No push or hardware programming.'
 ]
+meta=load('15m_metadata.json',{})
+if meta.get('cycles_per_token_mean'):
+ summary[6]=f'P4 {p4status}; 15M QSPI bytes/token {meta["stream_bytes_per_token"]:,}, clocks/token {meta["cycles_per_token_mean"]:,.1f} (MEASURED); {50e6/meta["cycles_per_token_mean"]:.5f} tok/s at 50MHz (DERIVED).'
 emit('# uTPU engineering sprint report');emit('Generated '+datetime.datetime.now().isoformat()+'. Worktree uTPU-perf, branch perf, based on integration e8d9282.\n')
 emit('## Summary');emit('\n'.join(str(i+1)+'. '+s for i,s in enumerate(summary)));emit()
 emit('## Bugs and verification findings first')
@@ -62,15 +66,15 @@ if (D/'crosscheck.csv').exists():
   if a and b:rows.append([name,f"{float(a['seconds']):.3f}",f"{float(b['seconds']):.3f}",f"{float(a['seconds'])/float(b['seconds']):.3f}"])
  table(['Runner','Icarus wall s MEASURED','Verilator wall s MEASURED','Speedup DERIVED I/V'],rows)
 emit('These runner times include compilation, golden preparation and provenance; they are not simulation-only speedups. The earlier 87x was a small precompiled workload, not a guaranteed full 15M speedup. The measured 15M small and big wall times replace that extrapolation. Concurrent screening/regressions affect wall time.\n')
-table(['15M workload','Actual prompts MEASURED','Steps MEASURED','Status','Logit mismatches MEASURED','Index / argmax MEASURED'],[[n,len(o.get('prompts',[])),o.get('steps','N/A'),o.get('status','NOT RUN'),o.get('logit_mismatches','N/A'),str(o.get('index_errors','N/A'))+' / '+str(o.get('argmax_errors','N/A'))] for n,o in [('small',small),('8x32',big)]])
+table(['15M workload','Actual prompts MEASURED','Steps MEASURED','Status','Logit mismatches MEASURED','Index / argmax MEASURED'],[[n,len(o.get('prompts',[])),o.get('steps','N/A'),o.get('status','NOT RUN'),o.get('logit_mismatches','N/A'),str(o.get('index_errors','N/A'))+' / '+str(o.get('argmax_errors','N/A'))] for n,o in [('small baseline',small),('8x32 baseline',big),('8x32 compact image',compact_big)]])
 emit('## P2 provenance')
 emit('Simulator provenance records name, version, executable path/SHA256 and compiler SHA256. Version strings are cached only by executable content digest; stale checks recompute binary digests. Python sys.version and NumPy __version__ hashes are mandatory virtual dependencies. Fault provenance includes M260, M15, NUMERICS and LUTS in addition to fault runner and RTL dependencies. Tests cover missing identities, changed recorded identities, actual mocked runtime changes and actual mocked simulator digest changes, plus each model/numeric source digest. Command python -m pytest tools/decode/test_gate.py -q; test_gate_final.log. New virtual dependencies also make physical artifacts stale; OWNER_RUN2 regenerates their provenance rather than accepting historical results.\n')
 emit('## P3 exact bounded classifier argmax')
 emit('Command python sprint/scripts/argmax_bound.py. Dataset: 50 distinct eight-token prefixes from TinyStories validation (argmax_prompts.json); a diversity audit found the original research 50-record prompt list had only nine unique prefixes, so nine complete measurements were reused and 41 distinct prompts were added. Eight prompt tokens plus 120 generated tokens, KV4, maximum position127. The reference integer model computes all logits as an independent checker; the selection simulation reads only admitted blocks and never uses skipped logits to set the running best. This is a screening measurement of reads and decisions, NOT a Python inference speedup.\n')
 emit('### Bound proof')
-emit('For a weight group g, write d_rg=sum_i x_i*w_ri; a_g is its positive activation scale and m_rg=RNE(M_rg/2^16)>=0; s_rg=shift_rg-16>=0. L1 gives |d|<=max|x|*sum|w|; Cauchy gives |d|<=ceil(sqrt(sum x^2 * sum w^2)). Integer square comparisons correct the sqrt proposal. Multiplying by positive a*m preserves the bound; signed RNE is odd and monotone, so |RNE(d*a*m/2^s)|<=RNE(D*a*m/2^s). Checked product bounds reject INT64 overflow rather than silently wrap.\n')
+emit('For a weight group g, write d_rg=sum_i x_i*w_ri; a_g is its positive activation scale and m_rg=RNE(M_rg/2^16)>=0; s_rg=shift_rg-16>=0. L1 gives |d|<=max|x|*sum|w|; Cauchy gives |d|<=ceil(sqrt(sum x^2 * sum w^2)). Integer square comparisons correct the sqrt proposal. Multiplying by positive a*m preserves the bound; signed RNE is odd and monotone, so |RNE(d*a*m/2^s)|<=RNE(D*a*m/2^s). For the pinned classifier, bound_domain_proof.json certifies the actual shift range lies in the hardware six-bit shift domain and the worst legal INT32 activation-scale L1 product fits INT64. Per-input checks also reject overflow rather than silently wrap. Coefficient products use the limb construction described below.\n')
 emit('div127 uses Q32 reciprocal R=33818641, followed by at most one unit correction. For |n|<=N, a safe envelope is floor((N*R+2^31)/2^32)+1; this also covers the wide approximate division path and does not incorrectly assume exact division there. Summing per-group envelopes bounds the final signed logit. Reciprocal products are evaluated in high/low limbs to prevent overflow. Runtime checks confirm every reference logit lies below its bound.\n')
-emit('Coefficient variant: precompute c_rg=ceil(L1_rg*m_rg*2^32/2^s_rg). Store C_bg=max_rows_in_block c_rg separately for every group. For each activation, N_bg=ceil(C_bg*a_g*max|x_g|/2^32)+1 bounds the rounded scaled magnitude of every row in that block. Apply the reciprocal envelope and sum. Measured model coefficients fit u32; the script asserts this. Groupwise block maxima are used even though they are looser than max of activation-specific per-row sums.\n')
+emit('Coefficient variant: precompute c_rg=ceil(L1_rg*m_rg*2^32/2^s_rg). Store C_bg=max_rows_in_block c_rg separately for every group. For each activation, N_bg=ceil(C_bg*a_g*max|x_g|/2^32)+1 bounds the rounded scaled magnitude of every row in that block. Apply the reciprocal envelope and sum. Measured model coefficients fit u32; the script asserts this. Groupwise block maxima are used even though they are looser than max of activation-specific per-row sums. For full-range arithmetic, c*a is split into high/low Q32 limbs before multiplying by max|x|: ceil(c*a*x/2^32)=high*x+ceil(low*x/2^32), avoiding a potentially overflowing three-factor product. An independent arbitrary-precision oracle checked 10000 input triples (bound_math_property.json). This post-measurement arithmetic hardening is algebraically identical on every measured input, whose original product-overflow assertions all passed; the measured script digest is retained separately.\n')
 emit('Skip a block only if U<best, or U==best and every row index in the block is greater than the current best index. RTL and integer lexsort choose the lowest index on ties. Independent reference checks require identical argmax AND maximum logit on every sampled position. No probability or quality tolerance is used. Because no sampled block was skipped, empirical equality does not exercise a successful pruning branch; the skip safety argument is mathematical, not evidence of useful pruning.\n')
 rows=[]
 for key,b in sorted(bounds.items()):
@@ -84,6 +88,7 @@ emit('P3 decision: '+go+'. A conditional screening advantage does not authorize 
 emit('## P4 compact metadata')
 emit('Disposition: '+p4status+'. Prepared implementation sprint/scripts/implement_metadata.py is only applied if all baseline backend comparisons pass, protecting an unvalidated production format from depending on a failing simulator. If smoke/proof checks fail, exact pre-change source bytes are restored. See engineering_status.json for whether it actually ran.\n')
 emit('If applied: packer stores q=RNE(original_multiplier,16) as u16 plus original shift u8 for GEMV tensors; embedding scale metadata stays u32+u8. RTL G_SCALES consumes three bytes, expands {q,16b0}; embedding E_SCALES still consumes five. Classifier tile offsets and board/default image addresses are regenerated from the packer. Math proof: RNE((q<<16)/2^16)=q, exactly the old GEMV effective multiplier; subsequent products, shifts and div127 are unchanged. Packer conservatively requires q<32768 although stored in u16, because the unchanged GEMV interprets the expanded 32-bit multiplier as signed. The measured model range fits this constraint; accepting arbitrary u16 would be unsound. Generic flash models consume the new packed image automatically, rather than supplying hand-authored expected data. New top fault omits <<16 and must be detected.\n')
+emit('Post-compaction large regression command: python sprint/scripts/compact_big.py. It uses an isolated generated-input directory and an unused compile tag to prevent collisions with standard regeneration; the producer records this wrapper as an extra provenance dependency. Artifact 15m_big_compact.json.\n')
 emit('Validation commands: python -m pytest sprint/scripts/test_compact_metadata.py -q compares the integer golden on original versus independently decoded compact metadata over generated tie and random cases; original clean/mutation runners and touched-unit fault suites are then rerun. No change to runq_runtime.py or fixed.py. Full acceptance requires every listed producer/fault to pass, not just the smoke.\n')
 rows=[]
 for name,before,after in [('260K QSPI','e2e_qspi_verilator.json','260k_metadata.json'),('15M QSPI','15m_qspi_before_metadata.json','15m_metadata.json')]:
@@ -91,8 +96,17 @@ for name,before,after in [('260K QSPI','e2e_qspi_verilator.json','260k_metadata.
  rows.append([name,a.get('stream_bytes_per_token','NOT MEASURED'),b.get('stream_bytes_per_token','NOT MEASURED'),a.get('cycles_per_token_mean','NOT MEASURED'),b.get('cycles_per_token_mean','NOT MEASURED'),f"{50e6/b['cycles_per_token_mean']:.5f}" if b.get('cycles_per_token_mean') else 'NOT MEASURED'])
 table(['Config','Before B/token MEASURED','After B/token MEASURED','Before cycles/token MEASURED','After cycles/token MEASURED','50MHz tok/s DERIVED'],rows)
 emit('The before/after 15M QSPI microbenchmark uses the same four positions (--gen 1 with the original four-token prompt). The separate 15m_small.json is IDEAL 1 B/clk and is not substituted as a QSPI baseline. Historical 11.63MB/token and estimated 1.07 tok/s are not substituted for a fresh QSPI measurement. Research predicted 949,248B saving/pass; only actual producer output above supports a new measured claim.\n')
+if (D/'metadata_preflight.csv').exists():
+ checked=list(csv.DictReader((D/'metadata_preflight.csv').open()))
+ emit('Independent readonly preflight (MEASURED): python sprint/scripts/metadata_preflight.py intercepts the planned packer write, decodes the actual compact bytes independently, and compares all effective multipliers, shifts and two integer golden forwards per tensor. This does not modify production files or substitute for RTL validation. Artifacts metadata_preflight.csv and planned_packer_normalized_sha256.txt.')
+ table(['Model','Tensors MEASURED','Serialized bytes saved MEASURED','All metadata / forwards equal MEASURED'],[[model,sum(r['model']==model for r in checked),sum(int(r['saved_bytes']) for r in checked if r['model']==model),all(r['all_metadata_equal']==r['integer_forward_equal']=='True' for r in checked if r['model']==model)] for model in ['260k','15m']])
+emit('Static RTL-kind fault-target audit: python sprint/scripts/fault_needle_audit.py confirms every RTL-kind mutation needle still matches the current source after compaction. This is a source-integrity check, not a substitute for executing mutations; data/fault_needle_audit.csv.\n')
 emit('## P5 serial overlap')
 emit('TIMEBOXED design-only. Independent pf_active/pf_left prefetch and st_ready already run during RMS/attention/SwiGLU/quant until FIFO fills. Thus the research inference that all those phase clocks imply idle flash was too strong. No unmeasured enable parameter was added. See sprint/P5_PREFETCH_REVIEW.md. FIFO sizing and occupancy instrumentation remain next experiments, not a delivered speedup.\n')
+overlap=load('e2e_qspi_icarus.json',{})
+if overlap.get('stream_bytes_per_token') and overlap.get('cycles_per_token_mean'):
+ floor=overlap['stream_bytes_per_token']/.25;ceiling=100*(overlap['cycles_per_token_mean']/floor-1)
+ emit(f'Independent overlap limit DERIVED for the measured short 260K QSPI workload: bytes/rate={overlap["stream_bytes_per_token"]}/0.25={floor:.1f} clocks/token versus measured {overlap["cycles_per_token_mean"]:.1f}. Even eliminating every non-bandwidth clock would improve throughput by at most {ceiling:.4f} percent. Source e2e_qspi_icarus.json, command in crosscheck.py. This does not bound long-context or faster-stream cases; it explains why another prefetch enable is a poor short-case optimization.')
 emit('## P6 regeneration and strict gate')
 emit('Engineering commands and return codes: sprint/data/engineering_status.json, with timestamped command lines in SPRINT_LOG.md. Every artifact is produced by its runner. The full QSPI unit producer output from the final P1 cross-check may be promoted byte-for-byte after full provenance freshness/coverage checks, since metadata format changes do not touch that unit or its inputs; this avoids rerunning its identical complete protocol suite. Promotion verifies identical SHA256 and never patches an artifact hash or field. Check the final full strict gate log sprint/data/strict_gate_final.log; any unmet item remains unmet. Physical results are NOT RUN until OWNER_RUN2.ps1 executes. No alternate relaxed gate was introduced.\n')
 rows=[]
@@ -102,6 +116,16 @@ table(['Job','Exit MEASURED','Wall seconds MEASURED','Exact command'],rows)
 emit('## Diff and numbers versus audit-fixes')
 r=subprocess.run(['git','diff','e8d9282','--stat'],capture_output=True,text=True);emit('```text\n'+r.stdout+'```')
 emit('Before: implicit unit TB time precision and compiler-version-only provenance. After: shared backend, explicit precision, mandatory runtime/tool identities. Representative GEMV cycle difference 101.2654 ->100.2654 is a TB sampling correction and both new backends must agree; not a hardware performance gain. Production arithmetic source diff must stay empty for firmware/host/numerics_v2/runq_runtime.py and fixed.py. New metadata measurements, if complete, are separated from research estimates above.\n')
+emit('Per-package source diff counts below are DERIVED by summing git diff --numstat e8d9282 for the listed groups; package scripts/data are separately visible in the complete stat.')
+package_paths={'P1':['tools/decode/sim.py','tools/decode/run_*_rtl.py','tools/board/run_uart_rtl.py'],'P2':['tools/decode/provenance.py','tools/decode/test_gate.py'],'P3':['sprint/scripts/argmax_bound.py'],'P4':['tools/decode/pack_decode_image.py','rtl/decode/top_decode.sv','rtl/board/boolean_core.sv','tools/decode/fault_inject.py'],'P5':['sprint/P5_PREFETCH_REVIEW.md'],'P6':['OWNER_RUN2.ps1','bench/results/']}
+stats=[]
+for package,paths in package_paths.items():
+ data=subprocess.run(['git','diff','e8d9282','--numstat','--',*paths],capture_output=True,text=True).stdout.splitlines();adds=dels=0
+ for row in data:
+  fields=row.split('\t')
+  if len(fields)>=3 and fields[0].isdigit():adds+=int(fields[0]);dels+=int(fields[1])
+ stats.append([package,len(data),adds,dels])
+table(['Package','Files DERIVED','Lines added DERIVED','Lines removed DERIVED'],stats)
 emit('## OWNER_RUN2.ps1')
 emit('NOT RUN: `powershell -ExecutionPolicy Bypass -File OWNER_RUN2.ps1`. Requires Vivado2025.2, the models junction, generated LUTs, matching final packed image, and successful final fast artifact regeneration. All jobs sequential; build/owner_logs2/<job>.log records START/EXIT, first failure throws, strict gate is last. No bitstream generation.\n')
 emit('```powershell\n'+Path('OWNER_RUN2.ps1').read_text()+'```')

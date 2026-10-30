@@ -51,7 +51,7 @@ for name,cmd in jobs:
  if name=='qspi' and passed and run([sys.executable,'sprint/scripts/promote_fresh_qspi.py'],'regen_qspi',180)==0:continue
  if run([sys.executable,*cmd,'--sim',backend],'regen_'+name,1800):break
 # Fault suites depend on every model/numeric source: produce them under final inputs.
-for unit in ['gemv','actq','rms','vec','attn','attn15','top','qspi','board']:
+for unit in ['gemv','top','board','qspi','actq','rms','vec','attn','attn15']:
  if time.monotonic()>deadline-2700:break
  if run([sys.executable,'tools/decode/fault_inject.py',unit],'fault_'+unit,1800):break
 # Regenerate final e2e artifacts through their producers when the accelerated backend passed equivalence.
@@ -60,6 +60,11 @@ if passed:
  for name,args in e2es:
   if time.monotonic()>deadline-1800:break
   if run([sys.executable,'tools/decode/run_decode_rtl.py',*args,'--gen','8','--sim',backend,'--output','bench/results/decode_e2e_rtl_'+name+'.json'],'regen_e2e_'+name,1800):break
+# Use the reserved final regeneration window for any still-unrun fault suite.
+for unit in ['gemv','top','board','qspi','actq','rms','vec','attn','attn15']:
+ if 'fault_'+unit in state:continue
+ if time.monotonic()>deadline-300:break
+ if run([sys.executable,'tools/decode/fault_inject.py',unit],'fault_'+unit,1800):break
 # Keep strict gate strict; stale physical artifacts are expected until OWNER_RUN2.
 run([sys.executable,'tools/decode_gate.py'],'strict_gate_final',180)
 state['P6']=dict(status='PARTIAL',note='Physical jobs NOT RUN; inspect strict gate unmet. No gate relaxed.')
