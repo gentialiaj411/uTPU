@@ -235,6 +235,7 @@ def main():
     ap.add_argument('--output', default=str(ROOT / 'bench/results/boolean_uart_rtl.json'))
     ap.add_argument('--fast', action='store_true', help='fault-injection mode: main run only, stop at the first error')
     ap.add_argument('--replace', action='append', default=[], help='ORIG=MUTANT source file substitution (fault injection)')
+    ap.add_argument('--sim', choices=('icarus','verilator'), default=__import__('sim').SIMULATOR, help='simulation backend (default icarus)')
     a = ap.parse_args()
     t0 = time.time()
     prompts = [[1, 403, 260], [1, 87]][:a.prompts]

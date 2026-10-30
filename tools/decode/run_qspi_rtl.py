@@ -276,6 +276,7 @@ def main():
     ap.add_argument('--rtl', default=str(ROOT / 'rtl/decode/qspi_reader.sv'))
     ap.add_argument('--output', default=str(ROOT / 'bench/results/decode_qspi_rtl.json'))
     ap.add_argument('--variants', default=None, help='comma list of variant names (default all)')
+    ap.add_argument('--sim', choices=('icarus','verilator'), default=__import__('sim').SIMULATOR, help='simulation backend (default icarus)')
     a = ap.parse_args()
     want = set(a.variants.split(',')) if a.variants else None
     img = np.random.default_rng(20261027).integers(0, 256, NB, dtype=np.uint8)

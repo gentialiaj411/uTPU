@@ -89,6 +89,7 @@ def main():
     ap.add_argument('--rtl', default=str(ROOT / 'rtl/decode/vec_alu.sv'))
     ap.add_argument('--pkg', default=str(ROOT / 'rtl/decode/decode_pkg.sv'))
     ap.add_argument('--output', default=str(ROOT / 'bench/results/decode_vec_alu_rtl.json'))
+    ap.add_argument('--sim', choices=('icarus','verilator'), default=__import__('sim').SIMULATOR, help='simulation backend (default icarus)')
     a = ap.parse_args()
     runs = {unit: run_geometry(a, cs, unit, rope, depth) for cs, unit, rope, depth in GEOMETRIES}
     o = {'status': 'pass' if all(r['status'] == 'pass' for r in runs.values()) else 'fail',

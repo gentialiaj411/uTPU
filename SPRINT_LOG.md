@@ -1,0 +1,6 @@
+# Sprint log
+- Integration owner logs audited, all EXIT 0. Gate PASS, comment mutation stale FAIL, restore PASS. Committed audit-fixes e8d9282; perf worktree created from that commit. Owner artifacts preserved.
+- Decision: no new Vivado execution; owner script will include synthesis and implementation with strict gate last.
+- Backend finding: unit TB omitted timescale; Verilator initially produced 12,754 mismatches and stale-done/23 cycles per tile. Explicit 1ns/1ps precision for BOTH backends fixes the delta-cycle race: GEMV now passes both with 100.2654 cycles/tile and identical mutation count1006. Historical101.2654 differs because TB timing was unspecified. No arithmetic/tolerance changed.
+- Version queries cached by executable content digest, not merely path or mtime. Executable hashes still recomputed for stale checks. Restarted gate tests after avoiding repeated slow compiler version invocations.
+- P3 self-review caught a modeling bug: max(row bounds) cannot be computed using only groupwise block-header maxima. Archived initial CSV as INVALID; restarted with actual groupwise maximum coefficients computed from the declared block metadata. L1/L2 variants include all row norm/scale metadata traffic. No invalid CSV will support a performance claim.

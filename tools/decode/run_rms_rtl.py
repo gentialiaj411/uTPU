@@ -55,6 +55,7 @@ def main():
     ap.add_argument('--rtl', default=str(ROOT / 'rtl/decode/rmsnorm.sv'))
     ap.add_argument('--pkg', default=str(ROOT / 'rtl/decode/decode_pkg.sv'))
     ap.add_argument('--output', default=str(ROOT / 'bench/results/decode_rms_rtl.json'))
+    ap.add_argument('--sim', choices=('icarus','verilator'), default=__import__('sim').SIMULATOR, help='simulation backend (default icarus)')
     a = ap.parse_args()
     data, sha = load_cases('rms')
     cases, meta = data['cases'], data['meta']

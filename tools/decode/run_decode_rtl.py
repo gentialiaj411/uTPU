@@ -129,10 +129,26 @@ def main():
     ap.add_argument('--timeout', type=float, default=6 * 3600, help='wall-clock seconds for the vvp run')
     ap.add_argument('--top-rtl', default=None, help='replacement top_decode.sv (fault injection)')
     ap.add_argument('--define', action='append', default=[], help='iverilog define (mutation checks)')
+    ap.add_argument('--sim', choices=('icarus','verilator'), default=__import__('sim').SIMULATOR, help='simulation backend (default icarus)')
     a = ap.parse_args()
     prompt_bank = [[1, 403, 260], [1, 87], [1, 33, 499, 12], [1, 300], [1, 150, 77]] if a.model == '260k' else \
         [[1, 9038, 2501, 263], [1, 3118]]
+    if a.prompts < 1 or a.gen < 1:
+        ap.error('prompts and gen must be positive')
+    if a.prompts > len(prompt_bank):
+        from tools.llama2c.tokenizer import Tokenizer
+        tokenizer = Tokenizer(ROOT / 'models/llama2c/tokenizer.bin', 32000) if a.model == '15m' else Tokenizer(ROOT / 'models/llama2c/stories260K/tok512.bin', 512)
+        stories = (ROOT / 'models/llama2c/TinyStories-valid.txt').read_text(encoding='utf-8').split('<|endoftext|>')
+        for story in stories:
+            if story.strip():
+                candidate = tokenizer.encode(story.strip()[:160])[:8]
+                if candidate not in prompt_bank: prompt_bank.append(candidate)
+            if len(prompt_bank) >= a.prompts: break
+    if len(prompt_bank) < a.prompts:
+        ap.error('not enough distinct validation prompts')
     prompts = prompt_bank[:a.prompts]
+    if max(map(len,prompts)) + a.gen - 1 > (64 if a.model == '260k' else 128):
+        ap.error('prompt plus generation exceeds hardware context')
     t0 = time.time()
     exp, seqs = golden(a.model, a.kv_bits, prompts, a.gen)
     img, params = pack(exp)

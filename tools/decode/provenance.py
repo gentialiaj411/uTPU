@@ -6,7 +6,10 @@ input its run depended on. The gate recomputes the hashes; any difference means 
 ARTIFACT_SOURCES is the single place that lists what each artifact type depends on (glob patterns, repo-relative).
 """
 from __future__ import annotations
-import glob, hashlib, subprocess
+import glob, hashlib, subprocess, sys, platform
+from functools import lru_cache
+import numpy as np
+from sim import simulator_identity
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -70,7 +73,7 @@ SYNTH_SOURCES = {
                             'tools/decode/gen_qspi_wrap.py', 'tools/decode/synth_ooc.py'],
 }
 # fault-injection results are per unit; they depend on every RTL file the faults can touch plus the injector and runners
-FAULT_SOURCES = [D + '*.sv', 'rtl/board/*.sv', 'tools/decode/tb/*.sv', 'tools/decode/fault_inject.py', 'tools/decode/run_*_rtl.py',
+FAULT_SOURCES = [*NUMERICS, *M260, *M15, *LUTS, D + '*.sv', 'rtl/board/*.sv', 'tools/decode/tb/*.sv', 'tools/decode/fault_inject.py', 'tools/decode/run_*_rtl.py',
                  'tools/board/run_uart_rtl.py', 'tools/board/tb/*.sv', 'tools/board/boolean_host.py', *TOOLS]
 
 
@@ -81,6 +84,10 @@ def e2e_sources(model: str, flash: str) -> list:
 
 
 def iverilog_version() -> str:
+    return _iverilog_version_cached(sha256_file(IVERILOG) if IVERILOG.exists() else 'missing')
+
+@lru_cache(maxsize=8)
+def _iverilog_version_cached(executable_digest) -> str:
     try:
         r = subprocess.run([str(IVERILOG), '-V'], capture_output=True, text=True, timeout=30)
         return (r.stdout.splitlines() or ['unknown'])[0].strip()
@@ -126,6 +133,9 @@ def provenance(paths, overrides=None) -> dict:
         else:
             res[f] = sha256_file(ROOT / f)
     res['tool:iverilog'] = hashlib.sha256(iverilog_version().encode()).hexdigest()
+    res['tool:simulator'] = simulator_identity()
+    res['runtime:python'] = hashlib.sha256(sys.version.encode()).hexdigest()
+    res['runtime:numpy'] = hashlib.sha256(np.__version__.encode()).hexdigest()
     return res
 
 
@@ -133,6 +143,20 @@ def stale(prov: dict, name: str) -> list:
     """Messages for each recorded file whose hash no longer matches."""
     msgs = []
     for k, h in prov.items():
+        if k == 'tool:simulator':
+            import sim
+            selected = sim.SIMULATOR
+            try:
+                sim.SIMULATOR = h['name']
+                if simulator_identity() != h: msgs.append(f'stale {name}: simulator identity changed')
+            except Exception as exc:
+                msgs.append(f'stale {name}: simulator identity unavailable: {exc}')
+            finally: sim.SIMULATOR = selected
+            continue
+        if k.startswith('runtime:'):
+            value = sys.version if k == 'runtime:python' else np.__version__
+            if hashlib.sha256(value.encode()).hexdigest() != h: msgs.append(f'stale {name}: {k} changed')
+            continue
         if k == 'tool:iverilog':
             if IVERILOG.exists() and hashlib.sha256(iverilog_version().encode()).hexdigest() != h:
                 msgs.append(f'stale {name}: iverilog version changed')
@@ -151,4 +175,4 @@ def missing_coverage(prov: dict, patterns, name: str) -> list:
         need = expand(patterns)
     except FileNotFoundError as e:
         return [f'{name}: {e}']
-    return [f'provenance of {name} lacks {f}' for f in need if f not in prov]
+    return [f'provenance of {name} lacks {f}' for f in [*need, 'tool:simulator', 'runtime:python', 'runtime:numpy'] if f not in prov]

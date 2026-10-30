@@ -115,6 +115,7 @@ def main():
     ap.add_argument('--golden', type=Path, default=ROOT / 'build/decode/golden_gemv')
     ap.add_argument('--output', type=Path, default=ROOT / 'bench/results/decode_gemv_rtl.json')
     ap.add_argument('--rtl', type=Path, default=ROOT / 'rtl/decode/gemv_unit.sv')
+    ap.add_argument('--sim', choices=('icarus','verilator'), default=__import__('sim').SIMULATOR, help='simulation backend (default icarus)')
     a = ap.parse_args()
     man_bytes = (a.golden / 'manifest.json').read_bytes(); man = json.loads(man_bytes)
     recs = man['records'] + man['random_records']

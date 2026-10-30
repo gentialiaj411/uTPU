@@ -191,3 +191,23 @@ def test_incomplete_provenance_fails(work):
 def test_stale_gemv_names_the_file(work):
     edit(work, 'decode_gemv_rtl', lambda o: o['provenance'].update({'rtl/decode/gemv_unit.sv': '3' * 64}))
     assert any(m.startswith('stale decode_gemv_rtl') for m in unmet(work))
+@pytest.mark.parametrize('key', ['runtime:python','runtime:numpy'])
+def test_runtime_identity_changes_invalidate(work,key):
+    edit(work,'decode_gemv_rtl',lambda o:o['provenance'].update({key:'0'*64}))
+    assert any(key+' changed' in x for x in unmet(work))
+
+@pytest.mark.parametrize('field',['version','executable_sha256','compiler_sha256'])
+def test_simulator_identity_changes_invalidate(work,field):
+    edit(work,'decode_gemv_rtl',lambda o:o['provenance']['tool:simulator'].update({field:'changed'}))
+    assert any('simulator identity changed' in x for x in unmet(work))
+
+@pytest.mark.parametrize('path', [*pv.M260,*pv.M15,*pv.NUMERICS])
+def test_fault_dependencies_invalidate(work,path):
+    expanded=pv.expand([path])
+    edit(work,'decode_fault_injection',lambda o:o['provenance']['gemv'].update({expanded[0]:'0'*64}))
+    assert any('stale decode_fault_injection[gemv]' in x for x in unmet(work))
+
+@pytest.mark.parametrize('key',['tool:simulator','runtime:python','runtime:numpy'])
+def test_new_identity_inputs_required(work,key):
+    edit(work,'decode_gemv_rtl',lambda o:o['provenance'].pop(key))
+    assert any('lacks '+key in x for x in unmet(work))

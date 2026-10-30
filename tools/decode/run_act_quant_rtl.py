@@ -79,6 +79,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--rtl', type=Path, default=ROOT / 'rtl/decode/act_quant.sv')
     ap.add_argument('--output', type=Path, default=ROOT / 'bench/results/decode_act_quant_rtl.json')
+    ap.add_argument('--sim', choices=('icarus','verilator'), default=__import__('sim').SIMULATOR, help='simulation backend (default icarus)')
     a = ap.parse_args()
     if not (GOLDEN / 'manifest.json').exists():
         subprocess.run([sys.executable, str(ROOT / 'tools/decode/golden_act_quant.py')], check=True)
