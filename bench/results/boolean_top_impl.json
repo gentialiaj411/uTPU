@@ -24,14 +24,14 @@
     "rtl/board/qspi_pads.sv",
     "rtl/board/boolean_top.sv"
   ],
-  "lut": 20781.0,
-  "lut_pct": 63.7,
+  "lut": 20798.0,
+  "lut_pct": 63.8,
   "ff": 9825.0,
   "dsp": 73.0,
   "bram36_equiv": 67.0,
-  "wns_ns": 1.275,
+  "wns_ns": 1.0,
   "tns_ns": 0.0,
-  "whs_ns": 0.032,
+  "whs_ns": 0.043,
   "ths_ns": 0.0,
   "timing_met": true,
   "drc_checks_found": 36,
@@ -146,14 +146,14 @@
       }
     },
     "worst_hold": {
-      "slack_ns": 0.032,
-      "from": "u_core/u_dec/attn/p_reg[31]/C",
-      "to": "u_core/u_dec/attn/dp_n_reg[31]/D"
+      "slack_ns": 0.043,
+      "from": "u_core/u_dec/va_a_reg[16]/C",
+      "to": "u_core/u_dec/va/a_r_reg[16]/D"
     },
     "worst_setup": {
-      "slack_ns": 1.275,
-      "from": "u_core/u_dec/attn/x__1/CLK",
-      "to": "u_core/u_dec/attn/pbuf_reg_0_15_14_14/SP/I"
+      "slack_ns": 1.0,
+      "from": "u_core/u_dec/gemv/s3_reg[0]/C",
+      "to": "u_core/u_dec/gemv/q4_reg[63]/D"
     }
   },
   "bram36_physical_limit": 75,
@@ -252,10 +252,10 @@
   },
   "provenance": {
     "C:/Users/bhask/Documents/PROJECTS/uTPU/models/numerics_v2/gptq_qkv_wo_w2_int8_g32.npz": "ecf950f452d052ce5909add99d7443d5d5be75dd12d78900e7bcb0ca38afe03d",
-    "build/decode/decode_image_15m/params.json": "7cc473ad50ece06101de4c0295dc597503cfd72a108043b3222db3d5b2932df1",
+    "build/decode/decode_image_15m/params.json": "3a46c4d514a509c5ced6a4c2825177ea598130df758672c245f728d48397240f",
     "constraints/boolean_xc7s50.xdc": "9a9e136f5cd3d0d4c93a3cfbfec4b6d8bcd94522edc2b5926d37aa4e34028e0e",
     "rtl/board/board_ctrl.sv": "91cd6956cf588f2ba37643ed85897a5e779e0333f7c4faeaf8fdfba5b62e9114",
-    "rtl/board/boolean_core.sv": "e8a4e82eeb1f42ebafd6c16275e3ba7925126ee97af1d9cabfc7ce0e18c7b3a3",
+    "rtl/board/boolean_core.sv": "0ee428555442eb8a522bb06d301c3f80bbf6b189f9c1ddd71dcb13f9b4d45db8",
     "rtl/board/boolean_top.sv": "e32bc52e4ae4f6cee7abb65c4f5dacbb19ad04051cbc1b90157ee68876447d2a",
     "rtl/board/qspi_pad_regs.sv": "28bac64b4ef18bcdff7281f5ad080cb3a5a069ae6ca32bad20fb740b148d6408",
     "rtl/board/qspi_pads.sv": "ce900c1e4c91dfeecef305f030a02f664b827beab5291602e399aad0a636a62c",
@@ -270,11 +270,20 @@
     "rtl/decode/qspi_reader.sv": "27494542f9f4750eecc9cb1dc84ab1fa90b7d3026b091094b1454fb3a53e74db",
     "rtl/decode/rmsnorm.sv": "18d097372a48fcb40f3b1217994975fa19beaa2b746bbbe9aeb7154055a1ca70",
     "rtl/decode/seq_mul.sv": "93e0db89fd1746bc1aa234a3cd8957a81d7c0920d5a13aa720e6b7845033cec5",
-    "rtl/decode/top_decode.sv": "7e35843420580281145d26521a56b8d260b5be22d0b45d89531735a7b038f42d",
+    "rtl/decode/top_decode.sv": "52fedf0fbe94f76f263a8778d0253d760d11ec8ee9e47ede842c00f92e42d1f3",
     "rtl/decode/vec_alu.sv": "9dbfa131e5e4a1c5c2363eee7ad92f59ac810f29371b5170206a3325b3e3b055",
     "tools/board/impl_top.py": "38b11fb149f7971637677ddba1f66ece798ffd652b84200af06fb7268622fc3f",
-    "tools/decode/pack_decode_image.py": "d3a4c229f1d449b40a5df2bf93c24fb5d0bb49949a420dc52d070a4236d57e80",
-    "tools/decode/provenance.py": "b481bbdcd5a7125820c8c46c7785dbb19cce770d76eb3476cd2a98ee5df7c8a2",
-    "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96"
+    "tools/decode/pack_decode_image.py": "e26cc3779e106ed01de7a660ddaa9d1ff4e2b41af8e3b4309f1b5634dda74fca",
+    "tools/decode/provenance.py": "4d7a310a496f292013020646f48e6597842a8db7419492cf3499596bdbcd573d",
+    "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96",
+    "tool:simulator": {
+      "name": "icarus",
+      "version": "Icarus Verilog runtime version 12.0 (devel) (s20150603-1539-g2693dd32b)\n\nCopyright (c) 2001-2021 Stephen Williams (steve@icarus.com)\n\n  This program is free software; you can redistribute it and/or modify\n  it under the terms of the GNU General Public License as published by\n  the Free Software Foundation; either version 2 of the License, or\n  (at your option) any later version.\n\n  This program is distributed in the hope that it will be useful,\n  but WITHOUT ANY WARRANTY; without even the implied warranty of\n  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n  GNU General Public License for more details.\n\n  You should have received a copy of the GNU General Public License along\n  with this program; if not, write to the Free Software Foundation, Inc.,\n  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.",
+      "executable": "C:\\iverilog\\bin\\vvp.exe",
+      "executable_sha256": "e2f442f4d5aa76e55c85c3ff77e4446fbfdb9946b7cfe8a2dff87f275da17b62",
+      "compiler_sha256": "803b8844af2cc8ed70b5f08b07ffa749901280e81339617ca3e72cbbb852bd2b"
+    },
+    "runtime:python": "c0c26871ec1aae748b7914a09c9566d5234775c7a1a2915bf8f401eb6d5cd964",
+    "runtime:numpy": "4b0379678f664340b010747a4ad1436f29a4e92e8b245932f19cec020dff8770"
   }
 }

@@ -126,7 +126,7 @@ Validation commands: python -m pytest sprint/scripts/test_compact_metadata.py -q
 
 | Config | Before B/token MEASURED | After B/token MEASURED | Before cycles/token MEASURED | After cycles/token MEASURED | 50MHz tok/s DERIVED |
 | --- | --- | --- | --- | --- | --- |
-| 260K QSPI | 215786 | 215786 | 863608.6 | 863608.6 | 57.89660 |
+| 260K QSPI | 232554 | 215786 | 930680.6 | 863608.6 | 57.89660 |
 | 15M QSPI | 11633661 | 10684413 | 46653325.5 | 42856333.5 | 1.16669 |
 
 The before/after 15M QSPI microbenchmark uses the same four positions (--gen 1 with the original four-token prompt). The separate 15m_small.json is IDEAL 1 B/clk and is not substituted as a QSPI baseline. Historical 11.63MB/token and estimated 1.07 tok/s are not substituted for a fresh QSPI measurement. Research predicted 949,248B saving/pass; only actual producer output above supports a new measured claim.

@@ -51,3 +51,4 @@ models/numerics_v2/
 torchinductor_bhask/
 1/
 *.xpr
+sprint/data/argmax_sweep.csv
