@@ -37,13 +37,14 @@
 //     cycle before the first address rising edge, like the first address bit of 6Bh. Cost: 8 core cycles per command.
 //   Dummy: DDR_DUMMY = 3 SCK cycles at full speed; IO[3:0] are released at the first dummy rising edge, one core cycle after
 //     the falling edge that samples the last mode nibble (so that nibble keeps its hold time): "High-Z Bus Turn-around".
-//   Data: Fig. 94 cycle 15 (Data 0): the high nibble occupies the low SCK phase that starts with the falling edge ending the
-//     last dummy cycle, the low nibble the high phase after it, i.e. the flash launches the high nibble on that falling edge
-//     and the low nibble on the next rising edge, each valid tV after its edge and held tHO after the next edge (Table 15,
-//     Fig. 41 "SPI DDR output timing"). So every SCK toggle of the data phase launches one nibble (falling: high, rising:
-//     low); it is sampled one core cycle after the toggle (+ CAP_DLY), i.e. on the core edge of the next toggle.
-//   Backpressure: a rising toggle (it launches a low nibble, which completes a byte) is withheld while that byte could not
-//     be stored, so SCLK stops low as for 6Bh. A byte completes every 2 core cycles and its capture lags the toggle by
+//   Data: Fig. 94 cycle 15 (Data 0): the flash launches the high nibble [7:4] on the rising edge that starts cycle 15 (the
+//     16th rising edge of the command) and the low nibble [3:0] on the falling edge after it, each valid tV after its edge
+//     and held tHO after the next edge (Table 15, Fig. 41 "SPI DDR output timing"); the optional DLP would occupy the dummy
+//     edges up to the falling edge that ends cycle 14, so that edge launches no data. So from rising edge 16 on every SCK
+//     toggle launches one nibble (rising: high, falling: low); it is sampled one core cycle after the toggle (+ CAP_DLY),
+//     i.e. on the core edge of the next toggle. (Checked against the independently written flash model.)
+//   Backpressure: a falling toggle (it launches a low nibble, which completes a byte) is withheld while that byte could not
+//     be stored, so SCLK stops high in the data phase. A byte completes every 2 core cycles and its capture lags the toggle by
 //     1 + CAP_DLY cycles, so DDR adds a second byte register (sk_*) behind the output register; with one register the stall
 //     rule would halve the rate.
 //   Seek: CS# is raised only before the first SCK edge of a command or in the data phase, never during the address, mode
@@ -141,8 +142,8 @@ module qspi_reader #(
     localparam logic [7:0] DDR_MODE = 8'h00;          // nibbles not complementary: no continuous read mode
     localparam int AMR = ADDR_BYTES + 1;              // SCK cycles of address + mode (one byte per cycle)
     localparam int DSW = 8 * AMR;                     // address + mode nibble shift register
-    localparam int PRE_DDR = 8 + AMR + DDR_DUMMY;     // rising edges before the first data rising edge (15)
-    localparam int PRX = DDR ? PRE_DDR : PRE;
+    localparam int PRE_DDR = 8 + AMR + DDR_DUMMY;     // rising edges of instruction, address, mode and dummy (15); edge 16 launches Data 0
+    localparam int PRX = DDR ? PRE_DDR + 1 : PRE;     // DDR: rise_n reaches 16 once Data 0's high nibble has been launched
 
     typedef enum logic [1:0] {S_START, S_IDLE, S_GAP, S_RUN} state_t;
     state_t        state;
@@ -178,6 +179,8 @@ module qspi_reader #(
     wire accept_now  = st_valid && st_ready;
     wire room        = !ob_valid || accept_now;
     wire data_phase  = (rise_n >= 8'(PRX));
+    // DDR: this toggle launches a data nibble: rising edge 16 onwards (sclk low, rise_n = 15 before it), then every edge
+    wire ddr_launch_ok = sclk_q ? (rise_n >= 8'(PRE_DDR + 1)) : (rise_n >= 8'(PRE_DDR));
     wire tick_raw    = (tcnt == TW'(HALF - 1));
     // nibble phase the next rising edge will sample, counting captures still in flight, and whether an in-flight capture
     // will complete a byte (it will occupy the output register before the next one can)
@@ -198,7 +201,7 @@ module qspi_reader #(
     // DDR: same rule with two byte registers: the byte this rising toggle completes needs a register after every byte still
     // held after this cycle's handoff and every byte completion already in flight
     wire [1:0] occ_after = 2'(ob_valid) + 2'(sk_valid) - 2'(accept_now);
-    wire rise_blocked_ddr = !sclk_q && data_phase && eff_ph && (3'(occ_after) + 3'(pend_n) > 3'd1);
+    wire rise_blocked_ddr = ddr_launch_ok && eff_ph && (3'(occ_after) + 3'(pend_n) > 3'd1);
     wire stop        = DDR ? rise_blocked_ddr : rise_blocked;
     wire tick        = tick_raw && !stop;
     wire abort_sdr   = (data_phase || rise_n[2:0] == 3'd0);
@@ -224,7 +227,7 @@ module qspi_reader #(
             if (accept_now) ob_valid <= 1'b0;
             if (accept_now && sk_valid) begin ob_data <= sk_data; ob_valid <= 1'b1; sk_valid <= 1'b0; end   // DDR only
             cap_p <= (cap_p << 1) | CD'(launch);
-            dl_q <= DDR && state == S_RUN && !abort_now && tick && !dchg && data_phase;
+            dl_q <= DDR && state == S_RUN && !abort_now && tick && !dchg && ddr_launch_ok;
             case (state)
                 S_START: begin
                     if (su_cnt == 8'd0) state <= S_IDLE;

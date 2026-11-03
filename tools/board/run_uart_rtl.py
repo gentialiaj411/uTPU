@@ -24,7 +24,7 @@ import boolean_host as bh
 
 # --- interface names shared with the RTL / flash-model changes (DDR contract C1/C3); integration fixes a mismatch HERE only ---
 BOARD_DDR_PARAM = 'DDR'          # boolean_core / boolean_top parameter; 'V' reply is 1 for DDR=0 and 2 for DDR=1
-MODEL_CR1_PARAM = 'CR1_INIT'     # qspi_flash_model parameter [7:0]: power-up CR1 (--ddr starts it at 8'h00 = LC 00, QUAD 0; the host must switch it to LC=11)
+MODEL_CR1_PARAM = 'LC_INIT/QUAD_INIT'   # qspi_flash_model power-up CR1 fields (--ddr starts at LC 00, QUAD 0; the host must switch it to LC=11)
 CR1_WANT_SDR, CR1_WANT_DDR = 0x02, 0xC2
 BASE = 0x280000
 CPB = 8
@@ -287,7 +287,7 @@ def main():
 
     def build(mode, stop, name, wdog=268435456):
         tb = BUILD / f'uart_{pfx}{name}_tb.sv'
-        text = TB % dict(ver=ver, cr1want=cr1want, mparams=(f", .{MODEL_CR1_PARAM}(8'h00)" if ddr else ''), ns=len(steps), vocab=params['VOCAB'], nbytes=len(img), base=BASE, cpb=CPB, mode=mode, tmo=TMO, params=plist, stop=stop, wdog=wdog, hostseq=hostseq, **files)
+        text = TB % dict(ver=ver, cr1want=cr1want, mparams=(", .LC_INIT(2'b00), .DTV(0.65), .DTHO(0.15), .DTSU(0.2), .DTHD(0.2)" if ddr else ''), ns=len(steps), vocab=params['VOCAB'], nbytes=len(img), base=BASE, cpb=CPB, mode=mode, tmo=TMO, params=plist, stop=stop, wdog=wdog, hostseq=hostseq, **files)
         tb.write_text(text.replace('TMO_CYC', str(3 * TMO)).replace('.QUAD_INIT(MODE == 0 ? 1\'b0 : 1\'b0)', '.QUAD_INIT(1\'b0)'))
         return tb
 

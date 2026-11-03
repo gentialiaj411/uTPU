@@ -8,7 +8,7 @@ module ddr_env #(parameter bit SPARSE = 1'b0, parameter bit QUAD = 1'b1, paramet
                  parameter int SIZE = 4096) ();
     logic sck = 0, cs_n = 1; logic [3:0] host_o = 0, host_oe = 0;
     wire [3:0] f_o, f_oe, bus;
-    qspi_flash_model #(.IMG("build/flash_selftest_img.hex"), .SIZE(SIZE), .SPARSE(SPARSE), .QUAD_INIT(QUAD), .LC_INIT(LC), .REQUIRE_LC11(REQ),
+    qspi_flash_model #(.IMG("build/flash_selftest_img.hex"), .SIZE(SIZE), .SPARSE(SPARSE), .QUAD_INIT(QUAD), .LC_INIT(LC), .REQUIRE_LC11(REQ), .FATAL_ON_ERROR(1'b0),
                        .TCSS(3.0), .TCSH(3.0), .TCS(10.0)) fl (.sck, .cs_n, .host_o, .host_oe, .flash_o(f_o), .flash_oe(f_oe));
     for (genvar i = 0; i < 4; i++) begin : g_bus
         assign bus[i] = host_oe[i] ? host_o[i] : (f_oe[i] ? f_o[i] : 1'bz);

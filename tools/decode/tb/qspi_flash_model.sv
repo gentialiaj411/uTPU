@@ -50,6 +50,8 @@ module qspi_flash_model #(
     parameter real DTHO = 1.5,           // ns, DDR output hold after a clock edge (min), Table 15 tHO
     parameter real DTSU = 2.0,           // ns, DDR IO input setup before each SCK edge (66 MHz col.; 1.5 at 80 MHz); 0 disables
     parameter real DTHD = 2.0,           // ns, DDR IO input hold after each SCK edge (66 MHz col.; 1.5 at 80 MHz); 0 disables
+    parameter bit FATAL_ON_ERROR = 1'b1, // any counted FLASH-DDR protocol/timing error ends the simulation (rc != 0); the model
+                                         // self-test sets 0 to count several expected errors in one run
     parameter bit REQUIRE_LC11 = 1'b1    // project policy: EDh runs at <= 50 MHz and must have LC = 11 (Table 27: 1 mode + 3 dummy).
                                          // The datasheet itself allows LC 00/01/10 (6/7/8 dummy) at <= 66 MHz and lower (p.54);
                                          // with 0 those rows are modelled instead of flagged.
@@ -64,6 +66,8 @@ module qspi_flash_model #(
     logic bar_extadd = EXTADD_INIT;
     int dn = 0, ddr_cmds = 0, ddr_bytes = 0, cs_gen = 0, ddr_dummy_n = 3;
     int err_total = 0, err_quad = 0, err_lc = 0, err_cont = 0, err_contend = 0, err_setup = 0, err_hold = 0, err_csmid = 0, err_addr = 0, err_drv = 0;
+    // $error alone does not end a simulation: without this a reader that violates a DDR rule would still "pass" a runner
+    always @(err_total) if (FATAL_ON_ERROR && err_total != 0) $fatal(1, "FLASH-DDR: %0d protocol/timing error(s), see the ERROR lines above", err_total);
     realtime t_samp = -1000.0, t_edge = -1000.0, t_chg4 = -1000.0;
     logic [3:0] mode_hi, mode_lo;
     int alen = 3, dummy_n = 8;

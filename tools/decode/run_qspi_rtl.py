@@ -23,7 +23,7 @@ from sim import compile_and_run, VVP
 NB = 16384
 # --- interface names shared with the RTL / flash-model changes (C1/C3 of the DDR contract); integration fixes a mismatch HERE only ---
 READER_DDR_PARAM = 'DDR'         # qspi_reader parameter int DDR (0 = 6Bh SDR, 1 = EDh DDR Quad I/O Read)
-MODEL_CR1_PARAM = 'CR1_INIT'     # qspi_flash_model parameter [7:0]: power-up CR1 = {LC[1:0], 4'b0, QUAD, 1'b0}; the model takes dummy counts from CR1 LC
+MODEL_CR1_PARAM = 'LC_INIT/QUAD_INIT'   # qspi_flash_model power-up CR1 fields (LC_INIT [1:0], QUAD_INIT); the model takes dummy counts from CR1 LC
 DDR_CR1_LC = 0b11                # CR1 latency code a DDR build needs (EDh, 3 dummy cycles)
 BOARD_DDR_VARIANT = 'pad_h1_late_slowin'    # the board configuration; the headline measured_bytes_per_cycle comes from this variant
 STREAM_BYTES = 4000              # DDR runs: bytes taken back-to-back (ready always high) to measure bytes per core cycle
@@ -61,8 +61,8 @@ for v in BASE_VARIANTS:
 # DDR (EDh) configurations: same TB, reader DDR=1, flash model powered up with CR1 = {LC=11, QUAD=1}. EDh has a 3-byte address
 # (no ADDR_BYTES=4 variants, no DUMMY/latency-code variants: DDR dummy cycles come from CR1.LC = 11 in the model). Which HALF /
 # SAMPLE_LATE values the DDR reader accepts is the RTL change's decision: this list is the one place to prune or extend it.
-DDR_BASE_NAMES = ['a3_h1_late', 'a3_h1_early', 'a3_h2_late', 'a3_h2_early', 'pad_h1_late_slowin', 'pad_h1_late_fastin',
-                  'pad_h1_late_nodelay', 'pad_h2_late_slowin', 'su3_a3_h1_late', 'sw3edges_a3_h1_late']
+# the DDR reader accepts only HALF=1 (25 MHz SCK) and SAMPLE_LATE=1 (its elaboration guards refuse the rest, see DDR_REJECTED)
+DDR_BASE_NAMES = ['a3_h1_late', 'pad_h1_late_slowin', 'pad_h1_late_fastin', 'pad_h1_late_nodelay', 'su3_a3_h1_late', 'sw3edges_a3_h1_late']
 DDR_VARIANTS = []
 for v in BASE_VARIANTS:
     if v['name'] in DDR_BASE_NAMES:
@@ -77,7 +77,8 @@ DDR_NEGATIVES = [
     dict(name='neg_ddr_model_quad0_reader_ddr', ab=3, half=1, late=1, ddr=1, lc=DDR_CR1_LC, quad=0, why='model CR1.QUAD=0: an EDh read must trip the model'),
     dict(name='neg_ddr_model_extadd_reader_ab3', ab=3, half=1, late=1, ddr=1, lc=DDR_CR1_LC, extadd=1, why='model BAR.EXTADD=1 expects 4 address bytes, the DDR reader sends 3'),
 ]
-DDR_REJECTED = [('.%s(2)' % READER_DDR_PARAM, READER_DDR_PARAM)]   # untested DDR values are refused at elaboration (like the other parameters)
+DDR_REJECTED = [('.%s(2)' % READER_DDR_PARAM, READER_DDR_PARAM),   # untested DDR values are refused at elaboration (like the other parameters)
+                ('.HALF(2)', 'DDR_HALF'), ('.SAMPLE_LATE(0)', 'DDR_SAMPLE_LATE')]   # DDR=1 with a slower SCK / early sampling: untested, refused
 
 # Disagreements between model and reader that must be detected (rc != 0 or mismatches); each is the same configuration as a
 # passing variant above with one model-side or shim-side change.
@@ -292,7 +293,9 @@ def build_tb(v, img_path):
     if 'startup' in v: xp += f", .STARTUP_PULSES({v['startup']})"
     xp += v.get('xparams', '')
     if v.get('ddr'):   # DDR: the flash model starts from a full CR1 byte {LC, 0000, QUAD, 0}
-        modelcfg = f".{MODEL_CR1_PARAM}(8'h{(v.get('lc', DDR_CR1_LC) << 6) | (v.get('quad', 1) << 1):02x})"
+        # DDR output valid: a variant's slow corner (tv, e.g. 8.0 ns = the XDC overlay's assumption) also applies to the DDR edges;
+        # otherwise the datasheet DDR tV max 6.5 ns (Table 15) is the model default
+        modelcfg = f".LC_INIT(2'b{v.get('lc', DDR_CR1_LC):02b}), .QUAD_INIT(1'b{v.get('quad', 1)})" + (f", .DTV({v['tv']})" if 'tv' in v else '')
     else:
         modelcfg = f".LC_INIT({v.get('lc', 0)})"
     sub = dict(MODELCFG=modelcfg, MEAS=1 if v.get('ddr') else 0, STREAM_BYTES=STREAM_BYTES, NB=NB, AB=v['ab'], SPARSE=v.get('sparse', 0), PADS=pads, SCK_D=v.get('sck_d', 0.0), OUT_D=v.get('out_d', 0.0),
@@ -396,6 +399,9 @@ def main():
             key = {'.HALF': 'half', '.DUMMY': 'dummy', '.ADDR_BYTES': 'ab'}[xp.split('(')[0]]
             v = dict(ab=3, half=1, late=1)
             v[key] = int(xp.split('(')[1].rstrip(')'))
+        if par.startswith('DDR_'):   # DDR=1 combined with a parameter value the DDR path does not accept
+            v = dict(ab=3, half=1, late=1, ddr=1, lc=DDR_CR1_LC)
+            v['half' if par == 'DDR_HALF' else 'late'] = int(xp.split('(')[1].rstrip(')'))
         tb = BUILD / f'qspi_{ptag}rej_{par}_{xp.split("(")[1].rstrip(")")}_tb.sv'
         text = build_tb(v, img_path)
         tb.write_text(text)
