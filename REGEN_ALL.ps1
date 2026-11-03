@@ -1,13 +1,21 @@
 # Regenerate every gate-required decode/board artifact from a clean checkout, then run the strict gate.
 # Sequential, each step logged to build/regen_logs/<name>.log, stops on first failure. Needs iverilog (C:\iverilog\bin),
 # Vivado 2025.2 and models/ (see docs/REPRODUCE_DECODE.md). Roughly 3-4 hours, most of it fault injection and the 15M e2e.
+# -StartAt <step name> resumes an interrupted run: earlier steps are skipped (only valid if no source changed since they ran;
+# the strict gate at the end re-checks every artifact's provenance either way).
+param([string]$StartAt = '')
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location -LiteralPath $root
 $logDir = Join-Path $root 'build/regen_logs'
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 
+$script:running = ($StartAt -eq '')
 function Invoke-Logged([string]$Name, [string[]]$CommandArgs) {
+    if (-not $script:running) {
+        if ($Name -ne $StartAt) { Write-Output "skip $Name"; return }
+        $script:running = $true
+    }
     $log = Join-Path $logDir ($Name + '.log')
     $raw = Join-Path $logDir ($Name + '.output.tmp')
     "[$(Get-Date -Format o)] START python $($CommandArgs -join ' ')" | Set-Content -LiteralPath $log
@@ -67,4 +75,5 @@ Invoke-Logged 'boolean_pin_check' @('tools/board/pin_check.py')
 
 # 6. strict gate
 Invoke-Logged 'strict_gate' @('tools/decode_gate.py')
+if (-not $script:running) { throw "-StartAt '$StartAt' matched no step" }
 Write-Output "REGEN_ALL complete: strict gate passed. Logs: $logDir"

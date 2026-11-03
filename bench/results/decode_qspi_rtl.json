@@ -42,7 +42,7 @@
         "MISMATCH addr=2 got=9b exp=b9",
         "MISMATCH addr=3 got=ab exp=ba"
       ],
-      "sim_stdout_sha256": "bb39e889cc4f8b9eb9a239d063d7a297793371a39b338fd1abfa44deca817ea9",
+      "sim_stdout_sha256": "82b42332644d4b345903ef500fc80a49575c454856fea0ab44db3cff4efb6b13",
       "ok": true
     },
     {
@@ -76,7 +76,7 @@
         "MISMATCH addr=3 got=e1 exp=1e",
         "MISMATCH addr=4 got=58 exp=85"
       ],
-      "sim_stdout_sha256": "40fc95d4bb4b71e01abbb1f0883b54cb2639b1f11c962c7c1f33b8f5eb1f59bd",
+      "sim_stdout_sha256": "1d2ef1739abf64e1ef5069c35d23452089f56afa777e03797f0830a752c55153",
       "ok": true
     },
     {
@@ -110,7 +110,7 @@
         "MISMATCH addr=2 got=9b exp=b9",
         "MISMATCH addr=3 got=ab exp=ba"
       ],
-      "sim_stdout_sha256": "3131242abef0d06558273911cfe429961eae7b8abf07333cad7dbd26f9bca8ad",
+      "sim_stdout_sha256": "a6b1895ee97e9529de76c2da14b9d7d5ab2209f64e7ddbc3c9948aba5b88d2dd",
       "ok": true
     },
     {
@@ -144,7 +144,7 @@
         "MISMATCH addr=3 got=e1 exp=1e",
         "MISMATCH addr=4 got=58 exp=85"
       ],
-      "sim_stdout_sha256": "08126a929565a5be771638c45122d56f65f8f4cdf10e85dcd727e271d7a6b636",
+      "sim_stdout_sha256": "956de92ffc70268a98b441c426f48cd4948811a33c71c65ee810446ad1abb0e0",
       "ok": true
     },
     {
@@ -178,7 +178,7 @@
         "MISMATCH addr=2 got=9b exp=b9",
         "MISMATCH addr=3 got=ab exp=ba"
       ],
-      "sim_stdout_sha256": "6a3d0791879d2b9bb6b20c16fab469b2ef22b4e8d29ba738c8e5b93b7e118300",
+      "sim_stdout_sha256": "54b4556976b29defaf7da020e212d4c513dfa261538a84a674eb07c434c49fc3",
       "ok": true
     },
     {
@@ -212,7 +212,7 @@
         "MISMATCH addr=3 got=e1 exp=1e",
         "MISMATCH addr=4 got=58 exp=85"
       ],
-      "sim_stdout_sha256": "c0042171b908307b12ffb467807e7fc4cfaec46a21a63c6ad78b9d0442d16561",
+      "sim_stdout_sha256": "e53317bf1da12a3b12cf8d0d31ef347b3725fdeb7a2e86e734262e2cd6d0f1ee",
       "ok": true
     },
     {
@@ -246,7 +246,7 @@
         "MISMATCH addr=2 got=9b exp=b9",
         "MISMATCH addr=3 got=ab exp=ba"
       ],
-      "sim_stdout_sha256": "c7643f6ab4eb3e0e573f18d9c689ac78a0f5c9271b16cc3937b6897f82fcad78",
+      "sim_stdout_sha256": "b841e8f064991674a08267356ded2c48f87c7e15324e4dfb9f5e4802d3e64387",
       "ok": true
     },
     {
@@ -280,7 +280,7 @@
         "MISMATCH addr=3 got=e1 exp=1e",
         "MISMATCH addr=4 got=58 exp=85"
       ],
-      "sim_stdout_sha256": "19d2f1a1290ce6b00bf7626b174929a59ee9070dd213a999ad2a554878546f4b",
+      "sim_stdout_sha256": "714bd5db5f0c6152cdd0f4f4902442c843fc6bf92b9f843bbf02d91ae8b2cb56",
       "ok": true
     },
     {
@@ -314,7 +314,7 @@
         "MISMATCH addr=2 got=9b exp=b9",
         "MISMATCH addr=3 got=ab exp=ba"
       ],
-      "sim_stdout_sha256": "f7944170280934fb8963797a9b1ac4495a9b0decd4803881508e0d9124465d7b",
+      "sim_stdout_sha256": "3d274aedb4a9645541135ac539fdec9fdb07e661139e7ba02b659d9a76f65166",
       "ok": true
     },
     {
@@ -348,7 +348,7 @@
         "MISMATCH addr=3 got=e1 exp=1e",
         "MISMATCH addr=4 got=58 exp=85"
       ],
-      "sim_stdout_sha256": "96f432d8926d449e34a6d0491c4a8d8e56798631f3a5c279b8215430b8d47e90",
+      "sim_stdout_sha256": "28c18c790557d1e69f35a5a683bce1ee206f46c5922a1c90175af0464096a7f9",
       "ok": true
     },
     {
@@ -382,7 +382,7 @@
         "MISMATCH addr=2 got=9b exp=b9",
         "MISMATCH addr=3 got=ab exp=ba"
       ],
-      "sim_stdout_sha256": "f0d2402bdc712407e367746ec2dfe2dc104eecedca7918630be7f29219aeb931",
+      "sim_stdout_sha256": "3b26b71815ff1c4b3c6971d753536e6bb30feb06ae0f09db68b029e80fa970d2",
       "ok": true
     },
     {
@@ -416,7 +416,7 @@
         "MISMATCH addr=3 got=e1 exp=1e",
         "MISMATCH addr=4 got=58 exp=85"
       ],
-      "sim_stdout_sha256": "90e0d4af30b669df71b0f75c9303c77da711a933a7439fffba321e138dd75b4a",
+      "sim_stdout_sha256": "bb7d9434e7193e39519de831f58a678b8bb0cd7226c303af124a6d017f8377ae",
       "ok": true
     },
     {
@@ -450,7 +450,7 @@
         "MISMATCH addr=2 got=9b exp=b9",
         "MISMATCH addr=3 got=ab exp=ba"
       ],
-      "sim_stdout_sha256": "897564a64daa27b41fa6a3df3ec802902ef44bedc3dfd6bc2ac199367f13a080",
+      "sim_stdout_sha256": "8472be4c6e2d5e3f21a8f5708ec1a456244245bd70125f4800126fb5a0f57e34",
       "ok": true
     },
     {
@@ -484,7 +484,7 @@
         "MISMATCH addr=3 got=e1 exp=1e",
         "MISMATCH addr=4 got=58 exp=85"
       ],
-      "sim_stdout_sha256": "83ccf318635f069ab9600752661b02ef76448ae7c681f99ef055c39d0903b6f0",
+      "sim_stdout_sha256": "6591ff8a5decf22f89aa7708e61404144e7aff0c44b5869cdcf4a84c32ea58dd",
       "ok": true
     },
     {
@@ -518,7 +518,7 @@
         "MISMATCH addr=2 got=9b exp=b9",
         "MISMATCH addr=3 got=ab exp=ba"
       ],
-      "sim_stdout_sha256": "0d181503af6390bbf574147ea5fda2a99935da2d6a33bb1d1a0566f6bbbdfda6",
+      "sim_stdout_sha256": "af871b3bc4d61d582c4d18772fd2414f147e1636c806f732abea806a92f0c1e9",
       "ok": true
     },
     {
@@ -552,7 +552,7 @@
         "MISMATCH addr=3 got=e1 exp=1e",
         "MISMATCH addr=4 got=58 exp=85"
       ],
-      "sim_stdout_sha256": "2b823bf673b763c5f225a2377d661b777a219373c527d4fb2433082a62b1bfb5",
+      "sim_stdout_sha256": "997ec80757664329188e5c8867e0e0596d4ecc4989ee786fb1082d10ade29068",
       "ok": true
     },
     {
@@ -586,7 +586,7 @@
         "MISMATCH addr=2 got=9b exp=b9",
         "MISMATCH addr=3 got=ab exp=ba"
       ],
-      "sim_stdout_sha256": "89bb9cef53e6216323a3205e2946cb2812fe82ebe751af9f916adb2ab7eb356c",
+      "sim_stdout_sha256": "5152d9af8835ceedb6571ca824fa6ff26e7b2bdd34705db4358263d8a4f10adf",
       "ok": true
     },
     {
@@ -620,7 +620,7 @@
         "MISMATCH addr=3 got=e1 exp=1e",
         "MISMATCH addr=4 got=58 exp=85"
       ],
-      "sim_stdout_sha256": "e69e396617b5c896c1bd4c6937369f9ce25f2a505794ce6bf616ebb8be334231",
+      "sim_stdout_sha256": "686f5c806ef1bbff18befc6a3df2002c379b548dd9be7ed64a7c5edff443dc04",
       "ok": true
     },
     {
@@ -654,7 +654,7 @@
         "MISMATCH addr=2 got=9b exp=b9",
         "MISMATCH addr=3 got=ab exp=ba"
       ],
-      "sim_stdout_sha256": "67b1bca9658240895782b379bab100bc127fbba5eea620d3daedc1bfaca87517",
+      "sim_stdout_sha256": "37c13ffdc7ec3d16a4a3360b4978ddaae976dd8fddf3c1cd41812335096aa24b",
       "ok": true
     },
     {
@@ -688,7 +688,7 @@
         "MISMATCH addr=3 got=e1 exp=1e",
         "MISMATCH addr=4 got=58 exp=85"
       ],
-      "sim_stdout_sha256": "5e99170e58ec71df564d6d20c3ee3d7bf771051867304c62660d32608bdc3173",
+      "sim_stdout_sha256": "1bd454cec0a0d18b0853a586d988ddcb59dc7f0ae71e6e93812ed0b4e2d89424",
       "ok": true
     },
     {
@@ -722,7 +722,7 @@
         "MISMATCH addr=2 got=9b exp=b9",
         "MISMATCH addr=3 got=ab exp=ba"
       ],
-      "sim_stdout_sha256": "fe801491ae42a67bd17c058d987437bd96e650939573e9c481088c84aef25813",
+      "sim_stdout_sha256": "7ae86bbfbb3de5e63604a6b85a662e8eadc30e0422c9ee1bce040701e8ed1a6b",
       "ok": true
     },
     {
@@ -756,7 +756,7 @@
         "MISMATCH addr=3 got=e1 exp=1e",
         "MISMATCH addr=4 got=58 exp=85"
       ],
-      "sim_stdout_sha256": "6e314254a07a3a02be2379b841ddabfb0bfcfa711f71ecb2a160845d78b5a784",
+      "sim_stdout_sha256": "204ed2355811d338ab9fe965cb11033a51859a40aa92cdcbd0fd50a76550ae29",
       "ok": true
     },
     {
@@ -790,7 +790,7 @@
         "MISMATCH addr=2 got=9b exp=b9",
         "MISMATCH addr=3 got=ab exp=ba"
       ],
-      "sim_stdout_sha256": "b4fd85f643abb176b8bb9fba4835af3e85756069c7c4f47d1eba080bf3f51e42",
+      "sim_stdout_sha256": "44414e482b8d6aaab98c0488476b2c85203443613e7e3e71746de94ab947ea61",
       "ok": true
     },
     {
@@ -824,7 +824,7 @@
         "MISMATCH addr=3 got=e1 exp=1e",
         "MISMATCH addr=4 got=58 exp=85"
       ],
-      "sim_stdout_sha256": "98bb277972468a775b402b3544d0c2039d2b82933b6e6e51bf022b6364352335",
+      "sim_stdout_sha256": "10efdce966297bd6286f5f18d56675d889c304674dc65540da894ecab8d97b7a",
       "ok": true
     },
     {
@@ -858,7 +858,7 @@
         "MISMATCH addr=2 got=9b exp=b9",
         "MISMATCH addr=3 got=ab exp=ba"
       ],
-      "sim_stdout_sha256": "c3215845dffc5355b94bff42b9f45cefd6664e572549d857eb01fd11b9c59094",
+      "sim_stdout_sha256": "3af85b0dfa72e30b10c8644c7a97c712b1c729615d6c6313964f525d831e8de5",
       "ok": true
     },
     {
@@ -892,7 +892,7 @@
         "MISMATCH addr=3 got=e1 exp=1e",
         "MISMATCH addr=4 got=58 exp=85"
       ],
-      "sim_stdout_sha256": "46b8b9d4aa8f0cd3b770890439063ded9083c17a3e78ff0c85e7af6e4d30b00b",
+      "sim_stdout_sha256": "276cca7a543d83a6a82c41b86361131bc195f82478abd02e6fa132a43258aba2",
       "ok": true
     },
     {
@@ -926,7 +926,7 @@
         "MISMATCH addr=2 got=9b exp=b9",
         "MISMATCH addr=3 got=ab exp=ba"
       ],
-      "sim_stdout_sha256": "2b01196c1f73e87c515303259d491d6466ea8287d4cc31b59633d414334fe415",
+      "sim_stdout_sha256": "63d1ec6e6483329a8e56259ddae6b2f12c8a94eeb4fbeafec57963c35fabdde8",
       "ok": true
     },
     {
@@ -960,7 +960,7 @@
         "MISMATCH addr=3 got=e1 exp=1e",
         "MISMATCH addr=4 got=58 exp=85"
       ],
-      "sim_stdout_sha256": "27c61897743e0de035d4769f42c013e3ffff6a526f116e76708b31b40576e7b4",
+      "sim_stdout_sha256": "dbf09d5640d87b85cfc670c080265939667cc4e13fc811daf6bb3408c902e899",
       "ok": true
     },
     {
@@ -994,7 +994,7 @@
         "MISMATCH addr=2 got=9b exp=b9",
         "MISMATCH addr=3 got=ab exp=ba"
       ],
-      "sim_stdout_sha256": "c6fafe70700ba9329ac8831af4f3156e93d07719e18a47f3536c21a7befc3127",
+      "sim_stdout_sha256": "8f3e1c7c8c67e2098e61992ee22a4b83c72e5446a5ec88f38721ee5165da6c89",
       "ok": true
     },
     {
@@ -1028,7 +1028,7 @@
         "MISMATCH addr=3 got=e1 exp=1e",
         "MISMATCH addr=4 got=58 exp=85"
       ],
-      "sim_stdout_sha256": "3b2fbf20f7959d252b90ba04ffa323bc163582327d3e814194c72ba2a192914f",
+      "sim_stdout_sha256": "1f148a8d1a2f68633533de12877b71bfaa5f347c5f72f7d9caa6067af8b34a13",
       "ok": true
     },
     {
@@ -1062,7 +1062,7 @@
         "MISMATCH addr=2 got=9b exp=b9",
         "MISMATCH addr=3 got=ab exp=ba"
       ],
-      "sim_stdout_sha256": "c4e0055ca07929afb17cb98990c34df5eac5bd09a4638f1f2b7f115e97bc5124",
+      "sim_stdout_sha256": "76fc312562a8e6b2c8cc16e3c302bd8d162c54dc7d9a59f5841708a55aba8806",
       "ok": true
     },
     {
@@ -1096,7 +1096,7 @@
         "MISMATCH addr=3 got=e1 exp=1e",
         "MISMATCH addr=4 got=58 exp=85"
       ],
-      "sim_stdout_sha256": "4850e58a0528be7418c1bc9fb075a4c220d7ba7a979f0f1390de359de182cd56",
+      "sim_stdout_sha256": "2d7034004aa1d6ff3f6a677e68de2d1efec8f56c92dc59bff72086a9a2dbb81f",
       "ok": true
     },
     {
@@ -1135,7 +1135,7 @@
         "MISMATCH addr=2 got=9b exp=b9",
         "MISMATCH addr=3 got=ab exp=ba"
       ],
-      "sim_stdout_sha256": "339f0e989d76d59b85ba925b98e287daef5a9dfd385f426c1f35c2d23581ee31",
+      "sim_stdout_sha256": "268804b9793ad12f124ad487c3537ad52afb7c10b7ae49cd5a8eb508c2c6d4d0",
       "ok": true
     },
     {
@@ -1174,7 +1174,7 @@
         "MISMATCH addr=3 got=e1 exp=1e",
         "MISMATCH addr=4 got=58 exp=85"
       ],
-      "sim_stdout_sha256": "030de2784e452f552c91b4565171285ae6d34f701331b4866862d9bbd93649ad",
+      "sim_stdout_sha256": "932f81f623861bb839496c4dd54ca52993957cc376ca583bc4856ed580e9b186",
       "ok": true
     },
     {
@@ -1213,7 +1213,7 @@
         "MISMATCH addr=2 got=9b exp=b9",
         "MISMATCH addr=3 got=ab exp=ba"
       ],
-      "sim_stdout_sha256": "0ec7af8f9dd57b96e643aa81952eab061e652db1f8684835c11a26739efbd55c",
+      "sim_stdout_sha256": "47a365e4a6832e5f52d80ec78d841a664a52ec144a0ca7967d3bc8377c6ad9b7",
       "ok": true
     },
     {
@@ -1252,7 +1252,7 @@
         "MISMATCH addr=3 got=e1 exp=1e",
         "MISMATCH addr=4 got=58 exp=85"
       ],
-      "sim_stdout_sha256": "1f79f7bff241b453c5c63613944bf63ef070cb4664e7ede3d9840c26902eafae",
+      "sim_stdout_sha256": "01f190906d9d9b3539b9e3bf212a30b4912213ad4fb0b10a9b46aaeea4f3af23",
       "ok": true
     },
     {
@@ -1291,7 +1291,7 @@
         "MISMATCH addr=2 got=9b exp=b9",
         "MISMATCH addr=3 got=ab exp=ba"
       ],
-      "sim_stdout_sha256": "c19ed4e4109864494019f0340fe65a7d709967c36dd7da45177ec494dec13361",
+      "sim_stdout_sha256": "2dfaf4ab021922fd75fd31faa34a1d27efb33fd33c95b125e336ba7ab2f95c31",
       "ok": true
     },
     {
@@ -1330,7 +1330,7 @@
         "MISMATCH addr=3 got=e1 exp=1e",
         "MISMATCH addr=4 got=58 exp=85"
       ],
-      "sim_stdout_sha256": "e75eb3c19906d5f0a3791f7366659617809a804bc66c013aeb3db07c37795a3c",
+      "sim_stdout_sha256": "4a1deb12d0ecad1e9d95409475a29adfe5783f189f65354c8939a6df93db989c",
       "ok": true
     },
     {
@@ -1369,7 +1369,7 @@
         "MISMATCH addr=2 got=9b exp=b9",
         "MISMATCH addr=3 got=ab exp=ba"
       ],
-      "sim_stdout_sha256": "eddfefe900959cc557554d81b28b11fbb9d7a7407a7adf686cd10f0b7d4b0ff3",
+      "sim_stdout_sha256": "2db70e45fd6642f7ccbf157d9a1298e0cc2e3290c76b793fcfd860e41d1f321e",
       "ok": true
     },
     {
@@ -1408,7 +1408,7 @@
         "MISMATCH addr=3 got=e1 exp=1e",
         "MISMATCH addr=4 got=58 exp=85"
       ],
-      "sim_stdout_sha256": "0050a6e817aade86a646831cfd00e484b316339455a9af7bb44759182ec193de",
+      "sim_stdout_sha256": "f8f461b04564ae5e3fb6818d153339bd2c935ebce672a03643db1912839098f5",
       "ok": true
     },
     {
@@ -1447,7 +1447,7 @@
         "MISMATCH addr=2 got=9b exp=b9",
         "MISMATCH addr=3 got=ab exp=ba"
       ],
-      "sim_stdout_sha256": "035fbe9abaf8b94ca229edaf8b2b1ce9c12279fea81437b68dfeaa919906a80d",
+      "sim_stdout_sha256": "e58efb490089edae15d9a18dfbb6e9aed50bcc6a0c907cb5a4cdd9e847d96538",
       "ok": true
     },
     {
@@ -1486,7 +1486,7 @@
         "MISMATCH addr=3 got=e1 exp=1e",
         "MISMATCH addr=4 got=58 exp=85"
       ],
-      "sim_stdout_sha256": "b64b83872ee90f815018cbf4d0a35c535222a65b4fc46a3cfed18f90268667de",
+      "sim_stdout_sha256": "0b086a5dd0d182ea3fefc31d402574105876180750e3509cdd719d686e731948",
       "ok": true
     },
     {
@@ -1525,7 +1525,7 @@
         "MISMATCH addr=2 got=9b exp=b9",
         "MISMATCH addr=3 got=ab exp=ba"
       ],
-      "sim_stdout_sha256": "37161f96eb193569ba1af4aa877fad0b702edf4bf05c8ca16b3055382b30aecc",
+      "sim_stdout_sha256": "f72b80674bc8c05d5593c7caa4d2ccfb25eb8473d9ac8372a368eacd71bc79c2",
       "ok": true
     },
     {
@@ -1564,7 +1564,7 @@
         "MISMATCH addr=3 got=e1 exp=1e",
         "MISMATCH addr=4 got=58 exp=85"
       ],
-      "sim_stdout_sha256": "5f7c46bccd2c80166f466ad3c75596835339568b522d155a1393ebc82dc88c88",
+      "sim_stdout_sha256": "ce84d8dfad3610ccbbdc817454ed889a0ef910f4991204408edbe4235667e06a",
       "ok": true
     },
     {
@@ -1603,7 +1603,7 @@
         "MISMATCH addr=2 got=9b exp=b9",
         "MISMATCH addr=3 got=ab exp=ba"
       ],
-      "sim_stdout_sha256": "0a0522f06ba8518cc972e4d7f8bc032e51180021efebec47a9a4bbaa0bed09fc",
+      "sim_stdout_sha256": "ecc6a55ff49d97113b3651556cd84c4d119b101c3ee630421f27ca13c817ac25",
       "ok": true
     },
     {
@@ -1642,7 +1642,7 @@
         "MISMATCH addr=3 got=e1 exp=1e",
         "MISMATCH addr=4 got=58 exp=85"
       ],
-      "sim_stdout_sha256": "6921665ac08b38e1d8bc9fb890bf29c2114d6c68e08e317bec37b1feaf7a978f",
+      "sim_stdout_sha256": "440cc8014ec2a58c54ea19a4e145cd10c54c6ec314566b9e3a249883df4129ac",
       "ok": true
     },
     {
@@ -1681,7 +1681,7 @@
         "MISMATCH addr=2 got=9b exp=b9",
         "MISMATCH addr=3 got=ab exp=ba"
       ],
-      "sim_stdout_sha256": "eca8c7d2c64d9b97043e88cf1127039da8c4c1307d98e5831ba41ef0d0712a13",
+      "sim_stdout_sha256": "f94333c7a5eee3a8a35e076e23502a4d5f446d1cf45e1930117887e05078b124",
       "ok": true
     },
     {
@@ -1720,7 +1720,7 @@
         "MISMATCH addr=3 got=e1 exp=1e",
         "MISMATCH addr=4 got=58 exp=85"
       ],
-      "sim_stdout_sha256": "f66ee78e75bb51a19188c0d8d9fbb2b799c172fff792ce78333664a995b293c6",
+      "sim_stdout_sha256": "58167f988ffabd87a5a9c62ed3cce3b31dc73947cfe7b4917a2e481f10f0860e",
       "ok": true
     },
     {
@@ -1754,7 +1754,7 @@
         "MISMATCH addr=2 got=9b exp=b9",
         "MISMATCH addr=3 got=ab exp=ba"
       ],
-      "sim_stdout_sha256": "92cea3e29e800c52bfdefba7b78a6c48ddf22b598fbdf72c8678ca70600e4bea",
+      "sim_stdout_sha256": "ca603b2ca0a333f7fce0aa659a8ac4d393fc7c0d341c07c9445bf7d060d0d46a",
       "ok": true
     },
     {
@@ -1788,7 +1788,7 @@
         "MISMATCH addr=3 got=e1 exp=1e",
         "MISMATCH addr=4 got=58 exp=85"
       ],
-      "sim_stdout_sha256": "9b06b36a6d4a5fcce06c3baf25d6858c47f3ccb3e5d851a60dc7a888c189c827",
+      "sim_stdout_sha256": "86e52629cf9784151612203497169d5588b3ee37cba773eb34c5c3a6bf8700ca",
       "ok": true
     },
     {
@@ -1827,7 +1827,7 @@
         "MISMATCH addr=2 got=9b exp=b9",
         "MISMATCH addr=3 got=ab exp=ba"
       ],
-      "sim_stdout_sha256": "a79fc9f9dd19efcb262b84f1c745644a893be21ec0d35cd5f9bbf06d903a7f0d",
+      "sim_stdout_sha256": "af7379b26b4eca8672f282fec6c6c1826faebaf1bba4106ead78387f20c2daa4",
       "ok": true
     },
     {
@@ -1866,7 +1866,7 @@
         "MISMATCH addr=3 got=e1 exp=1e",
         "MISMATCH addr=4 got=58 exp=85"
       ],
-      "sim_stdout_sha256": "58f8c4594f0ed73ee34509a9be8e7304be2fdc2a2d889ba1da5242db7a142a9c",
+      "sim_stdout_sha256": "2868abd7f1c2c3068302d7f33e40820a22339e8e1966151046ac3f97b7cde1a6",
       "ok": true
     },
     {
@@ -1900,7 +1900,7 @@
         "MISMATCH addr=2 got=9b exp=b9",
         "MISMATCH addr=3 got=ab exp=ba"
       ],
-      "sim_stdout_sha256": "3baeffd272dc24d2def26f3ff89b7fd505af89e2ed116604d1bbdaccb5ed48d7",
+      "sim_stdout_sha256": "55ac4c7919c1e6d6e837e4bac97bee00e5cdae6362e1dc90e82e44428b01ff42",
       "ok": true
     },
     {
@@ -1934,7 +1934,7 @@
         "MISMATCH addr=3 got=e1 exp=1e",
         "MISMATCH addr=4 got=58 exp=85"
       ],
-      "sim_stdout_sha256": "732428847dcffdca79ef35a8389c8c9b6b6eb4bd36a07dbc8053cebdfa140440",
+      "sim_stdout_sha256": "4bd752e1d53335cce28883d31e2f1751056639ab49459a0b07b3b8c78ade8a1e",
       "ok": true
     },
     {
@@ -1968,7 +1968,7 @@
         "MISMATCH addr=2 got=9b exp=b9",
         "MISMATCH addr=3 got=ab exp=ba"
       ],
-      "sim_stdout_sha256": "8727862d9803085f6c7fb659479ca0d2053c19aafc8d710a22b2084c6a1ef386",
+      "sim_stdout_sha256": "b6bba351d180ae71fefc9ec9597d343dad1c5d5bfc8dd9c55e353180468db439",
       "ok": true
     },
     {
@@ -2002,7 +2002,7 @@
         "MISMATCH addr=3 got=e1 exp=1e",
         "MISMATCH addr=4 got=58 exp=85"
       ],
-      "sim_stdout_sha256": "a9c91e4d00f43220a5e5ba28f40bee011452c1d2ccf87014acff6ac934d68834",
+      "sim_stdout_sha256": "ca80c945b54dcfdd0561befaf65c2705a4421c7a8ea9835b2a83f77b12c3e9c2",
       "ok": true
     },
     {
@@ -2036,7 +2036,7 @@
         "MISMATCH addr=2 got=9b exp=b9",
         "MISMATCH addr=3 got=ab exp=ba"
       ],
-      "sim_stdout_sha256": "95fd279d8f61ef6c1241eb643dc14d1eb44fb6bd66a9092f8479d42df0e84662",
+      "sim_stdout_sha256": "2aa13068f7628248d8f9996622275901aa3be3ac04c392d39cfbc2cd266b36f8",
       "ok": true
     },
     {
@@ -2070,7 +2070,7 @@
         "MISMATCH addr=3 got=e1 exp=1e",
         "MISMATCH addr=4 got=58 exp=85"
       ],
-      "sim_stdout_sha256": "8337de929b5cabfa74d263f2b25fe46b2c07c0a360d1bb870b610c70c8796b79",
+      "sim_stdout_sha256": "492a2d9cb5619ef4322f910ccab02a5b382b0e4c095131d6f1b2bc30e59ab736",
       "ok": true
     }
   ],
@@ -2092,13 +2092,13 @@
     {
       "variant": "neg_model_lc0_reader_dummy0",
       "why": "model latency code 00 = 8 dummy clocks, reader clocks 0",
-      "rc": 6,
+      "rc": 1,
       "summary": "",
       "mismatches": 0,
       "fatal_lines": [
-        "MISMATCH addr=0 got=00 exp=62",
-        "MISMATCH addr=1 got=00 exp=2d",
-        "MISMATCH addr=2 got=00 exp=b9"
+        "MISMATCH addr=0 got=zz exp=62",
+        "MISMATCH addr=1 got=zz exp=2d",
+        "MISMATCH addr=2 got=zz exp=b9"
       ],
       "detected": true,
       "ok": true
@@ -2106,13 +2106,13 @@
     {
       "variant": "neg_model_lc1_reader_dummy0",
       "why": "model latency code 01 = 8 dummy clocks, reader clocks 0",
-      "rc": 6,
+      "rc": 1,
       "summary": "",
       "mismatches": 0,
       "fatal_lines": [
-        "MISMATCH addr=0 got=00 exp=62",
-        "MISMATCH addr=1 got=00 exp=2d",
-        "MISMATCH addr=2 got=00 exp=b9"
+        "MISMATCH addr=0 got=zz exp=62",
+        "MISMATCH addr=1 got=zz exp=2d",
+        "MISMATCH addr=2 got=zz exp=b9"
       ],
       "detected": true,
       "ok": true
@@ -2120,11 +2120,11 @@
     {
       "variant": "neg_model_extadd_reader_ab3",
       "why": "model BAR.EXTADD=1 expects 4 address bytes after 6Bh, reader sends 3",
-      "rc": 6,
+      "rc": 1,
       "summary": "",
       "mismatches": 0,
       "fatal_lines": [
-        "[3450000] %Fatal: qspi_flash_model.sv:140: Assertion failed in qspi_tb.flash: FLASH: host not driving IO0 during address"
+        "FATAL: C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\tools\\decode\\tb\\qspi_flash_model.sv:140: FLASH: host not driving IO0 during address"
       ],
       "detected": true,
       "ok": true
@@ -2132,11 +2132,11 @@
     {
       "variant": "neg_model_extadd_reader_ab3_sp",
       "why": "same, sparse model",
-      "rc": 6,
+      "rc": 1,
       "summary": "",
       "mismatches": 0,
       "fatal_lines": [
-        "[3450000] %Fatal: qspi_flash_model.sv:140: Assertion failed in qspi_tb.flash: FLASH: host not driving IO0 during address"
+        "FATAL: C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\tools\\decode\\tb\\qspi_flash_model.sv:140: FLASH: host not driving IO0 during address"
       ],
       "detected": true,
       "ok": true
@@ -2144,11 +2144,11 @@
     {
       "variant": "neg_startup3_swallow8",
       "why": "shim swallows 4 cycles, reader only clocks 3 startup pulses",
-      "rc": 6,
+      "rc": 1,
       "summary": "",
       "mismatches": 0,
       "fatal_lines": [
-        "[2490000] %Fatal: qspi_flash_model.sv:136: Assertion failed in qspi_tb.flash: FLASH: unsupported instruction d6 (expected 6Bh/6Ch)"
+        "FATAL: C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\tools\\decode\\tb\\qspi_flash_model.sv:136: FLASH: unsupported instruction d6 (expected 6Bh/6Ch)"
       ],
       "detected": true,
       "ok": true
@@ -2156,11 +2156,11 @@
     {
       "variant": "neg_startup3_swallow7",
       "why": "shim swallows 7 toggles, reader only clocks 6",
-      "rc": 6,
+      "rc": 1,
       "summary": "",
       "mismatches": 0,
       "fatal_lines": [
-        "[2490000] %Fatal: qspi_flash_model.sv:136: Assertion failed in qspi_tb.flash: FLASH: unsupported instruction d6 (expected 6Bh/6Ch)"
+        "FATAL: C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\tools\\decode\\tb\\qspi_flash_model.sv:136: FLASH: unsupported instruction d6 (expected 6Bh/6Ch)"
       ],
       "detected": true,
       "ok": true
@@ -2235,21 +2235,20 @@
     }
   ],
   "provenance": {
-    "rtl/board/qspi_pad_regs.sv": "28bac64b4ef18bcdff7281f5ad080cb3a5a069ae6ca32bad20fb740b148d6408",
-    "rtl/decode/qspi_reader.sv": "27494542f9f4750eecc9cb1dc84ab1fa90b7d3026b091094b1454fb3a53e74db",
-    "sprint/scripts/final_qspi_validation.py": "7fe4f0fcb64ba7fc9490788890074f7eb03e75188cf2de70255643301d481afa",
-    "tools/decode/harness.py": "b4ebd345be9c6de82a0397eda8127643545e3d1a3aeecd5bd952ad5d98e74f6b",
-    "tools/decode/provenance.py": "4d7a310a496f292013020646f48e6597842a8db7419492cf3499596bdbcd573d",
-    "tools/decode/run_qspi_rtl.py": "1a7d1c31c95eeae5f9c97b78b10384d7122db810117cbcb4ee1338933cbd7e56",
-    "tools/decode/sim.py": "399c0a1ea8f77ad6ed9bc92900d4791553f8a553e6bc70d8cb2bc96f86a28b40",
-    "tools/decode/tb/qspi_flash_model.sv": "b7734dce4119ea3bd425dfdd47087b569b273a82bb75583cd702e7da1f54a3f3",
+    "rtl/board/qspi_pad_regs.sv": "a2a288b8ac3f45f278a4b0f825b379a672667e3d1ccee2da88b0f9611551bdbe",
+    "rtl/decode/qspi_reader.sv": "b2bf4f91bf0ea4322617513d941a117d5774b55ec3d10298e5cf1d60caf0ccb7",
+    "tools/decode/harness.py": "d3a46950a8112eda93bc48aa2e985e521abde4a5ccfe37a06de9a6a1d9ff634f",
+    "tools/decode/provenance.py": "1a347ca76f7d9a90d0ca036696d2dba929d92124b542e9e33c8c3bb44d901b04",
+    "tools/decode/run_qspi_rtl.py": "a3e952a3a35dcbd8aa46c9b33dfd722a69f3defa6df2bbed155f17fe595d245b",
+    "tools/decode/sim.py": "ecc37ef8432b7197b6fe09c96a69565d9186c2c7e53f451c2288bf7293fa317b",
+    "tools/decode/tb/qspi_flash_model.sv": "4bba776f1a16036c9dd4fccadbefe9284939a6ed7d81477f65529355b754894a",
     "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96",
     "tool:simulator": {
-      "name": "verilator",
-      "version": "Verilator 5.032 2025-01-01 rev (Debian 5.032-1)",
-      "executable": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU-research\\research\\data\\tools\\usr\\bin\\verilator_bin",
-      "executable_sha256": "90fe12f3b2c752b607690cb05a566646398d1e07f38e83f5f7a7f35c20560247",
-      "compiler_sha256": "90fe12f3b2c752b607690cb05a566646398d1e07f38e83f5f7a7f35c20560247"
+      "name": "icarus",
+      "version": "Icarus Verilog runtime version 12.0 (devel) (s20150603-1539-g2693dd32b)\n\nCopyright (c) 2001-2021 Stephen Williams (steve@icarus.com)\n\n  This program is free software; you can redistribute it and/or modify\n  it under the terms of the GNU General Public License as published by\n  the Free Software Foundation; either version 2 of the License, or\n  (at your option) any later version.\n\n  This program is distributed in the hope that it will be useful,\n  but WITHOUT ANY WARRANTY; without even the implied warranty of\n  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n  GNU General Public License for more details.\n\n  You should have received a copy of the GNU General Public License along\n  with this program; if not, write to the Free Software Foundation, Inc.,\n  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.",
+      "executable": "C:\\iverilog\\bin\\vvp.exe",
+      "executable_sha256": "e2f442f4d5aa76e55c85c3ff77e4446fbfdb9946b7cfe8a2dff87f275da17b62",
+      "compiler_sha256": "803b8844af2cc8ed70b5f08b07ffa749901280e81339617ca3e72cbbb852bd2b"
     },
     "runtime:python": "c0c26871ec1aae748b7914a09c9566d5234775c7a1a2915bf8f401eb6d5cd964",
     "runtime:numpy": "4b0379678f664340b010747a4ad1436f29a4e92e8b245932f19cec020dff8770"
