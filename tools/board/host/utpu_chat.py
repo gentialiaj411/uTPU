@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 import struct
 import sys
 import time
@@ -13,7 +12,6 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tools"))
 sys.path.insert(0, str(ROOT / "tools" / "decode"))
 from llama2c.tokenizer import Tokenizer
-from harness import load_runtime_260k
 
 VOCAB, MAX_SEQ = 32000, 128
 ERRORS = {
@@ -199,31 +197,17 @@ class Client:
 
 
 def load_tokenizer() -> Tokenizer:
-    candidates = ((ROOT / "models/llama2c/stories260K/tokenizer.bin", VOCAB),
-                  (ROOT / "models/llama2c/stories260K/tok512.bin", 512),
-                  (ROOT / "models/llama2c/stories15M/tokenizer.bin", VOCAB),
-                  (ROOT.parent / "uTPU/models/llama2c/stories260K/tok512.bin", 512))
-    for path, size in candidates:
-        if path.exists():
-            return Tokenizer(path, size)
-    raise FileNotFoundError("stories tokenizer not found; expected a tokenizer.bin or tok512.bin under models/llama2c")
+    """The 32000-token llama2.c tokenizer of stories15M, the model the boolean_core bitstream is built for."""
+    path = ROOT / "models/llama2c/tokenizer.bin"
+    if not path.exists():
+        raise FileNotFoundError(f"stories15M tokenizer not found at {path}")
+    return Tokenizer(path, VOCAB)
 
 
 def load_golden_runtime():
-    model_path = ROOT / "models/llama2c/stories260K/stories260K.bin"
-    if model_path.exists():
-        return load_runtime_260k(8)[1]
-    model_path = ROOT.parent / "uTPU/models/llama2c/stories260K/stories260K.bin"
-    if not model_path.exists():
-        raise FileNotFoundError("stories260K model not found under models/llama2c/stories260K")
-    from tools.llama2c.reference import Llama2CModel
-    from firmware.host.numerics_v2.export import export_runq_model
-    from firmware.host.numerics_v2.runq_runtime import RunQIntegerLlama
-    calibration = json.loads((ROOT / "firmware/host/numerics_v2/calibration_260k.json").read_text())
-    exported = export_runq_model(Llama2CModel(model_path), calibration["activation_scales"], 4, 32,
-                                 improved=True, mixed_precision={"qkv": 8, "wo": 8, "w2": 8})
-    exported.pop("dynamic_base_scales")
-    return RunQIntegerLlama(exported, ROOT / "firmware/host/numerics_v2/luts", kv_bits=8)
+    """Golden for the board: the stories15M export with KV4, exactly as run_decode_rtl.py --model 15m --kv-bits 4."""
+    from run_decode_rtl import load_model
+    return load_model("15m", 4)[1]
 
 
 def generate(client: Client, tokenizer: Tokenizer, prompt: str, gen: int, verify: bool = False,
@@ -236,11 +220,10 @@ def generate(client: Client, tokenizer: Tokenizer, prompt: str, gen: int, verify
     client.ping()
     client.new_sequence()
     generated, token, previous, durations, cycles_sum = [], prompt_tokens[0], prompt_tokens[-1], [], 0
-    started = time.perf_counter()
     for pos in range(len(prompt_tokens) + gen - 1):
-        begin = time.perf_counter()
         expected_logits = golden_runtime.forward(token, pos) if verify else None
         expected_token = int(expected_logits.argmax()) if verify else None
+        begin = time.perf_counter()                 # time the board step only, not the host-side golden
         out, cycles, chosen_logit = client.step(token, pos, expected_token if verify else 0)
         elapsed = time.perf_counter() - begin
         durations.append(elapsed); cycles_sum += cycles
@@ -259,8 +242,10 @@ def generate(client: Client, tokenizer: Tokenizer, prompt: str, gen: int, verify
             previous = out
             token = out
         emit(f"\n[token {pos}: {elapsed:.3f}s, {cycles} FPGA cycles]", end="", flush=True)
-    total = time.perf_counter() - started
-    emit(f"\n{len(generated)} tokens in {total:.3f}s: {len(generated)/total:.3f} tok/s; FPGA cycles/token {cycles_sum/len(durations):.1f}")
+    board = sum(durations)                          # board step wall time (prompt + generated); host golden excluded
+    rate = f", {50e6 * len(durations) / cycles_sum:.3f} steps/s from FPGA cycles at 50 MHz" if cycles_sum else ""
+    emit(f"\n{len(durations)} board steps in {board:.3f}s: {len(durations) / board:.3f} steps/s wall{rate}; "
+         f"FPGA cycles/step {cycles_sum / len(durations):.1f}")
     return generated
 
 

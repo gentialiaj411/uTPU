@@ -42,7 +42,7 @@ def test_golden_260k_eight_token_generation_matches_runq():
     (5, bytes((0x53, 9, 0)), False),
 ])
 def test_each_board_error_code(code, frame, watchdog):
-    board = chat.LoopbackTransport(runtime=_runtime(), watchdog=watchdog)
+    board = chat.LoopbackTransport(runtime=None, watchdog=watchdog)   # error paths never run a forward pass
     client = chat.Client(board)
     if code == 3:
         board.write(b"X")
@@ -78,3 +78,18 @@ def test_t_frame_has_single_position_byte_then_little_endian_probe():
         chat.Client(recorder).step(0x1234, 7, 0x1234)
     assert recorder.frame == bytes((0x54, 0x34, 0x12, 7, 0x34, 0x12))
 
+
+
+def test_client_model_matches_board_build():
+    """The client's tokenizer and golden must be the model boolean_core is built for (a 260K golden against the 15M
+    bitstream would make --verify fail on hardware while loopback tests, which share the runtime, still pass)."""
+    import re
+    src = (ROOT / "rtl/board/boolean_core.sv").read_text()
+    board = {k: int(re.search(rf"\b{k} = (\d+)", src).group(1)) for k in ("D", "H", "NL", "NH", "NKV", "VOCAB", "MAX_SEQ", "KV4")}
+    rt = chat.load_golden_runtime()                 # what --verify actually compares the board against
+    cfg = rt.cfg
+    assert (cfg["dim"], cfg["hidden_dim"], cfg["n_layers"], cfg["n_heads"], cfg["n_kv_heads"], cfg["vocab_size"]) == (
+        board["D"], board["H"], board["NL"], board["NH"], board["NKV"], board["VOCAB"])
+    assert rt.kv_bits == (4 if board["KV4"] else 8)
+    assert (chat.VOCAB, chat.MAX_SEQ) == (board["VOCAB"], board["MAX_SEQ"])
+    assert len(chat.load_tokenizer().vocab) == board["VOCAB"]

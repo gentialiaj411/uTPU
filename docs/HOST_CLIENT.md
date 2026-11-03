@@ -3,10 +3,12 @@
 `tools/board/host/utpu_chat.py` turns prompt text into token IDs with the repository's
 `tools/llama2c/tokenizer.py` implementation, sends the Boolean UART protocol, and
 prints each generated piece plus host wall time and the cycle count returned by the FPGA.
-The checked-in stories260K tokenizer is `models/llama2c/stories260K/tok512.bin` when
-the model inputs are present; the tool also checks for a `tokenizer.bin` in the usual
-model locations. The `--verify` path uses the repository's stories260K
-`RunQIntegerLlama` runtime and checks each returned argmax token and the probed logit.
+It targets the model the board bitstream is built for, stories15M (`rtl/board/boolean_core.sv:18-19`:
+D=288, NL=6, VOCAB=32000, MAX_SEQ=128, KV4=1). Prompts are tokenized with the 32000-token llama2.c tokenizer
+`models/llama2c/tokenizer.bin`. The `--verify` path runs the stories15M KV4 golden (`run_decode_rtl.load_model("15m", 4)`,
+the same golden as `run_decode_rtl.py --model 15m --kv-bits 4`) and checks each returned argmax token and the probed
+logit. `tests/test_utpu_chat.py::test_client_model_matches_board_build` fails if the client's golden or tokenizer
+drifts from the `boolean_core` parameters.
 
 ## Connect to a board
 
@@ -26,16 +28,14 @@ write first:
 python tools/board/host/utpu_chat.py --port COM5 --baud 115200 --quad-enable --prompt "Once upon a" --gen 8
 ```
 
-`--verify` checks against the stories260K golden runtime. Run it only with a board
-image built for the matching stories260K model and tokenizer:
+`--verify` checks every step bit-exactly against the stories15M golden (token and probed logit):
 
 ```powershell
 python tools/board/host/utpu_chat.py --port COM5 --baud 115200 --prompt "Once upon a" --gen 8 --verify
 ```
 
-The repository board top defaults to stories15M (`rtl/board/boolean_core.sv:2-4,18`);
-the text tokenizer currently present in the model inputs is the 512-token stories260K
-tokenizer. Use a compatible board/model setup for the commands above.
+The summary reports board steps per second from wall time (host golden time excluded) and from the FPGA cycle
+counter at 50 MHz.
 
 ## UART framing
 
