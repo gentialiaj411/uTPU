@@ -6,7 +6,7 @@ input its run depended on. The gate recomputes the hashes; any difference means 
 ARTIFACT_SOURCES is the single place that lists what each artifact type depends on (glob patterns, repo-relative).
 """
 from __future__ import annotations
-import glob, hashlib, subprocess, sys, platform
+import glob, hashlib, os, subprocess, sys, platform
 from functools import lru_cache
 import numpy as np
 from sim import simulator_identity
@@ -96,20 +96,24 @@ def _iverilog_version_cached(executable_digest) -> str:
 
 
 def sha256_file(p) -> str:
-    h = hashlib.sha256()
-    with open(p, 'rb') as f:
-        for blk in iter(lambda: f.read(1 << 20), b''):
-            h.update(blk)
-    return h.hexdigest()
+    """Text files (no NUL in the first 8 KiB) hash with CRLF normalized to LF, so CRLF and LF checkouts of the same commit
+    agree; binary files hash raw."""
+    data = Path(p).read_bytes()
+    if b'\0' not in data[:8192]:
+        data = data.replace(b'\r\n', b'\n')
+    return hashlib.sha256(data).hexdigest()
 
 
 def rel(p) -> str:
+    """Repo-relative key without following links: a junction/symlink inside the repo (e.g. models/) keeps its repo path."""
     p = Path(p)
-    p = p if p.is_absolute() else ROOT / p
-    try:
-        return p.resolve().relative_to(ROOT).as_posix()
-    except ValueError:
-        return p.resolve().as_posix()
+    p = Path(os.path.normpath(os.path.abspath(p if p.is_absolute() else ROOT / p)))
+    for base in (ROOT, Path(os.path.abspath(ROOT))):
+        try:
+            return p.relative_to(base).as_posix()
+        except ValueError:
+            pass
+    return p.as_posix()
 
 
 def expand(patterns) -> list:
