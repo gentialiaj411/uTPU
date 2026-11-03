@@ -34,9 +34,10 @@ def check_params():
 
 
 def main():
-    bad = check_params()
-    if bad:
-        print('boolean_core defaults differ from params.json:', bad); sys.exit(2)
+    if '--emit-only' not in sys.argv:
+        bad = check_params()
+        if bad:
+            print('boolean_core defaults differ from params.json:', bad); sys.exit(2)
     ddr = '--ddr' in sys.argv
     tag = 'boolean_top_ddr' if ddr else 'boolean_top'
     out = ROOT / 'build/decode/synth' / tag
@@ -71,6 +72,9 @@ def main():
         'foreach p [get_ports] { puts $fp "[get_property NAME $p]|[get_property PACKAGE_PIN $p]|[get_property IOSTANDARD $p]|[get_property DIRECTION $p]" }',
         'close $fp',
         f'report_clocks -file {rp("clocks.rpt")}', f'check_timing -file {rp("check_timing.rpt")}', '']))
+    if '--emit-only' in sys.argv:
+        print(tcl)
+        return
     reparse = '--reparse' in sys.argv      # re-read the reports of the last run without running Vivado
     log = out / 'vivado.log'
     for f in ([] if reparse else out.glob('*.rpt')):
