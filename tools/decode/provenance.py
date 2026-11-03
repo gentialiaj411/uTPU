@@ -62,7 +62,7 @@ ARTIFACT_SOURCES = {
                          'tools/decode/pack_decode_image.py', 'tools/decode/provenance.py', *M15,
                          'build/decode/decode_image_15m/params.json'],
     # the same implementation with boolean_top DDR=1 (impl_top.py --ddr); the pin check keeps consuming the default boolean_top_impl
-    'boolean_top_impl_ddr': ['tools/board/impl_top.py', 'constraints/boolean_xc7s50.xdc', *BOARD_RTL, *TOP_RTL, D + 'qspi_reader.sv',
+    'boolean_top_impl_ddr': ['tools/board/impl_top.py', 'constraints/boolean_xc7s50.xdc', 'constraints/boolean_xc7s50_qspi_ddr.xdc', *BOARD_RTL, *TOP_RTL, D + 'qspi_reader.sv',
                              'tools/decode/pack_decode_image.py', 'tools/decode/provenance.py', *M15,
                              'build/decode/decode_image_15m/params.json'],
 }

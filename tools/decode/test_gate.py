@@ -385,9 +385,11 @@ def test_qspi_ddr_missing_or_empty_fault_results_fail(work):
     assert any(m.startswith('fault injection qspi_ddr:') for m in unmet(work))
 
 
-def test_qspi_ddr_fault_not_ok_fails(work):
-    edit(work, 'decode_fault_injection', lambda o: o['qspi_ddr']['synthetic_ddr_fault'].update(ok=False, detected=False))
-    assert any('synthetic_ddr_fault' in m for m in unmet(work))
+@pytest.mark.parametrize('unit', ['qspi_ddr', 'board_ddr'])
+def test_ddr_fault_not_ok_fails(work, unit):
+    name = sorted(fault_inject.FAULTS[unit][2])[0]
+    edit(work, 'decode_fault_injection', lambda o: o[unit][name].update(ok=False, detected=False))
+    assert any(name in m for m in unmet(work))
 
 
 def test_qspi_ddr_stale_fault_provenance_fails(work):

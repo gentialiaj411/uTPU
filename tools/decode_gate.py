@@ -39,7 +39,7 @@ UNITS = ['decode_gemv_rtl', 'decode_act_quant_rtl', 'decode_rms_rtl', 'decode_ve
          'decode_gemv15_rtl', 'decode_attention15_rtl',
          'decode_qspi_rtl',   # last two: stories15M shapes (K=288/768; HS=48, KV4, positions to 127)
          'decode_qspi_ddr_rtl']   # EDh DDR reader (run_qspi_rtl.py --ddr): same strictness plus the measured streaming rate
-FAULT_UNITS = ['gemv', 'actq', 'rms', 'vec', 'attn', 'attn15', 'top', 'qspi', 'board', 'qspi_ddr']
+FAULT_UNITS = ['gemv', 'actq', 'rms', 'vec', 'attn', 'attn15', 'top', 'qspi', 'board', 'qspi_ddr', 'board_ddr']
 EXPECTED_FAULTS = {u: set(fault_inject.FAULTS[u][2]) for u in FAULT_UNITS}   # import-time snapshot; run_gate recomputes it so it cannot drift
 DDR_MIN_BYTES_PER_CYCLE = 0.49          # EDh at the 25 MHz SCK delivers 0.5 byte per 50 MHz core cycle; measured in decode_qspi_ddr_rtl
 # unit artifact -> numeric fields whose sum (output elements / bytes compared) must be > 0

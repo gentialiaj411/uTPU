@@ -145,10 +145,9 @@ FAULTS = {
         'spi_takeover_without_settle_wait': ('rtl', "if (pt_wait == 9'd255) begin", "if (pt_wait == 9'd0) begin",
                                              'equivalent: the 256-cycle wait only guards against taking the pins while the reader still clocks its last prefetched byte. The reader parks within about 16 cycles of the last byte top_decode accepts, which is before done; the host cannot send an S frame before it has received the 11-byte R response (11 x 10 bit times >= 880 cycles at 115200 baud, 880 cycles even at CPB=8 x 10 x 11) and the S header itself takes 3 more byte times, so the wait is always already elapsed in a protocol-conforming exchange. Removing it is unobservable'),
     }),
-    # DDR=1 (EDh, DDR Quad I/O Read) faults. PENDING-MODEL: they need a DDR testbench with a flash model written independently
-    # of qspi_reader (runner names below are placeholders until that runner exists; decode_gate.py does not require these units
-    # yet). The runner must build qspi_reader / boolean_core with DDR=1 and the flash with CR1 LC=11.
-    'qspi_ddr': ('tools/decode/run_qspi_ddr_rtl.py', 'rtl/decode/qspi_reader.sv', {
+    # DDR=1 (EDh, DDR Quad I/O Read) faults, run against the independently written flash model (tools/decode/tb/qspi_flash_model.sv)
+    # with the reader at DDR=1 and the flash at CR1 LC=11 (run_qspi_rtl.py --ddr; run_uart_rtl.py --ddr for the board unit).
+    'qspi_ddr': ('tools/decode/run_qspi_rtl.py --ddr', 'rtl/decode/qspi_reader.sv', {
         'ddr_dummy_3_to_2': ('rtl', "localparam int DDR_DUMMY = 3;", "localparam int DDR_DUMMY = 2;"),
         'ddr_address_nibble_order_swapped': ('rtl', "dsh <= {pend_addr[8*ADDR_BYTES-1:0], DDR_MODE};",
                                              "dsh <= {pend_addr[19:16], pend_addr[23:20], pend_addr[11:8], pend_addr[15:12], pend_addr[3:0], pend_addr[7:4], DDR_MODE};"),
@@ -176,14 +175,6 @@ FAULTS = {
         'int4_nibble_swap': ('rtl', "w = nibble_hi ? {{4{b[7]}}, b[7:4]} : {{4{b[3]}}, b[3:0]};", "w = nibble_hi ? {{4{b[3]}}, b[3:0]} : {{4{b[7]}}, b[7:4]};"),
     }),
 }
-
-
-# PLACEHOLDER (DDR plumbing, host/runner/gate agent): the unit 'qspi_ddr' re-runs the QSPI unit test with --ddr (reader DDR=1, EDh, flash CR1 LC=11).
-# The RTL agent adds the real EDh/DDR reader faults to this dict (same (file-kind, old, new[, equivalence reason]) tuples as 'qspi' above).
-# While the dict is EMPTY, tools/decode_gate.py FAILS ("no faults defined") so the unit can never pass vacuously.
-FAULTS['qspi_ddr'] = ('tools/decode/run_qspi_rtl.py --ddr', 'rtl/decode/qspi_reader.sv', {
-    # 'ddr_fault_name': ('rtl', "old text", "new text"),
-})
 
 
 def run_fault(unit, runner, rtl, name, spec):

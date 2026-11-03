@@ -17,6 +17,7 @@ SRCS = ['rtl/decode/decode_pkg.sv', 'rtl/decode/seq_mul.sv', 'rtl/decode/mul_pip
         'rtl/decode/qspi_reader.sv', 'rtl/board/uart_rx.sv', 'rtl/board/uart_tx.sv', 'rtl/board/board_ctrl.sv', 'rtl/board/boolean_core.sv',
         'rtl/board/qspi_pad_regs.sv', 'rtl/board/qspi_pads.sv', 'rtl/board/boolean_top.sv']
 XDC = 'constraints/boolean_xc7s50.xdc'
+XDC_DDR = 'constraints/boolean_xc7s50_qspi_ddr.xdc'   # DDR=1 overlay, read after the base XDC (both-edge QSPI input/output timing)
 TOP_DDR_PARAM = 'DDR'      # boolean_top / boolean_core parameter (DDR contract C3); integration fixes a name mismatch HERE only
 
 
@@ -42,7 +43,7 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     rp = lambda n: (out / n).as_posix()
     tcl = out / 'run.tcl'
-    tcl.write_text('\n'.join([*(f'read_verilog -sv {Path(s).as_posix()}' for s in SRCS), f'read_xdc {XDC}',
+    tcl.write_text('\n'.join([*(f'read_verilog -sv {Path(s).as_posix()}' for s in SRCS), f'read_xdc {XDC}', *([f'read_xdc {XDC_DDR}'] if ddr else []),
         f'synth_design -top boolean_top -part {PART}' + (f' -generic {TOP_DDR_PARAM}=1' if ddr else ''), f'report_utilization -file {rp("synth_util.rpt")}',
         'opt_design', 'place_design', 'route_design',
         f'report_utilization -file {rp("util.rpt")}', f'report_utilization -hierarchical -hierarchical_depth 2 -file {rp("util_hier.rpt")}',
@@ -118,7 +119,7 @@ def main():
     placed = {}
     for line in (out / 'ports_placed.txt').read_text().splitlines():
         n, pin, std, d = line.split('|'); placed[n] = {'package_pin': pin, 'iostandard': std, 'direction': d}
-    rec = {'status': 'ok', 'part': PART, 'top': 'boolean_top', **({'ddr': 1, 'generics': {TOP_DDR_PARAM: '1'}} if ddr else {}), 'constraints': XDC, 'bitstream_generated': False, 'sources': SRCS,
+    rec = {'status': 'ok', 'part': PART, 'top': 'boolean_top', **({'ddr': 1, 'generics': {TOP_DDR_PARAM: '1'}} if ddr else {}), 'constraints': [XDC, XDC_DDR] if ddr else XDC, 'bitstream_generated': False, 'sources': SRCS,
            'lut': cell('Slice LUTs'), 'lut_pct': None, 'ff': cell('Slice Registers'), 'dsp': cell('DSPs'), 'bram36_equiv': cell('Block RAM Tile'),
            'wns_ns': wns, 'tns_ns': tns, 'whs_ns': whs, 'ths_ns': ths, 'timing_met': wns >= 0 and whs >= 0 and tns == 0 and ths == 0,
            'drc_checks_found': int(drc_sum.group(1)) if drc_sum else None, 'drc_summary_rules': re.findall(r'^\|\s*(\S+)\s*\|\s*(\w+(?: \w+)?)\s*\|[^|]*\|\s*(\d+)\s*\|', drc, re.M), 'drc_error_rules': errs_drc, 'bitstream_note': 'write_bitstream is not in the Tcl; no bitstream was generated',
