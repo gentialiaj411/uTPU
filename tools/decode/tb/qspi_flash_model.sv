@@ -25,6 +25,7 @@
 // a graphical re-read differs. The frequency limits are not enforced (unit test: 25 MHz SCLK; e2e sims scale time by 10).
 // BAR (bank address register) EXTADD exists on the >= 256 Mb parts; it is modelled as a power-up parameter (EXTADD_INIT)
 // so a reader with 3-byte addressing against EXTADD=1 is detected. BAR writes (17h) are not modelled.
+// DDR Quad I/O Read (EDh): see the DDR section at the end of the module. Sources: datasheet Rev *T printed pp.29-30, 44, 53-54, 103-105.
 `timescale 1ns/1ps
 module qspi_flash_model #(
     parameter string IMG = "",
@@ -42,7 +43,16 @@ module qspi_flash_model #(
     parameter real TCSS = 0.0,           // ns, CS# active setup (CS# fall to first SCLK rise); 0 disables the check
     parameter real TCSH = 0.0,           // ns, CS# active hold (last SCLK rise to CS# rise); 0 disables
     parameter real TSU = 0.0,            // ns, host data in setup before SCLK rise; 0 disables
-    parameter real THD = 0.0             // ns, host data in hold after SCLK rise; 0 disables
+    parameter real THD = 0.0,            // ns, host data in hold after SCLK rise; 0 disables
+    // --- DDR Quad I/O Read (EDh), S25FL128S/256S datasheet Rev *T, Table 15 (printed p.44). Input times: the 66 MHz column (the
+    // stricter of the 66/80 MHz columns); output times are identical in both columns. ---
+    parameter real DTV = 6.5,            // ns, DDR clock edge to output valid (max), Table 15 tV
+    parameter real DTHO = 1.5,           // ns, DDR output hold after a clock edge (min), Table 15 tHO
+    parameter real DTSU = 2.0,           // ns, DDR IO input setup before each SCK edge (66 MHz col.; 1.5 at 80 MHz); 0 disables
+    parameter real DTHD = 2.0,           // ns, DDR IO input hold after each SCK edge (66 MHz col.; 1.5 at 80 MHz); 0 disables
+    parameter bit REQUIRE_LC11 = 1'b1    // project policy: EDh runs at <= 50 MHz and must have LC = 11 (Table 27: 1 mode + 3 dummy).
+                                         // The datasheet itself allows LC 00/01/10 (6/7/8 dummy) at <= 66 MHz and lower (p.54);
+                                         // with 0 those rows are modelled instead of flagged.
 ) (
     input  logic       sck, cs_n,
     input  logic [3:0] host_o, host_oe,
@@ -52,6 +62,10 @@ module qspi_flash_model #(
         case (lc) 2'b00: return 8; 2'b01: return 8; 2'b10: return 8; default: return 0; endcase
     endfunction
     logic bar_extadd = EXTADD_INIT;
+    int dn = 0, ddr_cmds = 0, ddr_bytes = 0, cs_gen = 0, ddr_dummy_n = 3;
+    int err_total = 0, err_quad = 0, err_lc = 0, err_cont = 0, err_contend = 0, err_setup = 0, err_hold = 0, err_csmid = 0, err_addr = 0, err_drv = 0;
+    realtime t_samp = -1000.0, t_edge = -1000.0, t_chg4 = -1000.0;
+    logic [3:0] mode_hi, mode_lo;
     int alen = 3, dummy_n = 8;
     function automatic logic [7:0] sparse_byte(input logic [31:0] a);   // arbitrary but address-dependent on all 32 bits
         logic [31:0] h;
@@ -84,7 +98,7 @@ module qspi_flash_model #(
 
     logic cs_low = 1'b0;     // x->0 / 1->x transitions at start-up are not real CS# edges
     always @(negedge cs_n) if (cs_n === 1'b0 && !cs_low) begin
-        cs_low = 1'b1;
+        cs_low = 1'b1; cs_gen++;
         if (sck !== 1'b0) $fatal(1, "FLASH: CS# fell while SCLK=%b (mode 0 requires SCLK low)", sck);
         if ($realtime - last_cs_rise < TCS) $fatal(1, "FLASH: CS# high time %0.2f ns < tCS %0.1f ns", $realtime - last_cs_rise, TCS);
         phase = 1; bitn = 0; rises = 0; instr = 0; addr = 0; nib = 0; t_csfall = $realtime; t_rise = -1000.0;
@@ -108,6 +122,10 @@ module qspi_flash_model #(
                 cr1 = wrr_b1; sr1 = {wrr_b0[7:2], 2'b00}; wel = 0; wip_polls = 2; n_wrr++;
             end
         end
+        if (phase >= 10 && phase <= 13) begin err_csmid++; err_total++; $error("FLASH-DDR: CS# raised before the data phase (phase %0d, %0d edges in phase); datasheet p.104: CS# must not rise during address/mode/dummy", phase, dn); end
+        if (phase == 14 && nib != 0) begin err_csmid++; err_total++; $error("FLASH-DDR: CS# raised mid-byte (high nibble out, low nibble not launched)"); end
+        if (phase >= 10 && TCSH > 0.0 && $realtime - t_edge < TCSH) begin err_setup++; err_total++; $error("FLASH-DDR: CS# rose %0.2f ns after the last SCK edge (tCSH %0.1f)", $realtime - t_edge, TCSH); end
+        cs_gen++;
         phase = 0; last_cs_rise = $realtime;
         flash_o = 4'h0; flash_oe = 4'h0; // inactive data is masked by explicit output enable
     end
@@ -127,6 +145,10 @@ module qspi_flash_model #(
                         if (!cr1[1]) $fatal(1, "FLASH: Quad Output Read issued with CR1.QUAD = 0");
                         alen = (instr === 8'h6C || bar_extadd) ? 4 : 3;
                         phase = 2;
+                    end else if (instr === 8'hED) begin     // DDR Quad I/O Read, 3-byte address (datasheet 11.4.9, p.103)
+                        if (!cr1[1]) begin err_quad++; err_total++; $error("FLASH-DDR: EDh issued with CR1.QUAD = 0 (datasheet 4.4, p.30: QUAD must be set for Read DDR Quad I/O)"); end
+                        if (REQUIRE_LC11 && cr1[7:6] !== 2'b11) begin err_lc++; err_total++; $error("FLASH-DDR: EDh with LC=%b at the <=50 MHz configuration; LC must be 11 (Table 27, p.54: 1 mode + 3 dummy)", cr1[7:6]); end
+                        phase = 10; dn = 0; t_samp = -1000.0; ddr_cmds++;
                     end else if (ALLOW_REG_CMDS && (instr === 8'h9F || instr === 8'h05 || instr === 8'h35)) begin
                         phase = 5; ridx = 0; rbit = 0;
                         regsnap = {sr1[7:2], wel, (wip_polls > 0)}; if (instr === 8'h05 && wip_polls > 0) wip_polls--;
@@ -182,5 +204,75 @@ module qspi_flash_model #(
         #(TV - THO) if (cs_n === 1'b0) flash_o = v;
         if (nib == 1) begin rd_addr = (alen == 4) ? rd_addr + 1 : (rd_addr + 1) & 32'hFFFFFF; nbytes_out++; end
         nib = 1 - nib;
+    end
+
+    // ======================= DDR Quad I/O Read (EDh) =======================
+    // Datasheet Rev *T 11.4.9 (printed pp.103-105, Fig. 94): instruction EDh 8 cycles SDR on IO0 (sampled on the rising edges);
+    // 3-byte address, one nibble per SCK edge on IO3..IO0 (IO3 = most significant bit), rising edge first (cycles 8..10);
+    // 1 mode cycle (2 nibbles, cycle 11); then Table 27/29 dummy cycles (LC=11: 3, at <=50 MHz) with the bus high-Z; then data
+    // nibble per edge, bits [7:4] on the rising edge of the first data cycle, [3:0] on the falling edge (Fig. 94: Data 0 / Data 1).
+    // Phases: 10 = waiting for the falling edge that ends the instruction cycle (not sampled), 11 = address nibbles,
+    // 12 = mode nibbles, 13 = dummy edges, 14 = data. Not modelled: Data Learning Pattern (NVDLR/VDLR = 00h, so no preamble),
+    // continuous read mode (flagged), 4-byte EEh/EDh[ExtAdd=1] (flagged / unsupported), tIO_SKEW (600 ps) between the IO bits.
+    // Sticky error counters: err_total and the per-class counters below (each also raises a $error).
+    function automatic int ddr_dummy_tbl(input logic [1:0] lc);    // Table 27 / Table 29, Read DDR Quad I/O dummy cycles
+        case (lc) 2'b11: return 3; 2'b00: return 6; 2'b01: return 7; default: return 8; endcase
+    endfunction
+    always @(host_o or host_oe) begin     // DDR host-to-flash hold check; also records the last change for the setup check
+        if (cs_n === 1'b0 && phase >= 11 && phase <= 13 && DTHD > 0.0 && t_samp > 0.0 && $realtime - t_samp < DTHD) begin
+            err_hold++; err_total++;
+            $error("FLASH-DDR: host IO changed %0.2f ns after an SCK sampling edge (tHD %0.2f ns, Table 15 p.44)", $realtime - t_samp, DTHD);
+        end
+        t_chg4 = $realtime;
+    end
+    always @(host_oe or flash_oe) if (cs_n === 1'b0 && phase >= 13 && host_oe !== 4'h0 && flash_oe !== 4'h0) begin
+        err_contend++; err_total++; $error("FLASH-DDR: bus contention, host_oe=%b flash_oe=%b", host_oe, flash_oe);
+    end
+    task automatic ddr_drive(input logic [3:0] v, input int g);   // X from tHO, valid from tV, relative to the launching edge
+        #(DTHO) if (cs_n === 1'b0 && g == cs_gen) begin flash_o = 4'bx; flash_oe = 4'hF; end
+        #(DTV - DTHO) if (cs_n === 1'b0 && g == cs_gen) flash_o = v;
+    endtask
+    always @(sck) if (cs_n === 1'b0 && (sck === 1'b0 || sck === 1'b1) && phase >= 10) begin
+        logic [3:0] nbl; logic [7:0] b;
+        t_edge = $realtime;
+        case (phase)
+            10: if (sck === 1'b0) begin phase = 11; dn = 0; end       // falling edge of instruction cycle 7: nothing sampled
+            11, 12: begin
+                if (host_oe !== 4'hF) begin err_drv++; err_total++; $error("FLASH-DDR: host not driving IO[3:0] during address/mode (oe=%b)", host_oe); end
+                if (DTSU > 0.0 && $realtime - t_chg4 < DTSU) begin err_setup++; err_total++; $error("FLASH-DDR: host IO changed %0.2f ns before an SCK edge (tSU %0.2f ns, Table 15 p.44)", $realtime - t_chg4, DTSU); end
+                nbl = host_o; t_samp = $realtime;
+                if ((^nbl) === 1'bx) begin err_drv++; err_total++; $error("FLASH-DDR: host nibble is X/Z (%b)", nbl); end
+                if (phase == 11) begin
+                    addr = {addr[27:0], nbl}; dn++;
+                    if (dn == 6) begin
+                        if (bar_extadd) begin err_addr++; err_total++; $error("FLASH-DDR: EDh with BAR.EXTADD=1 needs a 4-byte address; not modelled"); end
+                        if (!SPARSE && addr >= SIZE) begin err_addr++; err_total++; $error("FLASH-DDR: address %0d beyond the image (%0d bytes)", addr, SIZE); end
+                        rd_addr = addr; phase = 12; dn = 0; nib = 0;
+                    end
+                end else begin
+                    if (dn == 0) mode_hi = nbl; else mode_lo = nbl;
+                    dn++;
+                    if (dn == 2) begin
+                        if (mode_hi === ~mode_lo) begin err_cont++; err_total++; $error("FLASH-DDR: mode bits %h%h are complementary = continuous read mode requested (datasheet p.104); continuous mode not modeled", mode_hi, mode_lo); end
+                        phase = 13; dn = 0; ncmds++;
+                        ddr_dummy_n = ddr_dummy_tbl(cr1[7:6]);     // LC in force when the command is issued
+                    end
+                end
+            end
+            13: begin
+                dn++;
+                if (dn > 2 && host_oe !== 4'h0) begin err_contend++; err_total++; $error("FLASH-DDR: host drives IO (oe=%b) during the dummy phase", host_oe); end
+                if (dn == 2 * ddr_dummy_n) phase = 14;
+            end
+            14: begin
+                if (host_oe !== 4'h0) begin err_contend++; err_total++; $error("FLASH-DDR: host drives IO (oe=%b) during data", host_oe); end
+                b = SPARSE ? sparse_byte(rd_addr) : ((rd_addr < SIZE) ? mem[rd_addr] : 8'hFF);
+                if (!SPARSE && rd_addr >= SIZE && nib == 0) over_read++;
+                nbl = (nib == 0) ? b[7:4] : b[3:0];
+                fork ddr_drive(nbl, cs_gen); join_none
+                if (nib == 1) begin rd_addr = (rd_addr + 1) & 32'hFFFFFF; ddr_bytes++; nbytes_out++; end
+                nib = 1 - nib;
+            end
+        endcase
     end
 endmodule
