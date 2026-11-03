@@ -159,6 +159,14 @@ FAULTS = {
 }
 
 
+# PLACEHOLDER (DDR plumbing, host/runner/gate agent): the unit 'qspi_ddr' re-runs the QSPI unit test with --ddr (reader DDR=1, EDh, flash CR1 LC=11).
+# The RTL agent adds the real EDh/DDR reader faults to this dict (same (file-kind, old, new[, equivalence reason]) tuples as 'qspi' above).
+# While the dict is EMPTY, tools/decode_gate.py FAILS ("no faults defined") so the unit can never pass vacuously.
+FAULTS['qspi_ddr'] = ('tools/decode/run_qspi_rtl.py --ddr', 'rtl/decode/qspi_reader.sv', {
+    # 'ddr_fault_name': ('rtl', "old text", "new text"),
+})
+
+
 def run_fault(unit, runner, rtl, name, spec):
     """Build the mutant, run the unit's runner, classify. Returns the result dict for the fault."""
     which, old, new, *why = spec
@@ -175,7 +183,7 @@ def run_fault(unit, runner, rtl, name, spec):
     elif unit == 'top':   # end-to-end runner: mutant top_decode.sv, mismatches = logits + indices + tokens
         args = [sys.executable, str(ROOT / script), *extra, '--output', str(out), '--top-rtl', str(mutant)]
     else:
-        args = [sys.executable, str(ROOT / script), '--output', str(out), '--pkg' if which == 'pkg' else '--rtl', str(mutant)]
+        args = [sys.executable, str(ROOT / script), *extra, '--output', str(out), '--pkg' if which == 'pkg' else '--rtl', str(mutant)]
     res = {}
     try:
         proc = subprocess.run(args, capture_output=True, text=True, timeout=RUN_TIMEOUT_S)

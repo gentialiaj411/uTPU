@@ -29,6 +29,21 @@ class BoardError(RuntimeError):
         super().__init__(f"E{code:02d}: {ERRORS.get(code, 'unknown board error')} (next position {next_pos})")
 
 
+# 'V' reply version byte -> CR1[7:6] latency code the build's qspi_reader needs (1 = SDR build 6Bh/LC=00, 2 = DDR build EDh/LC=11).
+BUILD_LC = {1: 0b00, 2: 0b11}
+
+
+class BuildVersionError(RuntimeError):
+    pass
+
+
+def build_lc(version: int) -> int:
+    if version not in BUILD_LC:
+        raise BuildVersionError(f"board reported build version {version:#04x}; known versions are {sorted(BUILD_LC)} "
+                                f"(1 = SDR build, LC=00; 2 = DDR build, LC=11). Refusing to configure the flash")
+    return BUILD_LC[version]
+
+
 class SerialTransport:
     def __init__(self, port: str, baud: int, timeout: float):
         try:
@@ -49,10 +64,11 @@ class SerialTransport:
 
 class LoopbackTransport:
     """Small board-side protocol model. Its byte parsing is deliberately independent of Client."""
-    def __init__(self, runtime=None, vocab=VOCAB, max_seq=MAX_SEQ, watchdog=False):
+    def __init__(self, runtime=None, vocab=VOCAB, max_seq=MAX_SEQ, watchdog=False, version=1, cr1=0):
         self.runtime, self.vocab, self.max_seq = runtime, vocab, max_seq
         self.watchdog, self.next_pos, self.reply = watchdog, 0, bytearray()
-        self.sr1, self.cr1, self.wel, self.wip = 0, 0, False, 0
+        self.sr1, self.cr1, self.wel, self.wip = 0, cr1, False, 0
+        self.version = version
         self.frames = []
 
     def write(self, frame: bytes) -> None:
@@ -61,7 +77,7 @@ class LoopbackTransport:
         self.frames.append(bytes(frame))
         command = frame[0]
         if command == 0x56:
-            self.reply.extend((0x76, 1))
+            self.reply.extend((0x76, self.version))
         elif command == 0x58:
             self.next_pos = 0
             if self.runtime is not None:
@@ -129,6 +145,7 @@ class Client:
     """Host-side frame encoder/parser. Integers in the UART frames are little-endian."""
     def __init__(self, transport, timeout: float = 60.0):
         self.transport, self.timeout = transport, timeout
+        self.version = None                  # build version from the last ping()
 
     def _read_exact(self, n: int, what: str) -> bytes:
         data = self.transport.read(n)
@@ -145,10 +162,13 @@ class Client:
             raise RuntimeError(f"{what}: reply tag 0x{first:02x}, expected 0x{tag:02x}")
         return self._read_exact(n, what)
 
-    def ping(self) -> None:
+    def ping(self) -> int:
+        """'V': returns the build version (1 = SDR build, LC=00; 2 = DDR build, LC=11); any other value is a BuildVersionError."""
         self.transport.write(b"V")
-        if self._reply(ord("v"), 1, "link check") != b"\x01":
-            raise RuntimeError("link check returned an invalid version")
+        version = self._reply(ord("v"), 1, "link check")[0]
+        build_lc(version)
+        self.version = version
+        return version
 
     def new_sequence(self) -> None:
         self.transport.write(b"X")
@@ -165,12 +185,17 @@ class Client:
             raise RuntimeError(f"SPI reply count {count}, expected {nrx}")
         return self._read_exact(nrx, "SPI data")
 
-    def quad_enable(self) -> int:
+    def quad_enable(self, lc=None) -> int:
         # Match Board.enable_quad and run_uart_rtl.host_sequence: read SR1/CR1,
-        # WREN, WRR with SR1 bits 1:0 cleared and CR1 LC=00/QUAD=1, poll, read back.
+        # WREN, WRR with SR1 bits 1:0 cleared and CR1 LC=<build>/QUAD=1, poll, read back.
+        # LC comes from the 'V' build version (00 for version 1, 11 for version 2); `lc` is an explicit override that must agree.
+        version = self.version if self.version is not None else self.ping()
+        build = build_lc(version)
+        if lc is not None and lc != build:
+            raise RuntimeError(f"refusing to set LC={lc:02b}: board build version {version} needs LC={build:02b}")
         sr = self.spi(b"\x05", 1)[0]
         cr = self.spi(b"\x35", 1)[0]
-        want = (cr & 0x3F) | 0x02
+        want = (cr & 0x3F) | 0x02 | (build << 6)
         if cr == want and not sr & 0x61:
             return cr
         self.spi(b"\x06", 0)
@@ -258,6 +283,7 @@ def main(argv=None) -> int:
     ap.add_argument("--gen", type=int, default=8)
     ap.add_argument("--verify", action="store_true")
     ap.add_argument("--quad-enable", action="store_true")
+    ap.add_argument("--lc", type=lambda x: int(x, 2), default=None, help="explicit LC override (2 bits); must match the board build version")
     a = ap.parse_args(argv)
     if a.port is None:
         ap.error("--port is required by the command line client; tests construct LoopbackTransport directly")
@@ -265,10 +291,10 @@ def main(argv=None) -> int:
     try:
         client = Client(transport, a.timeout)
         if a.quad_enable:
-            print(f"CR1 after quad enable: {client.quad_enable():#04x}")
+            print(f"CR1 after quad enable: {client.quad_enable(a.lc):#04x}")
         runtime = load_golden_runtime() if a.verify else None
         generate(client, load_tokenizer(), a.prompt, a.gen, a.verify, runtime)
-    except (BoardError, TimeoutError, ValueError, RuntimeError, AssertionError) as e:
+    except (BoardError, BuildVersionError, TimeoutError, ValueError, RuntimeError, AssertionError) as e:
         print(f"ERROR: {e}", file=sys.stderr)
         return 2
     finally:

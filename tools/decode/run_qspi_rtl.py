@@ -21,6 +21,12 @@ from harness import ROOT, BUILD, write_mem, parse_summary, provenance, ARTIFACT_
 from sim import compile_and_run, VVP
 
 NB = 16384
+# --- interface names shared with the RTL / flash-model changes (C1/C3 of the DDR contract); integration fixes a mismatch HERE only ---
+READER_DDR_PARAM = 'DDR'         # qspi_reader parameter int DDR (0 = 6Bh SDR, 1 = EDh DDR Quad I/O Read)
+MODEL_CR1_PARAM = 'CR1_INIT'     # qspi_flash_model parameter [7:0]: power-up CR1 = {LC[1:0], 4'b0, QUAD, 1'b0}; the model takes dummy counts from CR1 LC
+DDR_CR1_LC = 0b11                # CR1 latency code a DDR build needs (EDh, 3 dummy cycles)
+BOARD_DDR_VARIANT = 'pad_h1_late_slowin'    # the board configuration; the headline measured_bytes_per_cycle comes from this variant
+STREAM_BYTES = 4000              # DDR runs: bytes taken back-to-back (ready always high) to measure bytes per core cycle
 PADS_SLOWIN = dict(pads=1, sck_d=7.5, out_d=4.0, in_d=2.0, tv=8.0)
 # direct pads (no pad registers); then behind qspi_pad_regs with CAP_DLY=2 and board/flash delay corners:
 #   slowin : CCLK delay 7.5 (DS189 TUSRCCLKO max), flash tV 8.0 (max), 2.0 ns input path  -> worst input setup, fastest output
@@ -51,6 +57,27 @@ VARIANTS = []
 for v in BASE_VARIANTS:
     VARIANTS.append(v)
     VARIANTS.append(dict(v, name=v['name'] + '_sp', sparse=1))
+
+# DDR (EDh) configurations: same TB, reader DDR=1, flash model powered up with CR1 = {LC=11, QUAD=1}. EDh has a 3-byte address
+# (no ADDR_BYTES=4 variants, no DUMMY/latency-code variants: DDR dummy cycles come from CR1.LC = 11 in the model). Which HALF /
+# SAMPLE_LATE values the DDR reader accepts is the RTL change's decision: this list is the one place to prune or extend it.
+DDR_BASE_NAMES = ['a3_h1_late', 'a3_h1_early', 'a3_h2_late', 'a3_h2_early', 'pad_h1_late_slowin', 'pad_h1_late_fastin',
+                  'pad_h1_late_nodelay', 'pad_h2_late_slowin', 'su3_a3_h1_late', 'sw3edges_a3_h1_late']
+DDR_VARIANTS = []
+for v in BASE_VARIANTS:
+    if v['name'] in DDR_BASE_NAMES:
+        d = dict(v, ddr=1, lc=DDR_CR1_LC)
+        DDR_VARIANTS.append(d)
+        DDR_VARIANTS.append(dict(d, name=v['name'] + '_sp', sparse=1))
+assert {v['name'] for v in DDR_VARIANTS if not v.get('sparse')} == set(DDR_BASE_NAMES) and BOARD_DDR_VARIANT in DDR_BASE_NAMES
+DDR_NEGATIVES = [
+    dict(name='neg_ddr_model_lc0_reader_ddr', ab=3, half=1, late=1, ddr=1, lc=0, why='model CR1 LC=00 (8 dummy cycles) while the DDR reader assumes the LC=11 count'),
+    dict(name='neg_ddr_model_lc1_reader_ddr', ab=3, half=1, late=1, ddr=1, lc=1, why='model CR1 LC=01 while the DDR reader assumes the LC=11 count'),
+    dict(name='neg_ddr_model_lc2_reader_ddr', ab=3, half=1, late=1, ddr=1, lc=2, why='model CR1 LC=10 while the DDR reader assumes the LC=11 count'),
+    dict(name='neg_ddr_model_quad0_reader_ddr', ab=3, half=1, late=1, ddr=1, lc=DDR_CR1_LC, quad=0, why='model CR1.QUAD=0: an EDh read must trip the model'),
+    dict(name='neg_ddr_model_extadd_reader_ab3', ab=3, half=1, late=1, ddr=1, lc=DDR_CR1_LC, extadd=1, why='model BAR.EXTADD=1 expects 4 address bytes, the DDR reader sends 3'),
+]
+DDR_REJECTED = [('.%s(2)' % READER_DDR_PARAM, READER_DDR_PARAM)]   # untested DDR values are refused at elaboration (like the other parameters)
 
 # Disagreements between model and reader that must be detected (rc != 0 or mismatches); each is the same configuration as a
 # passing variant above with one model-side or shim-side change.
@@ -116,7 +143,7 @@ module qspi_tb;
   end
   qspi_reader #(.HALF(@@HALF@@), .SAMPLE_LATE(@@LATE@@)@@XPARAMS@@) dut (.clk, .rst, .seek_req, .seek_addr,
       .st_ready, .st_valid, .st_data, .sclk, .cs_n, .io_o, .io_oe, .io_i(io_i_c));
-  qspi_flash_model #(.IMG("@@IMG@@"), .SIZE(NB), .SPARSE(SPARSE), .LC_INIT(@@LC@@), .EXTADD_INIT(@@EXTADD@@), .TV(@@TV@@), .THO(2.0), .TCSS(3.0), .TCSH(3.0), .TSU(3.0), .THD(2.0))
+  qspi_flash_model #(.IMG("@@IMG@@"), .SIZE(NB), .SPARSE(SPARSE), @@MODELCFG@@, .EXTADD_INIT(@@EXTADD@@), .TV(@@TV@@), .THO(2.0), .TCSS(3.0), .TCSH(3.0), .TSU(3.0), .THD(2.0))
       flash (.sck(sck_m), .cs_n(cs_m), .host_o(host_o_m), .host_oe(host_oe_m), .flash_o(f_o), .flash_oe(f_oe));
   logic [7:0] img [NB]; initial $readmemh("@@IMG@@", img);
   // expected byte: the image, or (sparse) the address hash, written here independently of the model's sparse_byte
@@ -129,6 +156,8 @@ module qspi_tb;
       return 8'(h ^ (h >> 8) ^ (h >> 16) ^ (h >> 24));
     end else return img[a];
   endfunction
+  localparam bit MEAS = @@MEAS@@;   // DDR runs only: measure the streaming rate
+  integer m_c0 = 0, m_b0 = 0;
   integer errors = 0, cycles = 0, got = 0, seeks = 0, same_cycle = 0, stall_edges = 0, shown = 0, exp_mut = 0, unexpected_valid = 0;
   logic [31:0] exp_ptr = 0; logic [7:0] eb;
   bit stall_watch = 0;
@@ -235,6 +264,14 @@ module qspi_tb;
     end
     for (int k = 0; k < 150; k++) begin seek(rnd(NB)); take(1, 100 - 20 * rnd(4)); cyc(rnd(60)); end
     for (int k = 0; k < 3; k++) begin seek(0); take(4000, 70 + rnd(31)); end   // long streaming reads with a flaky consumer
+    if (MEAS) begin   // back-to-back streaming: ready always high from the first byte of a fresh burst (command/address/dummy latency excluded)
+      seek(0); @(negedge clk); st_ready = 1;
+      while (!st_valid) @(negedge clk);
+      m_c0 = cycles; m_b0 = got;
+      while (got < m_b0 + @@STREAM_BYTES@@) @(negedge clk);
+      st_ready = 0;
+      $display("STREAM bytes=%0d cycles=%0d", got - m_b0, cycles - m_c0);
+    end
     cyc(100);
     summary();
     $finish;
@@ -248,13 +285,18 @@ def build_tb(v, img_path):
     # parameters left at their default are NOT passed (the board's boolean_core instantiates qspi_reader the same way), so a
     # change of a default value (ADDR_BYTES=3, DUMMY=8, CAP_DLY=0, STARTUP_PULSES=4) is visible to the test
     xp = ''
+    if v.get('ddr'): xp += f', .{READER_DDR_PARAM}(1)'
     if v['ab'] != 3: xp += f", .ADDR_BYTES({v['ab']})"
     if 'dummy' in v: xp += f", .DUMMY({v['dummy']})"
     if pads: xp += ', .CAP_DLY(2)'
     if 'startup' in v: xp += f", .STARTUP_PULSES({v['startup']})"
     xp += v.get('xparams', '')
-    sub = dict(NB=NB, AB=v['ab'], SPARSE=v.get('sparse', 0), PADS=pads, SCK_D=v.get('sck_d', 0.0), OUT_D=v.get('out_d', 0.0),
-               IN_D=v.get('in_d', 0.0), SWALLOW=v.get('swallow', 6), HALF=v['half'], LATE=v['late'], XPARAMS=xp, IMG=img_path, LC=v.get('lc', 0), EXTADD=v.get('extadd', 0), TV=v.get('tv', 7.65))
+    if v.get('ddr'):   # DDR: the flash model starts from a full CR1 byte {LC, 0000, QUAD, 0}
+        modelcfg = f".{MODEL_CR1_PARAM}(8'h{(v.get('lc', DDR_CR1_LC) << 6) | (v.get('quad', 1) << 1):02x})"
+    else:
+        modelcfg = f".LC_INIT({v.get('lc', 0)})"
+    sub = dict(MODELCFG=modelcfg, MEAS=1 if v.get('ddr') else 0, STREAM_BYTES=STREAM_BYTES, NB=NB, AB=v['ab'], SPARSE=v.get('sparse', 0), PADS=pads, SCK_D=v.get('sck_d', 0.0), OUT_D=v.get('out_d', 0.0),
+               IN_D=v.get('in_d', 0.0), SWALLOW=v.get('swallow', 6), HALF=v['half'], LATE=v['late'], XPARAMS=xp, IMG=img_path, EXTADD=v.get('extadd', 0), TV=v.get('tv', 7.65))
     t = TB
     for k, x in sub.items():
         t = t.replace(f'@@{k}@@', str(x))
@@ -274,10 +316,16 @@ def sim(srcs, tb, defines=()):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--rtl', default=str(ROOT / 'rtl/decode/qspi_reader.sv'))
-    ap.add_argument('--output', default=str(ROOT / 'bench/results/decode_qspi_rtl.json'))
+    ap.add_argument('--output', default=None, help='default bench/results/decode_qspi_rtl.json, or decode_qspi_ddr_rtl.json with --ddr')
+    ap.add_argument('--ddr', action='store_true', help='EDh DDR configuration: reader DDR=1, flash model CR1 = {LC=11, QUAD=1}; reports measured bytes per core cycle')
     ap.add_argument('--variants', default=None, help='comma list of variant names (default all)')
     ap.add_argument('--sim', choices=('icarus','verilator'), default=__import__('sim').SIMULATOR, help='simulation backend (default icarus)')
     a = ap.parse_args()
+    ddr = a.ddr
+    variants, negatives, rejected = (DDR_VARIANTS, DDR_NEGATIVES, DDR_REJECTED) if ddr else (VARIANTS, NEGATIVES, REJECTED)
+    ptag = 'ddr_' if ddr else ''          # build-file prefix so DDR and SDR runs never share a TB path
+    if a.output is None:
+        a.output = str(ROOT / ('bench/results/decode_qspi_ddr_rtl.json' if ddr else 'bench/results/decode_qspi_rtl.json'))
     want = set(a.variants.split(',')) if a.variants else None
     img = np.random.default_rng(20261027).integers(0, 256, NB, dtype=np.uint8)
     img_path = write_mem('qspi_img', list(img), 8)
@@ -285,12 +333,12 @@ def main():
     srcs = [a.rtl, model, ROOT / 'rtl/board/qspi_pad_regs.sv']
     BUILD.mkdir(parents=True, exist_ok=True)
     runs, tot_err, tot_mut, tot_exp = [], 0, 0, 0
-    for v in VARIANTS:
+    for v in variants:
         name = v['name']
         if want and name not in want:
             continue
         pads, sparse = v.get('pads', 0), v.get('sparse', 0)
-        tb = BUILD / f'qspi_{name}_tb.sv'
+        tb = BUILD / f'qspi_{ptag}{name}_tb.sv'
         tb.write_text(build_tb(v, img_path))
         rc, out, cerr = sim(srcs, tb)
         mrc, mout, mcerr = sim(srcs, tb, ('QSPI_MUTATE',))
@@ -298,6 +346,7 @@ def main():
         mline, mkv = parse_summary(mout)
         r = {'variant': name, 'mode': 'sparse' if sparse else 'image', 'addr_bytes': v['ab'], 'half': v['half'], 'sample_late': v['late'],
              'pad_regs': pads, 'cap_dly': 2 if pads else 0, 'dummy': v.get('dummy', 8), 'flash_lc': v.get('lc', 0),
+             **({'ddr': 1, 'flash_cr1_init': (v['lc'] << 6) | 2} if ddr else {}),
              'startup_pulses': v.get('startup', 'default'), 'startupe2_swallow_toggles': v.get('swallow', 6),
              'delays_ns': {k: v[k] for k in ('sck_d', 'out_d', 'in_d', 'tv') if k in v}, 'rc': rc, 'summary': line, 'mutation_summary': mline,
              'mismatches': (int(kv['errors']) if 'errors' in kv else 0) + (1 if rc != 0 or 'errors' not in kv else 0),  # a model $fatal or an elaboration error counts as a detection
@@ -307,19 +356,26 @@ def main():
              'mutation_mismatches': int(mkv.get('errors', -1)), 'mutation_expected': int(mkv.get('exp_mut', -2)),
              'fatal_lines': [x for x in (out + mout).splitlines() if 'FLASH' in x or 'MISMATCH' in x][:4] + ([cerr.strip().splitlines()[0]] if cerr.strip() else []),
              'sim_stdout_sha256': hashlib.sha256(out.encode()).hexdigest()}
+        if ddr and not sparse:   # measured streaming rate: bytes taken with ready always high / core cycles
+            sm = [x for x in out.splitlines() if x.startswith('STREAM ')]
+            skv = dict(t.split('=') for t in sm[0].split()[1:]) if sm else {}
+            sb, sc = int(skv.get('bytes', 0)), int(skv.get('cycles', 0))
+            r['stream_bytes'], r['stream_cycles'] = sb, sc
+            r['stream_bytes_per_cycle'] = round(sb / sc, 6) if sc > 0 and sb >= STREAM_BYTES else 0.0
         r['ok'] = (rc == 0 and r['mismatches'] == 0 and r['bytes_checked'] > (1000 if sparse else 10000) and 0 <= r['sclk_edges_during_4000_cycle_stall'] <= 4
-                   and r['mutation_mismatches'] == r['mutation_expected'] > 0 and r['same_cycle_seek_handoffs'] > 0)
+                   and r['mutation_mismatches'] == r['mutation_expected'] > 0 and r['same_cycle_seek_handoffs'] > 0
+                   and (not ddr or sparse or r['stream_bytes'] >= STREAM_BYTES))
         runs.append(r)
         tot_err += r['mismatches']; tot_mut += r['mutation_mismatches']; tot_exp += r['mutation_expected']
         print(name, r['ok'], line, '| mut', mline, r['fatal_lines'], flush=True)
 
     # negative tests: model/reader/shim disagreements that MUST be detected (mismatch, model $fatal, or watchdog), never a crash or a pass
     negs = []
-    for v in NEGATIVES:
+    for v in negatives:
         name = v['name']
         if want and name not in want:
             continue
-        tb = BUILD / f'qspi_{name}_tb.sv'
+        tb = BUILD / f'qspi_{ptag}{name}_tb.sv'
         tb.write_text(build_tb(v, img_path))
         rc, out, cerr = sim(srcs, tb)
         line, kv = parse_summary(out)
@@ -332,7 +388,7 @@ def main():
 
     # untested parameter values are rejected at elaboration
     rej = []
-    for xp, par in REJECTED:
+    for xp, par in rejected:
         if want and 'rejected' not in want:
             continue
         v = dict(ab=3, half=1, late=1, xparams=', ' + xp)
@@ -340,7 +396,7 @@ def main():
             key = {'.HALF': 'half', '.DUMMY': 'dummy', '.ADDR_BYTES': 'ab'}[xp.split('(')[0]]
             v = dict(ab=3, half=1, late=1)
             v[key] = int(xp.split('(')[1].rstrip(')'))
-        tb = BUILD / f'qspi_rej_{par}_{xp.split("(")[1].rstrip(")")}_tb.sv'
+        tb = BUILD / f'qspi_{ptag}rej_{par}_{xp.split("(")[1].rstrip(")")}_tb.sv'
         text = build_tb(v, img_path)
         tb.write_text(text)
         rc, out, cerr = sim(srcs, tb)
@@ -356,7 +412,13 @@ def main():
          'bytes_checked': sum(r['bytes_checked'] for r in runs), 'variants': runs,
          'negative_tests': negs, 'negative_tests_detected': sum(n['detected'] for n in negs),
          'rejected_parameters': rej,
-         'provenance': provenance(ARTIFACT_SOURCES['decode_qspi_rtl'], {'rtl/decode/qspi_reader.sv': a.rtl})}
+         'provenance': provenance(ARTIFACT_SOURCES['decode_qspi_ddr_rtl' if ddr else 'decode_qspi_rtl'], {'rtl/decode/qspi_reader.sv': a.rtl})}
+    if ddr:
+        board = [r for r in runs if r['variant'] == BOARD_DDR_VARIANT]
+        o.update({'ddr': 1, 'opcode': '0xED', 'flash_cr1_init': (DDR_CR1_LC << 6) | 2, 'reader_ddr_param': READER_DDR_PARAM, 'model_cr1_param': MODEL_CR1_PARAM,
+                  'board_variant': BOARD_DDR_VARIANT, 'stream_bytes_requested': STREAM_BYTES,
+                  'measured_bytes_per_cycle': board[0]['stream_bytes_per_cycle'] if board else None,
+                  'measured_bytes_per_cycle_note': 'bytes delivered with st_ready always high / core cycles, from the first byte of a fresh burst (command, address, mode and dummy latency excluded); board variant, HALF=1 = 25 MHz SCK at the 50 MHz core clock'})
     finish(o, a.output, ('status',))
 
 

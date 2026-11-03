@@ -1,10 +1,10 @@
 """Host side of the Boolean UART protocol (rtl/board/board_ctrl.sv). Needs pyserial (pip install pyserial).
 
-  python tools/board/boolean_host.py --port COM5 ping
+  python tools/board/boolean_host.py --port COM5 ping          # reads the 'V' build-version byte: 1 = SDR build (LC=00), 2 = DDR build (LC=11)
   python tools/board/boolean_host.py --port COM5 info          # read-only: ID, SR1, CR1; compatible with the bitstream? (exit 1 if not)
   python tools/board/boolean_host.py --port COM5 id            # flash JEDEC ID + sector architecture
   python tools/board/boolean_host.py --port COM5 cr1           # read SR1 and CR1, report QUAD and LC
-  python tools/board/boolean_host.py --port COM5 enable-quad   # set CR1 = {LC=00, QUAD=1}, other bits as read; verify SR1/CR1 by read-back
+  python tools/board/boolean_host.py --port COM5 enable-quad   # set CR1 = {LC=<from the build version>, QUAD=1}, other bits as read; verify SR1/CR1 by read-back
   python tools/board/boolean_host.py --port COM5 step --token 1 --pos 0 --probe 5
   python tools/board/boolean_host.py --port COM5 run --prompt 1,403,260 --gen 8
   python tools/board/boolean_host.py selftest                  # frame encoding / error handling vs a software stub (no board needed)
@@ -27,7 +27,16 @@ ERRORS = {1: 'token >= VOCAB', 2: 'pos >= MAX_SEQ', 3: 'pos > next expected posi
 #   datasheet; the table text came from a PDF extraction with scrambled columns and was cross-checked against Fig. 10.30, not read
 #   graphically). qspi_reader.DUMMY = 8, so the host forces the default LC = 00 explicitly rather than accepting whatever is stored.
 #   SR1 (05h): [7] SRWD [6] P_ERR [5] E_ERR [4:2] BP [1] WEL [0] WIP.
-CR1_LC_MASK, CR1_QUAD, CR1_LC_WANT = 0xC0, 0x02, 0x00
+# DDR build (board_ctrl 'V' version byte 2; qspi_reader DDR=1): EDh DDR Quad I/O Read at the same 25 MHz SCK. The row values below
+#   come from the DDR design note (datasheet Rev *T, Tables 26/27/29, printed pp. 53-54); this host code did NOT re-read them from
+#   the datasheet. The flash-model agent is verifying them against the datasheet and the model's latency table:
+#     command | opcode | address            | mode byte | dummy at LC=00/01/10 | dummy at LC=11 | data
+#     6Bh SDR | 6Bh    | 24 bit, IO0        | none      | 8 clocks             | 0 clocks       | 1 nibble per SCK rising edge
+#     EDh DDR | EDh    | 24 bit, IO3..0 DDR | 00h (DDR) | not used here        | 3 clocks       | 1 nibble per SCK edge
+#   so a DDR build needs CR1.LC = 11 (and QUAD = 1) and an SDR build needs LC = 00 (and QUAD = 1); the build version byte decides.
+CR1_LC_MASK, CR1_QUAD, CR1_LC_WANT = 0xC0, 0x02, 0x00     # CR1_LC_WANT: the SDR (version 1) value, kept for existing callers
+BUILD_LC = {1: 0b00, 2: 0b11}                             # 'V' version byte -> CR1[7:6] the build's qspi_reader needs
+BUILD_NAME = {1: 'SDR (6Bh, LC=00)', 2: 'DDR (EDh, LC=11)'}
 SR1_WIP, SR1_WEL, SR1_ERR = 0x01, 0x02, 0x60
 ID_PREFIX = bytes([0x01, 0x20, 0x18])     # Spansion/Cypress/Infineon, S25FL128S
 BITSTREAM_BYTES, FLASH_BASE = 2192012, 0x280000   # xc7s50 bitstream 17,536,096 bits; weight image offset (boolean_core.FLASH_BASE)
@@ -43,9 +52,22 @@ class FlashConfigError(RuntimeError):
     pass
 
 
+class BuildVersionError(RuntimeError):
+    pass
+
+
+def build_lc(version):
+    """CR1 latency code the build with this 'V' version byte needs; anything but 1 (SDR) or 2 (DDR) is an error."""
+    if version not in BUILD_LC:
+        raise BuildVersionError(f'board reported build version {version:#04x}; this host knows only {sorted(BUILD_LC)} '
+                                f'(1 = SDR build, LC=00; 2 = DDR build, LC=11). Refusing to configure the flash: update the host or reflash the bitstream')
+    return BUILD_LC[version]
+
+
 class Board:
     def __init__(self, ser, vocab=VOCAB, max_seq=MAX_SEQ):
         self.ser, self.vocab, self.max_seq = ser, vocab, max_seq
+        self.version = None                       # set by ping(); enable_quad / info use it instead of sending a second V frame
 
     def _rx(self, n, what):
         data = self.ser.read(n)
@@ -64,9 +86,11 @@ class Board:
         return self._rx(n, what)
 
     def ping(self):
+        """'V': returns the build version byte (1 = SDR build, 2 = DDR build). Raises BuildVersionError for any other value."""
         self.ser.write(b'V')
         r = self._reply(0x76, 1, 'ping')
-        assert r == b'\x01', r
+        build_lc(r[0])
+        self.version = r[0]
         return r[0]
 
     def new_sequence(self):
@@ -98,21 +122,22 @@ class Board:
         return self.spi(b'\x16', 1)[0]
 
     def info(self, with_bar=False):
-        """Read-only report. 'compatible' = the flash state the bitstream's reader (6Bh, 3-byte address, 8 dummy clocks, quad) needs."""
-        self.ping()
+        """Read-only report. 'compatible' = the flash state the bitstream's reader needs: QUAD = 1 and CR1.LC = the build's code
+        (SDR build, version 1: 6Bh, 8 dummy clocks, LC = 00; DDR build, version 2: EDh, LC = 11)."""
+        want_lc = build_lc(self.ping())
         fid, sr, cr = self.flash_id(), self.sr1(), self.cr1()
         problems = []
         if fid[:3] != ID_PREFIX:
             problems.append(f'flash ID {fid[:3].hex()} is not S25FL128S ({ID_PREFIX.hex()})')
         if not cr & CR1_QUAD:
             problems.append('CR1.QUAD = 0 (run enable-quad)')
-        if cr & CR1_LC_MASK != CR1_LC_WANT:
-            problems.append(f'CR1 latency code LC = {(cr >> 6) & 3:02b}, the reader assumes LC = 00 / 8 dummy clocks (run enable-quad)')
+        if cr & CR1_LC_MASK != want_lc << 6:
+            problems.append(f'CR1 latency code LC = {(cr >> 6) & 3:02b}, the {BUILD_NAME[self.version]} build needs LC = {want_lc:02b} (run enable-quad)')
         if sr & SR1_WIP:
             problems.append('SR1.WIP = 1 (a write/erase is still running)')
         if sr & SR1_ERR:
             problems.append(f'SR1 error bits set (P_ERR/E_ERR): SR1 = {sr:#04x}')
-        rec = {'flash_id': fid.hex(), 'sector_architecture': {0: 'uniform 256 kB', 1: 'hybrid 64 kB'}.get(fid[4], f'unknown({fid[4]:#04x})'),
+        rec = {'build_version': self.version, 'build': BUILD_NAME[self.version], 'want_lc': want_lc, 'flash_id': fid.hex(), 'sector_architecture': {0: 'uniform 256 kB', 1: 'hybrid 64 kB'}.get(fid[4], f'unknown({fid[4]:#04x})'),
                'sr1': sr, 'cr1': cr, 'quad': (cr >> 1) & 1, 'lc': (cr >> 6) & 3, 'block_protect': (sr >> 2) & 7, 'srwd': sr >> 7,
                'bitstream_bytes': BITSTREAM_BYTES, 'weight_image_offset': FLASH_BASE,
                'image_offset_clear_of_bitstream': FLASH_BASE >= BITSTREAM_BYTES}
@@ -124,10 +149,17 @@ class Board:
         rec['compatible'] = not problems
         return rec
 
-    def enable_quad(self, timeout=5.0):
-        """Set CR1 = {LC = 00, other bits as read, QUAD = 1} with WREN + WRR and verify SR1/CR1 by read-back. Raises FlashConfigError on any mismatch."""
+    def enable_quad(self, timeout=5.0, lc=None):
+        """Set CR1 = {LC = the build's code, other bits as read, QUAD = 1} with WREN + WRR and verify SR1/CR1 by read-back.
+        The code comes from the 'V' version byte (cached from the last ping, else a V frame is sent): 00 for version 1, 11 for version 2.
+        `lc` is an explicit override; it must equal the build's code, otherwise the call is refused before any flash write.
+        Raises FlashConfigError / BuildVersionError on any mismatch."""
+        version = self.version if self.version is not None else self.ping()
+        build = build_lc(version)
+        if lc is not None and lc != build:
+            raise FlashConfigError(f'refusing to set LC = {lc:02b}: the board reports build version {version} ({BUILD_NAME[version]}), which needs LC = {build:02b}')
         sr, cr = self.sr1(), self.cr1()
-        want = (cr & ~CR1_LC_MASK & 0xFF) | CR1_QUAD | CR1_LC_WANT
+        want = (cr & ~CR1_LC_MASK & 0xFF) | CR1_QUAD | (build << 6)
         if cr == want and not sr & (SR1_WIP | SR1_ERR):
             return 'already set', cr
         self.spi(b'\x06', 0)                        # WREN
@@ -178,13 +210,14 @@ class Board:
 class Stub:
     """Software stand-in for the board used by selftest and by run_uart_rtl.py: answers V, X, S and T frames like board_ctrl.sv
     (and the S25FL128S register model in tools/decode/tb/qspi_flash_model.sv), with the same checks on T."""
-    def __init__(self, cr1=0x00, sr1=0x00, vocab=VOCAB, max_seq=MAX_SEQ):
+    def __init__(self, cr1=0x00, sr1=0x00, vocab=VOCAB, max_seq=MAX_SEQ, version=1):
         self.cr1, self.sr1, self.wel, self.wip, self.buf, self.log = cr1, sr1, 0, 0, b'', []
+        self.version = version
         self.vocab, self.max_seq, self.next_pos, self.n_wrr = vocab, max_seq, 0, 0
     def write(self, b):
         b = bytes(b); self.log.append(b)
         if b[0:1] == b'V':
-            self.buf += b'\x76\x01'
+            self.buf += b'\x76' + bytes([self.version])
         elif b[0:1] == b'X':
             self.next_pos = 0; self.buf += b'\x78\x01'
         elif b[0:1] == b'S':
@@ -233,6 +266,25 @@ def selftest():
     assert [l for l in s.log if l[:1] == b'S' and l[3:4] == b'\x01'][0] == bytes([0x53, 3, 0, 0x01, 0x00, 0x0A])
     s = Stub(cr1=0x42); b = Board(s)          # QUAD already set but LC = 01: must still be rewritten
     assert not b.info()['compatible'] and b.enable_quad() == ('set', 0x02)
+    # DDR build (version 2): LC = 11 is required; the version 1 frame sequences above are untouched
+    s = Stub(version=2); b = Board(s)
+    assert b.ping() == 2
+    i = b.info(); assert not i['compatible'] and any('LC = 11' in p for p in i['problems']) and any('QUAD' in p for p in i['problems']), i
+    assert b.enable_quad() == ('set', 0xC2)
+    assert [l for l in s.log if l[:1] == b'S' and l[3:4] == b'\x01'][0] == bytes([0x53, 3, 0, 0x01, 0x00, 0xC2]), 'DDR WRR frame'
+    assert b.enable_quad()[0] == 'already set' and b.info()['compatible']
+    s = Stub(version=2, cr1=0x02); b = Board(s)          # QUAD set but LC = 00 (an SDR-configured flash under a DDR build): rewritten
+    assert not b.info()['compatible'] and b.enable_quad() == ('set', 0xC2)
+    s = Stub(version=1); b = Board(s)                    # explicit override that disagrees with the build is refused, nothing written
+    try: b.enable_quad(lc=3); raise SystemExit('LC override against the build accepted')
+    except FlashConfigError as e: assert 'refusing' in str(e), e
+    assert s.n_wrr == 0 and s.cr1 == 0
+    for bad in (0, 3, 0xFF):                             # unknown build version: clear error, no flash access
+        s = Stub(version=bad); b = Board(s)
+        for call in (b.ping, b.info, b.enable_quad):
+            try: call(); raise SystemExit(f'version {bad} accepted by {call.__name__}')
+            except BuildVersionError as e: assert 'build version' in str(e), e
+        assert not any(l[:1] == b'S' for l in s.log) and s.n_wrr == 0
     # read-back verification: a flash that ignores WRR must be reported
     class Deaf(Stub):
         def write(self, b):
@@ -267,6 +319,7 @@ def main():
     ap.add_argument('--token', type=int, default=1); ap.add_argument('--pos', type=int, default=0); ap.add_argument('--probe', type=int, default=0)
     ap.add_argument('--prompt', default='1'); ap.add_argument('--gen', type=int, default=8)
     ap.add_argument('--vocab', type=int, default=VOCAB); ap.add_argument('--max-seq', type=int, default=MAX_SEQ)
+    ap.add_argument('--lc', type=lambda x: int(x, 2), default=None, help='enable-quad: explicit LC override as 2 bits (00 or 11); must match the build version or the call is refused')
     ap.add_argument('--bar', action='store_true', help='info: also read the bank address register (16h; unverified)')
     a = ap.parse_args()
     if a.cmd == 'selftest':
@@ -274,7 +327,7 @@ def main():
     import serial
     b = Board(serial.Serial(a.port, a.baud, timeout=60), a.vocab, a.max_seq)
     try:
-        if a.cmd == 'ping': print('board version', b.ping())
+        if a.cmd == 'ping': v = b.ping(); print('board version', v, '=', BUILD_NAME[v], 'build')
         elif a.cmd == 'info':
             r = b.info(a.bar)
             for k, v in r.items(): print(f'{k}: {v}')
@@ -283,10 +336,10 @@ def main():
         elif a.cmd == 'id': print(b.flash_id().hex(' '))
         elif a.cmd == 'cr1':
             cr = b.cr1(); print(f'SR1={b.sr1():#04x} CR1={cr:#04x} QUAD={(cr >> 1) & 1} LC={(cr >> 6) & 3:02b}')
-        elif a.cmd == 'enable-quad': print(*b.enable_quad())
+        elif a.cmd == 'enable-quad': print(*b.enable_quad(lc=a.lc))
         elif a.cmd == 'step': print(b.step(a.token, a.pos, a.probe))
         else: print(b.run([int(x) for x in a.prompt.split(',')], a.gen))
-    except (BoardError, FlashConfigError, ValueError, TimeoutError) as e:
+    except (BoardError, FlashConfigError, BuildVersionError, ValueError, TimeoutError) as e:
         print('ERROR:', e, file=sys.stderr)
         return 2
     return 0
