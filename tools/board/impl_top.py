@@ -1,6 +1,7 @@
 """Full implementation (synthesis + place + route, NO write_bitstream) of rtl/board/boolean_top.sv on xc7s50csga324-1
 with constraints/boolean_xc7s50.xdc. Records utilization, timing and DRC in bench/results/boolean_top_impl.json.
 Also checks that boolean_core.sv's default parameters equal the stories15M image parameters (params.json).
+--ddr: the same flow with boolean_top DDR=1 (EDh DDR reads); writes bench/results/boolean_top_impl_ddr.json (reports under build/decode/synth/boolean_top_ddr).
 """
 from __future__ import annotations
 import json, re, subprocess, sys
@@ -16,6 +17,7 @@ SRCS = ['rtl/decode/decode_pkg.sv', 'rtl/decode/seq_mul.sv', 'rtl/decode/mul_pip
         'rtl/decode/qspi_reader.sv', 'rtl/board/uart_rx.sv', 'rtl/board/uart_tx.sv', 'rtl/board/board_ctrl.sv', 'rtl/board/boolean_core.sv',
         'rtl/board/qspi_pad_regs.sv', 'rtl/board/qspi_pads.sv', 'rtl/board/boolean_top.sv']
 XDC = 'constraints/boolean_xc7s50.xdc'
+TOP_DDR_PARAM = 'DDR'      # boolean_top / boolean_core parameter (DDR contract C3); integration fixes a name mismatch HERE only
 
 
 def check_params():
@@ -34,12 +36,14 @@ def main():
     bad = check_params()
     if bad:
         print('boolean_core defaults differ from params.json:', bad); sys.exit(2)
-    out = ROOT / 'build/decode/synth/boolean_top'
+    ddr = '--ddr' in sys.argv
+    tag = 'boolean_top_ddr' if ddr else 'boolean_top'
+    out = ROOT / 'build/decode/synth' / tag
     out.mkdir(parents=True, exist_ok=True)
     rp = lambda n: (out / n).as_posix()
     tcl = out / 'run.tcl'
     tcl.write_text('\n'.join([*(f'read_verilog -sv {Path(s).as_posix()}' for s in SRCS), f'read_xdc {XDC}',
-        f'synth_design -top boolean_top -part {PART}', f'report_utilization -file {rp("synth_util.rpt")}',
+        f'synth_design -top boolean_top -part {PART}' + (f' -generic {TOP_DDR_PARAM}=1' if ddr else ''), f'report_utilization -file {rp("synth_util.rpt")}',
         'opt_design', 'place_design', 'route_design',
         f'report_utilization -file {rp("util.rpt")}', f'report_utilization -hierarchical -hierarchical_depth 2 -file {rp("util_hier.rpt")}',
         f'report_timing_summary -file {rp("timing.rpt")}', f'report_drc -file {rp("drc.rpt")}', f'report_io -file {rp("io.rpt")}',
@@ -75,7 +79,7 @@ def main():
             subprocess.run(['cmd', '/c', VIVADO, '-mode', 'batch', '-nojournal', '-nolog', '-source', str(tcl)], cwd=ROOT, stdout=fh, stderr=subprocess.STDOUT)
         if (out / 'timing.rpt').exists():
             break
-    res_path = ROOT / 'bench/results/boolean_top_impl.json'
+    res_path = ROOT / ('bench/results/boolean_top_impl_ddr.json' if ddr else 'bench/results/boolean_top_impl.json')
     if not (out / 'timing.rpt').exists():
         errs = [l for l in log.read_text(errors='replace').splitlines() if 'ERROR' in l][:6]
         res_path.write_text(json.dumps({'status': 'failed', 'errors': errs, 'part': PART}, indent=2) + '\n')
@@ -114,15 +118,15 @@ def main():
     placed = {}
     for line in (out / 'ports_placed.txt').read_text().splitlines():
         n, pin, std, d = line.split('|'); placed[n] = {'package_pin': pin, 'iostandard': std, 'direction': d}
-    rec = {'status': 'ok', 'part': PART, 'top': 'boolean_top', 'constraints': XDC, 'bitstream_generated': False, 'sources': SRCS,
+    rec = {'status': 'ok', 'part': PART, 'top': 'boolean_top', **({'ddr': 1, 'generics': {TOP_DDR_PARAM: '1'}} if ddr else {}), 'constraints': XDC, 'bitstream_generated': False, 'sources': SRCS,
            'lut': cell('Slice LUTs'), 'lut_pct': None, 'ff': cell('Slice Registers'), 'dsp': cell('DSPs'), 'bram36_equiv': cell('Block RAM Tile'),
            'wns_ns': wns, 'tns_ns': tns, 'whs_ns': whs, 'ths_ns': ths, 'timing_met': wns >= 0 and whs >= 0 and tns == 0 and ths == 0,
            'drc_checks_found': int(drc_sum.group(1)) if drc_sum else None, 'drc_summary_rules': re.findall(r'^\|\s*(\S+)\s*\|\s*(\w+(?: \w+)?)\s*\|[^|]*\|\s*(\d+)\s*\|', drc, re.M), 'drc_error_rules': errs_drc, 'bitstream_note': 'write_bitstream is not in the Tcl; no bitstream was generated',
            'qspi_io_slack': sl, 'bram36_physical_limit': 75, 'placed_ports': placed,
-           'methodology': {'by_severity': msev, 'by_rule': {k: {'severity': v[0], 'count': v[1]} for k, v in mrules.items()}, 'report': 'build/decode/synth/boolean_top/methodology.rpt'},
-           'cdc': {'by_severity': csev, 'by_rule': {k: {'severity': v[0], 'count': v[1]} for k, v in crules.items()}, 'report': 'build/decode/synth/boolean_top/cdc.rpt'},
-           'reports': {n: f'build/decode/synth/boolean_top/{n}' for n in ('util.rpt', 'timing.rpt', 'drc.rpt', 'io.rpt', 'clock_util.rpt', 'qspi_io_slack.txt', 'qspi_in_paths.rpt', 'qspi_out_paths.rpt', 'methodology.rpt', 'cdc.rpt', 'ports_placed.txt', 'clocks.rpt', 'check_timing.rpt')}}
-    rec['provenance'] = provenance(ARTIFACT_SOURCES['boolean_top_impl'])
+           'methodology': {'by_severity': msev, 'by_rule': {k: {'severity': v[0], 'count': v[1]} for k, v in mrules.items()}, 'report': f'build/decode/synth/{tag}/methodology.rpt'},
+           'cdc': {'by_severity': csev, 'by_rule': {k: {'severity': v[0], 'count': v[1]} for k, v in crules.items()}, 'report': f'build/decode/synth/{tag}/cdc.rpt'},
+           'reports': {n: f'build/decode/synth/{tag}/{n}' for n in ('util.rpt', 'timing.rpt', 'drc.rpt', 'io.rpt', 'clock_util.rpt', 'qspi_io_slack.txt', 'qspi_in_paths.rpt', 'qspi_out_paths.rpt', 'methodology.rpt', 'cdc.rpt', 'ports_placed.txt', 'clocks.rpt', 'check_timing.rpt')}}
+    rec['provenance'] = provenance(ARTIFACT_SOURCES['boolean_top_impl_ddr' if ddr else 'boolean_top_impl'])
     rec['lut_pct'] = round(100 * rec['lut'] / 32600, 1) if rec['lut'] else None
     res_path.write_text(json.dumps(rec, indent=2) + '\n')
     print(json.dumps({k: rec[k] for k in ('lut', 'lut_pct', 'ff', 'dsp', 'bram36_equiv', 'wns_ns', 'whs_ns', 'timing_met', 'drc_checks_found', 'drc_error_rules')}))

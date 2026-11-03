@@ -99,16 +99,20 @@ python tools/decode/run_vec_rtl.py
 python tools/decode/run_attn_rtl.py
 python tools/decode/run_attn15_rtl.py
 python tools/decode/run_qspi_rtl.py
+python tools/decode/run_qspi_rtl.py --ddr    # EDh DDR reader (DDR=1) + flash model CR1 LC=11 -> decode_qspi_ddr_rtl.json; records measured bytes/core cycle (gate: >= 0.49)
 ```
 Flash model and UART:
 ```
 python tools/board/run_uart_rtl.py          # boolean_core + flash model: tokens, probed logits, QUAD enable, 87 checks
+python tools/board/run_uart_rtl.py --ddr    # boolean_core DDR=1 ('V' = 2); flash starts at LC=00 and the host procedure must switch it to LC=11 -> boolean_uart_ddr_rtl.json
 ```
+The `--ddr` paths need the DDR RTL (`qspi_reader` `DDR` parameter, `board_ctrl` version byte 2) and the flash model's `CR1_INIT` parameter. The parameter
+names are constants at the top of `run_qspi_rtl.py`, `run_decode_rtl.py`, `run_uart_rtl.py` and `impl_top.py`.
 
 ## 6. End-to-end top_decode (slow)
 
 `run_decode_rtl.py` compares every logit and token of every step with `RunQIntegerLlama`. Artifact names follow the tag
-`decode_e2e_rtl_<model>_kv<bits>_p<period>[_qspi]`.
+`decode_e2e_rtl_<model>_kv<bits>_p<period>[_qspi|_qspiddr]`.
 ```
 # stories260K, ideal stream (5 prompts x 32 generated, the 169-step matrix)
 python tools/decode/run_decode_rtl.py --model 260k --kv-bits 8 --period 1 --prompts 5 --gen 32   # decode_e2e_rtl_kv8_p1.json
@@ -117,10 +121,16 @@ python tools/decode/run_decode_rtl.py --model 260k --kv-bits 8 --period 2 --prom
 python tools/decode/run_decode_rtl.py --model 260k --kv-bits 8 --period 4 --prompts 5 --gen 32   # decode_e2e_rtl_kv8_p4.json
 # stories260K through qspi_reader and the flash model (1 prompt x 8)
 python tools/decode/run_decode_rtl.py --model 260k --kv-bits 8 --flash qspi --prompts 1 --gen 8  # decode_e2e_rtl_kv8_p1_qspi.json
+# stories260K through the DDR reader (EDh, flash model CR1 LC=11, 0.5 B/cycle)
+python tools/decode/run_decode_rtl.py --model 260k --kv-bits 8 --flash qspi-ddr --prompts 1 --gen 8  # decode_e2e_rtl_kv8_p1_qspiddr.json
 # stories15M, ideal stream, KV4 (1 prompt x 8). Wall time about 3 hours (artifact wall_seconds 10,302).
 python tools/decode/run_decode_rtl.py --model 15m --kv-bits 4 --prompts 1 --gen 8                 # decode_e2e_rtl_15m_kv4_p1.json
 ```
 The 15M run packs its own image in memory from the npz, so it does not depend on step 3.
+```
+# stories15M through the DDR reader (1 prompt x 8; slow like the ideal 15M run)
+python tools/decode/run_decode_rtl.py --model 15m --kv-bits 4 --flash qspi-ddr --prompts 1 --gen 8   # decode_e2e_rtl_15m_kv4_p1_qspiddr.json
+```
 
 ## 7. Fault injection
 
@@ -128,7 +138,9 @@ Each unit's mutation build must be caught by its runner, and each fault must be 
 ```
 python tools/decode/fault_inject.py <unit> [<unit> ...]     # results merge into bench/results/decode_fault_injection.json
 ```
-Unit names are the keys of its table (`gemv`, `actq`, `rms`, `vec`, `attn`, `attn15`, `top`, `qspi`, `board`).
+Unit names are the keys of its table (`gemv`, `actq`, `rms`, `vec`, `attn`, `attn15`, `top`, `qspi`, `board`, `qspi_ddr`). `qspi_ddr` re-runs
+`run_qspi_rtl.py --ddr` per mutant; its fault list in `fault_inject.py` is an empty placeholder until the DDR RTL change adds the EDh faults, and the gate
+fails while it is empty.
 
 ## 8. Implementation (Vivado)
 
@@ -137,6 +149,13 @@ Out-of-context synthesis and place-and-route are recorded with `tools/decode/syn
 ```
 python tools/board/impl_top.py      # requires build/decode/decode_image_15m/params.json; writes bench/results/boolean_top_impl.json
 ```
+```
+python tools/board/impl_top.py --ddr   # boolean_top DDR=1 -> bench/results/boolean_top_impl_ddr.json (reports in build/decode/synth/boolean_top_ddr)
+python tools/decode/gen_qspi_wrap.py --ddr                                   # build/decode/top_decode_15m_qspi_ddr_wrap.sv
+python tools/decode/synth_ooc.py qspi_reader_ddr qspi_reader rtl/decode/qspi_reader.sv -GDDR=1
+python tools/decode/synth_ooc.py top_decode_15m_qspi_ddr top_decode_15m_qspi_ddr <the top_decode sources> rtl/decode/qspi_reader.sv build/decode/top_decode_15m_qspi_ddr_wrap.sv
+```
+`synth_ooc.py` takes `-GNAME=VALUE` to set a top-level generic (recorded as `generics` in the entry). `REGEN_ALL.ps1` runs all of these in order.
 `impl_top.py` runs Vivado in batch mode on `constraints/boolean_xc7s50.xdc` and does not write a bitstream
 (`bitstream_generated: false` in the artifact). `--reparse` re-reads the last run's reports without invoking Vivado.
 
