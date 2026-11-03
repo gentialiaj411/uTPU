@@ -155,9 +155,9 @@ FAULTS = {
                                       "dl_q <= DDR && state == S_RUN && !abort_now && tick && !dchg && ddr_launch_ok && sclk_q;"),
         # A5h: complementary nibbles = continuous read mode (S25FL128S Rev. *T sec. 11.4.9): the next command's EDh would be taken as address
         'ddr_mode_continuous_a5': ('rtl', "localparam logic [7:0] DDR_MODE = 8'h00;", "localparam logic [7:0] DDR_MODE = 8'hA5;"),
-        'ddr_no_backpressure_stall': ('rtl', "wire rise_blocked_ddr = ddr_launch_ok && eff_ph && (3'(occ_after) + 3'(pend_n) > 3'd1);",
+        'ddr_no_backpressure_stall': ('rtl', "wire rise_blocked_ddr = ddr_launch_ok && !sclk_q && (3'(occ_after) + 3'(pend_n) > 3'd2);",
                                       "wire rise_blocked_ddr = 1'b0;"),
-        'ddr_inflight_completions_ignored': ('rtl', "(3'(occ_after) + 3'(pend_n) > 3'd1);", "(3'(occ_after) > 3'd1);"),
+        'ddr_inflight_completions_ignored': ('rtl', "(3'(occ_after) + 3'(pend_n) > 3'd2);", "(3'(occ_after) > 3'd2);"),
     }),
     'board_ddr': ('tools/board/run_uart_rtl.py --ddr', 'rtl/board/board_ctrl.sv', {
         'ddr_version_byte_wrong': ('rtl', "localparam logic [7:0] VER = DDR ? 8'h02 : 8'h01;", "localparam logic [7:0] VER = DDR ? 8'h01 : 8'h01;"),

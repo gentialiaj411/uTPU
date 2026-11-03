@@ -50,6 +50,9 @@ module qspi_flash_model #(
     parameter real DTHO = 1.5,           // ns, DDR output hold after a clock edge (min), Table 15 tHO
     parameter real DTSU = 2.0,           // ns, DDR IO input setup before each SCK edge (66 MHz col.; 1.5 at 80 MHz); 0 disables
     parameter real DTHD = 2.0,           // ns, DDR IO input hold after each SCK edge (66 MHz col.; 1.5 at 80 MHz); 0 disables
+    parameter bit ALLOW_DATA_ABORT = 1'b0, // 1: CS# may rise between the two nibbles of a data byte. The datasheet lets a read end at
+                                           // any point of data output; the reader itself only stops between bytes, so this stays 0
+                                           // except in a test that resets the FPGA at an arbitrary cycle (run_uart_rtl robustness)
     parameter bit FATAL_ON_ERROR = 1'b1, // any counted FLASH-DDR protocol/timing error ends the simulation (rc != 0); the model
                                          // self-test sets 0 to count several expected errors in one run
     parameter bit REQUIRE_LC11 = 1'b1    // project policy: EDh runs at <= 50 MHz and must have LC = 11 (Table 27: 1 mode + 3 dummy).
@@ -127,7 +130,7 @@ module qspi_flash_model #(
             end
         end
         if (phase >= 10 && phase <= 13) begin err_csmid++; err_total++; $error("FLASH-DDR: CS# raised before the data phase (phase %0d, %0d edges in phase); datasheet p.104: CS# must not rise during address/mode/dummy", phase, dn); end
-        if (phase == 14 && nib != 0) begin err_csmid++; err_total++; $error("FLASH-DDR: CS# raised mid-byte (high nibble out, low nibble not launched)"); end
+        if (phase == 14 && nib != 0 && !ALLOW_DATA_ABORT) begin err_csmid++; err_total++; $error("FLASH-DDR: CS# raised mid-byte (high nibble out, low nibble not launched)"); end
         if (phase >= 10 && TCSH > 0.0 && $realtime - t_edge < TCSH) begin err_setup++; err_total++; $error("FLASH-DDR: CS# rose %0.2f ns after the last SCK edge (tCSH %0.1f)", $realtime - t_edge, TCSH); end
         cs_gen++;
         phase = 0; last_cs_rise = $realtime;

@@ -287,7 +287,10 @@ def main():
 
     def build(mode, stop, name, wdog=268435456):
         tb = BUILD / f'uart_{pfx}{name}_tb.sv'
-        text = TB % dict(ver=ver, cr1want=cr1want, mparams=(", .LC_INIT(2'b00), .DTV(0.65), .DTHO(0.15), .DTSU(0.2), .DTHD(0.2)" if ddr else ''), ns=len(steps), vocab=params['VOCAB'], nbytes=len(img), base=BASE, cpb=CPB, mode=mode, tmo=TMO, params=plist, stop=stop, wdog=wdog, hostseq=hostseq, **files)
+        # the robustness run resets the FPGA at an arbitrary cycle of a DDR burst (it may cut a byte; the datasheet allows a read
+        # to end anywhere in data output); every other run keeps the model's "reader stops only between bytes" check
+        abort = ", .ALLOW_DATA_ABORT(1'b1)" if (ddr and name.startswith('robust')) else ''
+        text = TB % dict(ver=ver, cr1want=cr1want, mparams=(", .LC_INIT(2'b00), .DTV(0.65), .DTHO(0.15), .DTSU(0.2), .DTHD(0.2)" + abort if ddr else ''), ns=len(steps), vocab=params['VOCAB'], nbytes=len(img), base=BASE, cpb=CPB, mode=mode, tmo=TMO, params=plist, stop=stop, wdog=wdog, hostseq=hostseq, **files)
         tb.write_text(text.replace('TMO_CYC', str(3 * TMO)).replace('.QUAD_INIT(MODE == 0 ? 1\'b0 : 1\'b0)', '.QUAD_INIT(1\'b0)'))
         return tb
 

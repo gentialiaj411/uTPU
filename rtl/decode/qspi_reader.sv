@@ -43,8 +43,10 @@
 //     edges up to the falling edge that ends cycle 14, so that edge launches no data. So from rising edge 16 on every SCK
 //     toggle launches one nibble (rising: high, falling: low); it is sampled one core cycle after the toggle (+ CAP_DLY),
 //     i.e. on the core edge of the next toggle. (Checked against the independently written flash model.)
-//   Backpressure: a falling toggle (it launches a low nibble, which completes a byte) is withheld while that byte could not
-//     be stored, so SCLK stops high in the data phase. A byte completes every 2 core cycles and its capture lags the toggle by
+//   Backpressure: a rising toggle (it starts a byte; the falling toggle after it completes the byte and is never withheld) is
+//     withheld unless that whole byte has a register, so SCLK stops low between bytes and an abort or reset never cuts a
+//     byte in half. Reserving the register at the rising toggle needs a third byte register (sk1_*) to keep the full rate.
+//     A byte completes every 2 core cycles and its capture lags the toggle by
 //     1 + CAP_DLY cycles, so DDR adds a second byte register (sk_*) behind the output register; with one register the stall
 //     rule would halve the rate.
 //   Seek: CS# is raised only before the first SCK edge of a command or in the data phase, never during the address, mode
@@ -168,6 +170,8 @@ module qspi_reader #(
     logic          dl_q;             // the last core edge toggled SCK in the data phase (= the flash launched a nibble)
     logic [7:0]    sk_data;          // second byte register behind ob_data
     logic          sk_valid;
+    logic [7:0]    sk1_data;         // third byte register behind sk_data
+    logic          sk1_valid;
 
     assign sclk     = sclk_q;
     assign cs_n     = cs_n_q;
@@ -200,8 +204,10 @@ module qspi_reader #(
     wire rise_blocked = !sclk_q && data_phase && eff_ph && !(room && !pend_complete);
     // DDR: same rule with two byte registers: the byte this rising toggle completes needs a register after every byte still
     // held after this cycle's handoff and every byte completion already in flight
-    wire [1:0] occ_after = 2'(ob_valid) + 2'(sk_valid) - 2'(accept_now);
-    wire rise_blocked_ddr = ddr_launch_ok && eff_ph && (3'(occ_after) + 3'(pend_n) > 3'd1);
+    wire [1:0] occ_after = 2'(ob_valid) + 2'(sk_valid) + 2'(sk1_valid) - 2'(accept_now);
+    // DDR: a rising toggle starts a byte; it needs a register for that byte after every byte still held after this cycle's
+    // handoff and every completion already in flight (the falling toggle that completes it follows unconditionally)
+    wire rise_blocked_ddr = ddr_launch_ok && !sclk_q && (3'(occ_after) + 3'(pend_n) > 3'd2);
     wire stop        = DDR ? rise_blocked_ddr : rise_blocked;
     wire tick        = tick_raw && !stop;
     wire abort_sdr   = (data_phase || rise_n[2:0] == 3'd0);
@@ -222,10 +228,13 @@ module qspi_reader #(
             state <= S_START; sclk_q <= 1'b0; cs_n_q <= 1'b1; io_o_q <= 4'hF; io_oe_q <= 4'h0;
             cap_p <= '0; tcnt <= '0; rise_n <= '0; pend <= 1'b0; su_cnt <= 8'(2 * STARTUP_PULSES); gcnt <= '0;
             nib_ph <= 1'b0; last_rise_data <= 1'b0; ob_valid <= 1'b0;
-            sk_valid <= 1'b0; dl_q <= 1'b0; dph <= 1'b0;
+            sk_valid <= 1'b0; sk1_valid <= 1'b0; dl_q <= 1'b0; dph <= 1'b0;
         end else begin
             if (accept_now) ob_valid <= 1'b0;
-            if (accept_now && sk_valid) begin ob_data <= sk_data; ob_valid <= 1'b1; sk_valid <= 1'b0; end   // DDR only
+            if (accept_now && sk_valid) begin                               // DDR only: the queue moves up one register
+                ob_data <= sk_data; ob_valid <= 1'b1;
+                if (sk1_valid) begin sk_data <= sk1_data; sk1_valid <= 1'b0; end else sk_valid <= 1'b0;
+            end
             cap_p <= (cap_p << 1) | CD'(launch);
             dl_q <= DDR && state == S_RUN && !abort_now && tick && !dchg && ddr_launch_ok;
             case (state)
@@ -243,14 +252,14 @@ module qspi_reader #(
                         sh <= {OPC, pend_addr[8*ADDR_BYTES-1:0]};
                         io_o_q <= {3'b111, OPC[7]}; io_oe_q <= 4'b1101;
                         rise_n <= '0; tcnt <= '0; nib_ph <= 1'b0; last_rise_data <= 1'b0; ob_valid <= 1'b0; cap_p <= '0;
-                        dsh <= {pend_addr[8*ADDR_BYTES-1:0], DDR_MODE}; dph <= 1'b0; sk_valid <= 1'b0;
+                        dsh <= {pend_addr[8*ADDR_BYTES-1:0], DDR_MODE}; dph <= 1'b0; sk_valid <= 1'b0; sk1_valid <= 1'b0;
                     end
                 end
                 S_RUN: begin
                     if (abort_now) begin
                         state <= S_GAP; gcnt <= 4'(CS_HIGH - 1); cs_n_q <= 1'b1; io_oe_q <= 4'h0; io_o_q <= 4'hF;
                         ob_valid <= 1'b0; nib_ph <= 1'b0; tcnt <= '0; cap_p <= '0;
-                        sk_valid <= 1'b0;
+                        sk_valid <= 1'b0; sk1_valid <= 1'b0;
                     end else begin
                         if (strobe) cap(io_i);
                         if (tick_raw) begin if (!stop) tcnt <= '0; end
@@ -281,16 +290,23 @@ module qspi_reader #(
                 end
             endcase
             if (seek_req) begin pend <= 1'b1; pend_addr <= seek_addr; ob_valid <= 1'b0; end
-            if (seek_req) sk_valid <= 1'b0;
+            if (seek_req) begin sk_valid <= 1'b0; sk1_valid <= 1'b0; end
         end
     end
 
-    // assemble nibbles into the output byte register, high nibble first. DDR: a byte completed while the output register stays
-    // occupied (not handed off in this cycle, or refilled from the second register) goes to the second register.
+    // assemble nibbles into the output byte register, high nibble first. DDR: a completed byte goes to the first register that
+    // is free after this cycle's handoff and queue shift (output register, then the second, then the third).
     task automatic cap(input logic [3:0] nib);
         if (!seek_req && !pend) begin
             if (!nib_ph) begin nib_hi <= nib; nib_ph <= 1'b1; end
-            else if (DDR && ob_valid && (sk_valid || !accept_now)) begin
+            else if (DDR && occ_after >= 2'd2) begin
+`ifdef QSPI_MUTATE
+                sk1_data <= {nib, nib_hi};
+`else
+                sk1_data <= {nib_hi, nib};
+`endif
+                sk1_valid <= 1'b1; nib_ph <= 1'b0;
+            end else if (DDR && occ_after == 2'd1) begin
 `ifdef QSPI_MUTATE
                 sk_data <= {nib, nib_hi};
 `else
