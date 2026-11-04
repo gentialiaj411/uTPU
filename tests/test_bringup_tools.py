@@ -69,3 +69,21 @@ def test_verify_mcs_accepts_exact_and_catches_corruption(tmp_path):
     _write_hex(tmp_path / "nobit.mcs", nobit)
     with pytest.raises(ValueError, match="bitstream"):
         mcs.verify_mcs(tmp_path / "nobit.mcs", bit, weights)
+
+prog = load("program_flash", "tools/board/program_flash.py")
+
+def test_program_tcl_flash_and_jtag_modes(tmp_path):
+    m = tmp_path / "boolean_top.mcs"; m.write_text(":00000001FF\n")
+    with pytest.raises(FileNotFoundError, match="prm"):
+        prog.make_tcl(m, jtag=False)
+    m.with_suffix(".prm").write_text("prm")
+    t = prog.make_tcl(m, jtag=False)
+    assert "set ::mode flash" in t and "PROGRAM.HW_CFGMEM_BITFILE" in t and "program_hw_cfgmem" in t
+    assert "PROGRAM.ERASE 1" in t and "PROGRAM.VERIFY 1" in t and "boot_hw_device" in t
+    assert t.index("PROGRAM.HW_CFGMEM_BITFILE") < t.index("program_hw_cfgmem -hw_cfgmem")   # indirect core loaded first
+    b = tmp_path / "boolean_top.bit"; b.write_bytes(b"x")
+    assert "set ::mode jtag" in prog.make_tcl(b, jtag=True)
+    with pytest.raises(ValueError):
+        prog.make_tcl(m, jtag=True)
+    with pytest.raises(ValueError):
+        prog.make_tcl(b, jtag=False)
