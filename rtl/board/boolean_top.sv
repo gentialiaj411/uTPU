@@ -2,7 +2,9 @@
 // (STARTUPE2 for the flash clock), UART host link, top_decode (stories15M configuration) reading its weights
 // from the on-board S25FL128S through qspi_reader. Pin names match Real Digital's master constraints file
 // (clk, UART_rxd, UART_txd); the QSPI pins are in constraints/boolean_xc7s50.xdc. UART protocol: board_ctrl.sv.
-module boolean_top (
+module boolean_top #(
+    parameter int DDR = 0             // 1: flash read DDR Quad I/O EDh (flash CR1 LC=11; XDC overlay constraints/boolean_xc7s50_qspi_ddr.xdc)
+) (
     input  wire       clk,            // 100 MHz oscillator, pin F14
     input  wire       UART_rxd,       // host -> FPGA (V12)
     output wire       UART_txd,       // FPGA -> host (U11)
@@ -33,6 +35,6 @@ module boolean_top (
 
     // ---- core + pads ----
     logic pad_sclk, pad_cs_n; logic [3:0] pad_io_o, pad_io_t, pad_io_i;
-    boolean_core u_core (.clk(clk50), .rst, .uart_rx(UART_rxd), .uart_tx(UART_txd), .pad_sclk, .pad_cs_n, .pad_io_o, .pad_io_t, .pad_io_i);
+    boolean_core #(.DDR(DDR)) u_core (.clk(clk50), .rst, .uart_rx(UART_rxd), .uart_tx(UART_txd), .pad_sclk, .pad_cs_n, .pad_io_o, .pad_io_t, .pad_io_i);
     qspi_pads u_pads (.pad_sclk, .pad_cs_n, .pad_io_o, .pad_io_t, .pad_io_i, .qspi_dq, .qspi_cs_n);
 endmodule

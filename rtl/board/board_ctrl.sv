@@ -6,7 +6,8 @@
 //   'S' (53h) ntx nrx tx[0..ntx-1]                single-bit SPI to the flash (ntx, nrx <= 8): CS# low, ntx bytes out
 //                                                 on IO0, nrx bytes in on IO1, CS# high (flash register access)
 //     -> 's' (73h) nrx rx[0..nrx-1]
-//   'V' (56h)                                     -> 'v' (76h) 01h    (link check)
+//   'V' (56h)                                     -> 'v' (76h) ver    (link check; ver = 01h: flash read 6Bh, flash CR1 LC=00;
+//                                                    02h: DDR build, flash read EDh, flash CR1 LC=11 and QUAD=1 required)
 //   'X' (58h)                                     -> 'x' (78h) 01h    start a new sequence: next expected position := 0
 //   Any rejected request           -> 'E' (45h) code next    code: 01 token >= VOCAB, 02 pos >= MAX_SEQ, 03 pos > next expected position,
 //                                                           04 step watchdog (decode engine and flash reader were reset),
@@ -21,7 +22,7 @@
 // then 'E' 04 is sent. The position stays at its old next value (the aborted position's KV entry is incomplete and is rewritten by a retry).
 // Other bytes are ignored; a partial frame is dropped after TMO idle cycles. Bytes that arrive while a step or an
 // SPI transaction runs are ignored, so the host must wait for the response before sending the next frame.
-module board_ctrl #(parameter int PW = 7, PT_HALF = 2, TMO = 16777216, VOCAB = 32000, MAX_SEQ = 128,
+module board_ctrl #(parameter int PW = 7, PT_HALF = 2, TMO = 16777216, VOCAB = 32000, MAX_SEQ = 128, DDR = 0,
                    WDOG = 268435456 /* 2^28 clocks = 5.4 s at 50 MHz; worst measured 15M step ~ 5e7 clocks (0.25 B/clk stream bound) */) (
     input  logic          clk, rst,
     input  logic [7:0]    rx_data,
@@ -65,6 +66,7 @@ module board_ctrl #(parameter int PW = 7, PT_HALF = 2, TMO = 16777216, VOCAB = 3
     wire [8:0] tx_bits = {ntx, 3'b000} >> 0;
     assign pt_mosi = (bit_i < tx_bits) ? fb[2 + 4'(bit_i >> 3)][3'd7 - bit_i[2:0]] : 1'b0;
 
+    localparam logic [7:0] VER = DDR ? 8'h02 : 8'h01;   // 'V' reply byte: which flash read command (and latency code) the build uses
     wire [3:0] nh        = have + 1'b1;
     wire       is_s      = (cmd == 8'h53);
     wire [3:0] need_now  = is_s ? ((nh >= 4'd2) ? 4'd2 + fb[0][3:0] : 4'd2) : 4'd5;
@@ -93,7 +95,7 @@ module board_ctrl #(parameter int PW = 7, PT_HALF = 2, TMO = 16777216, VOCAB = 3
                         case (rx_data)
                             8'h54, 8'h53: st <= S_GATHER;
                             8'h58: begin next_pos <= '0; resp[0] <= 8'h78; resp[1] <= 8'h01; rlen <= 4'd2; rptr <= '0; st <= S_TX; end
-                            8'h56: begin resp[0] <= 8'h76; resp[1] <= 8'h01; rlen <= 4'd2; rptr <= '0; st <= S_TX; end
+                            8'h56: begin resp[0] <= 8'h76; resp[1] <= VER; rlen <= 4'd2; rptr <= '0; st <= S_TX; end
                             default: ;
                         endcase
                     end

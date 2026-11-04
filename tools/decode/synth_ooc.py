@@ -1,6 +1,7 @@
 """Out-of-context Vivado place+route of one decode unit on xc7s50 at 50 MHz.
 
-Usage: python tools/decode/synth_ooc.py <name> <top> <src.sv> [<src.sv> ...]
+Usage: python tools/decode/synth_ooc.py <name> <top> <src.sv> [<src.sv> ...] [-GNAME=VALUE ...]
+-GNAME=VALUE sets a top-level generic/parameter for synth_design (e.g. -GDDR=1 for qspi_reader_ddr); it is recorded in the entry as 'generics'.
 Merges LUT/FF/DSP/BRAM/WNS into bench/results/decode_synth_ooc.json.
 """
 from __future__ import annotations
@@ -15,12 +16,15 @@ PART, PERIOD = 'xc7s50csga324-1', 20.0
 
 
 def main():
-    name, top, srcs = sys.argv[1], sys.argv[2], sys.argv[3:]
+    name, top = sys.argv[1], sys.argv[2]
+    srcs = [x for x in sys.argv[3:] if not x.startswith('-G')]
+    generics = dict(x[2:].split('=', 1) for x in sys.argv[3:] if x.startswith('-G'))
+    gen_arg = ''.join(f' -generic {k}={v}' for k, v in generics.items())
     out = ROOT / 'build/decode/synth' / name
     out.mkdir(parents=True, exist_ok=True)
     tcl = out / 'run.tcl'
     tcl.write_text('\n'.join([*(f'read_verilog -sv {Path(s).as_posix()}' for s in srcs),
-        f'synth_design -top {top} -part {PART} -mode out_of_context',
+        f'synth_design -top {top} -part {PART} -mode out_of_context{gen_arg}',
         f'create_clock -period {PERIOD:.3f} -name clk [get_ports clk]',
         f'report_utilization -hierarchical -hierarchical_depth 3 -file {(out / "synth_util_hier.rpt").as_posix()}',
         f'report_utilization -file {(out / "synth_util.rpt").as_posix()}',
@@ -39,7 +43,7 @@ def main():
             break
     if not (out / 'timing.rpt').exists():
         errs = [l for l in log.read_text(errors='replace').splitlines() if 'ERROR' in l]
-        rec = {'part': PART, 'period_ns': PERIOD, 'top': top, 'sources': srcs, 'provenance': provenance(sorted({*srcs, *SYNTH_SOURCES.get(name, [])})), 'status': 'failed', 'timing_met': False,
+        rec = {'part': PART, 'period_ns': PERIOD, 'top': top, 'sources': srcs, 'generics': generics, 'provenance': provenance(sorted({*srcs, *SYNTH_SOURCES.get(name, [])})), 'status': 'failed', 'timing_met': False,
                'errors': errs[:5], 'wns_ns': None, 'lut': 0.0, 'ff': 0.0, 'dsp': 0.0, 'bram36_equiv': 0.0}
         if (out / 'synth_util.rpt').exists():   # a failed place/route still records the post-synthesis numbers
             su = (out / 'synth_util.rpt').read_text()
@@ -61,7 +65,7 @@ def main():
         return float(m.group(1)) if m else 0.0
 
     wns = float(re.search(r'WNS\(ns\).*?\n.*?\n\s*(-?[\d.]+)', timing, re.S).group(1))
-    rec = {'part': PART, 'period_ns': PERIOD, 'top': top, 'sources': srcs, 'provenance': provenance(sorted({*srcs, *SYNTH_SOURCES.get(name, [])})),
+    rec = {'part': PART, 'period_ns': PERIOD, 'top': top, 'sources': srcs, 'generics': generics, 'provenance': provenance(sorted({*srcs, *SYNTH_SOURCES.get(name, [])})),
            'lut': cell('Slice LUTs'), 'ff': cell('Slice Registers'), 'dsp': cell('DSPs'),
            'bram36_equiv': cell('Block RAM Tile'), 'wns_ns': wns, 'timing_met': wns >= 0}
     res_path = ROOT / 'bench/results/decode_synth_ooc.json'

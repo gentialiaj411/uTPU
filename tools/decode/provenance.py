@@ -44,11 +44,16 @@ ARTIFACT_SOURCES = {
     'decode_attention15_rtl': ['tools/decode/run_attn15_rtl.py', D + 'decode_pkg.sv', D + 'mul_pipe.sv', D + 'div_const_pipe.sv',
                                D + 'attention.sv', *GOLD('attn15', 'attn'), 'tools/decode/run_decode_rtl.py', *TOOLS, *NUMERICS, *LUTS, *M15],
     'decode_qspi_rtl': ['tools/decode/run_qspi_rtl.py', *QSPI_RTL, *TOOLS],
+    'decode_qspi_ddr_rtl': ['tools/decode/run_qspi_rtl.py', *QSPI_RTL, *TOOLS],      # same sources, run with --ddr (EDh, CR1 LC=11)
     # M5 board top. The UART TB builds boolean_core (every rtl/board and rtl/decode source) around the flash model and plays
     # the host tool's frames against the 260K golden (run_decode_rtl.golden + pack_decode_image).
     'boolean_uart_rtl': ['tools/board/run_uart_rtl.py', 'tools/board/boolean_host.py', 'tools/board/tb/*.sv', *BOARD_RTL,
                          'tools/decode/run_decode_rtl.py', 'tools/decode/pack_decode_image.py',
                          *QSPI_RTL, *TOP_RTL, *TOOLS, *NUMERICS, *LUTS, *M260],
+    # DDR variant of the UART TB (--ddr): boolean_core DDR=1, flash model powered up at LC=00 so the host procedure must switch it to LC=11
+    'boolean_uart_ddr_rtl': ['tools/board/run_uart_rtl.py', 'tools/board/boolean_host.py', 'tools/board/tb/*.sv', *BOARD_RTL,
+                             'tools/decode/run_decode_rtl.py', 'tools/decode/pack_decode_image.py',
+                             *QSPI_RTL, *TOP_RTL, *TOOLS, *NUMERICS, *LUTS, *M260],
     # pin check: the XDC is parsed; the placed ports come from the implementation run, so its artifact is an input
     'boolean_pin_check': ['tools/board/pin_check.py', 'constraints/boolean_xc7s50.xdc', 'tools/board/impl_top.py',
                           'bench/results/boolean_top_impl.json', 'tools/decode/provenance.py'],
@@ -56,6 +61,10 @@ ARTIFACT_SOURCES = {
     'boolean_top_impl': ['tools/board/impl_top.py', 'constraints/boolean_xc7s50.xdc', *BOARD_RTL, *TOP_RTL, D + 'qspi_reader.sv',
                          'tools/decode/pack_decode_image.py', 'tools/decode/provenance.py', *M15,
                          'build/decode/decode_image_15m/params.json'],
+    # the same implementation with boolean_top DDR=1 (impl_top.py --ddr); the pin check keeps consuming the default boolean_top_impl
+    'boolean_top_impl_ddr': ['tools/board/impl_top.py', 'constraints/boolean_xc7s50.xdc', 'constraints/boolean_xc7s50_qspi_ddr.xdc', *BOARD_RTL, *TOP_RTL, D + 'qspi_reader.sv',
+                             'tools/decode/pack_decode_image.py', 'tools/decode/provenance.py', *M15,
+                             'build/decode/decode_image_15m/params.json'],
 }
 # out-of-context synthesis records (decode_synth_ooc.json) by entry name; the 15M wrappers are generated into build/ from the 15M image
 # parameters by gen_15m_wrap.py / gen_qspi_wrap.py, so the generated wrapper, its generators and the packer are inputs too
@@ -71,6 +80,10 @@ SYNTH_SOURCES = {
     'qspi_reader': [D + 'qspi_reader.sv', 'tools/decode/synth_ooc.py'],
     'top_decode_15m_qspi': [*TOP_RTL, D + 'qspi_reader.sv', *_W15, 'build/decode/top_decode_15m_qspi_wrap.sv', 'build/decode/decode_image_15m/params.json',
                             'tools/decode/gen_qspi_wrap.py', 'tools/decode/synth_ooc.py'],
+    # DDR=1 reader: qspi_reader alone (synth_ooc -GDDR=1) and the 15M top with the DDR reader (gen_qspi_wrap.py --ddr)
+    'qspi_reader_ddr': [D + 'qspi_reader.sv', 'tools/decode/synth_ooc.py'],
+    'top_decode_15m_qspi_ddr': [*TOP_RTL, D + 'qspi_reader.sv', *_W15, 'build/decode/top_decode_15m_qspi_ddr_wrap.sv', 'build/decode/decode_image_15m/params.json',
+                                'tools/decode/gen_qspi_wrap.py', 'tools/decode/synth_ooc.py'],
 }
 # fault-injection results are per unit; they depend on every RTL file the faults can touch plus the injector and runners
 FAULT_SOURCES = [*NUMERICS, *M260, *M15, *LUTS, 'tools/decode/pack_decode_image.py', 'tools/decode/golden_*.py', D + '*.sv', 'rtl/board/*.sv', 'tools/decode/tb/*.sv', 'tools/decode/fault_inject.py', 'tools/decode/run_*_rtl.py',
@@ -78,8 +91,8 @@ FAULT_SOURCES = [*NUMERICS, *M260, *M15, *LUTS, 'tools/decode/pack_decode_image.
 
 
 def e2e_sources(model: str, flash: str) -> list:
-    """model: 'stories260K' | 'stories15M'; flash: 'ideal' | 'qspi'."""
-    return ['tools/decode/run_decode_rtl.py', 'tools/decode/pack_decode_image.py', *TOP_RTL, *(QSPI_RTL if flash == 'qspi' else []),
+    """model: 'stories260K' | 'stories15M'; flash: 'ideal' | 'qspi' | 'qspi-ddr'."""
+    return ['tools/decode/run_decode_rtl.py', 'tools/decode/pack_decode_image.py', *TOP_RTL, *(QSPI_RTL if flash in ('qspi', 'qspi-ddr') else []),
             *TOOLS, *NUMERICS, *LUTS, *(M15 if model == 'stories15M' else M260)]
 
 

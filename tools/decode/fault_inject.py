@@ -145,6 +145,24 @@ FAULTS = {
         'spi_takeover_without_settle_wait': ('rtl', "if (pt_wait == 9'd255) begin", "if (pt_wait == 9'd0) begin",
                                              'equivalent: the 256-cycle wait only guards against taking the pins while the reader still clocks its last prefetched byte. The reader parks within about 16 cycles of the last byte top_decode accepts, which is before done; the host cannot send an S frame before it has received the 11-byte R response (11 x 10 bit times >= 880 cycles at 115200 baud, 880 cycles even at CPB=8 x 10 x 11) and the S header itself takes 3 more byte times, so the wait is always already elapsed in a protocol-conforming exchange. Removing it is unobservable'),
     }),
+    # DDR=1 (EDh, DDR Quad I/O Read) faults, run against the independently written flash model (tools/decode/tb/qspi_flash_model.sv)
+    # with the reader at DDR=1 and the flash at CR1 LC=11 (run_qspi_rtl.py --ddr; run_uart_rtl.py --ddr for the board unit).
+    'qspi_ddr': ('tools/decode/run_qspi_rtl.py --ddr', 'rtl/decode/qspi_reader.sv', {
+        'ddr_dummy_3_to_2': ('rtl', "localparam int DDR_DUMMY = 3;", "localparam int DDR_DUMMY = 2;"),
+        'ddr_address_nibble_order_swapped': ('rtl', "dsh <= {pend_addr[8*ADDR_BYTES-1:0], DDR_MODE};",
+                                             "dsh <= {pend_addr[19:16], pend_addr[23:20], pend_addr[11:8], pend_addr[15:12], pend_addr[3:0], pend_addr[7:4], DDR_MODE};"),
+        'ddr_capture_one_edge_only': ('rtl', "dl_q <= DDR && state == S_RUN && !abort_now && tick && !dchg && ddr_launch_ok;",
+                                      "dl_q <= DDR && state == S_RUN && !abort_now && tick && !dchg && ddr_launch_ok && sclk_q;"),
+        # A5h: complementary nibbles = continuous read mode (S25FL128S Rev. *T sec. 11.4.9): the next command's EDh would be taken as address
+        'ddr_mode_continuous_a5': ('rtl', "localparam logic [7:0] DDR_MODE = 8'h00;", "localparam logic [7:0] DDR_MODE = 8'hA5;"),
+        'ddr_no_backpressure_stall': ('rtl', "wire rise_blocked_ddr = ddr_launch_ok && !sclk_q && (3'(occ_after) + 3'(pend_n) > 3'd2);",
+                                      "wire rise_blocked_ddr = 1'b0;"),
+        'ddr_inflight_completions_ignored': ('rtl', "(3'(occ_after) + 3'(pend_n) > 3'd2);", "(3'(occ_after) > 3'd2);"),
+    }),
+    'board_ddr': ('tools/board/run_uart_rtl.py --ddr', 'rtl/board/board_ctrl.sv', {
+        'ddr_version_byte_wrong': ('rtl', "localparam logic [7:0] VER = DDR ? 8'h02 : 8'h01;", "localparam logic [7:0] VER = DDR ? 8'h01 : 8'h01;"),
+        'ddr_not_passed_to_reader': ('rtl/board/boolean_core.sv', ".CAP_DLY(QSPI_CAP_DLY), .DDR(DDR)) u_rd (", ".CAP_DLY(QSPI_CAP_DLY), .DDR(0)) u_rd ("),
+    }),
     'attn15': ('tools/decode/run_attn15_rtl.py', 'rtl/decode/attention.sv', {   # 15M geometry: bank aliasing wraps onto earlier positions only here
         'kv_bank_write_ge': ('rtl', "(32'(wfa) >> BAW) == bk) mem", "(32'(wfa) >> BAW) <= bk) mem"),
     }),
@@ -170,12 +188,12 @@ def run_fault(unit, runner, rtl, name, spec):
     out = ROOT / 'build/decode' / f'fault_{unit}_{name}.json'
     out.unlink(missing_ok=True)                      # a stale artifact must never be mistaken for this run's
     script, *extra = runner.split()
-    if unit == 'board':   # UART end-to-end runner in fast mode: the mutant replaces one source file
-        args = [sys.executable, str(ROOT / script), '--fast', '--output', str(out), '--replace', f'{relsrc}={mutant}']
+    if unit in ('board', 'board_ddr'):   # UART end-to-end runner in fast mode: the mutant replaces one source file
+        args = [sys.executable, str(ROOT / script), *extra, '--fast', '--output', str(out), '--replace', f'{relsrc}={mutant}']
     elif unit == 'top':   # end-to-end runner: mutant top_decode.sv, mismatches = logits + indices + tokens
         args = [sys.executable, str(ROOT / script), *extra, '--output', str(out), '--top-rtl', str(mutant)]
     else:
-        args = [sys.executable, str(ROOT / script), '--output', str(out), '--pkg' if which == 'pkg' else '--rtl', str(mutant)]
+        args = [sys.executable, str(ROOT / script), *extra, '--output', str(out), '--pkg' if which == 'pkg' else '--rtl', str(mutant)]
     res = {}
     try:
         proc = subprocess.run(args, capture_output=True, text=True, timeout=RUN_TIMEOUT_S)

@@ -25,14 +25,18 @@ FLASH_IDEAL = r"""  assign st_valid = (phase == 0) && !seek_req;
 
 # QSPI: the reader + independent flash model (tools/decode/tb/qspi_flash_model.sv). The sim clock is 2 ns, so the
 # flash AC times are scaled by 1/10 (tV 0.765, tHO 0.2, tCS 1.0 ns); the unit test uses the datasheet values at 20 ns.
+# --- interface names shared with the RTL / flash-model changes (DDR contract C1/C3); integration fixes a mismatch HERE only ---
+READER_DDR_PARAM = 'DDR'         # qspi_reader parameter: 1 = EDh DDR Quad I/O Read
+MODEL_CR1_PARAM = 'LC_INIT/QUAD_INIT'   # qspi_flash_model power-up CR1 fields; DDR runs start at {LC=11, QUAD=1}
+DDR_CR1_INIT = (0b11 << 6) | 0b10    # {LC=11, QUAD=1}
 FLASH_QSPI = r"""  wire sclk, cs_n; wire [3:0] io_o, io_oe, io_i_c, f_o, f_oe, pad_io_o, pad_io_t; wire pad_sclk, pad_cs_n; tri [3:0] bus;
-  qspi_reader #(.CAP_DLY(2)) qrd (.clk, .rst, .seek_req, .seek_addr, .st_ready, .st_valid, .st_data, .sclk, .cs_n, .io_o, .io_oe, .io_i(io_i_c));
+  qspi_reader #(%(rparams)s) qrd (.clk, .rst, .seek_req, .seek_addr, .st_ready, .st_valid, .st_data, .sclk, .cs_n, .io_o, .io_oe, .io_i(io_i_c));
   qspi_pad_regs pr (.clk, .sclk, .cs_n, .io_o, .io_oe, .pad_sclk, .pad_cs_n, .pad_io_o, .pad_io_t, .pad_io_i(bus), .io_i(io_i_c));
   for (genvar i = 0; i < 4; i++) begin : g_bus
     assign bus[i] = !pad_io_t[i] ? pad_io_o[i] : 1'bz;
     assign bus[i] = f_oe[i] ? f_o[i] : 1'bz;
   end
-  qspi_flash_model #(.IMG("%(img)s"), .SIZE(NB), .TV(0.765), .THO(0.2), .TCS(1.0), .TCSS(0.3), .TCSH(0.3), .TSU(0.3), .THD(0.2)) flash (.sck(pad_sclk), .cs_n(pad_cs_n),
+  qspi_flash_model #(.IMG("%(img)s"), .SIZE(NB)%(mparams)s, .TV(0.765), .THO(0.2), .TCS(1.0), .TCSS(0.3), .TCSH(0.3), .TSU(0.3), .THD(0.2)) flash (.sck(pad_sclk), .cs_n(pad_cs_n),
       .host_o(pad_io_o), .host_oe(~pad_io_t), .flash_o(f_o), .flash_oe(f_oe));"""
 
 TB = r"""`timescale 1ns/1ps
@@ -122,7 +126,8 @@ def main():
     ap.add_argument('--model', default='260k', choices=('260k', '15m'))
     ap.add_argument('--kv-bits', type=int, default=8, choices=(4, 8))
     ap.add_argument('--period', type=int, default=1, help='flash delivers one byte every PERIOD cycles')
-    ap.add_argument('--flash', default='ideal', choices=('ideal', 'qspi'), help='ideal byte stream, or qspi_reader + flash model')
+    ap.add_argument('--flash', default='ideal', choices=('ideal', 'qspi', 'qspi-ddr'),
+                    help="ideal byte stream, qspi_reader + flash model (6Bh SDR, 0.25 B/cycle), or 'qspi-ddr': reader DDR=1 (EDh) + flash model CR1 LC=11 (0.5 B/cycle)")
     ap.add_argument('--prompts', type=int, default=1)
     ap.add_argument('--gen', type=int, default=8, help='generated tokens per prompt')
     ap.add_argument('--output', default=None)
@@ -157,7 +162,7 @@ def main():
         for p, (t, o, l) in enumerate(zip(tokens, outs, lg)):
             steps.append((t << 32) | (o << 16) | p)
             logits += [int(x) for x in l]
-    tag = ('' if a.model == '260k' else '15m_') + f'kv{a.kv_bits}_p{a.period}' + ('_qspi' if a.flash == 'qspi' else '') + ''.join('_' + d for d in a.define) + ('_' + Path(a.top_rtl).stem if a.top_rtl else '')
+    tag = ('' if a.model == '260k' else '15m_') + f'kv{a.kv_bits}_p{a.period}' + {'qspi': '_qspi', 'qspi-ddr': '_qspiddr'}.get(a.flash, '') + ''.join('_' + d for d in a.define) + ('_' + Path(a.top_rtl).stem if a.top_rtl else '')
     files = dict(img=write_mem(f'e2e_img_{a.model}', list(img), 8), steps=write_mem(f'e2e_steps_{tag}', steps, 48),
                  logits=write_mem(f'e2e_logits_{tag}', logits, 32))
     keys = ['D', 'H', 'NL', 'NH', 'NKV', 'HS', 'VOCAB', 'CLS4', 'WQ4', 'WK4', 'WV4', 'WO4', 'W14', 'W34', 'W24',
@@ -168,11 +173,14 @@ def main():
     if a.model == '15m':
         plist += ', .ROPE_CS("rtl/decode/luts/rope_cs_q15_h48_p128.mem"), .ROPE_DEPTH(3072)'
     tb = BUILD / f'e2e_{tag}_tb.sv'
-    flash_txt = (FLASH_IDEAL if a.flash == 'ideal' else FLASH_QSPI % dict(img=files['img']))
+    ddr = a.flash == 'qspi-ddr'
+    flash_txt = (FLASH_IDEAL if a.flash == 'ideal' else FLASH_QSPI % dict(
+        img=files['img'], rparams='.CAP_DLY(2)' + (f', .{READER_DDR_PARAM}(1)' if ddr else ''),
+        mparams=(", .LC_INIT(2'b11), .QUAD_INIT(1'b1), .DTV(0.65), .DTHO(0.15), .DTSU(0.2), .DTHD(0.2)" if ddr else '')))
     tb.write_text(TB % dict(flash=flash_txt, ns=len(steps), vocab=params['VOCAB'], nbytes=len(img), period=a.period, params=plist,
-                            pw=max_seq.bit_length() - 1, limit=(2_000_000 if a.model == '260k' else 80_000_000) * (4 if a.flash == 'qspi' else a.period), **files))   # per-step cycle watchdog: a hang is an error
+                            pw=max_seq.bit_length() - 1, limit=(2_000_000 if a.model == '260k' else 80_000_000) * (4 if a.flash.startswith('qspi') else a.period), **files))   # per-step cycle watchdog: a hang is an error
     srcs = [Path(a.top_rtl) if (a.top_rtl and s == 'top_decode.sv') else ROOT / 'rtl/decode' / s for s in SRCS]
-    if a.flash == 'qspi':
+    if a.flash.startswith('qspi'):
         srcs += [ROOT / 'rtl/decode/qspi_reader.sv', ROOT / 'rtl/board/qspi_pad_regs.sv', ROOT / 'tools/decode/tb/qspi_flash_model.sv']
     rc, out = compile_and_run(srcs, 'e2e_tb', tb, defines=tuple(a.define), timeout=a.timeout)
     line, kv = parse_summary(out)
@@ -187,7 +195,9 @@ def main():
     clean = (rc == 0 and kv.get('errors') == '0' and kv.get('token_errors') == '0' and index_order_ok and argmax_errors == 0
              and len(cyc) == len(steps) and len(steps) > 0)
     o = {'status': 'pass' if clean else 'fail',
-         'model': 'stories260K' if a.model == '260k' else 'stories15M', 'max_seq': max_seq, 'kv_bits': a.kv_bits, 'flash': a.flash, 'qspi_pad_regs_cap_dly': (2 if a.flash == 'qspi' else None), 'flash_bytes_per_cycle': (0.25 if a.flash == 'qspi' else 1 / a.period), 'prompts': prompts,
+         'model': 'stories260K' if a.model == '260k' else 'stories15M', 'max_seq': max_seq, 'kv_bits': a.kv_bits, 'flash': a.flash, 'qspi_pad_regs_cap_dly': (2 if a.flash.startswith('qspi') else None),
+         'flash_bytes_per_cycle': (0.5 if ddr else 0.25 if a.flash == 'qspi' else 1 / a.period),
+         **({'flash_cr1_init': DDR_CR1_INIT, 'reader_ddr_param': READER_DDR_PARAM, 'model_cr1_param': MODEL_CR1_PARAM} if ddr else {}), 'prompts': prompts,
          'generated_tokens_per_prompt': a.gen, 'steps': len(steps), 'logits_compared': len(steps) * params['VOCAB'],
          'vocab': params['VOCAB'], 'logit_mismatches': int(kv.get('errors', -1)), 'token_mismatches': int(kv.get('token_errors', -1)),
          'index_errors': idx_errors, 'argmax_errors': argmax_errors, 'stray_logits': stray, 'index_order_ok': index_order_ok,

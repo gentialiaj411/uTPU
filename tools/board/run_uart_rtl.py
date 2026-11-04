@@ -22,6 +22,10 @@ from pack_decode_image import pack
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import boolean_host as bh
 
+# --- interface names shared with the RTL / flash-model changes (DDR contract C1/C3); integration fixes a mismatch HERE only ---
+BOARD_DDR_PARAM = 'DDR'          # boolean_core / boolean_top parameter; 'V' reply is 1 for DDR=0 and 2 for DDR=1
+MODEL_CR1_PARAM = 'LC_INIT/QUAD_INIT'   # qspi_flash_model power-up CR1 fields (--ddr starts at LC 00, QUAD 0; the host must switch it to LC=11)
+CR1_WANT_SDR, CR1_WANT_DDR = 0x02, 0xC2
 BASE = 0x280000
 CPB = 8
 TMO = 3000
@@ -29,6 +33,7 @@ TMO = 3000
 TB = r"""`timescale 1ns/1ps
 module uart_tb;
   localparam int NS = %(ns)d, V = %(vocab)d, NB = %(nbytes)d, BASE = %(base)d, CPB = %(cpb)d, MODE = %(mode)d;
+  localparam logic [7:0] VER = 8'h%(ver)02x, CR1_WANT = 8'h%(cr1want)02x;   // 'V' reply of this build; CR1 the host procedure must leave in the flash
   localparam realtime BIT = 2.0 * CPB;
   logic clk = 0, rst = 1, uart_rx = 1; logic uart_tx;
   always #1 clk = ~clk;
@@ -38,7 +43,7 @@ module uart_tb;
     assign bus[i] = f_oe[i] ? f_o[i] : 1'bz;
   end
   boolean_core #(.CPB(CPB), .TMO(%(tmo)d), .WDOG(%(wdog)d), .PT_HALF(2), %(params)s) dut (.clk, .rst, .uart_rx, .uart_tx, .pad_sclk, .pad_cs_n, .pad_io_o, .pad_io_t, .pad_io_i(bus));
-  qspi_flash_model #(.IMG("%(img)s"), .SIZE(BASE + NB), .BASE(BASE), .QUAD_INIT(1'b0), .ALLOW_REG_CMDS(1'b1),
+  qspi_flash_model #(.IMG("%(img)s"), .SIZE(BASE + NB), .BASE(BASE), .QUAD_INIT(1'b0)%(mparams)s, .ALLOW_REG_CMDS(1'b1),
       .TV(0.765), .THO(0.2), .TCS(1.0), .TCSS(0.3), .TCSH(0.3), .TSU(0.3), .THD(0.2)) flash (.sck(pad_sclk), .cs_n(pad_cs_n), .host_o(pad_io_o), .host_oe(~pad_io_t), .flash_o(f_o), .flash_oe(f_oe));
   logic [47:0] step_mem [NS]; logic [31:0] exp_logits [NS*V];
   integer errors = 0, checks = 0, wr = 0, rd = 0, cycles = 0, shown = 0, nwrr_ok = 0;
@@ -96,7 +101,7 @@ module uart_tb;
     @(negedge clk); rst = 1; repeat (4) @(negedge clk); rst = 0; repeat (8) @(negedge clk);
   endtask
   task automatic ping(input string what);
-    send(8'h56); expect_byte(8'h76, {what, " v"}); expect_byte(8'h01, {what, " v1"});
+    send(8'h56); expect_byte(8'h76, {what, " v"}); expect_byte(VER, {what, " v1"});
   endtask
   task automatic rdid(input string what);
     spi(1, 6, {8'h9F, 56'd0}, {8'h01, 8'h20, 8'h18, 8'h4D, 8'h00, 8'h80, 16'd0}, what);
@@ -132,9 +137,9 @@ module uart_tb;
     repeat (4) @(posedge clk); #0.1; rst = 0; repeat (50) @(posedge clk); #0.1;
     if (MODE == 2) begin
       // robustness: watchdog on a stalled byte stream, then reset in the middle of a frame, an SPI read and a decode step
-      send(8'h56); expect_byte(8'h76, "V tag"); expect_byte(8'h01, "V ver");
+      send(8'h56); expect_byte(8'h76, "V tag"); expect_byte(VER, "V ver");
       spi(1, 1, {8'h35, 56'd0}, {8'h00, 56'd0}, "RDCR");
-      spi(1, 0, {8'h06, 56'd0}, 64'd0, "WREN"); spi(3, 0, {8'h01, 8'h00, 8'h02, 40'd0}, 64'd0, "WRR");
+      spi(1, 0, {8'h06, 56'd0}, 64'd0, "WREN"); spi(3, 0, {8'h01, 8'h00, CR1_WANT, 40'd0}, 64'd0, "WRR");
       spi(1, 1, {8'h05, 56'd0}, {8'h01, 56'd0}, "RDSR wip"); spi(1, 1, {8'h05, 56'd0}, {8'h01, 56'd0}, "RDSR wip 2"); spi(1, 1, {8'h05, 56'd0}, {8'h00, 56'd0}, "RDSR done");
       step(0, 3, 0);                                             // pos 0 completes, next = 1
       // stall: the flash byte stream stops (st_valid forced low) after the step has started; the watchdog must fire
@@ -161,6 +166,17 @@ module uart_tb;
       $display("SUMMARY errors=%%0d checks=%%0d cycles=%%0d starts=%%0d", errors, checks, cycles, n_starts);
       $finish;
     end
+    if (MODE == 3) begin
+      // DDR negative: QUAD = 1 but LC = 00 (what an SDR-configured flash looks like under a DDR build). The decode must NOT reproduce the golden:
+      // the flash model (dummy cycles from CR1 LC) or the golden check has to catch it.
+      send(8'h56); expect_byte(8'h76, "V tag"); expect_byte(VER, "V ver");
+      spi(1, 0, {8'h06, 56'd0}, 64'd0, "WREN"); spi(3, 0, {8'h01, 8'h00, 8'h02, 40'd0}, 64'd0, "WRR LC=00");
+      spi(1, 1, {8'h05, 56'd0}, {8'h01, 56'd0}, "RDSR wip"); spi(1, 1, {8'h05, 56'd0}, {8'h01, 56'd0}, "RDSR wip 2"); spi(1, 1, {8'h05, 56'd0}, {8'h00, 56'd0}, "RDSR done");
+      spi(1, 1, {8'h35, 56'd0}, {8'h02, 56'd0}, "RDCR LC=00");
+      step(0, 3, 0);
+      $display("SUMMARY errors=%%0d checks=%%0d cycles=%%0d NOT_DETECTED", errors, checks, cycles);
+      $finish;
+    end
     if (MODE == 0) begin
       // negative: QUAD bit is 0, a decode request must trip the flash model's check (this sim is expected to end in $fatal)
       send(8'h54); send(1); send(0); send(0); send(0); send(0);
@@ -168,7 +184,7 @@ module uart_tb;
       $display("SUMMARY errors=%%0d checks=%%0d cycles=%%0d NO_FATAL", errors, checks, cycles);
       $finish;
     end
-    send(8'h56); expect_byte(8'h76, "V tag"); expect_byte(8'h01, "V ver");
+    send(8'h56); expect_byte(8'h76, "V tag"); expect_byte(VER, "V ver");
     send_bad_stop(8'h56); expect_idle(2000, "framing error");
     // rejected requests run no decode and answer with E frames; X restarts the sequence
     send(8'h58); expect_byte(8'h78, "x tag"); expect_byte(8'h01, "x ver");
@@ -181,19 +197,19 @@ module uart_tb;
     // the host tool's own register sequence (boolean_host.py: info, enable-quad, info) played against the RTL and the flash model;
     // the expected response bytes come from the host's software stub (an independent Python model of board_ctrl + S25FL128S registers)
 %(hostseq)s
-    spi(1, 1, {8'h35, 56'd0}, {8'h02, 56'd0}, "RDCR after host enable-quad");
+    spi(1, 1, {8'h35, 56'd0}, {CR1_WANT, 56'd0}, "RDCR after host enable-quad");
     send(8'h54); send(8'h01); send(8'h00);                        // truncated frame, must time out
     repeat (TMO_CYC) @(posedge clk); #0.1;
-    send(8'h56); expect_byte(8'h76, "V after timeout"); expect_byte(8'h01, "V ver 2");
+    send(8'h56); expect_byte(8'h76, "V after timeout"); expect_byte(VER, "V ver 2");
     spi(1, 0, {8'h06, 56'd0}, 64'd0, "WREN");
     spi(1, 1, {8'h05, 56'd0}, {8'h02, 56'd0}, "RDSR wel set");
-    spi(3, 0, {8'h01, 8'h00, 8'h02, 40'd0}, 64'd0, "WRR");
+    spi(3, 0, {8'h01, 8'h00, CR1_WANT, 40'd0}, 64'd0, "WRR");
     spi(1, 1, {8'h05, 56'd0}, {8'h01, 56'd0}, "RDSR wip");
     spi(1, 1, {8'h05, 56'd0}, {8'h01, 56'd0}, "RDSR wip 2");
     spi(1, 1, {8'h05, 56'd0}, {8'h00, 56'd0}, "RDSR done");
-    spi(1, 1, {8'h35, 56'd0}, {8'h02, 56'd0}, "RDCR after");
+    spi(1, 1, {8'h35, 56'd0}, {CR1_WANT, 56'd0}, "RDCR after");
     for (int s = 0; s < NS; s++) begin
-      if (s > 0) spi(1, 1, {8'h35, 56'd0}, {8'h02, 56'd0}, "RDCR between decode steps");   // SPI access with the reader parked mid-burst
+      if (s > 0) spi(1, 1, {8'h35, 56'd0}, {CR1_WANT, 56'd0}, "RDCR between decode steps");   // SPI access with the reader parked mid-burst
       if (s == 1) begin    // state-changing commands need CS# to rise after each S frame, even though the reader has CS# low (parked burst)
         spi(1, 0, {8'h06, 56'd0}, 64'd0, "WREN between steps");
         spi(1, 1, {8'h05, 56'd0}, {8'h02, 56'd0}, "RDSR WEL between steps");
@@ -218,10 +234,12 @@ class _Rec(bh.Stub):
         n0 = len(self.buf); super().write(b); self.pairs.append((bytes(b), self.buf[n0:]))
 
 
-def host_sequence():
-    """(frame, expected response) pairs produced by boolean_host.Board for info -> enable-quad -> info against the QUAD=0, LC=00 power-up state."""
-    r = _Rec(); b = bh.Board(r)
+def host_sequence(version=1):
+    """(frame, expected response) pairs produced by boolean_host.Board for info -> enable-quad -> info against the QUAD=0, LC=00 power-up state
+    (version 1: the SDR build's LC=00 target, unchanged; version 2: the DDR build, enable-quad must leave LC=11)."""
+    r = _Rec(); r.version = version; b = bh.Board(r)
     i0 = b.info(); assert not i0['compatible'] and b.enable_quad()[0] == 'set'; i1 = b.info(); assert i1['compatible']
+    assert r.cr1 == (CR1_WANT_DDR if version == 2 else CR1_WANT_SDR), r.cr1
     lines = []
     for k, (f, resp) in enumerate(r.pairs):
         lines.append('    ' + ' '.join(f"send(8'h{x:02x});" for x in f) + ' ' + ' '.join(f"expect_byte(8'h{x:02x}, \"host seq {k}\");" for x in resp))
@@ -232,11 +250,17 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--prompts', type=int, default=1)
     ap.add_argument('--gen', type=int, default=2)
-    ap.add_argument('--output', default=str(ROOT / 'bench/results/boolean_uart_rtl.json'))
+    ap.add_argument('--output', default=None, help='default bench/results/boolean_uart_rtl.json, or boolean_uart_ddr_rtl.json with --ddr')
+    ap.add_argument('--ddr', action='store_true', help='DDR build: boolean_core DDR=1 (V reply 2), flash model powered up at CR1 LC=00 so the host sequence must switch it to LC=11')
     ap.add_argument('--fast', action='store_true', help='fault-injection mode: main run only, stop at the first error')
     ap.add_argument('--replace', action='append', default=[], help='ORIG=MUTANT source file substitution (fault injection)')
     ap.add_argument('--sim', choices=('icarus','verilator'), default=__import__('sim').SIMULATOR, help='simulation backend (default icarus)')
     a = ap.parse_args()
+    ddr = a.ddr
+    if a.output is None:
+        a.output = str(ROOT / ('bench/results/boolean_uart_ddr_rtl.json' if ddr else 'bench/results/boolean_uart_rtl.json'))
+    ver, cr1want = (2, CR1_WANT_DDR) if ddr else (1, CR1_WANT_SDR)
+    pfx = 'ddr_' if ddr else ''
     t0 = time.time()
     prompts = [[1, 403, 260], [1, 87]][:a.prompts]
     exp, seqs = rd.golden('260k', 8, prompts, a.gen)
@@ -250,7 +274,7 @@ def main():
     keys = ['D', 'H', 'NL', 'NH', 'NKV', 'HS', 'VOCAB', 'CLS4', 'WQ4', 'WK4', 'WV4', 'WO4', 'W14', 'W34', 'W24',
             'CLS_BASE', 'EMB_SCALE_BASE', 'LAYERS_BASE', 'IMAGE_BYTES', 'CLS_TILE_BYTES', 'CLS_KB', 'CLS_G', 'RECIP_D', 'NORM_MULT',
             'EPS', 'GFB', 'NORM_SHIFT', 'SILU_MULT', 'SWIGLU_MULT', 'SCORE_MULT', 'SILU_SHIFT', 'SWIGLU_SHIFT', 'SCORE_SHIFT']
-    plist = ', '.join(f'.{k}({params[k]})' for k in keys) + ', .MAX_SEQ(128), .KV4(0), .ROPE_CS("rtl/decode/luts/rope_cs_q15_h8.mem"), .ROPE_DEPTH(2048)'
+    plist = ', '.join(f'.{k}({params[k]})' for k in keys) + ', .MAX_SEQ(128), .KV4(0), .ROPE_CS("rtl/decode/luts/rope_cs_q15_h8.mem"), .ROPE_DEPTH(2048)' + (f', .{BOARD_DDR_PARAM}(1)' if ddr else '')
     srcs = [ROOT / 'rtl/decode' / s for s in rd.SRCS] + [ROOT / 'rtl/decode/qspi_reader.sv'] + \
            [ROOT / 'rtl/board' / s for s in ('uart_rx.sv', 'uart_tx.sv', 'qspi_pad_regs.sv', 'board_ctrl.sv', 'boolean_core.sv')] + [ROOT / 'tools/decode/tb/qspi_flash_model.sv']
 
@@ -259,11 +283,14 @@ def main():
         orig, mut = r.split('=')
         srcs = [Path(mut) if Path(s).resolve() == (ROOT / orig).resolve() else s for s in srcs]
 
-    hostseq, n_host_frames, n_host_wrr = host_sequence()
+    hostseq, n_host_frames, n_host_wrr = host_sequence(ver)
 
     def build(mode, stop, name, wdog=268435456):
-        tb = BUILD / f'uart_{name}_tb.sv'
-        text = TB % dict(ns=len(steps), vocab=params['VOCAB'], nbytes=len(img), base=BASE, cpb=CPB, mode=mode, tmo=TMO, params=plist, stop=stop, wdog=wdog, hostseq=hostseq, **files)
+        tb = BUILD / f'uart_{pfx}{name}_tb.sv'
+        # the robustness run resets the FPGA at an arbitrary cycle of a DDR burst (it may cut a byte; the datasheet allows a read
+        # to end anywhere in data output); every other run keeps the model's "reader stops only between bytes" check
+        abort = ", .ALLOW_DATA_ABORT(1'b1)" if (ddr and name.startswith('robust')) else ''
+        text = TB % dict(ver=ver, cr1want=cr1want, mparams=(", .LC_INIT(2'b00), .DTV(0.65), .DTHO(0.15), .DTSU(0.2), .DTHD(0.2)" + abort if ddr else ''), ns=len(steps), vocab=params['VOCAB'], nbytes=len(img), base=BASE, cpb=CPB, mode=mode, tmo=TMO, params=plist, stop=stop, wdog=wdog, hostseq=hostseq, **files)
         tb.write_text(text.replace('TMO_CYC', str(3 * TMO)).replace('.QUAD_INIT(MODE == 0 ? 1\'b0 : 1\'b0)', '.QUAD_INIT(1\'b0)'))
         return tb
 
@@ -302,7 +329,13 @@ def main():
     # negative: QUAD = 0 and a decode request -> the flash model must $fatal
     tbn = build(0, 0, 'neg')
     nrc, nout = compile_and_run(srcs, 'uart_tb', tbn)
-    neg_caught = 'Quad Output Read issued with CR1.QUAD = 0' in nout
+    # SDR: the 6Bh check; DDR: the model's check on the EDh read (its exact wording is the flash-model change's, so accept any FLASH line naming CR1.QUAD = 0)
+    neg_caught = ('Quad Output Read issued with CR1.QUAD = 0' in nout) if not ddr else any('FLASH' in x and 'CR1.QUAD = 0' in x for x in nout.splitlines())
+    lc_neg_caught, lc_neg_line = None, None
+    if ddr:   # QUAD = 1 but LC = 00 under the DDR build must be caught (flash model fatal, or golden mismatch)
+        lrc, lout = compile_and_run(srcs, 'uart_tb', build(3, 1, 'neg_lc'))
+        lc_neg_line, lkv = parse_summary(lout)
+        lc_neg_caught = 'NOT_DETECTED' not in lout and (lrc != 0 or int(lkv.get('errors', 0)) > 0 or 'errors' not in lkv)
     # robustness run: watchdog on a stalled byte stream + recovery, resets mid frame / SPI read / decode step
     tbr = build(2, 0, 'robust', wdog=1400000)
     rrc, rout = compile_and_run(srcs, 'uart_tb', tbr)
@@ -312,7 +345,7 @@ def main():
     unit_ok = urc == 0 and ukv.get('errors') == '0' and int(ukv.get('checks', 0)) > 0
     step_lines = [x for x in out.splitlines() if x.startswith('STEP')]
     o = {'status': 'pass' if rc == 0 and kv.get('errors') == '0' and len(step_lines) == len(steps) and int(kv.get('nwrr', 0)) >= 1 + n_host_wrr
-         and int(mkv.get('errors', 0)) > 0 and neg_caught and robust_ok and unit_ok else 'fail',
+         and int(mkv.get('errors', 0)) > 0 and neg_caught and robust_ok and unit_ok and (not ddr or lc_neg_caught) else 'fail',
          'model': 'stories260K (boolean_core with 260K parameters; the 15M configuration is the default of the same RTL)',
          'uart_cpb': CPB, 'flash_base': BASE, 'steps': len(steps), 'prompts': prompts, 'golden_tokens': [s[1] for s in seqs],
          'checks': int(kv.get('checks', -1)), 'mismatch_count': int(kv.get('errors', -1)), 'steps_log': step_lines,
@@ -322,11 +355,13 @@ def main():
          'max_seq': 128, 'position_width_bits': 7,
          'host_sequence_frames': n_host_frames, 'quad_enable_via_uart': {'flash_model_QUAD_powerup': 0, 'host_tool_wrr_expected': n_host_wrr, 'wrr_commands_applied': int(kv.get('nwrr', 0))},
          'mutation_mismatch_count': int(mkv.get('errors', -1)), 'mutation_expected': '>0 (BOARD_MUTATE swaps the response token bytes)',
+         **({'ddr': 1, 'build_version': ver, 'flash_model_cr1_powerup': 0, 'flash_cr1_after_host_procedure': cr1want, 'board_ddr_param': BOARD_DDR_PARAM, 'model_cr1_param': MODEL_CR1_PARAM,
+             'negative_lc00_under_ddr_build_detected': lc_neg_caught, 'negative_lc00_summary': lc_neg_line} if ddr else {}),
          'negative_quad0_read_trips_flash_model': neg_caught, 'negative_stdout_tail': [x for x in nout.splitlines() if 'FLASH' in x][:2],
          'first_mismatches': [x for x in out.splitlines() if x.startswith('MISMATCH')][:8],
          'vvp_command': f'{VVP} build/decode/uart_main_tb.vvp', 'summary': line, 'sim_stdout_sha256': hashlib.sha256(out.encode()).hexdigest(),
          'wall_seconds': round(time.time() - t0, 1),
-         'provenance': provenance(ARTIFACT_SOURCES['boolean_uart_rtl'])}
+         'provenance': provenance(ARTIFACT_SOURCES['boolean_uart_ddr_rtl' if ddr else 'boolean_uart_rtl'])}
     finish(o, a.output, ('status', 'steps', 'checks', 'mismatch_count', 'mutation_mismatch_count', 'negative_quad0_read_trips_flash_model', 'summary', 'wall_seconds'))
 
 

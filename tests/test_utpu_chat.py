@@ -66,6 +66,68 @@ def test_quad_enable_register_sequence_matches_uart_host_sequence():
     ]
 
 
+S_FRAMES_V1 = [
+    bytes((0x53, 1, 1, 0x05)), bytes((0x53, 1, 1, 0x35)),
+    bytes((0x53, 1, 0, 0x06)), bytes((0x53, 1, 1, 0x05)),
+    bytes((0x53, 3, 0, 0x01, 0x00, 0x02)), bytes((0x53, 1, 1, 0x05)),
+    bytes((0x53, 1, 1, 0x05)), bytes((0x53, 1, 1, 0x05)),
+    bytes((0x53, 1, 1, 0x05)), bytes((0x53, 1, 1, 0x35)),
+]
+
+
+def test_ping_returns_build_version():
+    for v in (1, 2):
+        client = chat.Client(chat.LoopbackTransport(version=v))
+        assert client.ping() == v and client.version == v
+
+
+def test_version2_ddr_build_writes_lc11():
+    board = chat.LoopbackTransport(version=2)
+    client = chat.Client(board)
+    assert client.quad_enable() == 0xC2
+    s_frames = [f for f in board.frames if f[0] == ord("S")]
+    # same frame sequence as version 1 except the WRR payload: CR1 = {LC=11, QUAD=1}
+    assert s_frames == [bytes((0x53, 3, 0, 0x01, 0x00, 0xC2)) if f[:4] == bytes((0x53, 3, 0, 0x01)) else f for f in S_FRAMES_V1]
+    assert board.cr1 == 0xC2
+    assert client.quad_enable() == 0xC2                 # already set: no second WRR
+    assert sum(f[:4] == bytes((0x53, 3, 0, 0x01)) for f in board.frames) == 1
+
+
+def test_version2_rewrites_quad_only_flash_with_lc00():
+    board = chat.LoopbackTransport(version=2, cr1=0x02)  # an SDR-configured flash under a DDR bitstream
+    assert chat.Client(board).quad_enable() == 0xC2
+
+
+def test_version1_with_lc11_flash_clears_lc():
+    board = chat.LoopbackTransport(version=1, cr1=0xC8)
+    assert chat.Client(board).quad_enable() == 0x0A       # LC cleared, bit 3 kept, QUAD set
+
+
+def test_version1_frame_sequence_unchanged_with_explicit_override():
+    board = chat.LoopbackTransport(version=1)
+    assert chat.Client(board).quad_enable(lc=0) == 0x02
+    assert [f for f in board.frames if f[0] == ord("S")] == S_FRAMES_V1
+
+
+def test_override_disagreeing_with_build_is_refused_before_any_write():
+    for version, lc in ((1, 3), (2, 0)):
+        board = chat.LoopbackTransport(version=version)
+        with pytest.raises(RuntimeError, match="refusing"):
+            chat.Client(board).quad_enable(lc=lc)
+        assert not any(f[0] == ord("S") for f in board.frames)
+
+
+@pytest.mark.parametrize("version", [0, 3, 0xFF])
+def test_unknown_build_version_is_an_error(version):
+    board = chat.LoopbackTransport(version=version)
+    client = chat.Client(board)
+    with pytest.raises(chat.BuildVersionError, match="build version"):
+        client.ping()
+    with pytest.raises(chat.BuildVersionError, match="build version"):
+        chat.Client(chat.LoopbackTransport(version=version)).quad_enable()
+    assert not any(f[0] == ord("S") for f in board.frames)
+
+
 def test_t_frame_has_single_position_byte_then_little_endian_probe():
     # Position is one byte in RTL; the two following bytes are probe index low/high.
     # Checking the actual request is done on a recording transport to protect this boundary.

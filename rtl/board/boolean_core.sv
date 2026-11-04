@@ -15,6 +15,7 @@ module boolean_core #(
     parameter int QSPI_HALF = 1,
     parameter bit QSPI_SAMPLE_LATE = 1'b1,
     parameter int QSPI_CAP_DLY = 2,                // qspi_pad_regs adds 1 output + 1 input register
+    parameter int DDR = 0,                         // 1: flash read DDR Quad I/O EDh (CR1 LC=11), 'V' reply 02h; 0: 6Bh, 01h
     parameter int D = 288, H = 768, NL = 6, NH = 6, NKV = 6, HS = 48, VOCAB = 32000, MAX_SEQ = 128,
     parameter int KV4 = 1,
     parameter int CLS4 = 1, WQ4 = 0, WK4 = 0, WV4 = 0, WO4 = 0, W14 = 1, W34 = 1, W24 = 0,
@@ -56,12 +57,12 @@ module boolean_core #(
         .busy(dec_busy), .done(dec_done), .token_out(dec_token_out), .logit_valid(dec_logit_valid), .logit_idx(dec_logit_idx),
         .logit_val(dec_logit_val));
     logic r_sclk, r_cs_n; logic [3:0] r_io_o, r_io_oe, io_i;
-    qspi_reader #(.HALF(QSPI_HALF), .SAMPLE_LATE(QSPI_SAMPLE_LATE), .CAP_DLY(QSPI_CAP_DLY)) u_rd (
+    qspi_reader #(.HALF(QSPI_HALF), .SAMPLE_LATE(QSPI_SAMPLE_LATE), .CAP_DLY(QSPI_CAP_DLY), .DDR(DDR)) u_rd (
         .clk, .rst(rst_dec), .seek_req, .seek_addr(seek_addr + FLASH_BASE), .st_ready, .st_valid, .st_data,
         .sclk(r_sclk), .cs_n(r_cs_n), .io_o(r_io_o), .io_oe(r_io_oe), .io_i);
     // UART control + flash register access (single-bit SPI) multiplexed onto the flash pins
     logic pt_active, pt_sclk, pt_cs_n, pt_mosi;
-    board_ctrl #(.PW(PW), .PT_HALF(PT_HALF), .TMO(TMO), .VOCAB(VOCAB), .MAX_SEQ(MAX_SEQ), .WDOG(WDOG)) u_ctl (
+    board_ctrl #(.PW(PW), .PT_HALF(PT_HALF), .TMO(TMO), .VOCAB(VOCAB), .MAX_SEQ(MAX_SEQ), .WDOG(WDOG), .DDR(DDR)) u_ctl (
         .clk, .rst, .rx_data, .rx_valid, .tx_data, .tx_start, .tx_busy,
         .dec_start, .dec_abort, .dec_token, .dec_pos, .dec_done, .dec_token_out, .dec_logit_valid, .dec_logit_idx, .dec_logit_val,
         .pt_active, .pt_sclk, .pt_cs_n, .pt_mosi, .pt_miso(io_i[1]));
