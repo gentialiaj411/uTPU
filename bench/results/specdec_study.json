@@ -1,0 +1,17 @@
+{
+  "status": "partial_not_run",
+  "python_requested": "C:/Users/bhask/AppData/Local/Programs/Python/Python311/python.exe (not present)",
+  "python_used": "C:/Users/bhask/AppData/Local/Python/bin/python.exe, Python 3.14.4",
+  "numpy": "2.4.4",
+  "model": "stories15M",
+  "board_config": {"kv_bits": 4, "max_seq": 128, "clock_hz": 50000000},
+  "measured_baseline": {"stream_bytes_per_token": 10684413, "ideal_stream_cycles_per_token": 12338619, "ddr_cycles_per_token": 21744972},
+  "acceptance_measurement": {"status": "NOT RUN TO COMPLETION", "command": "python tools/specdec/measure.py", "reason": "CPU job stopped after shared-host contention; no acceptance values are claimed", "prompt_target": 50, "generation_target": 2},
+  "rtl_simulation": {"status": "NOT RUN", "reason": "No speculative RTL was requested or changed"},
+  "losslessness": {"golden_verify_k_tests": "pass", "rtl_e2e_specdec": "NOT RUN"},
+  "design_points": [
+    {"name":"k1_full_rate_time_mux","k":1,"dsp_estimated":73,"bram36_estimated":"67+4..8","lut_estimated":"20,289 + 2..6k","verify_compute_cycles_estimated":24677238,"cycles":{"0.25_B_per_cycle":42737652,"0.5_B_per_cycle":24677238,"1.0_B_per_cycle":24677238},"tok_s_if_acceptance_1": {"0.25":1.169,"0.5":2.026,"1.0":2.026}},
+    {"name":"k3_time_mux","k":3,"dsp_estimated":73,"bram36_estimated":"67+8..16 (over budget)","lut_estimated":"20,289 + 5..12k","verify_compute_cycles_estimated":49354476,"cycles":{"0.25_B_per_cycle":49354476,"0.5_B_per_cycle":49354476,"1.0_B_per_cycle":49354476},"tok_s_if_acceptance_1": {"0.25":1.013,"0.5":1.013,"1.0":1.013}}
+  ],
+  "provenance": ["bench/results/decode_e2e_rtl_15m_kv4_p1.json", "bench/results/boolean_top_impl.json", "rtl/decode/top_decode.sv", "rtl/decode/gemv_unit.sv", "rtl/decode/attention.sv", "rtl/board/board_ctrl.sv"]
+}
