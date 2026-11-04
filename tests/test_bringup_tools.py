@@ -25,7 +25,8 @@ def test_flash_tcl_has_required_offsets_and_interface(tmp_path):
 @pytest.mark.parametrize("ddr", [False, True])
 def test_bitstream_dry_run_tcl_variants(tmp_path, ddr):
     tcl = build.bitstream_tcl(tmp_path / ("ddr.tcl" if ddr else "sdr.tcl"), tmp_path / "boolean_top.bit")
-    assert "source {" in tcl and "write_bitstream -force" in tcl
+    assert "open_checkpoint {" in tcl and "write_bitstream -force" in tcl
+    assert "source" not in tcl and "route_design" not in tcl   # never re-implements
     assert "SPI_BUSWIDTH 4" in tcl and "SPI_32BIT_ADDR No" in tcl and "CONFIGRATE 26" in tcl
 
 def test_refuses_failed_timing(tmp_path):

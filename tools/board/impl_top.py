@@ -46,7 +46,7 @@ def main():
     tcl = out / 'run.tcl'
     tcl.write_text('\n'.join([*(f'read_verilog -sv {Path(s).as_posix()}' for s in SRCS), f'read_xdc {XDC}', *([f'read_xdc {XDC_DDR}'] if ddr else []),
         f'synth_design -top boolean_top -part {PART}' + (f' -generic {TOP_DDR_PARAM}=1' if ddr else ''), f'report_utilization -file {rp("synth_util.rpt")}',
-        'opt_design', 'place_design', 'route_design',
+        'opt_design', 'place_design', 'route_design', f'write_checkpoint -force {rp("routed.dcp")}',
         f'report_utilization -file {rp("util.rpt")}', f'report_utilization -hierarchical -hierarchical_depth 2 -file {rp("util_hier.rpt")}',
         f'report_timing_summary -file {rp("timing.rpt")}', f'report_drc -file {rp("drc.rpt")}', f'report_io -file {rp("io.rpt")}',
         f'report_clock_utilization -file {rp("clock_util.rpt")}',
