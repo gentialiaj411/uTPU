@@ -4,6 +4,7 @@ import numpy as np
 
 from firmware.host.numerics_v2.specdec_verify import verify_k
 from tools.decode.harness import ROOT, load_runtime_260k
+from tools.specdec.measure import draft_tokens, offline_passes
 from firmware.host.numerics_v2.runq_runtime import RunQIntegerLlama
 
 
@@ -54,4 +55,52 @@ def test_verify_k_matches_plain_greedy_for_multiple_k():
             got = verify_k(rt, pos, drafts, token=prompt[-1])
             assert got['accepted'] == drafts
             assert got['output'] == drafts + [got['token']]
+
+
+def test_saved_offline_acceptance_matches_verify_k_end_to_end():
+    """The saved-sequence shortcut must agree with real verify_k passes."""
+    artifact = ROOT / 'bench/results/specdec_sequences.json'
+    assert artifact.exists(), 'run tools/specdec/measure.py first'
+    saved = json.loads(artifact.read_text())
+    assert saved['status'] == 'pass'
+
+    # Three prompts are enough to exercise both match and rollback paths while
+    # keeping this differential test practical on the host reference model.
+    for row in saved['sequences'][:3]:
+        prompt = list(map(int, row['prompt_tokens']))
+        seq = list(map(int, row['sequence_tokens']))
+        offline = offline_passes(prompt, seq, 'context4', 3, [], {})
+
+        rt = _rt15()
+        for pos, token in enumerate(prompt[:-1]):
+            rt.forward_argmax(token, pos, 4096)
+        pending = prompt[-1]
+        position = len(prompt) - 1
+        target_index = len(prompt)
+        observed = []
+        while target_index < len(seq):
+            drafts = draft_tokens('context4', seq[:target_index],
+                                  target_index - len(prompt), 3, [], {})
+            got = verify_k(rt, position, drafts, token=pending)
+            accepted = len(got['accepted'])
+            emit = min(accepted + 1, len(seq) - target_index)
+            assert got['output'] == seq[target_index:target_index + emit]
+            observed.append(accepted)
+
+            # verify_k rolls back rejected work and replays through the last
+            # accepted prediction. Consume that last accepted draft so the
+            # next pass starts with exactly the same state as greedy decoding.
+            if accepted < len(drafts):
+                if accepted:
+                    rt.forward_argmax(got['accepted'][-1], position + accepted, 4096)
+                else:
+                    # With zero accepted drafts verify_k restores the snapshot
+                    # before the pending context token; commit that token before
+                    # starting the next pass at the returned fallback.
+                    rt.forward_argmax(pending, position, 4096)
+            target_index += emit
+            position = len(rt.tokens)
+            pending = seq[target_index - 1]
+
+        assert observed == offline['accepted']
 
