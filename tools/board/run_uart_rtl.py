@@ -24,8 +24,8 @@ import boolean_host as bh
 
 # --- interface names shared with the RTL / flash-model changes (DDR contract C1/C3); integration fixes a mismatch HERE only ---
 BOARD_DDR_PARAM = 'DDR'          # boolean_core / boolean_top parameter; 'V' reply is 1 for DDR=0 and 2 for DDR=1
-MODEL_CR1_PARAM = 'LC_INIT/QUAD_INIT'   # qspi_flash_model power-up CR1 fields (--ddr starts at LC 00, QUAD 0; the host must switch it to LC=11)
-CR1_WANT_SDR, CR1_WANT_DDR = 0x02, 0xC2
+MODEL_CR1_PARAM = 'LC_INIT/QUAD_INIT'   # qspi_flash_model power-up CR1 fields (--ddr starts at LC 00, QUAD 0; host sets QUAD and leaves LC=00)
+CR1_WANT_SDR, CR1_WANT_DDR = 0x02, 0x02
 BASE = 0x280000
 CPB = 8
 TMO = 3000
@@ -167,12 +167,11 @@ module uart_tb;
       $finish;
     end
     if (MODE == 3) begin
-      // DDR negative: QUAD = 1 but LC = 00 (what an SDR-configured flash looks like under a DDR build). The decode must NOT reproduce the golden:
-      // the flash model (dummy cycles from CR1 LC) or the golden check has to catch it.
+      // DDR negative: QUAD = 1 but legacy LC = 11. The flash model policy must reject this boot-unsafe configuration.
       send(8'h56); expect_byte(8'h76, "V tag"); expect_byte(VER, "V ver");
-      spi(1, 0, {8'h06, 56'd0}, 64'd0, "WREN"); spi(3, 0, {8'h01, 8'h00, 8'h02, 40'd0}, 64'd0, "WRR LC=00");
+      spi(1, 0, {8'h06, 56'd0}, 64'd0, "WREN"); spi(3, 0, {8'h01, 8'h00, 8'hC2, 40'd0}, 64'd0, "WRR LC=11");
       spi(1, 1, {8'h05, 56'd0}, {8'h01, 56'd0}, "RDSR wip"); spi(1, 1, {8'h05, 56'd0}, {8'h01, 56'd0}, "RDSR wip 2"); spi(1, 1, {8'h05, 56'd0}, {8'h00, 56'd0}, "RDSR done");
-      spi(1, 1, {8'h35, 56'd0}, {8'h02, 56'd0}, "RDCR LC=00");
+      spi(1, 1, {8'h35, 56'd0}, {8'hC2, 56'd0}, "RDCR LC=11");
       step(0, 3, 0);
       $display("SUMMARY errors=%%0d checks=%%0d cycles=%%0d NOT_DETECTED", errors, checks, cycles);
       $finish;
@@ -236,7 +235,7 @@ class _Rec(bh.Stub):
 
 def host_sequence(version=1):
     """(frame, expected response) pairs produced by boolean_host.Board for info -> enable-quad -> info against the QUAD=0, LC=00 power-up state
-    (version 1: the SDR build's LC=00 target, unchanged; version 2: the DDR build, enable-quad must leave LC=11)."""
+    (version 1: the SDR build's LC=00 target; version 2: the DDR build, enable-quad must leave LC=00)."""
     r = _Rec(); r.version = version; b = bh.Board(r)
     i0 = b.info(); assert not i0['compatible'] and b.enable_quad()[0] == 'set'; i1 = b.info(); assert i1['compatible']
     assert r.cr1 == (CR1_WANT_DDR if version == 2 else CR1_WANT_SDR), r.cr1
@@ -251,7 +250,7 @@ def main():
     ap.add_argument('--prompts', type=int, default=1)
     ap.add_argument('--gen', type=int, default=2)
     ap.add_argument('--output', default=None, help='default bench/results/boolean_uart_rtl.json, or boolean_uart_ddr_rtl.json with --ddr')
-    ap.add_argument('--ddr', action='store_true', help='DDR build: boolean_core DDR=1 (V reply 2), flash model powered up at CR1 LC=00 so the host sequence must switch it to LC=11')
+    ap.add_argument('--ddr', action='store_true', help='DDR build: boolean_core DDR=1 (V reply 2), flash powers up LC=00/QUAD=0 and host enables QUAD while leaving LC=00')
     ap.add_argument('--fast', action='store_true', help='fault-injection mode: main run only, stop at the first error')
     ap.add_argument('--replace', action='append', default=[], help='ORIG=MUTANT source file substitution (fault injection)')
     ap.add_argument('--sim', choices=('icarus','verilator'), default=__import__('sim').SIMULATOR, help='simulation backend (default icarus)')

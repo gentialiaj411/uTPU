@@ -55,9 +55,9 @@ module qspi_flash_model #(
                                            // except in a test that resets the FPGA at an arbitrary cycle (run_uart_rtl robustness)
     parameter bit FATAL_ON_ERROR = 1'b1, // any counted FLASH-DDR protocol/timing error ends the simulation (rc != 0); the model
                                          // self-test sets 0 to count several expected errors in one run
-    parameter bit REQUIRE_LC11 = 1'b1    // project policy: EDh runs at <= 50 MHz and must have LC = 11 (Table 27: 1 mode + 3 dummy).
-                                         // The datasheet itself allows LC 00/01/10 (6/7/8 dummy) at <= 66 MHz and lower (p.54);
-                                         // with 0 those rows are modelled instead of flagged.
+    parameter bit REQUIRE_LC00 = 1'b1    // project policy: EDh runs at 25 MHz and must have LC = 00 (Table 27: 1 mode + 6 dummy).
+                                         // LC=00 is also the FPGA configuration-flash power-up state; with 0, all datasheet
+                                         // latency rows are modelled instead of flagged.
 ) (
     input  logic       sck, cs_n,
     input  logic [3:0] host_o, host_oe,
@@ -154,7 +154,7 @@ module qspi_flash_model #(
                         phase = 2;
                     end else if (instr === 8'hED) begin     // DDR Quad I/O Read, 3-byte address (datasheet 11.4.9, p.103)
                         if (!cr1[1]) begin err_quad++; err_total++; $error("FLASH-DDR: EDh issued with CR1.QUAD = 0 (datasheet 4.4, p.30: QUAD must be set for Read DDR Quad I/O)"); end
-                        if (REQUIRE_LC11 && cr1[7:6] !== 2'b11) begin err_lc++; err_total++; $error("FLASH-DDR: EDh with LC=%b at the <=50 MHz configuration; LC must be 11 (Table 27, p.54: 1 mode + 3 dummy)", cr1[7:6]); end
+                        if (REQUIRE_LC00 && cr1[7:6] !== 2'b00) begin err_lc++; err_total++; $error("FLASH-DDR: EDh with LC=%b at the 25 MHz configuration; LC must be 00 (Table 27, p.54: 1 mode + 6 dummy)", cr1[7:6]); end
                         phase = 10; dn = 0; t_samp = -1000.0; ddr_cmds++;
                     end else if (ALLOW_REG_CMDS && (instr === 8'h9F || instr === 8'h05 || instr === 8'h35)) begin
                         phase = 5; ridx = 0; rbit = 0;
@@ -216,7 +216,7 @@ module qspi_flash_model #(
     // ======================= DDR Quad I/O Read (EDh) =======================
     // Datasheet Rev *T 11.4.9 (printed pp.103-105, Fig. 94): instruction EDh 8 cycles SDR on IO0 (sampled on the rising edges);
     // 3-byte address, one nibble per SCK edge on IO3..IO0 (IO3 = most significant bit), rising edge first (cycles 8..10);
-    // 1 mode cycle (2 nibbles, cycle 11); then Table 27/29 dummy cycles (LC=11: 3, at <=50 MHz) with the bus high-Z; then data
+    // 1 mode cycle (2 nibbles, cycle 11); then Table 27/29 dummy cycles (LC=00: 6, at 25 MHz) with the bus high-Z; then data
     // nibble per edge, bits [7:4] on the rising edge of the first data cycle, [3:0] on the falling edge (Fig. 94: Data 0 / Data 1).
     // Phases: 10 = waiting for the falling edge that ends the instruction cycle (not sampled), 11 = address nibbles,
     // 12 = mode nibbles, 13 = dummy edges, 14 = data. Not modelled: Data Learning Pattern (NVDLR/VDLR = 00h, so no preamble),

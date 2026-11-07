@@ -1,6 +1,6 @@
 """Host side of the Boolean UART protocol (rtl/board/board_ctrl.sv). Needs pyserial (pip install pyserial).
 
-  python tools/board/boolean_host.py --port COM5 ping          # reads the 'V' build-version byte: 1 = SDR build (LC=00), 2 = DDR build (LC=11)
+  python tools/board/boolean_host.py --port COM5 ping          # reads the 'V' build-version byte: 1 = SDR build, 2 = DDR build; both use LC=00
   python tools/board/boolean_host.py --port COM5 info          # read-only: ID, SR1, CR1; compatible with the bitstream? (exit 1 if not)
   python tools/board/boolean_host.py --port COM5 id            # flash JEDEC ID + sector architecture
   python tools/board/boolean_host.py --port COM5 cr1           # read SR1 and CR1, report QUAD and LC
@@ -30,13 +30,13 @@ ERRORS = {1: 'token >= VOCAB', 2: 'pos >= MAX_SEQ', 3: 'pos > next expected posi
 # DDR build (board_ctrl 'V' version byte 2; qspi_reader DDR=1): EDh DDR Quad I/O Read at the same 25 MHz SCK. The row values below
 #   come from the DDR design note (datasheet Rev *T, Tables 26/27/29, printed pp. 53-54); this host code did NOT re-read them from
 #   the datasheet. The flash-model agent is verifying them against the datasheet and the model's latency table:
-#     command | opcode | address            | mode byte | dummy at LC=00/01/10 | dummy at LC=11 | data
+#     command | opcode | address            | mode byte | dummy at LC=00 | dummy at LC=01 | dummy at LC=10 | dummy at LC=11 | data
 #     6Bh SDR | 6Bh    | 24 bit, IO0        | none      | 8 clocks             | 0 clocks       | 1 nibble per SCK rising edge
-#     EDh DDR | EDh    | 24 bit, IO3..0 DDR | 00h (DDR) | not used here        | 3 clocks       | 1 nibble per SCK edge
-#   so a DDR build needs CR1.LC = 11 (and QUAD = 1) and an SDR build needs LC = 00 (and QUAD = 1); the build version byte decides.
+#     EDh DDR | EDh    | 24 bit, IO3..0 DDR | 00h (DDR) | 6 clocks             | 7 clocks        | 8 clocks        | 3 clocks       | 1 nibble per SCK edge
+#   so both builds need CR1.LC = 00 and QUAD = 1; the build version byte still selects the read opcode in the FPGA.
 CR1_LC_MASK, CR1_QUAD, CR1_LC_WANT = 0xC0, 0x02, 0x00     # CR1_LC_WANT: the SDR (version 1) value, kept for existing callers
-BUILD_LC = {1: 0b00, 2: 0b11}                             # 'V' version byte -> CR1[7:6] the build's qspi_reader needs
-BUILD_NAME = {1: 'SDR (6Bh, LC=00)', 2: 'DDR (EDh, LC=11)'}
+BUILD_LC = {1: 0b00, 2: 0b00}                             # both FPGA builds share the boot-safe non-volatile LC=00
+BUILD_NAME = {1: 'SDR (6Bh, LC=00)', 2: 'DDR (EDh, LC=00)'}
 SR1_WIP, SR1_WEL, SR1_ERR = 0x01, 0x02, 0x60
 ID_PREFIX = bytes([0x01, 0x20, 0x18])     # Spansion/Cypress/Infineon, S25FL128S
 BITSTREAM_BYTES, FLASH_BASE = 2192012, 0x280000   # xc7s50 bitstream 17,536,096 bits; weight image offset (boolean_core.FLASH_BASE)
@@ -60,7 +60,7 @@ def build_lc(version):
     """CR1 latency code the build with this 'V' version byte needs; anything but 1 (SDR) or 2 (DDR) is an error."""
     if version not in BUILD_LC:
         raise BuildVersionError(f'board reported build version {version:#04x}; this host knows only {sorted(BUILD_LC)} '
-                                f'(1 = SDR build, LC=00; 2 = DDR build, LC=11). Refusing to configure the flash: update the host or reflash the bitstream')
+                                f'(1 = SDR build, LC=00; 2 = DDR build, LC=00). Refusing to configure the flash: update the host or reflash the bitstream')
     return BUILD_LC[version]
 
 
@@ -123,7 +123,7 @@ class Board:
 
     def info(self, with_bar=False):
         """Read-only report. 'compatible' = the flash state the bitstream's reader needs: QUAD = 1 and CR1.LC = the build's code
-        (SDR build, version 1: 6Bh, 8 dummy clocks, LC = 00; DDR build, version 2: EDh, LC = 11)."""
+        (SDR build, version 1: 6Bh, 8 dummy clocks, LC = 00; DDR build, version 2: EDh, 6 dummy clocks, LC = 00)."""
         want_lc = build_lc(self.ping())
         fid, sr, cr = self.flash_id(), self.sr1(), self.cr1()
         problems = []
@@ -262,19 +262,21 @@ def selftest():
     # latency code and other CR1 bits: LC is forced to 00, the rest is written back as read
     s = Stub(cr1=0xC8); b = Board(s)
     i = b.info(); assert not i['compatible'] and any('latency' in p for p in i['problems']) and any('QUAD' in p for p in i['problems']), i
-    assert b.enable_quad() == ('set', 0x0A), 'LC=11 cleared, BPNV (bit 3) kept, QUAD set'
+    assert b.enable_quad() == ('set', 0x0A), 'nonzero LC cleared, BPNV (bit 3) kept, QUAD set'
     assert [l for l in s.log if l[:1] == b'S' and l[3:4] == b'\x01'][0] == bytes([0x53, 3, 0, 0x01, 0x00, 0x0A])
     s = Stub(cr1=0x42); b = Board(s)          # QUAD already set but LC = 01: must still be rewritten
     assert not b.info()['compatible'] and b.enable_quad() == ('set', 0x02)
-    # DDR build (version 2): LC = 11 is required; the version 1 frame sequences above are untouched
+    # DDR build (version 2): LC = 00 is required; the version 1 frame sequences above are untouched
     s = Stub(version=2); b = Board(s)
     assert b.ping() == 2
-    i = b.info(); assert not i['compatible'] and any('LC = 11' in p for p in i['problems']) and any('QUAD' in p for p in i['problems']), i
-    assert b.enable_quad() == ('set', 0xC2)
-    assert [l for l in s.log if l[:1] == b'S' and l[3:4] == b'\x01'][0] == bytes([0x53, 3, 0, 0x01, 0x00, 0xC2]), 'DDR WRR frame'
+    i = b.info(); assert not i['compatible'] and any('QUAD' in p for p in i['problems']) and not any('latency' in p for p in i['problems']), i
+    assert b.enable_quad() == ('set', 0x02)
+    assert [l for l in s.log if l[:1] == b'S' and l[3:4] == b'\x01'][0] == bytes([0x53, 3, 0, 0x01, 0x00, 0x02]), 'DDR WRR frame'
     assert b.enable_quad()[0] == 'already set' and b.info()['compatible']
-    s = Stub(version=2, cr1=0x02); b = Board(s)          # QUAD set but LC = 00 (an SDR-configured flash under a DDR build): rewritten
-    assert not b.info()['compatible'] and b.enable_quad() == ('set', 0xC2)
+    s = Stub(version=2, cr1=0xC2); b = Board(s)          # legacy LC=11 must be rewritten even when QUAD is already set
+    assert not b.info()['compatible'] and any('latency' in p for p in b.info()['problems']) and b.enable_quad() == ('set', 0x02)
+    s = Stub(version=2, cr1=0x02); b = Board(s)          # DDR build already uses the shared LC=00 configuration
+    assert b.info()['compatible'] and b.enable_quad()[0] == 'already set'
     s = Stub(version=1); b = Board(s)                    # explicit override that disagrees with the build is refused, nothing written
     try: b.enable_quad(lc=3); raise SystemExit('LC override against the build accepted')
     except FlashConfigError as e: assert 'refusing' in str(e), e

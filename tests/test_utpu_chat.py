@@ -81,21 +81,21 @@ def test_ping_returns_build_version():
         assert client.ping() == v and client.version == v
 
 
-def test_version2_ddr_build_writes_lc11():
+def test_version2_ddr_build_writes_lc00_same_frames_as_sdr():
+    # boot safety: the DDR build (EDh, 6 dummy cycles) needs the same flash configuration as SDR: CR1 = {LC=00, QUAD=1}
     board = chat.LoopbackTransport(version=2)
     client = chat.Client(board)
-    assert client.quad_enable() == 0xC2
-    s_frames = [f for f in board.frames if f[0] == ord("S")]
-    # same frame sequence as version 1 except the WRR payload: CR1 = {LC=11, QUAD=1}
-    assert s_frames == [bytes((0x53, 3, 0, 0x01, 0x00, 0xC2)) if f[:4] == bytes((0x53, 3, 0, 0x01)) else f for f in S_FRAMES_V1]
-    assert board.cr1 == 0xC2
-    assert client.quad_enable() == 0xC2                 # already set: no second WRR
+    assert client.quad_enable() == 0x02
+    assert [f for f in board.frames if f[0] == ord("S")] == S_FRAMES_V1
+    assert board.cr1 == 0x02
+    assert client.quad_enable() == 0x02                 # already set: no second WRR
     assert sum(f[:4] == bytes((0x53, 3, 0, 0x01)) for f in board.frames) == 1
 
 
-def test_version2_rewrites_quad_only_flash_with_lc00():
-    board = chat.LoopbackTransport(version=2, cr1=0x02)  # an SDR-configured flash under a DDR bitstream
-    assert chat.Client(board).quad_enable() == 0xC2
+def test_version2_with_lc11_flash_is_rewritten_to_lc00():
+    board = chat.LoopbackTransport(version=2, cr1=0xC2)  # flash left at LC=11 by an older DDR build: would not boot
+    assert chat.Client(board).quad_enable() == 0x02
+    assert board.cr1 == 0x02
 
 
 def test_version1_with_lc11_flash_clears_lc():
@@ -110,7 +110,7 @@ def test_version1_frame_sequence_unchanged_with_explicit_override():
 
 
 def test_override_disagreeing_with_build_is_refused_before_any_write():
-    for version, lc in ((1, 3), (2, 0)):
+    for version, lc in ((1, 3), (2, 3), (2, 1), (1, 2)):
         board = chat.LoopbackTransport(version=version)
         with pytest.raises(RuntimeError, match="refusing"):
             chat.Client(board).quad_enable(lc=lc)

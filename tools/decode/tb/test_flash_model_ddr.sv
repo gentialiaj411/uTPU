@@ -4,11 +4,11 @@
 // Time grid: SCK period 20 ns (50 MHz). DDR host data changes 5 ns after one SCK edge, i.e. 5 ns before the next (tSU/tHD margin 5 ns).
 `timescale 1ns/1ps
 
-module ddr_env #(parameter bit SPARSE = 1'b0, parameter bit QUAD = 1'b1, parameter bit [1:0] LC = 2'b11, parameter bit REQ = 1'b1,
+module ddr_env #(parameter bit SPARSE = 1'b0, parameter bit QUAD = 1'b1, parameter bit [1:0] LC = 2'b00, parameter bit REQ = 1'b1,
                  parameter int SIZE = 4096) ();
     logic sck = 0, cs_n = 1; logic [3:0] host_o = 0, host_oe = 0;
     wire [3:0] f_o, f_oe, bus;
-    qspi_flash_model #(.IMG("build/flash_selftest_img.hex"), .SIZE(SIZE), .SPARSE(SPARSE), .QUAD_INIT(QUAD), .LC_INIT(LC), .REQUIRE_LC11(REQ), .FATAL_ON_ERROR(1'b0),
+    qspi_flash_model #(.IMG("build/flash_selftest_img.hex"), .SIZE(SIZE), .SPARSE(SPARSE), .QUAD_INIT(QUAD), .LC_INIT(LC), .REQUIRE_LC00(REQ), .FATAL_ON_ERROR(1'b0),
                        .TCSS(3.0), .TCSH(3.0), .TCS(10.0)) fl (.sck, .cs_n, .host_o, .host_oe, .flash_o(f_o), .flash_oe(f_oe));
     for (genvar i = 0; i < 4; i++) begin : g_bus
         assign bus[i] = host_oe[i] ? host_o[i] : (f_oe[i] ? f_o[i] : 1'bz);
@@ -84,9 +84,10 @@ endmodule
 
 module test_flash_model_ddr;
     int checks = 0, fails = 0, errors_expected = 0, errors_seen = 0;
-    ddr_env #(.SIZE(4096)) a ();                         // LC=11 QUAD=1 image
-    ddr_env #(.SPARSE(1'b1)) b ();                                                             // LC=11, full 16 MiB hash space
+    ddr_env #(.SIZE(4096)) a ();                         // LC=00 QUAD=1 image
+    ddr_env #(.SPARSE(1'b1)) b ();                                                             // LC=00, full 16 MiB hash space
     ddr_env #(.LC(2'b00), .REQ(1'b1), .SIZE(4096)) c (); // LC=00, project policy on
+    ddr_env #(.LC(2'b11), .REQ(1'b1), .SIZE(4096)) c11 (); // legacy LC=11 policy negative
     ddr_env #(.LC(2'b00), .REQ(1'b0), .SIZE(4096)) d (); // LC=00, datasheet table rows
     ddr_env #(.LC(2'b01), .REQ(1'b0), .SIZE(4096)) e1 ();
     ddr_env #(.LC(2'b10), .REQ(1'b0), .SIZE(4096)) e2 ();
@@ -99,74 +100,77 @@ module test_flash_model_ddr;
     endtask
     int e0;
     initial begin
-        // ---- positive reads, LC=11, QUAD=1, datasheet Fig. 94: 3 dummy cycles ----
+        // ---- positive reads, LC=00, QUAD=1, datasheet Fig. 94: 6 dummy cycles ----
         e0 = a.fl.err_total;
-        a.ddr_read(8'hED, 24'h000000, 8'h00, 3, 8, 8.0);     chk(a.mism(0, 8) == 0 && a.nrx == 16, "EDh addr 0 (8 bytes)");
-        #30 a.ddr_read(8'hED, 24'h0007F1, 8'h00, 3, 17, 8.0); chk(a.mism(32'h7F1, 17) == 0, "EDh unaligned start 0x7F1 (17 bytes)");
-        #30 a.ddr_read(8'hED, 24'h000FF0, 8'h00, 3, 16, 8.0); chk(a.mism(32'hFF0, 16) == 0, "EDh ending exactly at the image end 0xFFF");
-        #30 a.ddr_read(8'hED, 24'h000123, 8'h00, 3, 6, 6.6);  chk(a.mism(32'h123, 6) == 0, "EDh host sample 0.1 ns after tV(max)");
+        a.ddr_read(8'hED, 24'h000000, 8'h00, 6, 8, 8.0);     chk(a.mism(0, 8) == 0 && a.nrx == 16, "EDh addr 0 (8 bytes)");
+        #30 a.ddr_read(8'hED, 24'h0007F1, 8'h00, 6, 17, 8.0); chk(a.mism(32'h7F1, 17) == 0, "EDh unaligned start 0x7F1 (17 bytes)");
+        #30 a.ddr_read(8'hED, 24'h000FF0, 8'h00, 6, 16, 8.0); chk(a.mism(32'hFF0, 16) == 0, "EDh ending exactly at the image end 0xFFF");
+        #30 a.ddr_read(8'hED, 24'h000123, 8'h00, 6, 6, 6.6);  chk(a.mism(32'h123, 6) == 0, "EDh host sample 0.1 ns after tV(max)");
         experr(a.fl.err_total - e0, 0, "no errors on legal EDh reads");
         e0 = a.fl.over_read;
-        #30 a.ddr_read(8'hED, 24'h000FFE, 8'h00, 3, 4, 8.0);
+        #30 a.ddr_read(8'hED, 24'h000FFE, 8'h00, 6, 4, 8.0);
         chk(a.mism(32'hFFE, 4) == 0 && a.fl.over_read - e0 == 2, "EDh over the image end reads 0xFF (over_read counts 2)");
         e0 = a.fl.err_total;
         // ---- sampling inside the invalid window reads X ----
-        #30 a.ddr_read(8'hED, 24'h000040, 8'h00, 3, 8, 5.5);   chk(a.nx(16) >= 15 && a.mism(32'h40, 8) > 0, "host sampling at tV(max)-1.0 ns reads X");
+        #30 a.ddr_read(8'hED, 24'h000040, 8'h00, 6, 8, 5.5);   chk(a.nx(16) >= 15 && a.mism(32'h40, 8) > 0, "host sampling at tV(max)-1.0 ns reads X");
         experr(a.fl.err_total - e0, 0, "early sampling is a host-side failure, not a model error");
         // ---- wrap at the end of the array (sparse model, full 24-bit space) ----
         e0 = b.fl.err_total;
-        b.ddr_read(8'hED, 24'hFFFFFC, 8'h00, 3, 12, 8.0);      chk(b.mism(32'hFFFFFC, 12) == 0, "EDh wraps 0xFFFFFF -> 0x000000");
-        #30 b.ddr_read(8'hED, 24'h280000, 8'h00, 3, 8, 8.0);   chk(b.mism(32'h280000, 8) == 0, "EDh sparse 0x280000");
-        #30 b.ddr_read(8'hED, 24'h8001A5, 8'h00, 3, 8, 8.0);   chk(b.mism(32'h8001A5, 8) == 0, "EDh sparse 0x8001A5 (high address bits)");
+        b.ddr_read(8'hED, 24'hFFFFFC, 8'h00, 6, 12, 8.0);      chk(b.mism(32'hFFFFFC, 12) == 0, "EDh wraps 0xFFFFFF -> 0x000000");
+        #30 b.ddr_read(8'hED, 24'h280000, 8'h00, 6, 8, 8.0);   chk(b.mism(32'h280000, 8) == 0, "EDh sparse 0x280000");
+        #30 b.ddr_read(8'hED, 24'h8001A5, 8'h00, 6, 8, 8.0);   chk(b.mism(32'h8001A5, 8) == 0, "EDh sparse 0x8001A5 (high address bits)");
         experr(b.fl.err_total - e0, 0, "no errors on sparse EDh reads");
         // ---- 6Bh dummy count comes from LC (Table 26) ----
         e0 = a.fl.err_total;
-        #30 a.sdr_read(24'h000040, 0, 8);   chk(a.mism(32'h40, 8) == 0, "6Bh at LC=11 uses 0 dummy");
-        experr(a.fl.err_total - e0, 0, "6Bh at LC=11 no errors");
+        #30 a.sdr_read(24'h000040, 8, 8);   chk(a.mism(32'h40, 8) == 0, "6Bh at LC=00 uses 8 dummy");
+        experr(a.fl.err_total - e0, 0, "6Bh at LC=00 no errors");
         d.sdr_read(24'h000040, 8, 8);       chk(d.mism(32'h40, 8) == 0, "6Bh at LC=00 uses 8 dummy");
         #30 d.sdr_read(24'h000040, 0, 8);   chk(d.mism(32'h40, 8) > 0 && d.nx(16) > 0, "6Bh at LC=00 with a 0-dummy host is detectable (no data)");
         // ---- LC table rows for EDh (Table 27: 00 -> 6, 01 -> 7, 10 -> 8) ----
-        d.ddr_read(8'hED, 24'h000300, 8'h00, 6, 8, 8.0);   chk(d.mism(32'h300, 8) == 0, "EDh at LC=00 uses 6 dummy (REQUIRE_LC11=0)");
+        d.ddr_read(8'hED, 24'h000300, 8'h00, 6, 8, 8.0);   chk(d.mism(32'h300, 8) == 0, "EDh at LC=00 uses 6 dummy (REQUIRE_LC00=0)");
         #30 d.ddr_read(8'hED, 24'h000300, 8'h00, 3, 8, 8.0); chk(d.mism(32'h300, 8) > 0, "EDh at LC=00 with a 3-dummy host is detectable");
         e1.ddr_read(8'hED, 24'h000300, 8'h00, 7, 8, 8.0);  chk(e1.mism(32'h300, 8) == 0, "EDh at LC=01 uses 7 dummy");
         e2.ddr_read(8'hED, 24'h000300, 8'h00, 8, 8, 8.0);  chk(e2.mism(32'h300, 8) == 0, "EDh at LC=10 uses 8 dummy");
-        experr(d.fl.err_total + e1.fl.err_total + e2.fl.err_total, 0, "no errors on the LC table rows with REQUIRE_LC11=0");
+        experr(d.fl.err_total + e1.fl.err_total + e2.fl.err_total, 0, "no errors on the LC table rows with REQUIRE_LC00=0");
         // ---- negative checks: each must fire exactly as expected ----
         e0 = c.fl.err_total;
         c.ddr_read(8'hED, 24'h000300, 8'h00, 6, 8, 8.0);
-        experr(c.fl.err_total - e0, 1, "EDh at LC=00 rejected (LC != 11)"); chk(c.fl.err_lc == 1, "  err_lc counter = 1");
+        experr(c.fl.err_total - e0, 0, "EDh at LC=00 accepted (project policy)"); chk(c.fl.err_lc == 0, "  err_lc counter = 0");
+        e0 = c11.fl.err_total;
+        c11.ddr_read(8'hED, 24'h000300, 8'h00, 3, 8, 8.0);
+        experr(c11.fl.err_total - e0, 1, "EDh at LC=11 rejected (LC != 00)"); chk(c11.fl.err_lc == 1, "  err_lc counter = 1");
         e0 = q0.fl.err_total;
-        q0.ddr_read(8'hED, 24'h000300, 8'h00, 3, 8, 8.0);
+        q0.ddr_read(8'hED, 24'h000300, 8'h00, 6, 8, 8.0);
         experr(q0.fl.err_total - e0, 1, "EDh with QUAD=0 rejected"); chk(q0.fl.err_quad == 1, "  err_quad counter = 1");
         e0 = a.fl.err_total; a.k_drv_dummy = 4;
-        #30 a.ddr_read(8'hED, 24'h000040, 8'h00, 3, 4, 8.0); a.k_drv_dummy = -1;
+        #30 a.ddr_read(8'hED, 24'h000040, 8'h00, 6, 4, 8.0); a.k_drv_dummy = -1;
         experr(a.fl.err_total - e0, 1, "host drives IO in the dummy phase (contention)");
         e0 = a.fl.err_total; a.k_drv_data = 2;
-        #30 a.ddr_read(8'hED, 24'h000040, 8'h00, 3, 4, 8.0); a.k_drv_data = -1;
+        #30 a.ddr_read(8'hED, 24'h000040, 8'h00, 6, 4, 8.0); a.k_drv_data = -1;
         experr(a.fl.err_total - e0, 2, "host drives IO while the flash drives data (contention: level check + edge check)");
         chk(a.fl.err_contend == 3, "  err_contend counter = 3");
         e0 = a.fl.err_total; a.k_setup = 3;
-        #30 a.ddr_read(8'hED, 24'h000A5C, 8'h00, 3, 4, 8.0); a.k_setup = -1;
+        #30 a.ddr_read(8'hED, 24'h000A5C, 8'h00, 6, 4, 8.0); a.k_setup = -1;
         experr(a.fl.err_total - e0, 1, "address nibble changes 1 ns before the edge (tSU)"); chk(a.fl.err_setup == 1, "  err_setup counter = 1");
         e0 = a.fl.err_total; a.k_hold = 4;
-        #30 a.ddr_read(8'hED, 24'h000A5C, 8'h00, 3, 4, 8.0); a.k_hold = -1;
+        #30 a.ddr_read(8'hED, 24'h000A5C, 8'h00, 6, 4, 8.0); a.k_hold = -1;
         experr(a.fl.err_total - e0, 1, "address nibble changes 1 ns after the edge (tHD)"); chk(a.fl.err_hold == 1, "  err_hold counter = 1");
         e0 = a.fl.err_total;
-        #30 a.ddr_read(8'hED, 24'h000040, 8'hA5, 3, 4, 8.0);
+        #30 a.ddr_read(8'hED, 24'h000040, 8'hA5, 6, 4, 8.0);
         experr(a.fl.err_total - e0, 1, "mode byte A5h (complementary nibbles = continuous mode) flagged"); chk(a.fl.err_cont == 1, "  err_cont counter = 1");
         e0 = a.fl.err_total;
-        #30 a.ddr_read(8'hED, 24'h000040, 8'hA0, 3, 4, 8.0);
+        #30 a.ddr_read(8'hED, 24'h000040, 8'hA0, 6, 4, 8.0);
         experr(a.fl.err_total - e0, 0, "mode byte A0h is not complementary: not continuous mode (datasheet p.104)");
         e0 = a.fl.err_total; a.k_abort_nib = 4;
-        #30 a.ddr_read(8'hED, 24'h000040, 8'h00, 3, 4, 8.0); a.k_abort_nib = -1;
+        #30 a.ddr_read(8'hED, 24'h000040, 8'h00, 6, 4, 8.0); a.k_abort_nib = -1;
         experr(a.fl.err_total - e0, 1, "CS# raised mid-address"); chk(a.fl.err_csmid == 1, "  err_csmid counter = 1");
         e0 = a.fl.err_total; a.k_abort_dummy = 2;
-        #30 a.ddr_read(8'hED, 24'h000040, 8'h00, 3, 4, 8.0); a.k_abort_dummy = -1;
+        #30 a.ddr_read(8'hED, 24'h000040, 8'h00, 6, 4, 8.0); a.k_abort_dummy = -1;
         experr(a.fl.err_total - e0, 1, "CS# raised in the dummy phase"); chk(a.fl.err_csmid == 2, "  err_csmid counter = 2");
         e0 = a.fl.err_total;
-        #30 a.ddr_read(8'hED, 24'h000040, 8'h00, 3, 8, 8.0); chk(a.mism(32'h40, 8) == 0, "model recovers: legal EDh after the aborted ones");
+        #30 a.ddr_read(8'hED, 24'h000040, 8'h00, 6, 8, 8.0); chk(a.mism(32'h40, 8) == 0, "model recovers: legal EDh after the aborted ones");
         experr(a.fl.err_total - e0, 0, "no errors on the recovery read");
-        errors_seen = a.fl.err_total + b.fl.err_total + c.fl.err_total + d.fl.err_total + e1.fl.err_total + e2.fl.err_total + q0.fl.err_total;
+        errors_seen = a.fl.err_total + b.fl.err_total + c.fl.err_total + c11.fl.err_total + d.fl.err_total + e1.fl.err_total + e2.fl.err_total + q0.fl.err_total;
         chk(errors_seen == errors_expected, $sformatf("sticky counters sum to the expected total (%0d vs %0d)", errors_seen, errors_expected));
         $display("SUMMARY checks=%0d errors_expected=%0d errors_seen=%0d fails=%0d", checks, errors_expected, errors_seen, fails);
         $finish;

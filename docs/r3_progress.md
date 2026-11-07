@@ -299,6 +299,12 @@ Open: BRAM margin is 1 BRAM36 (67 of 75 physical; 68 internal budget). The 15M e
 - Quad mode: **CR1[1] QUAD, non-volatile** (table 8.9); it must be 1 for 6Bh to drive IO2/IO3 ("The QUAD bit of Configuration Register must
   be set (CR Bit1=1)"). It is written with WRR (01h) of {SR1, CR1}. The reader does not write it: it assumes QUAD=1. Open item: confirm on
   the board (Vivado's flash programming for a x4 configuration normally sets it; not verified here).
+- DDR EDh uses **LC=00**, shared with SDR, at the board's 25 MHz SCK: Table 27/29 gives one mode cycle plus **6 dummy cycles**.
+  Fig. 94 therefore launches Data 0's high nibble on the rising edge starting cycle 18 (the 19th rising edge of the command).
+  This costs three extra dummy cycles per DDR read command versus the previous LC=11 build, but keeps the non-volatile
+  configuration flash in the state the 7-series FPGA expects at power-on. The measured steady-state stream is reported by
+  `run_qspi_rtl.py --ddr` in bytes/core-cycle with command latency excluded. DLP is not modeled or expected: the board relies on
+  the S25FL128S default NVDLR/VDLR = 00h, which inserts no Data Learning Pattern.
 - Timing used: tV <= 7.65 ns (30 pF, 2.7-3.6 V), tHO >= 2 ns, tCS(read) >= 10 ns, tCSS/tCSH >= 3 ns, QOR fmax 104 MHz.
 
 ### Clock pin (7-series)
