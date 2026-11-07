@@ -59,7 +59,7 @@ This is the first-power-on runbook for `xc7s50csga324-1` with the S25FL128S 16 M
    & $py tools/board/boolean_host.py --port COM<n> info
    ```
 
-   `ping` must report version `1` for SDR (CR1 LC=`00`) or `2` for DDR (LC=`11`). The JEDEC prefix must be `01 20 18`; the full expected response is `01 20 18 4d 00 80`. `info` must end in `COMPATIBLE`.
+   `ping` must report version `1` for SDR (CR1 LC=`00`) or `2` for DDR (LC=`00`). The JEDEC prefix must be `01 20 18`; the full expected response is `01 20 18 4d 00 80`. `info` must end in `COMPATIBLE`.
 
 6. **First verified decode.** `utpu_chat.py --verify --gen 1` compares token and selected logit with the software golden; this is the first measured result:
 
@@ -86,11 +86,7 @@ This is the first-power-on runbook for `xc7s50csga324-1` with the S25FL128S 16 M
 
    Power-cycle, then repeat steps 5–6. If DDR is timing-sensitive or fails, reflash the SDR MCS and record the fallback.
 
-   > **Boot-safety warning, until branch `ddr-lc0` is merged.** The current DDR build makes the host write the non-volatile CR1 latency code to LC=`11`. At LC=`11` the flash's 0Bh/6Bh reads have 0 dummy cycles, while the FPGA's configuration logic expects the default count. After a DDR session, the board will most likely **fail to boot from flash** at the next power-on.
-   >
-   > Recovery: load the bitstream over JTAG (`program_flash.py <bit> --jtag`), then run `boolean_host.py enable-quad` against an SDR build, which rewrites LC=`00`.
-   >
-   > The fix (DDR EDh at LC=`00` with 6 dummy cycles, allowed up to 66 MHz by datasheet Table 27) is in progress on `ddr-lc0`. After it lands, both builds use LC=`00`, QUAD=1, and this warning goes away.
+   > Both SDR and DDR builds use CR1 LC=`00`, QUAD=1 (`ddr-lc0` merged), so flash configuration remains boot-safe.
 
 8. **Record the result.** Do not add generated bench output. Create `bench/results/board_run_<sdr|ddr>.json` only after hardware testing, with this schema:
 
