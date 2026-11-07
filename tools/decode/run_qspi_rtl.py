@@ -24,7 +24,7 @@ NB = 16384
 # --- interface names shared with the RTL / flash-model changes (C1/C3 of the DDR contract); integration fixes a mismatch HERE only ---
 READER_DDR_PARAM = 'DDR'         # qspi_reader parameter int DDR (0 = 6Bh SDR, 1 = EDh DDR Quad I/O Read)
 MODEL_CR1_PARAM = 'LC_INIT/QUAD_INIT'   # qspi_flash_model power-up CR1 fields (LC_INIT [1:0], QUAD_INIT); the model takes dummy counts from CR1 LC
-DDR_CR1_LC = 0b11                # CR1 latency code a DDR build needs (EDh, 3 dummy cycles)
+DDR_CR1_LC = 0b00                # CR1 latency code shared by both builds (EDh at 25 MHz, 6 dummy cycles)
 BOARD_DDR_VARIANT = 'pad_h1_late_slowin'    # the board configuration; the headline measured_bytes_per_cycle comes from this variant
 STREAM_BYTES = 4000              # DDR runs: bytes taken back-to-back (ready always high) to measure bytes per core cycle
 PADS_SLOWIN = dict(pads=1, sck_d=7.5, out_d=4.0, in_d=2.0, tv=8.0)
@@ -58,8 +58,8 @@ for v in BASE_VARIANTS:
     VARIANTS.append(v)
     VARIANTS.append(dict(v, name=v['name'] + '_sp', sparse=1))
 
-# DDR (EDh) configurations: same TB, reader DDR=1, flash model powered up with CR1 = {LC=11, QUAD=1}. EDh has a 3-byte address
-# (no ADDR_BYTES=4 variants, no DUMMY/latency-code variants: DDR dummy cycles come from CR1.LC = 11 in the model). Which HALF /
+# DDR (EDh) configurations: same TB, reader DDR=1, flash model powered up with CR1 = {LC=00, QUAD=1}. EDh has a 3-byte address
+# (no ADDR_BYTES=4 variants, no DUMMY/latency-code variants: DDR dummy cycles come from CR1.LC = 00 in the model). Which HALF /
 # SAMPLE_LATE values the DDR reader accepts is the RTL change's decision: this list is the one place to prune or extend it.
 # the DDR reader accepts only HALF=1 (25 MHz SCK) and SAMPLE_LATE=1 (its elaboration guards refuse the rest, see DDR_REJECTED)
 DDR_BASE_NAMES = ['a3_h1_late', 'pad_h1_late_slowin', 'pad_h1_late_fastin', 'pad_h1_late_nodelay', 'su3_a3_h1_late', 'sw3edges_a3_h1_late']
@@ -71,9 +71,9 @@ for v in BASE_VARIANTS:
         DDR_VARIANTS.append(dict(d, name=v['name'] + '_sp', sparse=1))
 assert {v['name'] for v in DDR_VARIANTS if not v.get('sparse')} == set(DDR_BASE_NAMES) and BOARD_DDR_VARIANT in DDR_BASE_NAMES
 DDR_NEGATIVES = [
-    dict(name='neg_ddr_model_lc0_reader_ddr', ab=3, half=1, late=1, ddr=1, lc=0, why='model CR1 LC=00 (8 dummy cycles) while the DDR reader assumes the LC=11 count'),
-    dict(name='neg_ddr_model_lc1_reader_ddr', ab=3, half=1, late=1, ddr=1, lc=1, why='model CR1 LC=01 while the DDR reader assumes the LC=11 count'),
-    dict(name='neg_ddr_model_lc2_reader_ddr', ab=3, half=1, late=1, ddr=1, lc=2, why='model CR1 LC=10 while the DDR reader assumes the LC=11 count'),
+    dict(name='neg_ddr_model_lc3_reader_ddr', ab=3, half=1, late=1, ddr=1, lc=3, why='model CR1 LC=11 (3 dummy cycles) while the DDR reader assumes the LC=00 count'),
+    dict(name='neg_ddr_model_lc1_reader_ddr', ab=3, half=1, late=1, ddr=1, lc=1, why='model CR1 LC=01 (7 dummy cycles) while the DDR reader assumes the LC=00 count'),
+    dict(name='neg_ddr_model_lc2_reader_ddr', ab=3, half=1, late=1, ddr=1, lc=2, why='model CR1 LC=10 (8 dummy cycles) while the DDR reader assumes the LC=00 count'),
     dict(name='neg_ddr_model_quad0_reader_ddr', ab=3, half=1, late=1, ddr=1, lc=DDR_CR1_LC, quad=0, why='model CR1.QUAD=0: an EDh read must trip the model'),
     dict(name='neg_ddr_model_extadd_reader_ab3', ab=3, half=1, late=1, ddr=1, lc=DDR_CR1_LC, extadd=1, why='model BAR.EXTADD=1 expects 4 address bytes, the DDR reader sends 3'),
 ]
@@ -320,7 +320,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--rtl', default=str(ROOT / 'rtl/decode/qspi_reader.sv'))
     ap.add_argument('--output', default=None, help='default bench/results/decode_qspi_rtl.json, or decode_qspi_ddr_rtl.json with --ddr')
-    ap.add_argument('--ddr', action='store_true', help='EDh DDR configuration: reader DDR=1, flash model CR1 = {LC=11, QUAD=1}; reports measured bytes per core cycle')
+    ap.add_argument('--ddr', action='store_true', help='EDh DDR configuration: reader DDR=1, flash model CR1 = {LC=00, QUAD=1}; reports measured bytes per core cycle')
     ap.add_argument('--variants', default=None, help='comma list of variant names (default all)')
     ap.add_argument('--sim', choices=('icarus','verilator'), default=__import__('sim').SIMULATOR, help='simulation backend (default icarus)')
     a = ap.parse_args()

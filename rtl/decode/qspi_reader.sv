@@ -21,8 +21,11 @@
 // DDR=1: DDR Quad I/O Read EDh instead (S25FL128S/S25FL256S datasheet 001-98283 Rev. *T, sec. 11.4.9 p. 104, Fig. 94
 // "DDR Quad I/O Read initial access (3-byte address, EDh [ExtAdd = 0], HPLC = 11b)" p. 105; signal protocol sec. 4.3.20 to
 // 4.3.24 p. 29-30). Requires CR1.QUAD = 1 and latency code CR1[7:6] = 11, which gives 1 mode cycle and 3 dummy cycles up to
-// 50 MHz (Tables 27 and 29, p. 54-55, the same for EDh in the HPLC and EHPLC tables); DLP must be off (fewer than 5 dummy
-// cycles, notes 45/46). Only HALF=1 (SCK 25 MHz at a 50 MHz core), ADDR_BYTES=3, SAMPLE_LATE=1 are accepted (guards below).
+// 50 MHz (Tables 27 and 29, p. 54-55, the same for EDh in the HPLC and EHPLC tables). This build uses LC=00: at our
+// 25 MHz SCK the table gives 1 mode cycle + 6 dummy cycles. DLP must be off; the board relies on the S25FL128S default
+// NVDLR/VDLR = 00h, so no Data Learning Pattern is inserted. Only HALF=1 (SCK 25 MHz at a 50 MHz core), ADDR_BYTES=3,
+// SAMPLE_LATE=1 are accepted (guards below). LC=00 is shared with the SDR build, so a session never changes the FPGA's
+// configuration-flash latency code.
 //   Instruction: EDh, 8 SCK cycles SDR on IO0 exactly as 6Bh (IO2/IO3 driven high, IO1 input, bits change on SCK falling).
 //   Address + mode: 6 address nibbles A[23:20]..A[3:0], then the mode byte DDR_MODE high nibble first, on IO[3:0], one nibble
 //     per SCK edge, the rising edge of each cycle first (Fig. 94: cycles 8-10 address, 11 mode; the nibbles sampled on the
@@ -35,12 +38,13 @@
 //     2 ns, Table 15). The flash only sees longer SCK phases (no minimum SCK frequency; tCH/tCL are minimums). A[23:20] is
 //     the exception: it goes out with the falling edge that ends instruction cycle 7 (not a sampling edge for EDh), one core
 //     cycle before the first address rising edge, like the first address bit of 6Bh. Cost: 8 core cycles per command.
-//   Dummy: DDR_DUMMY = 3 SCK cycles at full speed; IO[3:0] are released at the first dummy rising edge, one core cycle after
+//   Dummy: DDR_DUMMY = 6 SCK cycles at full speed; IO[3:0] are released at the first dummy rising edge, one core cycle after
 //     the falling edge that samples the last mode nibble (so that nibble keeps its hold time): "High-Z Bus Turn-around".
-//   Data: Fig. 94 cycle 15 (Data 0): the flash launches the high nibble [7:4] on the rising edge that starts cycle 15 (the
-//     16th rising edge of the command) and the low nibble [3:0] on the falling edge after it, each valid tV after its edge
+//   Data: Fig. 94: with one mode cycle (cycle 11) plus six dummy cycles (cycles 12-17), Data 0 is cycle 18. The flash
+//     launches its high nibble [7:4] on the rising edge that starts cycle 18 (the 19th rising edge of the command), and the
+//     low nibble [3:0] on the falling edge after it, each valid tV after its edge
 //     and held tHO after the next edge (Table 15, Fig. 41 "SPI DDR output timing"); the optional DLP would occupy the dummy
-//     edges up to the falling edge that ends cycle 14, so that edge launches no data. So from rising edge 16 on every SCK
+//     edges up to the falling edge that ends cycle 17, so that edge launches no data. So from rising edge 19 on every SCK
 //     toggle launches one nibble (rising: high, falling: low); it is sampled one core cycle after the toggle (+ CAP_DLY),
 //     i.e. on the core edge of the next toggle. (Checked against the independently written flash model.)
 //   Backpressure: a rising toggle (it starts a byte; the falling toggle after it completes the byte and is never withheld) is
@@ -65,7 +69,7 @@ module qspi_reader #(
     parameter int CS_HIGH        = 2,     // minimum CS# high cycles between commands (tCS read >= 10 ns)
     parameter int CAP_DLY        = 0,     // extra core cycles between the sampling tick and the data reaching io_i: 0 with
                                           // direct pads, 2 behind qspi_pad_regs (1 output + 1 input IOB register)
-    parameter int DDR            = 0      // 0: Quad Output Read 6Bh/6Ch (SDR); 1: DDR Quad I/O Read EDh (flash CR1 LC=11, header)
+    parameter int DDR            = 0      // 0: Quad Output Read 6Bh/6Ch (SDR); 1: DDR Quad I/O Read EDh (flash CR1 LC=00, header)
 ) (
     input  logic        clk,
     input  logic        rst,
@@ -139,13 +143,14 @@ module qspi_reader #(
     localparam int PRE = SHW + DUMMY;                 // rising edges before the first data rising edge
     localparam logic [7:0] OPC = DDR ? 8'hED : (ADDR_BYTES == 4) ? 8'h6C : 8'h6B;
     localparam int TW = (HALF > 1) ? $clog2(HALF) : 1;
-    // EDh (DDR=1), S25FL128S Rev. *T Tables 27/29, LC=11 at <= 50 MHz: 1 mode cycle, 3 dummy cycles
-    localparam int DDR_DUMMY = 3;
+    // EDh (DDR=1), S25FL128S Rev. *T Tables 27/29, LC=00 at <= 66 MHz: 1 mode cycle, 6 dummy cycles.
+    // Fig. 94 numbers the mode cycle 11, dummy cycles 12..17, so the rising edge starting cycle 18 launches Data 0 high.
+    localparam int DDR_DUMMY = 6;
     localparam logic [7:0] DDR_MODE = 8'h00;          // nibbles not complementary: no continuous read mode
     localparam int AMR = ADDR_BYTES + 1;              // SCK cycles of address + mode (one byte per cycle)
     localparam int DSW = 8 * AMR;                     // address + mode nibble shift register
-    localparam int PRE_DDR = 8 + AMR + DDR_DUMMY;     // rising edges of instruction, address, mode and dummy (15); edge 16 launches Data 0
-    localparam int PRX = DDR ? PRE_DDR + 1 : PRE;     // DDR: rise_n reaches 16 once Data 0's high nibble has been launched
+    localparam int PRE_DDR = 8 + AMR + DDR_DUMMY;     // rising edges of instruction, address, mode and dummy (18); edge 19 launches Data 0
+    localparam int PRX = DDR ? PRE_DDR + 1 : PRE;     // DDR: rise_n reaches 19 once Data 0's high nibble has been launched
 
     typedef enum logic [1:0] {S_START, S_IDLE, S_GAP, S_RUN} state_t;
     state_t        state;
@@ -183,7 +188,7 @@ module qspi_reader #(
     wire accept_now  = st_valid && st_ready;
     wire room        = !ob_valid || accept_now;
     wire data_phase  = (rise_n >= 8'(PRX));
-    // DDR: this toggle launches a data nibble: rising edge 16 onwards (sclk low, rise_n = 15 before it), then every edge
+    // DDR: this toggle launches a data nibble: rising edge 19 onwards (sclk low, rise_n = 18 before it), then every edge
     wire ddr_launch_ok = sclk_q ? (rise_n >= 8'(PRE_DDR + 1)) : (rise_n >= 8'(PRE_DDR));
     wire tick_raw    = (tcnt == TW'(HALF - 1));
     // nibble phase the next rising edge will sample, counting captures still in flight, and whether an in-flight capture

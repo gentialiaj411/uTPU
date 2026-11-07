@@ -73,6 +73,11 @@ cleared and the new CR1, polls SR1.WIP, then reads SR1/CR1 back. Those SPI opcod
 register values are the operations in the existing host implementation at
 `tools/board/boolean_host.py:128-149`; no board is programmed or accessed by tests.
 
+Both SDR and DDR builds deliberately target the same non-volatile state: `LC=00`,
+`QUAD=1`. The DDR EDh read uses the S25FL128S Table 27/29 row for 25 MHz (one mode
+cycle plus six dummy cycles), preserving the configuration-flash latency needed by
+the 7-series FPGA on the next boot.
+
 The board-side protocol errors and software loopback are tested with:
 
 ```powershell

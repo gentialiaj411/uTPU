@@ -29,8 +29,8 @@ class BoardError(RuntimeError):
         super().__init__(f"E{code:02d}: {ERRORS.get(code, 'unknown board error')} (next position {next_pos})")
 
 
-# 'V' reply version byte -> CR1[7:6] latency code the build's qspi_reader needs (1 = SDR build 6Bh/LC=00, 2 = DDR build EDh/LC=11).
-BUILD_LC = {1: 0b00, 2: 0b11}
+# Both FPGA builds use the boot-safe non-volatile CR1 latency code LC=00.
+BUILD_LC = {1: 0b00, 2: 0b00}
 
 
 class BuildVersionError(RuntimeError):
@@ -40,7 +40,7 @@ class BuildVersionError(RuntimeError):
 def build_lc(version: int) -> int:
     if version not in BUILD_LC:
         raise BuildVersionError(f"board reported build version {version:#04x}; known versions are {sorted(BUILD_LC)} "
-                                f"(1 = SDR build, LC=00; 2 = DDR build, LC=11). Refusing to configure the flash")
+                                f"(1 = SDR build, LC=00; 2 = DDR build, LC=00). Refusing to configure the flash")
     return BUILD_LC[version]
 
 
@@ -163,7 +163,7 @@ class Client:
         return self._read_exact(n, what)
 
     def ping(self) -> int:
-        """'V': returns the build version (1 = SDR build, LC=00; 2 = DDR build, LC=11); any other value is a BuildVersionError."""
+        """'V': returns the build version (1 = SDR build, 2 = DDR build; both use LC=00); any other value is a BuildVersionError."""
         self.transport.write(b"V")
         version = self._reply(ord("v"), 1, "link check")[0]
         build_lc(version)

@@ -35,7 +35,7 @@ def build_valid(d: Path):
         if u == 'decode_qspi_rtl':
             o['variants'] = [{'variant': v['name'], 'ok': True} for v in run_qspi_rtl.VARIANTS]
         if u == 'decode_qspi_ddr_rtl':
-            o['variants'] = [{'variant': v['name'], 'ok': True, 'flash_lc': 3, 'stream_bytes': run_qspi_rtl.STREAM_BYTES} for v in run_qspi_rtl.DDR_VARIANTS]
+            o['variants'] = [{'variant': v['name'], 'ok': True, 'flash_lc': run_qspi_rtl.DDR_CR1_LC, 'stream_bytes': run_qspi_rtl.STREAM_BYTES} for v in run_qspi_rtl.DDR_VARIANTS]
             o.update(ddr=1, measured_bytes_per_cycle=0.4995,
                      negative_tests=[{'variant': n['name'], 'detected': True, 'ok': True} for n in run_qspi_rtl.DDR_NEGATIVES],
                      rejected_parameters=[{'param': '.DDR(2)', 'rejected': True, 'ok': True}])
@@ -318,7 +318,7 @@ def test_ddr_measured_rate_exactly_049_passes(work):
 def test_ddr_unit_must_cover_the_board_variant_and_negatives(work):
     edit(work, 'decode_qspi_ddr_rtl', lambda o: o.update(variants=[v for v in o['variants'] if v['variant'] != run_qspi_rtl.BOARD_DDR_VARIANT]))
     assert 'decode_qspi_ddr_rtl not pass' in unmet(work)
-    edit(work, 'decode_qspi_ddr_rtl', lambda o: o.update(variants=[{'variant': v['name'], 'ok': True, 'flash_lc': 3, 'stream_bytes': run_qspi_rtl.STREAM_BYTES} for v in run_qspi_rtl.DDR_VARIANTS],
+    edit(work, 'decode_qspi_ddr_rtl', lambda o: o.update(variants=[{'variant': v['name'], 'ok': True, 'flash_lc': run_qspi_rtl.DDR_CR1_LC, 'stream_bytes': run_qspi_rtl.STREAM_BYTES} for v in run_qspi_rtl.DDR_VARIANTS],
                                                          negative_tests=o['negative_tests'][:-1]))
     assert 'decode_qspi_ddr_rtl not pass' in unmet(work)
     edit(work, 'decode_qspi_ddr_rtl', lambda o: o.update(negative_tests=[dict(n, detected=False) for n in run_qspi_rtl_negs()]))
@@ -330,7 +330,7 @@ def run_qspi_rtl_negs():
 
 
 def test_ddr_unit_run_against_sdr_model_config_fails(work):
-    edit(work, 'decode_qspi_ddr_rtl', lambda o: o['variants'][0].update(flash_lc=0))
+    edit(work, 'decode_qspi_ddr_rtl', lambda o: o['variants'][0].update(flash_lc=0b11))
     assert 'decode_qspi_ddr_rtl not pass' in unmet(work)
 
 
