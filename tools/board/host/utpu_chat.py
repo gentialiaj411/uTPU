@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 import argparse
+import codecs
+import hashlib
+import json
 import struct
 import sys
 import time
@@ -35,6 +38,118 @@ BUILD_LC = {1: 0b00, 2: 0b11}
 
 class BuildVersionError(RuntimeError):
     pass
+
+
+class PrunedVocabularyError(RuntimeError):
+    """The compact vocabulary and the image metadata do not describe one build."""
+
+
+def load_idmap(path: str | Path) -> dict:
+    """Load and validate a vocabulary-pruning id map before touching the board."""
+    path = Path(path)
+    try:
+        item = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise PrunedVocabularyError(f"cannot read vocabulary id map {path}: {exc}") from exc
+    required = ("schema_version", "original_vocab", "keep_size", "kept_original_ids",
+                "original_to_compact", "special_ids", "byte_fallback_ids")
+    if any(key not in item for key in required):
+        raise PrunedVocabularyError(f"id map {path} is missing one of {required}")
+    if item["schema_version"] != 1:
+        raise PrunedVocabularyError(f"unsupported id-map schema {item['schema_version']}")
+    original_vocab, keep = int(item["original_vocab"]), int(item["keep_size"])
+    kept, inverse = item["kept_original_ids"], item["original_to_compact"]
+    if len(kept) != keep or len(inverse) != original_vocab:
+        raise PrunedVocabularyError(f"id map has inconsistent dimensions (K={keep}, original={original_vocab})")
+    if len(set(kept)) != keep or any(not 0 <= int(x) < original_vocab for x in kept):
+        raise PrunedVocabularyError("id map kept_original_ids is not a unique in-range list")
+    for compact, original in enumerate(kept):
+        if int(inverse[int(original)]) != compact:
+            raise PrunedVocabularyError("id map forward and inverse mappings disagree")
+    if [int(x) for x in item["special_ids"]] != [0, 1, 2] or [int(x) for x in item["byte_fallback_ids"]] != list(range(3, 259)):
+        raise PrunedVocabularyError("id map does not contain the required special and byte-fallback prefix")
+    tokenizer_sha = item.get("tokenizer_sha256", "")
+    tokenizer_path = ROOT / "models/llama2c/tokenizer.bin"
+    if tokenizer_sha and tokenizer_path.exists():
+        actual = hashlib.sha256(tokenizer_path.read_bytes()).hexdigest()
+        if actual != tokenizer_sha:
+            raise PrunedVocabularyError("id map tokenizer_sha256 does not match models/llama2c/tokenizer.bin")
+    return item
+
+
+def validate_pruned_build(idmap: dict, params: dict | None = None,
+                          image: str | Path | None = None) -> None:
+    """Check the locally available image metadata for the selected id map.
+
+    The UART protocol has no command that reports the flashed model image.  When an
+    image or params sidecar is supplied, these checks therefore happen before UART
+    traffic; an advertised image hash is checked against the image bytes as well.
+    """
+    if params is None and image is None:
+        return
+    if params is None:
+        image = Path(image)
+        candidates = [image.with_suffix(".params.json"), Path(str(image) + ".params.json")]
+        sidecar = next((p for p in candidates if p.exists()), None)
+        if sidecar is None:
+            raise PrunedVocabularyError(f"no params.json sidecar found for image {image}")
+        try:
+            params = json.loads(sidecar.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise PrunedVocabularyError(f"cannot read image params {sidecar}: {exc}") from exc
+    expected_vocab = int(idmap["keep_size"])
+    if int(params.get("VOCAB", -1)) != expected_vocab:
+        raise PrunedVocabularyError(f"image params VOCAB={params.get('VOCAB')}, but id map K={expected_vocab}")
+    if image is not None:
+        image = Path(image)
+        if not image.exists():
+            raise PrunedVocabularyError(f"image does not exist: {image}")
+        if "IMAGE_BYTES" in params and image.stat().st_size != int(params["IMAGE_BYTES"]):
+            raise PrunedVocabularyError("image size does not match its params.json IMAGE_BYTES")
+        image_sha = hashlib.sha256(image.read_bytes()).hexdigest()
+        advertised = params.get("image_sha256") or params.get("IMAGE_SHA256") or idmap.get("image_sha256")
+        if advertised and image_sha != advertised:
+            raise PrunedVocabularyError("image sha256 does not match the id map/params identity")
+
+
+def encode_pruned(tokenizer: Tokenizer, text: str, idmap: dict) -> tuple[list[int], list[int]]:
+    """Encode with llama2.c, replacing every dropped token by its UTF-8 byte tokens."""
+    inverse = idmap["original_to_compact"]
+    compact, expanded = [], []
+    for token in tokenizer.encode(text, bos=True):
+        compact_id = int(inverse[token])
+        if compact_id >= 0:
+            compact.append(compact_id); expanded.append(token)
+        else:
+            for byte in tokenizer.vocab[token]:
+                original = int(byte) + 3
+                mapped = int(inverse[original])
+                if mapped < 0:
+                    raise PrunedVocabularyError(f"id map dropped required byte fallback row {original}")
+                compact.append(mapped); expanded.append(original)
+    return compact, expanded
+
+
+def decode_pruned_piece(tokenizer: Tokenizer, previous_original: int, compact: int, idmap: dict) -> tuple[str, int]:
+    original = int(idmap["kept_original_ids"][compact])
+    return tokenizer.decode_piece(previous_original, original).decode("utf-8", errors="replace"), original
+
+
+def decode_pruned(tokenizer: Tokenizer, compact_ids: list[int], idmap: dict) -> str:
+    """Decode compact ids, including adjacent byte-fallback tokens, as UTF-8 text."""
+    original = [int(idmap["kept_original_ids"][int(compact)]) for compact in compact_ids]
+    if original and original[0] == 1:       # BOS is a protocol input, not prompt text.
+        original = original[1:]
+        # llama2.c inserts a leading space token before non-empty input.  The
+        # tokenizer's byte-fallback spelling is <0x20>, so decode_piece's
+        # string-prefix shortcut does not remove it for this tokenizer.
+        if original and tokenizer.decode_piece(1, original[0]) == b" ":
+            original = original[1:]
+    out, previous = bytearray(), 1
+    for token in original:
+        out.extend(tokenizer.decode_piece(previous, token))
+        previous = token
+    return bytes(out).decode("utf-8", errors="replace")
 
 
 def build_lc(version: int) -> int:
@@ -143,8 +258,8 @@ class LoopbackTransport:
 
 class Client:
     """Host-side frame encoder/parser. Integers in the UART frames are little-endian."""
-    def __init__(self, transport, timeout: float = 60.0):
-        self.transport, self.timeout = transport, timeout
+    def __init__(self, transport, timeout: float = 60.0, vocab: int = VOCAB, max_seq: int = MAX_SEQ):
+        self.transport, self.timeout, self.vocab, self.max_seq = transport, timeout, vocab, max_seq
         self.version = None                  # build version from the last ping()
 
     def _read_exact(self, n: int, what: str) -> bytes:
@@ -212,10 +327,10 @@ class Client:
         return cr2
 
     def step(self, token: int, pos: int, probe: int = 0) -> tuple[int, int, int]:
-        if not 0 <= token < VOCAB:
-            raise ValueError(f"token {token} outside 0..{VOCAB-1}")
-        if not 0 <= pos < MAX_SEQ:
-            raise ValueError(f"position {pos} outside 0..{MAX_SEQ-1}")
+        if not 0 <= token < self.vocab:
+            raise ValueError(f"token {token} outside 0..{self.vocab-1}")
+        if not 0 <= pos < self.max_seq:
+            raise ValueError(f"position {pos} outside 0..{self.max_seq-1}")
         # T, token low/high, position byte, probe index low/high.
         self.transport.write(bytes((ord("T"), token & 255, token >> 8, pos, probe & 255, probe >> 8)))
         return struct.unpack("<HIi", self._reply(ord("R"), 10, "decode step"))
@@ -235,16 +350,30 @@ def load_golden_runtime():
     return load_model("15m", 4)[1]
 
 
+def load_pruned_golden_runtime(idmap: dict):
+    """The study's integer runtime, with the same rows pruned as the image."""
+    from tools.decode.pack_decode_image import load_export_15m
+    from tools.vocabprune.core import prune_export
+    from firmware.host.numerics_v2.runq_runtime import RunQIntegerLlama
+    return RunQIntegerLlama(prune_export(load_export_15m(), idmap["kept_original_ids"]),
+                            ROOT / "firmware/host/numerics_v2/luts", kv_bits=4)
+
+
 def generate(client: Client, tokenizer: Tokenizer, prompt: str, gen: int, verify: bool = False,
-             golden_runtime=None, emit=print):
-    prompt_tokens = tokenizer.encode(prompt, bos=True)
+             golden_runtime=None, emit=print, idmap=None):
+    if idmap is None:
+        prompt_tokens = tokenizer.encode(prompt, bos=True)
+        expanded_prompt = prompt_tokens
+    else:
+        prompt_tokens, expanded_prompt = encode_pruned(tokenizer, prompt, idmap)
     if not prompt_tokens:
         raise ValueError("prompt encoded to no tokens")
     if gen < 1 or len(prompt_tokens) + gen - 1 > MAX_SEQ:
         raise ValueError(f"prompt tokens plus generation require {len(prompt_tokens) + gen - 1} positions; valid range is 1..{MAX_SEQ}")
     client.ping()
     client.new_sequence()
-    generated, token, previous, durations, cycles_sum = [], prompt_tokens[0], prompt_tokens[-1], [], 0
+    generated, token, previous, durations, cycles_sum = [], prompt_tokens[0], expanded_prompt[-1], [], 0
+    utf8_decoder = codecs.getincrementaldecoder("utf-8")("replace") if idmap is not None else None
     for pos in range(len(prompt_tokens) + gen - 1):
         expected_logits = golden_runtime.forward(token, pos) if verify else None
         expected_token = int(expected_logits.argmax()) if verify else None
@@ -262,9 +391,14 @@ def generate(client: Client, tokenizer: Tokenizer, prompt: str, gen: int, verify
             token = prompt_tokens[pos + 1]
         else:
             generated.append(out)
-            piece = tokenizer.decode_piece(previous, out)
-            emit(piece.decode("utf-8", errors="replace"), end="", flush=True)
-            previous = out
+            if idmap is None:
+                piece = tokenizer.decode_piece(previous, out).decode("utf-8", errors="replace")
+                previous = out
+            else:
+                original = int(idmap["kept_original_ids"][out])
+                piece = utf8_decoder.decode(tokenizer.decode_piece(previous, original), final=False)
+                previous = original
+            emit(piece, end="", flush=True)
             token = out
         emit(f"\n[token {pos}: {elapsed:.3f}s, {cycles} FPGA cycles]", end="", flush=True)
     board = sum(durations)                          # board step wall time (prompt + generated); host golden excluded
@@ -282,23 +416,41 @@ def main(argv=None) -> int:
     ap.add_argument("--prompt", required=True)
     ap.add_argument("--gen", type=int, default=8)
     ap.add_argument("--verify", action="store_true")
+    ap.add_argument("--vocab-keep", type=Path, help="pruned-vocabulary id-map JSON")
+    ap.add_argument("--image", type=Path, help="local image used for this board (enables params/hash identity checks)")
+    ap.add_argument("--params", type=Path, help="image params.json (otherwise discovered beside --image)")
     ap.add_argument("--quad-enable", action="store_true")
     ap.add_argument("--lc", type=lambda x: int(x, 2), default=None, help="explicit LC override (2 bits); must match the board build version")
     a = ap.parse_args(argv)
     if a.port is None:
         ap.error("--port is required by the command line client; tests construct LoopbackTransport directly")
-    transport = SerialTransport(a.port, a.baud, a.timeout)
+    transport = None
     try:
-        client = Client(transport, a.timeout)
+        idmap = load_idmap(a.vocab_keep) if a.vocab_keep else None
+        if a.params and not a.params.exists():
+            raise PrunedVocabularyError(f"image params do not exist: {a.params}")
+        image = a.image
+        if idmap is not None and image is None and a.params is None:
+            candidate = ROOT / "build/vocabprune" / f"vocab_{idmap['keep_size']}.image.bin"
+            if candidate.exists():
+                image = candidate
+            else:
+                raise PrunedVocabularyError("pruned build identity is unknown; supply --image or --params")
+        params = json.loads(a.params.read_text(encoding="utf-8")) if a.params else None
+        if idmap is not None:
+            validate_pruned_build(idmap, params, image)
+        transport = SerialTransport(a.port, a.baud, a.timeout)
+        client = Client(transport, a.timeout, vocab=int(idmap["keep_size"]) if idmap else VOCAB)
         if a.quad_enable:
             print(f"CR1 after quad enable: {client.quad_enable(a.lc):#04x}")
-        runtime = load_golden_runtime() if a.verify else None
-        generate(client, load_tokenizer(), a.prompt, a.gen, a.verify, runtime)
-    except (BoardError, BuildVersionError, TimeoutError, ValueError, RuntimeError, AssertionError) as e:
+        runtime = (load_pruned_golden_runtime(idmap) if idmap is not None else load_golden_runtime()) if a.verify else None
+        generate(client, load_tokenizer(), a.prompt, a.gen, a.verify, runtime, idmap=idmap)
+    except (BoardError, BuildVersionError, PrunedVocabularyError, TimeoutError, ValueError, RuntimeError, AssertionError) as e:
         print(f"ERROR: {e}", file=sys.stderr)
         return 2
     finally:
-        transport.close()
+        if transport is not None:
+            transport.close()
     return 0
 
 

@@ -1,0 +1,661 @@
+{
+  "maps": {
+    "status": "MEASURED",
+    "tokenizer": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU-vocabprune\\models\\llama2c\\tokenizer.bin",
+    "tokenizer_sha256": "50a52ef822ee9e83de5ce9d0be0a025a773d019437f58b5ff9dcafb063ece361",
+    "train_sample": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU-codesign\\build\\codesign\\data\\train_sample_256MiB.txt",
+    "train_sample_bytes": 268435178,
+    "train_sample_sha256": "25943627765881018888a7f8a44174fc91450ee20c208535bd10e93ff9e55dbf",
+    "token_occurrences": 71013221,
+    "distinct_tokens": 11468,
+    "maps": {
+      "2048": {
+        "path": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU-vocabprune\\tools\\vocabprune\\idmaps\\idmap_2048.json",
+        "top_frequency_rows": [
+          {
+            "original_id": 29889,
+            "count": 5031220
+          },
+          {
+            "original_id": 29892,
+            "count": 2811229
+          },
+          {
+            "original_id": 278,
+            "count": 2511228
+          },
+          {
+            "original_id": 322,
+            "count": 2345523
+          },
+          {
+            "original_id": 304,
+            "count": 1990424
+          },
+          {
+            "original_id": 263,
+            "count": 1842183
+          },
+          {
+            "original_id": 471,
+            "count": 1287659
+          },
+          {
+            "original_id": 2688,
+            "count": 626259
+          },
+          {
+            "original_id": 372,
+            "count": 618900
+          },
+          {
+            "original_id": 940,
+            "count": 582594
+          }
+        ],
+        "kept_rows": 2048
+      },
+      "4096": {
+        "path": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU-vocabprune\\tools\\vocabprune\\idmaps\\idmap_4096.json",
+        "top_frequency_rows": [
+          {
+            "original_id": 29889,
+            "count": 5031220
+          },
+          {
+            "original_id": 29892,
+            "count": 2811229
+          },
+          {
+            "original_id": 278,
+            "count": 2511228
+          },
+          {
+            "original_id": 322,
+            "count": 2345523
+          },
+          {
+            "original_id": 304,
+            "count": 1990424
+          },
+          {
+            "original_id": 263,
+            "count": 1842183
+          },
+          {
+            "original_id": 471,
+            "count": 1287659
+          },
+          {
+            "original_id": 2688,
+            "count": 626259
+          },
+          {
+            "original_id": 372,
+            "count": 618900
+          },
+          {
+            "original_id": 940,
+            "count": 582594
+          }
+        ],
+        "kept_rows": 4096
+      },
+      "6144": {
+        "path": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU-vocabprune\\tools\\vocabprune\\idmaps\\idmap_6144.json",
+        "top_frequency_rows": [
+          {
+            "original_id": 29889,
+            "count": 5031220
+          },
+          {
+            "original_id": 29892,
+            "count": 2811229
+          },
+          {
+            "original_id": 278,
+            "count": 2511228
+          },
+          {
+            "original_id": 322,
+            "count": 2345523
+          },
+          {
+            "original_id": 304,
+            "count": 1990424
+          },
+          {
+            "original_id": 263,
+            "count": 1842183
+          },
+          {
+            "original_id": 471,
+            "count": 1287659
+          },
+          {
+            "original_id": 2688,
+            "count": 626259
+          },
+          {
+            "original_id": 372,
+            "count": 618900
+          },
+          {
+            "original_id": 940,
+            "count": 582594
+          }
+        ],
+        "kept_rows": 6144
+      },
+      "8192": {
+        "path": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU-vocabprune\\tools\\vocabprune\\idmaps\\idmap_8192.json",
+        "top_frequency_rows": [
+          {
+            "original_id": 29889,
+            "count": 5031220
+          },
+          {
+            "original_id": 29892,
+            "count": 2811229
+          },
+          {
+            "original_id": 278,
+            "count": 2511228
+          },
+          {
+            "original_id": 322,
+            "count": 2345523
+          },
+          {
+            "original_id": 304,
+            "count": 1990424
+          },
+          {
+            "original_id": 263,
+            "count": 1842183
+          },
+          {
+            "original_id": 471,
+            "count": 1287659
+          },
+          {
+            "original_id": 2688,
+            "count": 626259
+          },
+          {
+            "original_id": 372,
+            "count": 618900
+          },
+          {
+            "original_id": 940,
+            "count": 582594
+          }
+        ],
+        "kept_rows": 8192
+      }
+    }
+  },
+  "eval": {
+    "path": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU-codesign\\build\\codesign\\eval_text.txt",
+    "sha256": "c8191cfe5a461bc825b3e3326a2921dfe978a63878b4c14547033b7217adea17",
+    "bytes": 261818,
+    "documents": 323,
+    "fallback": {
+      "2048": {
+        "fallback_tokens": 2508,
+        "original_tokens": 69534,
+        "fraction": 0.036068685822762965
+      },
+      "4096": {
+        "fallback_tokens": 249,
+        "original_tokens": 69534,
+        "fraction": 0.0035809819656570886
+      },
+      "6144": {
+        "fallback_tokens": 32,
+        "original_tokens": 69534,
+        "fraction": 0.00046020651767480656
+      },
+      "8192": {
+        "fallback_tokens": 5,
+        "original_tokens": 69534,
+        "fraction": 7.190726838668853e-05
+      }
+    }
+  },
+  "hardware": {
+    "status": "DERIVED",
+    "default_pack_sha256_before": "d0ac5863710ddec7f9b3cc2d9b526c1070fb7ecf3b07f656373dfdd0aca95541",
+    "default_pack_sha256_after": "d0ac5863710ddec7f9b3cc2d9b526c1070fb7ecf3b07f656373dfdd0aca95541",
+    "default_pack_byte_identical": true,
+    "baseline": {
+      "image_bytes": 12124224,
+      "stream_bytes_per_token": 10684413,
+      "stream_cycles_per_token": 21368826.0,
+      "compute_cycles_measured": 12338619,
+      "classifier_cycles_measured_from_rtl_schedule": 6130002,
+      "non_classifier_cycles_measured_from_rtl_schedule": 6208617,
+      "limiting_cycles_per_token": 21368826.0,
+      "predicted_tok_s": 2.3398571358108304
+    },
+    "candidates": {
+      "2048": {
+        "status": "DERIVED",
+        "image_path": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU-vocabprune\\build\\vocabprune\\vocab_2048.image.bin",
+        "image_sha256": "5ba2472b43512f7c7bd1ae1819782e8e178dbdaa23263b3801d199737634af8f",
+        "image_bytes": 5654592,
+        "stream_bytes_per_token": 5562621,
+        "stream_cycles_per_token_at_0_5B_cycle": 11125242.0,
+        "stream_bound_tok_s_at_50MHz": 4.494284259164879,
+        "classifier_cycles_estimate": 392320.128,
+        "non_classifier_cycles_measured": 6208617,
+        "compute_cycles_estimate": 6600937.1280000005,
+        "limiting_cycles_per_token": 11125242.0,
+        "predicted_tok_s": 4.494284259164879,
+        "speedup_vs_unpruned_stream": 1.9207515665726642,
+        "params": {
+          "D": 288,
+          "H": 768,
+          "NL": 6,
+          "NH": 6,
+          "NKV": 6,
+          "HS": 48,
+          "VOCAB": 2048,
+          "CLS_BASE": 0,
+          "EMB_SCALE_BASE": 350208,
+          "LAYERS_BASE": 442368,
+          "IMAGE_BYTES": 5654592,
+          "CLS4": 1,
+          "WQ4": 0,
+          "WK4": 0,
+          "WV4": 0,
+          "WO4": 0,
+          "W14": 1,
+          "W34": 1,
+          "W24": 0,
+          "CLS_TILE_BYTES": 2736,
+          "CLS_KB": 144,
+          "CLS_G": 9,
+          "RECIP_D": 14913081,
+          "GFB": 12,
+          "NORM_MULT": 828896808,
+          "NORM_SHIFT": 34,
+          "EPS": 1034,
+          "SILU_MULT": 884304146,
+          "SILU_SHIFT": 37,
+          "SWIGLU_MULT": 742221392,
+          "SWIGLU_SHIFT": 43,
+          "SCORE_MULT": 801779553,
+          "SCORE_SHIFT": 50
+        }
+      },
+      "4096": {
+        "status": "DERIVED",
+        "image_path": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU-vocabprune\\build\\vocabprune\\vocab_4096.image.bin",
+        "image_sha256": "642b31c07755844fd633158437edd24a61cea74758ac8ba1d13def0a6826ab0a",
+        "image_bytes": 6096960,
+        "stream_bytes_per_token": 5912829,
+        "stream_cycles_per_token_at_0_5B_cycle": 11825658.0,
+        "stream_bound_tok_s_at_50MHz": 4.228094538164388,
+        "classifier_cycles_estimate": 784640.256,
+        "non_classifier_cycles_measured": 6208617,
+        "compute_cycles_estimate": 6993257.256,
+        "limiting_cycles_per_token": 11825658.0,
+        "predicted_tok_s": 4.228094538164388,
+        "speedup_vs_unpruned_stream": 1.8069883299517033,
+        "params": {
+          "D": 288,
+          "H": 768,
+          "NL": 6,
+          "NH": 6,
+          "NKV": 6,
+          "HS": 48,
+          "VOCAB": 4096,
+          "CLS_BASE": 0,
+          "EMB_SCALE_BASE": 700416,
+          "LAYERS_BASE": 884736,
+          "IMAGE_BYTES": 6096960,
+          "CLS4": 1,
+          "WQ4": 0,
+          "WK4": 0,
+          "WV4": 0,
+          "WO4": 0,
+          "W14": 1,
+          "W34": 1,
+          "W24": 0,
+          "CLS_TILE_BYTES": 2736,
+          "CLS_KB": 144,
+          "CLS_G": 9,
+          "RECIP_D": 14913081,
+          "GFB": 12,
+          "NORM_MULT": 828896808,
+          "NORM_SHIFT": 34,
+          "EPS": 1034,
+          "SILU_MULT": 884304146,
+          "SILU_SHIFT": 37,
+          "SWIGLU_MULT": 742221392,
+          "SWIGLU_SHIFT": 43,
+          "SCORE_MULT": 801779553,
+          "SCORE_SHIFT": 50
+        }
+      },
+      "6144": {
+        "status": "DERIVED",
+        "image_path": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU-vocabprune\\build\\vocabprune\\vocab_6144.image.bin",
+        "image_sha256": "bb868b9e2789da69a0fbc5538cae562a604f792bf5909a463803d11a3a992e7c",
+        "image_bytes": 6539328,
+        "stream_bytes_per_token": 6263037,
+        "stream_cycles_per_token_at_0_5B_cycle": 12526074.0,
+        "stream_bound_tok_s_at_50MHz": 3.991673688020684,
+        "classifier_cycles_estimate": 1176960.384,
+        "non_classifier_cycles_measured": 6208617,
+        "compute_cycles_estimate": 7385577.384,
+        "limiting_cycles_per_token": 12526074.0,
+        "predicted_tok_s": 3.991673688020684,
+        "speedup_vs_unpruned_stream": 1.7059476097618456,
+        "params": {
+          "D": 288,
+          "H": 768,
+          "NL": 6,
+          "NH": 6,
+          "NKV": 6,
+          "HS": 48,
+          "VOCAB": 6144,
+          "CLS_BASE": 0,
+          "EMB_SCALE_BASE": 1050624,
+          "LAYERS_BASE": 1327104,
+          "IMAGE_BYTES": 6539328,
+          "CLS4": 1,
+          "WQ4": 0,
+          "WK4": 0,
+          "WV4": 0,
+          "WO4": 0,
+          "W14": 1,
+          "W34": 1,
+          "W24": 0,
+          "CLS_TILE_BYTES": 2736,
+          "CLS_KB": 144,
+          "CLS_G": 9,
+          "RECIP_D": 14913081,
+          "GFB": 12,
+          "NORM_MULT": 828896808,
+          "NORM_SHIFT": 34,
+          "EPS": 1034,
+          "SILU_MULT": 884304146,
+          "SILU_SHIFT": 37,
+          "SWIGLU_MULT": 742221392,
+          "SWIGLU_SHIFT": 43,
+          "SCORE_MULT": 801779553,
+          "SCORE_SHIFT": 50
+        }
+      },
+      "8192": {
+        "status": "DERIVED",
+        "image_path": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU-vocabprune\\build\\vocabprune\\vocab_8192.image.bin",
+        "image_sha256": "c2dc9c29a946b7a747f526eb8b9229944a65cb4437ed45338c3802829bc939b3",
+        "image_bytes": 6981696,
+        "stream_bytes_per_token": 6613245,
+        "stream_cycles_per_token_at_0_5B_cycle": 13226490.0,
+        "stream_bound_tok_s_at_50MHz": 3.7802924283010837,
+        "classifier_cycles_estimate": 1569280.512,
+        "non_classifier_cycles_measured": 6208617,
+        "compute_cycles_estimate": 7777897.512,
+        "limiting_cycles_per_token": 13226490.0,
+        "predicted_tok_s": 3.7802924283010837,
+        "speedup_vs_unpruned_stream": 1.6156082225896666,
+        "params": {
+          "D": 288,
+          "H": 768,
+          "NL": 6,
+          "NH": 6,
+          "NKV": 6,
+          "HS": 48,
+          "VOCAB": 8192,
+          "CLS_BASE": 0,
+          "EMB_SCALE_BASE": 1400832,
+          "LAYERS_BASE": 1769472,
+          "IMAGE_BYTES": 6981696,
+          "CLS4": 1,
+          "WQ4": 0,
+          "WK4": 0,
+          "WV4": 0,
+          "WO4": 0,
+          "W14": 1,
+          "W34": 1,
+          "W24": 0,
+          "CLS_TILE_BYTES": 2736,
+          "CLS_KB": 144,
+          "CLS_G": 9,
+          "RECIP_D": 14913081,
+          "GFB": 12,
+          "NORM_MULT": 828896808,
+          "NORM_SHIFT": 34,
+          "EPS": 1034,
+          "SILU_MULT": 884304146,
+          "SILU_SHIFT": 37,
+          "SWIGLU_MULT": 742221392,
+          "SWIGLU_SHIFT": 43,
+          "SCORE_MULT": 801779553,
+          "SCORE_SHIFT": 50
+        }
+      }
+    },
+    "schedule_source": "bench/results/decode_e2e_rtl_15m_kv4_p1.json; classifier profile divided by 11 steps"
+  },
+  "float": {
+    "32000": {
+      "status": "MEASURED",
+      "eval_tokens": 69211,
+      "nll_nats": 93654.55169963837,
+      "validation_bytes_scored": 261818,
+      "bits_per_byte": 0.5160644313750289,
+      "token_loss": 1.3531743754553232,
+      "device": "cuda",
+      "elapsed_seconds": 19.475725412368774,
+      "softmax": "restricted to kept rows"
+    },
+    "2048": {
+      "status": "MEASURED",
+      "eval_tokens": 80079,
+      "nll_nats": 287456.38771247864,
+      "validation_bytes_scored": 261818,
+      "bits_per_byte": 1.5839701816706573,
+      "token_loss": 3.589660057099597,
+      "device": "cuda",
+      "elapsed_seconds": 19.47573232650757,
+      "softmax": "restricted to kept rows"
+    },
+    "4096": {
+      "status": "MEASURED",
+      "eval_tokens": 70246,
+      "nll_nats": 113215.99987983704,
+      "validation_bytes_scored": 261818,
+      "bits_per_byte": 0.6238538281398772,
+      "token_loss": 1.611707426470362,
+      "device": "cuda",
+      "elapsed_seconds": 19.4757342338562,
+      "softmax": "restricted to kept rows"
+    },
+    "6144": {
+      "status": "MEASURED",
+      "eval_tokens": 69359,
+      "nll_nats": 96413.33779335022,
+      "validation_bytes_scored": 261818,
+      "bits_per_byte": 0.5312661631744908,
+      "token_loss": 1.390062396997509,
+      "device": "cuda",
+      "elapsed_seconds": 19.475735187530518,
+      "softmax": "restricted to kept rows"
+    },
+    "8192": {
+      "status": "MEASURED",
+      "eval_tokens": 69230,
+      "nll_nats": 94010.15112304688,
+      "validation_bytes_scored": 261818,
+      "bits_per_byte": 0.5180238899481385,
+      "token_loss": 1.3579394933272697,
+      "device": "cuda",
+      "elapsed_seconds": 19.475735902786255,
+      "softmax": "restricted to kept rows"
+    }
+  },
+  "integer": {
+    "32000": {
+      "status": "MEASURED",
+      "eval_tokens": 69211,
+      "nll_nats": 102047.70287795937,
+      "validation_bytes_scored": 261818,
+      "bits_per_byte": 0.5623131903694261,
+      "token_loss": 1.4744434104110526,
+      "kv_bits": 4,
+      "logit_scale": 0.0009853192201749546,
+      "elapsed_seconds": 8055.146663427353,
+      "softmax": "restricted to kept rows",
+      "implementation": "RunQIntegerLlama hidden path plus pruned classifier row slice"
+    },
+    "2048": {
+      "status": "MEASURED",
+      "eval_tokens": 80079,
+      "nll_nats": 333369.1911270959,
+      "validation_bytes_scored": 261818,
+      "bits_per_byte": 1.836963382289324,
+      "token_loss": 4.163003922715018,
+      "kv_bits": 4,
+      "logit_scale": 0.0009853192201749546,
+      "elapsed_seconds": 8055.146756410599,
+      "softmax": "restricted to kept rows",
+      "implementation": "RunQIntegerLlama hidden path plus pruned classifier row slice"
+    },
+    "4096": {
+      "status": "MEASURED",
+      "eval_tokens": 70246,
+      "nll_nats": 124530.8598238487,
+      "validation_bytes_scored": 261818,
+      "bits_per_byte": 0.6862020713071874,
+      "token_loss": 1.7727822199676666,
+      "kv_bits": 4,
+      "logit_scale": 0.0009853192201749546,
+      "elapsed_seconds": 8055.146759986877,
+      "softmax": "restricted to kept rows",
+      "implementation": "RunQIntegerLlama hidden path plus pruned classifier row slice"
+    },
+    "6144": {
+      "status": "MEASURED",
+      "eval_tokens": 69359,
+      "nll_nats": 105128.67043513636,
+      "validation_bytes_scored": 261818,
+      "bits_per_byte": 0.5792902378446915,
+      "token_loss": 1.515717793439011,
+      "kv_bits": 4,
+      "logit_scale": 0.0009853192201749546,
+      "elapsed_seconds": 8055.14676117897,
+      "softmax": "restricted to kept rows",
+      "implementation": "RunQIntegerLlama hidden path plus pruned classifier row slice"
+    },
+    "8192": {
+      "status": "MEASURED",
+      "eval_tokens": 69230,
+      "nll_nats": 102416.58519654407,
+      "validation_bytes_scored": 261818,
+      "bits_per_byte": 0.5643458416450975,
+      "token_loss": 1.4793671124735528,
+      "kv_bits": 4,
+      "logit_scale": 0.0009853192201749546,
+      "elapsed_seconds": 8055.146761894226,
+      "softmax": "restricted to kept rows",
+      "implementation": "RunQIntegerLlama hidden path plus pruned classifier row slice"
+    }
+  },
+  "generation": {
+    "2048": {
+      "prompts": 20,
+      "generated_steps": 1280,
+      "full_argmax_outside": 37,
+      "sequence_mismatches": 11,
+      "full_argmax_outside_fraction": 0.02890625
+    },
+    "4096": {
+      "prompts": 20,
+      "generated_steps": 1280,
+      "full_argmax_outside": 1,
+      "sequence_mismatches": 1,
+      "full_argmax_outside_fraction": 0.00078125
+    },
+    "6144": {
+      "prompts": 20,
+      "generated_steps": 1280,
+      "full_argmax_outside": 0,
+      "sequence_mismatches": 0,
+      "full_argmax_outside_fraction": 0.0
+    },
+    "8192": {
+      "prompts": 20,
+      "generated_steps": 1280,
+      "full_argmax_outside": 0,
+      "sequence_mismatches": 0,
+      "full_argmax_outside_fraction": 0.0
+    }
+  },
+  "decision": {
+    "result": "GO",
+    "rule": "GO iff predicted tok/s >= 1.3x unpruned stream-bound tok/s and integer bpb <= 1.01x unpruned integer bpb",
+    "baseline_integer_bpb": 0.5623131903694261,
+    "integer_bpb_limit": 0.5679363222731203,
+    "baseline_predicted_tok_s": 2.3398571358108304,
+    "speed_limit_tok_s": 3.0418142765540797,
+    "candidates": {
+      "2048": {
+        "speed_pass": true,
+        "quality_pass": false,
+        "speedup": 1.920751566572664,
+        "integer_bpb_delta_pct": 226.67976027424928
+      },
+      "4096": {
+        "speed_pass": true,
+        "quality_pass": false,
+        "speedup": 1.8069883299517033,
+        "integer_bpb_delta_pct": 22.032006906394862
+      },
+      "6144": {
+        "speed_pass": true,
+        "quality_pass": false,
+        "speedup": 1.7059476097618456,
+        "integer_bpb_delta_pct": 3.019144449396949
+      },
+      "8192": {
+        "speed_pass": true,
+        "quality_pass": true,
+        "speedup": 1.6156082225896664,
+        "integer_bpb_delta_pct": 0.3614802765583347
+      }
+    },
+    "recommended_vocab": 8192
+  },
+  "rtl_constraints": {
+    "token_and_output_id_width": "16 bits; VOCAB must fit <= 65535 (rtl/decode/top_decode.sv:35,44,198,306-310)",
+    "classifier_tiling": "g_ntiles=ceil(VOCAB/16), final tile rows are bounds-checked; all tested K are multiples of 16 (rtl/decode/top_decode.sv:306-310, tools/decode/pack_decode_image.py:9-44)",
+    "int4_row_width": "CLS_KB=D/2=144 and D=288; K must be even for INT4 packing (top_decode.sv:24; pack_decode_image.py:38-40,71-76)",
+    "grouping": "CLS_G=ceil(D/32)=9; K does not change CLS_G, only tile count/prefix sizes",
+    "config_params": "CLS_TILE_BYTES, CLS_KB, CLS_G, VOCAB are generated in params.json and passed as top_decode parameters"
+  },
+  "rtl": {
+    "status": "fail",
+    "vocab": 8192,
+    "prompts": 1,
+    "generated_tokens_per_prompt": 2,
+    "image_bytes": 6981696,
+    "image_sha256": "c2dc9c29a946b7a747f526eb8b9229944a65cb4437ed45338c3802829bc939b3",
+    "logit_mismatches": 24576,
+    "token_mismatches": 3,
+    "argmax_errors": 0,
+    "summary": "SUMMARY steps=3 errors=24576 token_errors=3 idx_errors=0 argmax_errors=0 stray=0 cycles=23204097",
+    "vvp_command": "C:\\iverilog\\bin\\vvp.exe build/decode/e2e_tb.vvp",
+    "wall_seconds": 1627.4,
+    "command": "python tools/vocabprune/run_decode_rtl.py --vocab-keep tools\\vocabprune\\idmaps\\idmap_8192.json --prompts 1 --gen 2"
+  },
+  "not_run": [
+    "Board synthesis, implementation, and physical-board throughput: NOT RUN; no RTL changes were authorized.",
+    "Host-client code changes: NOT RUN by design; the remap is documented only.",
+    "RTL smoke for K=2048, 4096, 6144: NOT RUN; only the recommended K=8192 was run."
+  ]
+}
