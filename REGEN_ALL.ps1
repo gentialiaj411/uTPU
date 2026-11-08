@@ -55,7 +55,7 @@ Invoke-Logged 'e2e_260k_qspiddr' @('tools/decode/run_decode_rtl.py','--model','2
 Invoke-Logged 'uart_rtl' @('tools/board/run_uart_rtl.py')
 Invoke-Logged 'uart_ddr_rtl' @('tools/board/run_uart_rtl.py','--ddr')   # DDR build: flash starts at LC=00, the host procedure must switch it to LC=11
 Invoke-Logged 'e2e_15m_kv4_p1' @('tools/decode/run_decode_rtl.py','--model','15m','--kv-bits','4','--gen','8','--output','bench/results/decode_e2e_rtl_15m_kv4_p1.json')
-Invoke-Logged 'e2e_15m_qspiddr' @('tools/decode/run_decode_rtl.py','--model','15m','--kv-bits','4','--gen','8','--flash','qspi-ddr','--output','bench/results/decode_e2e_rtl_15m_kv4_p1_qspiddr.json')
+Invoke-Logged 'e2e_15m_qspiddr' @('tools/decode/run_decode_rtl.py','--model','15m','--kv-bits','4','--gen','8','--flash','qspi-ddr','--timeout','86400','--output','bench/results/decode_e2e_rtl_15m_kv4_p1_qspiddr.json')
 
 # 4. fault injection, every unit
 foreach ($u in @('gemv','actq','rms','vec','attn','attn15','top','qspi','board','qspi_ddr','board_ddr')) { Invoke-Logged "fault_$u" @('tools/decode/fault_inject.py',$u) }
