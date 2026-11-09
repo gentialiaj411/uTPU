@@ -37,7 +37,7 @@
     "rtl/decode/act_quant.sv": "ba7a58c2d414fea72e239718a8ae438ff54a489260af31978b416625c9e37c44",
     "tools/decode/golden_act_quant.py": "78d087d9dd5318211e59db7c59fb8e2cb34bdd43fd05bcd57de86f3385180bdf",
     "tools/decode/harness.py": "d3a46950a8112eda93bc48aa2e985e521abde4a5ccfe37a06de9a6a1d9ff634f",
-    "tools/decode/provenance.py": "1a347ca76f7d9a90d0ca036696d2dba929d92124b542e9e33c8c3bb44d901b04",
+    "tools/decode/provenance.py": "95773cac9f4a02b7ee821daacbb8442693380271ef4a5ac706107d2bc1790627",
     "tools/decode/run_act_quant_rtl.py": "88ac09738fb7d0a51387bb81ba21f5a652e7e194118cde40d275aa8620a23e41",
     "tools/decode/sim.py": "ecc37ef8432b7197b6fe09c96a69565d9186c2c7e53f451c2288bf7293fa317b",
     "tools/llama2c/reference.py": "c668cb8c8c63f3ed57ccd127788c934c30d9f8164bb3212a9a97fc44ed253c36",

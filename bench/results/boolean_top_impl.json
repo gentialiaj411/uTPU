@@ -24,14 +24,14 @@
     "rtl/board/qspi_pads.sv",
     "rtl/board/boolean_top.sv"
   ],
-  "lut": 20798.0,
+  "lut": 20803.0,
   "lut_pct": 63.8,
   "ff": 9825.0,
   "dsp": 73.0,
   "bram36_equiv": 67.0,
-  "wns_ns": 1.0,
+  "wns_ns": 0.873,
   "tns_ns": 0.0,
-  "whs_ns": 0.043,
+  "whs_ns": 0.019,
   "ths_ns": 0.0,
   "timing_met": true,
   "drc_checks_found": 36,
@@ -146,12 +146,12 @@
       }
     },
     "worst_hold": {
-      "slack_ns": 0.043,
-      "from": "u_core/u_dec/va_a_reg[16]/C",
-      "to": "u_core/u_dec/va/a_r_reg[16]/D"
+      "slack_ns": 0.019,
+      "from": "u_core/u_dec/gemv/sh1_reg[2]/C",
+      "to": "u_core/u_dec/gemv/sh2_reg[2]/D"
     },
     "worst_setup": {
-      "slack_ns": 1.0,
+      "slack_ns": 0.873,
       "from": "u_core/u_dec/gemv/s3_reg[0]/C",
       "to": "u_core/u_dec/gemv/q4_reg[63]/D"
     }
@@ -254,9 +254,9 @@
     "build/decode/decode_image_15m/params.json": "f097060b246263b7331bc38d81471d18351972c2b3203801d57af4efe90c9bfe",
     "constraints/boolean_xc7s50.xdc": "c5907b812771eb9b151e9d41a4b9c3df13a8620cd2f55de212baff267ac62ef4",
     "models/numerics_v2/gptq_qkv_wo_w2_int8_g32.npz": "ecf950f452d052ce5909add99d7443d5d5be75dd12d78900e7bcb0ca38afe03d",
-    "rtl/board/board_ctrl.sv": "c14d1e452714ae14fd2e7861e29bb72d192cdf2d1d54f786300ee226921a1b24",
-    "rtl/board/boolean_core.sv": "c98f924a339bf5e7df1b621659585479313a01641749e60e4f6d2f084283b46c",
-    "rtl/board/boolean_top.sv": "923d3bfe80886663ece2661e1e4333caaf1c377e4e3bdcddb68cb910bdbeed62",
+    "rtl/board/board_ctrl.sv": "653ea5890efd3036275b01b6b5c956b47a46d3d2ef477ad525b0f099083b3580",
+    "rtl/board/boolean_core.sv": "7e868a2fcbd582493c761efb64206f3a19e8709d10949c1ce40f02e2b3d04d43",
+    "rtl/board/boolean_top.sv": "1590ff49a453748ad4aa597478effeea63206c5259450f378f7eee1726394dde",
     "rtl/board/qspi_pad_regs.sv": "a2a288b8ac3f45f278a4b0f825b379a672667e3d1ccee2da88b0f9611551bdbe",
     "rtl/board/qspi_pads.sv": "8dd97946a62880d05782a4a6b5f54ae5f5fe69a3e98f21085c12675916b53818",
     "rtl/board/uart_rx.sv": "5c49019524ef282374eeb148d296b16eb19be003b823870abf8a5d11303aba17",
@@ -267,14 +267,14 @@
     "rtl/decode/div_const_pipe.sv": "a879eeb669a1e37c5ddc9c67b4b73b38a04b416f805884cc981fe5d56ef4eb7c",
     "rtl/decode/gemv_unit.sv": "428ba02cbd61fbe1742cc7f4e28efcdc4dd1aad2cecb63167ac200e7764491bc",
     "rtl/decode/mul_pipe.sv": "635d879b52692ca6c35f579e00a9bc45af2d20ee00c2f486ec52fd528789086d",
-    "rtl/decode/qspi_reader.sv": "b2bf4f91bf0ea4322617513d941a117d5774b55ec3d10298e5cf1d60caf0ccb7",
+    "rtl/decode/qspi_reader.sv": "c46d66cb17c9d0423a740bb41732e3059623b604bb23d79b58e7352cc2e3f6c5",
     "rtl/decode/rmsnorm.sv": "58655ec0ece79b10c864b3f87db3e8355d008a1b7bf39c5fb318a2ab4f1c640c",
     "rtl/decode/seq_mul.sv": "f9aadb368b2fbb784a01e4f771165320bcb75dd04c2a50f8c168be7ff9c38b2d",
     "rtl/decode/top_decode.sv": "ed235a06192186d398811df9828225015e36620ae63c9fac012280bea9aac37d",
     "rtl/decode/vec_alu.sv": "5cde195056490d2c34307ace3407ab705f278f7a03b56aca66d3d1d5cdd4b87a",
-    "tools/board/impl_top.py": "043908c7070e91bdb4397732c6bc5e499a9876962bfe0618ccf45773303799d1",
+    "tools/board/impl_top.py": "53cc85c1553795ed6daecaedb8a20cb2eb86032dc67463932c558975411e92aa",
     "tools/decode/pack_decode_image.py": "525ab2e8a4c588a7d92ecc330bf98aa4420092607ec8237b5108bd78507d09b7",
-    "tools/decode/provenance.py": "1a347ca76f7d9a90d0ca036696d2dba929d92124b542e9e33c8c3bb44d901b04",
+    "tools/decode/provenance.py": "95773cac9f4a02b7ee821daacbb8442693380271ef4a5ac706107d2bc1790627",
     "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96",
     "tool:simulator": {
       "name": "icarus",
