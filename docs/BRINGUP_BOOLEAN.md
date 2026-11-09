@@ -22,9 +22,10 @@ This is the first-power-on runbook for `xc7s50csga324-1` with the S25FL128S 16 M
 
    `build_bitstream.py` runs `impl_top.py` once (including its check that `boolean_core` parameters match the image's `params.json`), refuses to continue unless timing is met and DRC has no Error/Critical Warning, then writes the bitstream from the routed checkpoint. `make_flash_image.py` runs `write_cfgmem`, then parses the `.mcs` back and checks that every weight byte at `0x280000` equals `image.bin` and that the bitstream's configuration data is intact.
 
-   **Measured on 2026-11-04 (Vivado 2025.2, compressed):**
-   - SDR `.bit`: 1,538,349 bytes, WNS +0.98 ns, WHS +0.015 ns, DRC clean.
-   - The `.mcs` maps the bitstream to `0x000000..0x17792d` and the weights to `0x280000..0xe10040` (12,124,224 bytes).
+   **Measured on 2026-11-09 (Vivado 2025.2, compressed, commit 3ebc9a4, strict gate passing):**
+   - SDR `.bit`: 1,587,413 bytes (sha256 `7cee3501…`), WNS +0.873 ns, WHS +0.019 ns, DRC errors 0. `.mcs` sha256 `6aaa2283…`.
+   - DDR `.bit`: 1,581,753 bytes (sha256 `037d16cf…`), WNS +1.484 ns, WHS +0.023 ns, DRC errors 0. `.mcs` sha256 `989874eb…`.
+   - Each `.mcs` maps the bitstream to `0x000000` (ends below `0x184000`) and the weights to `0x280000..0xe10040` (12,124,224 bytes, `image.bin` sha256 `d0ac5863…`).
    - All weight bytes were verified against `image.bin`, with no bit swapping.
 
 4. **Program and boot from flash.** With the board powered by PROG/UART USB and the JTAG target visible:
