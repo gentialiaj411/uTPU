@@ -24,18 +24,22 @@ import boolean_host as bh
 
 # --- interface names shared with the RTL / flash-model changes (DDR contract C1/C3); integration fixes a mismatch HERE only ---
 BOARD_DDR_PARAM = 'DDR'          # boolean_core / boolean_top parameter; 'V' reply is 1 for DDR=0 and 2 for DDR=1
-MODEL_CR1_PARAM = 'LC_INIT/QUAD_INIT'   # qspi_flash_model power-up CR1 fields (--ddr starts at LC 00, QUAD 0; the host must switch it to LC=11)
-CR1_WANT_SDR, CR1_WANT_DDR = 0x02, 0xC2
+MODEL_CR1_PARAM = 'LC_INIT/QUAD_INIT'   # qspi_flash_model power-up CR1 fields (--ddr starts at LC 00, QUAD 0; host sets QUAD and leaves LC=00)
+CR1_WANT_SDR, CR1_WANT_DDR = 0x02, 0x02
 BASE = 0x280000
 CPB = 8
 TMO = 3000
 
 TB = r"""`timescale 1ns/1ps
 module uart_tb;
-  localparam int NS = %(ns)d, V = %(vocab)d, NB = %(nbytes)d, BASE = %(base)d, CPB = %(cpb)d, MODE = %(mode)d;
+  localparam int NS = %(ns)d, V = %(vocab)d, NB = %(nbytes)d, BASE = %(base)d, CPB = %(cpb)d, MODE = %(mode)d, EXPECT_DDR = %(ddr)d;
   localparam logic [7:0] VER = 8'h%(ver)02x, CR1_WANT = 8'h%(cr1want)02x;   // 'V' reply of this build; CR1 the host procedure must leave in the flash
   localparam realtime BIT = 2.0 * CPB;
   logic clk = 0, rst = 1, uart_rx = 1; logic uart_tx;
+  // read-opcode counters, kept in the testbench so the independent flash model stays untouched: the model bumps ncmds once
+  // per accepted read command (6Bh/6Ch after the address, EDh after the mode byte) while instr still holds that opcode
+  int n_read_6b = 0, n_read_ed = 0;
+  always @(flash.ncmds) if (flash.instr === 8'hED) n_read_ed++; else if (flash.instr === 8'h6B || flash.instr === 8'h6C) n_read_6b++;
   always #1 clk = ~clk;
   wire pad_sclk, pad_cs_n; wire [3:0] pad_io_o, pad_io_t, f_o, f_oe; tri [3:0] bus;
   for (genvar i = 0; i < 4; i++) begin : g_bus
@@ -167,12 +171,11 @@ module uart_tb;
       $finish;
     end
     if (MODE == 3) begin
-      // DDR negative: QUAD = 1 but LC = 00 (what an SDR-configured flash looks like under a DDR build). The decode must NOT reproduce the golden:
-      // the flash model (dummy cycles from CR1 LC) or the golden check has to catch it.
+      // DDR negative: QUAD = 1 but legacy LC = 11. The flash model policy must reject this boot-unsafe configuration.
       send(8'h56); expect_byte(8'h76, "V tag"); expect_byte(VER, "V ver");
-      spi(1, 0, {8'h06, 56'd0}, 64'd0, "WREN"); spi(3, 0, {8'h01, 8'h00, 8'h02, 40'd0}, 64'd0, "WRR LC=00");
+      spi(1, 0, {8'h06, 56'd0}, 64'd0, "WREN"); spi(3, 0, {8'h01, 8'h00, 8'hC2, 40'd0}, 64'd0, "WRR LC=11");
       spi(1, 1, {8'h05, 56'd0}, {8'h01, 56'd0}, "RDSR wip"); spi(1, 1, {8'h05, 56'd0}, {8'h01, 56'd0}, "RDSR wip 2"); spi(1, 1, {8'h05, 56'd0}, {8'h00, 56'd0}, "RDSR done");
-      spi(1, 1, {8'h35, 56'd0}, {8'h02, 56'd0}, "RDCR LC=00");
+      spi(1, 1, {8'h35, 56'd0}, {8'hC2, 56'd0}, "RDCR LC=11");
       step(0, 3, 0);
       $display("SUMMARY errors=%%0d checks=%%0d cycles=%%0d NOT_DETECTED", errors, checks, cycles);
       $finish;
@@ -220,7 +223,18 @@ module uart_tb;
       step(s, (s == 1) ? V + 5 : rnd(V), s == 0);          // step 0 also gets a second 'T' frame while busy
     end
     checks++; if (n_starts != NS) begin errors++; $display("MISMATCH %%0d decode starts, expected %%0d (a rejected request ran a decode?)", n_starts, NS); end
-    $display("SUMMARY errors=%%0d checks=%%0d cycles=%%0d ncmds=%%0d nwrr=%%0d", errors, checks, cycles, flash.ncmds, flash.n_wrr);
+    // The functional output is insufficient to prove the selected read protocol: with LC=00,
+    // 6Bh returns the same bytes as EDh and only halves the bandwidth.  Require the opcode
+    // actually used for every completed weight read in the normal and robustness runs.
+    if (MODE == 1 || MODE == 2) begin
+      if (!EXPECT_DDR && (flash.ncmds != n_read_6b || n_read_ed != 0 || n_read_6b == 0)) begin
+        errors++; $display("MISMATCH SDR read opcodes: 6Bh=%%0d EDh=%%0d", n_read_6b, n_read_ed);
+      end
+      if (EXPECT_DDR && (flash.ncmds != n_read_ed || n_read_6b != 0 || n_read_ed == 0)) begin
+        errors++; $display("MISMATCH DDR read opcodes: 6Bh=%%0d EDh=%%0d", n_read_6b, n_read_ed);
+      end
+    end
+    $display("SUMMARY errors=%%0d checks=%%0d cycles=%%0d ncmds=%%0d nwrr=%%0d read_6b=%%0d read_ed=%%0d", errors, checks, cycles, flash.ncmds, flash.n_wrr, n_read_6b, n_read_ed);
     $finish;
   end
 endmodule
@@ -236,7 +250,7 @@ class _Rec(bh.Stub):
 
 def host_sequence(version=1):
     """(frame, expected response) pairs produced by boolean_host.Board for info -> enable-quad -> info against the QUAD=0, LC=00 power-up state
-    (version 1: the SDR build's LC=00 target, unchanged; version 2: the DDR build, enable-quad must leave LC=11)."""
+    (version 1: the SDR build's LC=00 target; version 2: the DDR build, enable-quad must leave LC=00)."""
     r = _Rec(); r.version = version; b = bh.Board(r)
     i0 = b.info(); assert not i0['compatible'] and b.enable_quad()[0] == 'set'; i1 = b.info(); assert i1['compatible']
     assert r.cr1 == (CR1_WANT_DDR if version == 2 else CR1_WANT_SDR), r.cr1
@@ -251,7 +265,7 @@ def main():
     ap.add_argument('--prompts', type=int, default=1)
     ap.add_argument('--gen', type=int, default=2)
     ap.add_argument('--output', default=None, help='default bench/results/boolean_uart_rtl.json, or boolean_uart_ddr_rtl.json with --ddr')
-    ap.add_argument('--ddr', action='store_true', help='DDR build: boolean_core DDR=1 (V reply 2), flash model powered up at CR1 LC=00 so the host sequence must switch it to LC=11')
+    ap.add_argument('--ddr', action='store_true', help='DDR build: boolean_core DDR=1 (V reply 2), flash powers up LC=00/QUAD=0 and host enables QUAD while leaving LC=00')
     ap.add_argument('--fast', action='store_true', help='fault-injection mode: main run only, stop at the first error')
     ap.add_argument('--replace', action='append', default=[], help='ORIG=MUTANT source file substitution (fault injection)')
     ap.add_argument('--sim', choices=('icarus','verilator'), default=__import__('sim').SIMULATOR, help='simulation backend (default icarus)')
@@ -290,7 +304,7 @@ def main():
         # the robustness run resets the FPGA at an arbitrary cycle of a DDR burst (it may cut a byte; the datasheet allows a read
         # to end anywhere in data output); every other run keeps the model's "reader stops only between bytes" check
         abort = ", .ALLOW_DATA_ABORT(1'b1)" if (ddr and name.startswith('robust')) else ''
-        text = TB % dict(ver=ver, cr1want=cr1want, mparams=(", .LC_INIT(2'b00), .DTV(0.65), .DTHO(0.15), .DTSU(0.2), .DTHD(0.2)" + abort if ddr else ''), ns=len(steps), vocab=params['VOCAB'], nbytes=len(img), base=BASE, cpb=CPB, mode=mode, tmo=TMO, params=plist, stop=stop, wdog=wdog, hostseq=hostseq, **files)
+        text = TB % dict(ver=ver, cr1want=cr1want, ddr=int(ddr), mparams=(", .LC_INIT(2'b00), .DTV(0.65), .DTHO(0.15), .DTSU(0.2), .DTHD(0.2)" + abort if ddr else ''), ns=len(steps), vocab=params['VOCAB'], nbytes=len(img), base=BASE, cpb=CPB, mode=mode, tmo=TMO, params=plist, stop=stop, wdog=wdog, hostseq=hostseq, **files)
         tb.write_text(text.replace('TMO_CYC', str(3 * TMO)).replace('.QUAD_INIT(MODE == 0 ? 1\'b0 : 1\'b0)', '.QUAD_INIT(1\'b0)'))
         return tb
 
@@ -305,7 +319,7 @@ def main():
         # full-system runs only when the unit testbench passes
         urc, uout, uline, ukv = unit_tb()
         uerrs = (int(ukv['errors']) if 'errors' in ukv else 0) + (1 if urc != 0 or 'errors' not in ukv else 0)
-        errs, rerrs, out, rout, line = 0, 0, '', '', 'skipped (unit testbench already detected)'
+        errs, rerrs, out, rout, line, kv = 0, 0, '', '', 'skipped (unit testbench already detected)', {}
         if uerrs == 0:
             tb = build(1, 1, 'fast')
             rc, out = compile_and_run(srcs, 'uart_tb', tb)
@@ -316,6 +330,7 @@ def main():
             rl, rk = parse_summary(rout)
             rerrs = (int(rk['errors']) if 'errors' in rk else 0) + (1 if rrc != 0 or 'errors' not in rk else 0)
         o = {'mode': 'fast', 'status': 'pass' if errs + uerrs + rerrs == 0 else 'fail', 'mismatch_count': errs + uerrs + rerrs, 'real_mismatch_count': errs + uerrs + rerrs, 'summary': line, 'unit_summary': uline,
+             'read_opcode_counts': {'6Bh': int(kv.get('read_6b', -1)), 'EDh': int(kv.get('read_ed', -1)), 'expected': 'EDh only' if ddr else '6Bh only'},
              'first_mismatches': [x for x in (out + uout + rout).splitlines() if x.startswith(('MISMATCH', 'FATAL'))][:4]}
         finish(o, a.output, tuple(o))   # exit 1 when a mismatch was seen (fault injection expects that for a detected mutant)
     # main run (QUAD powers up 0; the TB enables it through the UART SPI passthrough)
@@ -355,6 +370,7 @@ def main():
          'max_seq': 128, 'position_width_bits': 7,
          'host_sequence_frames': n_host_frames, 'quad_enable_via_uart': {'flash_model_QUAD_powerup': 0, 'host_tool_wrr_expected': n_host_wrr, 'wrr_commands_applied': int(kv.get('nwrr', 0))},
          'mutation_mismatch_count': int(mkv.get('errors', -1)), 'mutation_expected': '>0 (BOARD_MUTATE swaps the response token bytes)',
+         'read_opcode_counts': {'6Bh': int(kv.get('read_6b', -1)), 'EDh': int(kv.get('read_ed', -1)), 'expected': 'EDh only' if ddr else '6Bh only'},
          **({'ddr': 1, 'build_version': ver, 'flash_model_cr1_powerup': 0, 'flash_cr1_after_host_procedure': cr1want, 'board_ddr_param': BOARD_DDR_PARAM, 'model_cr1_param': MODEL_CR1_PARAM,
              'negative_lc00_under_ddr_build_detected': lc_neg_caught, 'negative_lc00_summary': lc_neg_line} if ddr else {}),
          'negative_quad0_read_trips_flash_model': neg_caught, 'negative_stdout_tail': [x for x in nout.splitlines() if 'FLASH' in x][:2],

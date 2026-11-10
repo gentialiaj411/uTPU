@@ -27,8 +27,8 @@ FLASH_IDEAL = r"""  assign st_valid = (phase == 0) && !seek_req;
 # flash AC times are scaled by 1/10 (tV 0.765, tHO 0.2, tCS 1.0 ns); the unit test uses the datasheet values at 20 ns.
 # --- interface names shared with the RTL / flash-model changes (DDR contract C1/C3); integration fixes a mismatch HERE only ---
 READER_DDR_PARAM = 'DDR'         # qspi_reader parameter: 1 = EDh DDR Quad I/O Read
-MODEL_CR1_PARAM = 'LC_INIT/QUAD_INIT'   # qspi_flash_model power-up CR1 fields; DDR runs start at {LC=11, QUAD=1}
-DDR_CR1_INIT = (0b11 << 6) | 0b10    # {LC=11, QUAD=1}
+MODEL_CR1_PARAM = 'LC_INIT/QUAD_INIT'   # qspi_flash_model power-up CR1 fields; DDR runs start at {LC=00, QUAD=1}
+DDR_CR1_INIT = (0b00 << 6) | 0b10    # {LC=00, QUAD=1}
 FLASH_QSPI = r"""  wire sclk, cs_n; wire [3:0] io_o, io_oe, io_i_c, f_o, f_oe, pad_io_o, pad_io_t; wire pad_sclk, pad_cs_n; tri [3:0] bus;
   qspi_reader #(%(rparams)s) qrd (.clk, .rst, .seek_req, .seek_addr, .st_ready, .st_valid, .st_data, .sclk, .cs_n, .io_o, .io_oe, .io_i(io_i_c));
   qspi_pad_regs pr (.clk, .sclk, .cs_n, .io_o, .io_oe, .pad_sclk, .pad_cs_n, .pad_io_o, .pad_io_t, .pad_io_i(bus), .io_i(io_i_c));
@@ -127,7 +127,7 @@ def main():
     ap.add_argument('--kv-bits', type=int, default=8, choices=(4, 8))
     ap.add_argument('--period', type=int, default=1, help='flash delivers one byte every PERIOD cycles')
     ap.add_argument('--flash', default='ideal', choices=('ideal', 'qspi', 'qspi-ddr'),
-                    help="ideal byte stream, qspi_reader + flash model (6Bh SDR, 0.25 B/cycle), or 'qspi-ddr': reader DDR=1 (EDh) + flash model CR1 LC=11 (0.5 B/cycle)")
+                    help="ideal byte stream, qspi_reader + flash model (6Bh SDR, 0.25 B/cycle), or 'qspi-ddr': reader DDR=1 (EDh) + flash model CR1 LC=00 (0.5 B/cycle)")
     ap.add_argument('--prompts', type=int, default=1)
     ap.add_argument('--gen', type=int, default=8, help='generated tokens per prompt')
     ap.add_argument('--output', default=None)
@@ -176,7 +176,7 @@ def main():
     ddr = a.flash == 'qspi-ddr'
     flash_txt = (FLASH_IDEAL if a.flash == 'ideal' else FLASH_QSPI % dict(
         img=files['img'], rparams='.CAP_DLY(2)' + (f', .{READER_DDR_PARAM}(1)' if ddr else ''),
-        mparams=(", .LC_INIT(2'b11), .QUAD_INIT(1'b1), .DTV(0.65), .DTHO(0.15), .DTSU(0.2), .DTHD(0.2)" if ddr else '')))
+        mparams=(", .LC_INIT(2'b00), .QUAD_INIT(1'b1), .DTV(0.65), .DTHO(0.15), .DTSU(0.2), .DTHD(0.2)" if ddr else '')))
     tb.write_text(TB % dict(flash=flash_txt, ns=len(steps), vocab=params['VOCAB'], nbytes=len(img), period=a.period, params=plist,
                             pw=max_seq.bit_length() - 1, limit=(2_000_000 if a.model == '260k' else 80_000_000) * (4 if a.flash.startswith('qspi') else a.period), **files))   # per-step cycle watchdog: a hang is an error
     srcs = [Path(a.top_rtl) if (a.top_rtl and s == 'top_decode.sv') else ROOT / 'rtl/decode' / s for s in SRCS]

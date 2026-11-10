@@ -35,7 +35,7 @@ def build_valid(d: Path):
         if u == 'decode_qspi_rtl':
             o['variants'] = [{'variant': v['name'], 'ok': True} for v in run_qspi_rtl.VARIANTS]
         if u == 'decode_qspi_ddr_rtl':
-            o['variants'] = [{'variant': v['name'], 'ok': True, 'flash_lc': 3, 'stream_bytes': run_qspi_rtl.STREAM_BYTES} for v in run_qspi_rtl.DDR_VARIANTS]
+            o['variants'] = [{'variant': v['name'], 'ok': True, 'flash_lc': run_qspi_rtl.DDR_CR1_LC, 'stream_bytes': run_qspi_rtl.STREAM_BYTES} for v in run_qspi_rtl.DDR_VARIANTS]
             o.update(ddr=1, measured_bytes_per_cycle=0.4995,
                      negative_tests=[{'variant': n['name'], 'detected': True, 'ok': True} for n in run_qspi_rtl.DDR_NEGATIVES],
                      rejected_parameters=[{'param': '.DDR(2)', 'rejected': True, 'ok': True}])
@@ -65,7 +65,7 @@ def build_valid(d: Path):
     for un in ('boolean_uart_rtl', 'boolean_uart_ddr_rtl'):
         put(un, {'status': 'pass', 'mismatch_count': 0, 'mutation_mismatch_count': 3, 'steps': 1, 'checks': 1,
                  'negative_quad0_read_trips_flash_model': True, 'quad_enable_via_uart': {'wrr_commands_applied': 1},
-                 **({'ddr': 1, 'build_version': 2, 'flash_model_cr1_powerup': 0, 'flash_cr1_after_host_procedure': 0xC2,
+                 **({'ddr': 1, 'build_version': 2, 'flash_model_cr1_powerup': 0, 'flash_cr1_after_host_procedure': 0x02,
                      'negative_lc00_under_ddr_build_detected': True} if un.endswith('_ddr_rtl') else {}),
                  'provenance': pv.provenance(pv.ARTIFACT_SOURCES[un])})
     put('boolean_pin_check', {'pins': ['a'], 'all_agree': True, 'provenance': pv.provenance(pv.ARTIFACT_SOURCES['boolean_pin_check'])})
@@ -318,7 +318,7 @@ def test_ddr_measured_rate_exactly_049_passes(work):
 def test_ddr_unit_must_cover_the_board_variant_and_negatives(work):
     edit(work, 'decode_qspi_ddr_rtl', lambda o: o.update(variants=[v for v in o['variants'] if v['variant'] != run_qspi_rtl.BOARD_DDR_VARIANT]))
     assert 'decode_qspi_ddr_rtl not pass' in unmet(work)
-    edit(work, 'decode_qspi_ddr_rtl', lambda o: o.update(variants=[{'variant': v['name'], 'ok': True, 'flash_lc': 3, 'stream_bytes': run_qspi_rtl.STREAM_BYTES} for v in run_qspi_rtl.DDR_VARIANTS],
+    edit(work, 'decode_qspi_ddr_rtl', lambda o: o.update(variants=[{'variant': v['name'], 'ok': True, 'flash_lc': run_qspi_rtl.DDR_CR1_LC, 'stream_bytes': run_qspi_rtl.STREAM_BYTES} for v in run_qspi_rtl.DDR_VARIANTS],
                                                          negative_tests=o['negative_tests'][:-1]))
     assert 'decode_qspi_ddr_rtl not pass' in unmet(work)
     edit(work, 'decode_qspi_ddr_rtl', lambda o: o.update(negative_tests=[dict(n, detected=False) for n in run_qspi_rtl_negs()]))
@@ -330,7 +330,7 @@ def run_qspi_rtl_negs():
 
 
 def test_ddr_unit_run_against_sdr_model_config_fails(work):
-    edit(work, 'decode_qspi_ddr_rtl', lambda o: o['variants'][0].update(flash_lc=0))
+    edit(work, 'decode_qspi_ddr_rtl', lambda o: o['variants'][0].update(flash_lc=0b11))
     assert 'decode_qspi_ddr_rtl not pass' in unmet(work)
 
 
@@ -354,7 +354,7 @@ def test_ddr_e2e_non_vacuous(work, e):
     assert f'{e} not pass' in unmet(work)
 
 
-@pytest.mark.parametrize('field,value', [('ddr', 0), ('build_version', 1), ('flash_model_cr1_powerup', 0xC2), ('flash_cr1_after_host_procedure', 0x02),
+@pytest.mark.parametrize('field,value', [('ddr', 0), ('build_version', 1), ('flash_model_cr1_powerup', 0xC2), ('flash_cr1_after_host_procedure', 0xC2),
                                          ('negative_lc00_under_ddr_build_detected', False)])
 def test_ddr_uart_requirements(work, field, value):
     edit(work, 'boolean_uart_ddr_rtl', lambda o: o.update({field: value}))

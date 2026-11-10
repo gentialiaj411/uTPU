@@ -44,13 +44,13 @@ ARTIFACT_SOURCES = {
     'decode_attention15_rtl': ['tools/decode/run_attn15_rtl.py', D + 'decode_pkg.sv', D + 'mul_pipe.sv', D + 'div_const_pipe.sv',
                                D + 'attention.sv', *GOLD('attn15', 'attn'), 'tools/decode/run_decode_rtl.py', *TOOLS, *NUMERICS, *LUTS, *M15],
     'decode_qspi_rtl': ['tools/decode/run_qspi_rtl.py', *QSPI_RTL, *TOOLS],
-    'decode_qspi_ddr_rtl': ['tools/decode/run_qspi_rtl.py', *QSPI_RTL, *TOOLS],      # same sources, run with --ddr (EDh, CR1 LC=11)
+    'decode_qspi_ddr_rtl': ['tools/decode/run_qspi_rtl.py', *QSPI_RTL, *TOOLS],      # same sources, run with --ddr (EDh, CR1 LC=00)
     # M5 board top. The UART TB builds boolean_core (every rtl/board and rtl/decode source) around the flash model and plays
     # the host tool's frames against the 260K golden (run_decode_rtl.golden + pack_decode_image).
     'boolean_uart_rtl': ['tools/board/run_uart_rtl.py', 'tools/board/boolean_host.py', 'tools/board/tb/*.sv', *BOARD_RTL,
                          'tools/decode/run_decode_rtl.py', 'tools/decode/pack_decode_image.py',
                          *QSPI_RTL, *TOP_RTL, *TOOLS, *NUMERICS, *LUTS, *M260],
-    # DDR variant of the UART TB (--ddr): boolean_core DDR=1, flash model powered up at LC=00 so the host procedure must switch it to LC=11
+    # DDR variant of the UART TB (--ddr): boolean_core DDR=1, flash powers up LC=00/QUAD=0 and host enables QUAD while retaining LC=00
     'boolean_uart_ddr_rtl': ['tools/board/run_uart_rtl.py', 'tools/board/boolean_host.py', 'tools/board/tb/*.sv', *BOARD_RTL,
                              'tools/decode/run_decode_rtl.py', 'tools/decode/pack_decode_image.py',
                              *QSPI_RTL, *TOP_RTL, *TOOLS, *NUMERICS, *LUTS, *M260],

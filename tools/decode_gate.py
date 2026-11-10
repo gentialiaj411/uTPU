@@ -15,7 +15,7 @@ Exits non-zero unless all of the following hold (artifacts under bench/results/,
   * DDR (EDh) plumbing: decode_qspi_ddr_rtl (run_qspi_rtl.py --ddr: every DDR variant ok, DDR negatives detected, MEASURED streaming
     rate >= 0.49 byte/core cycle), its fault unit 'qspi_ddr' (never passes while fault_inject.FAULTS['qspi_ddr'] is empty), the DDR e2e
     runs (260K and 15M through the DDR reader, flash 'qspi-ddr', 0.5 B/cycle), qspi_reader_ddr / top_decode_15m_qspi_ddr OOC, the UART
-    run against a DDR build (V=2, flash switched from LC=00 to LC=11 by the host procedure, wrong LC caught) and boolean_top_impl_ddr;
+    run against a DDR build (V=2, flash left at LC=00 with QUAD=1 by the host procedure, legacy LC=11 rejected) and boolean_top_impl_ddr;
   * integrity (audit F02/F03): every artifact carries a `provenance` block (sha256 of each RTL/TB/golden/LUT/model source it
     depended on, tools/decode/provenance.py) that is recomputed here ("stale <artifact>: <file> changed"); an artifact without
     one fails ("no provenance"); results must be non-vacuous (steps > 0, logits_compared == steps*VOCAB,
@@ -58,7 +58,7 @@ BRAM36_LIMIT_15M = 68        # leaves room for the board top + QSPI + UART on th
 LUT_LIMIT_15M = 0.85 * 32600
 E2E = ['decode_e2e_rtl_kv8_p1', 'decode_e2e_rtl_kv4_p1', 'decode_e2e_rtl_kv8_p2', 'decode_e2e_rtl_kv8_p4', 'decode_e2e_rtl_15m_kv4_p1',
        'decode_e2e_rtl_kv8_p1_qspi',   # M4: top_decode + qspi_reader + independent flash model
-       'decode_e2e_rtl_kv8_p1_qspiddr', 'decode_e2e_rtl_15m_kv4_p1_qspiddr']   # the same through the DDR=1 reader (flash model CR1 LC=11), 260K and 15M
+       'decode_e2e_rtl_kv8_p1_qspiddr', 'decode_e2e_rtl_15m_kv4_p1_qspiddr']   # the same through the DDR=1 reader (flash model CR1 LC=00), 260K and 15M
 
 
 def run_gate(res_dir=RES):
@@ -168,9 +168,9 @@ def run_gate(res_dir=RES):
             continue
         ok = (u.get('status') == 'pass' and u.get('mismatch_count') == 0 and u.get('mutation_mismatch_count', 0) > 0
               and u.get('negative_quad0_read_trips_flash_model') is True and u.get('quad_enable_via_uart', {}).get('wrr_commands_applied', 0) >= 1)
-        if un == 'boolean_uart_ddr_rtl':   # DDR build: V = 2, flash powered up at LC=00 and switched to {LC=11, QUAD=1} by the host procedure, wrong LC caught
+        if un == 'boolean_uart_ddr_rtl':   # DDR build: V = 2, flash powered up at LC=00 and switched to {LC=00, QUAD=1} by the host procedure (boot-safe), legacy LC=11 rejected
             ok = ok and u.get('ddr') == 1 and u.get('build_version') == 2 and u.get('flash_model_cr1_powerup') == 0 \
-                and u.get('flash_cr1_after_host_procedure') == 0xC2 and u.get('negative_lc00_under_ddr_build_detected') is True
+                and u.get('flash_cr1_after_host_procedure') == 0x02 and u.get('negative_lc00_under_ddr_build_detected') is True
         check_prov(un, u.get('provenance'), ARTIFACT_SOURCES[un])
         report[un] = f"{'pass' if ok else 'FAIL'}: {u.get('steps')} steps, {u.get('checks')} checks, {u.get('mismatch_count')} mismatches"
         if not ok:

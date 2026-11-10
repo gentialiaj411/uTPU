@@ -146,9 +146,9 @@ FAULTS = {
                                              'equivalent: the 256-cycle wait only guards against taking the pins while the reader still clocks its last prefetched byte. The reader parks within about 16 cycles of the last byte top_decode accepts, which is before done; the host cannot send an S frame before it has received the 11-byte R response (11 x 10 bit times >= 880 cycles at 115200 baud, 880 cycles even at CPB=8 x 10 x 11) and the S header itself takes 3 more byte times, so the wait is always already elapsed in a protocol-conforming exchange. Removing it is unobservable'),
     }),
     # DDR=1 (EDh, DDR Quad I/O Read) faults, run against the independently written flash model (tools/decode/tb/qspi_flash_model.sv)
-    # with the reader at DDR=1 and the flash at CR1 LC=11 (run_qspi_rtl.py --ddr; run_uart_rtl.py --ddr for the board unit).
+    # with the reader at DDR=1 and the flash at CR1 LC=00 (run_qspi_rtl.py --ddr; run_uart_rtl.py --ddr for the board unit).
     'qspi_ddr': ('tools/decode/run_qspi_rtl.py --ddr', 'rtl/decode/qspi_reader.sv', {
-        'ddr_dummy_3_to_2': ('rtl', "localparam int DDR_DUMMY = 3;", "localparam int DDR_DUMMY = 2;"),
+        'ddr_dummy_6_to_3': ('rtl', "localparam int DDR_DUMMY = 6;", "localparam int DDR_DUMMY = 3;"),
         'ddr_address_nibble_order_swapped': ('rtl', "dsh <= {pend_addr[8*ADDR_BYTES-1:0], DDR_MODE};",
                                              "dsh <= {pend_addr[19:16], pend_addr[23:20], pend_addr[11:8], pend_addr[15:12], pend_addr[3:0], pend_addr[7:4], DDR_MODE};"),
         'ddr_capture_one_edge_only': ('rtl', "dl_q <= DDR && state == S_RUN && !abort_now && tick && !dchg && ddr_launch_ok;",

@@ -34,9 +34,10 @@ def check_params():
 
 
 def main():
-    bad = check_params()
-    if bad:
-        print('boolean_core defaults differ from params.json:', bad); sys.exit(2)
+    if '--emit-only' not in sys.argv:
+        bad = check_params()
+        if bad:
+            print('boolean_core defaults differ from params.json:', bad); sys.exit(2)
     ddr = '--ddr' in sys.argv
     tag = 'boolean_top_ddr' if ddr else 'boolean_top'
     out = ROOT / 'build/decode/synth' / tag
@@ -45,7 +46,7 @@ def main():
     tcl = out / 'run.tcl'
     tcl.write_text('\n'.join([*(f'read_verilog -sv {Path(s).as_posix()}' for s in SRCS), f'read_xdc {XDC}', *([f'read_xdc {XDC_DDR}'] if ddr else []),
         f'synth_design -top boolean_top -part {PART}' + (f' -generic {TOP_DDR_PARAM}=1' if ddr else ''), f'report_utilization -file {rp("synth_util.rpt")}',
-        'opt_design', 'place_design', 'route_design',
+        'opt_design', 'place_design', 'route_design', f'write_checkpoint -force {rp("routed.dcp")}',
         f'report_utilization -file {rp("util.rpt")}', f'report_utilization -hierarchical -hierarchical_depth 2 -file {rp("util_hier.rpt")}',
         f'report_timing_summary -file {rp("timing.rpt")}', f'report_drc -file {rp("drc.rpt")}', f'report_io -file {rp("io.rpt")}',
         f'report_clock_utilization -file {rp("clock_util.rpt")}',
@@ -71,6 +72,9 @@ def main():
         'foreach p [get_ports] { puts $fp "[get_property NAME $p]|[get_property PACKAGE_PIN $p]|[get_property IOSTANDARD $p]|[get_property DIRECTION $p]" }',
         'close $fp',
         f'report_clocks -file {rp("clocks.rpt")}', f'check_timing -file {rp("check_timing.rpt")}', '']))
+    if '--emit-only' in sys.argv:
+        print(tcl)
+        return
     reparse = '--reparse' in sys.argv      # re-read the reports of the last run without running Vivado
     log = out / 'vivado.log'
     for f in ([] if reparse else out.glob('*.rpt')):

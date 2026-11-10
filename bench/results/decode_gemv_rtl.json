@@ -42,7 +42,7 @@
     "rtl/decode/gemv_unit.sv": "428ba02cbd61fbe1742cc7f4e28efcdc4dd1aad2cecb63167ac200e7764491bc",
     "tools/decode/golden_gemv.py": "96922ba9328e798c70188b1bd2c98e83b791217089266a8c20865c535b72e116",
     "tools/decode/harness.py": "d3a46950a8112eda93bc48aa2e985e521abde4a5ccfe37a06de9a6a1d9ff634f",
-    "tools/decode/provenance.py": "1a347ca76f7d9a90d0ca036696d2dba929d92124b542e9e33c8c3bb44d901b04",
+    "tools/decode/provenance.py": "95773cac9f4a02b7ee821daacbb8442693380271ef4a5ac706107d2bc1790627",
     "tools/decode/run_gemv_rtl.py": "c9260da57b851e9012d395880f65087f7e4673a97957b51b2acb46708992c044",
     "tools/decode/sim.py": "ecc37ef8432b7197b6fe09c96a69565d9186c2c7e53f451c2288bf7293fa317b",
     "tools/llama2c/reference.py": "c668cb8c8c63f3ed57ccd127788c934c30d9f8164bb3212a9a97fc44ed253c36",
