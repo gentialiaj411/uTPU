@@ -65,7 +65,9 @@ Invoke-Logged 'prune_quality' @('tools/vocabprune/study.py','--quality')
 Invoke-Logged 'prune_generation' @('tools/vocabprune/study.py','--generation')
 Invoke-Logged 'prune_rtl' @('tools/vocabprune/run_decode_rtl.py','--model','15m','--vocab-keep','tools/vocabprune/idmaps/idmap_8192.json','--gen','2','--output','bench/results/vocab_prune_rtl.json')
 Invoke-Logged 'prune_ddr_rtl' @('tools/vocabprune/run_decode_rtl.py','--model','15m','--vocab-keep','tools/vocabprune/idmaps/idmap_8192.json','--gen','2','--flash','qspi-ddr','--timeout','43200','--output','bench/results/vocab_prune_ddr_rtl.json')
+$env:PYTHONPATH = (Join-Path $PSScriptRoot 'tools\decode')   # finalize.py imports tools.decode.provenance, which needs tools/decode on sys.path
 Invoke-Logged 'prune_finalize' @('tools/vocabprune/finalize.py')
+Remove-Item Env:PYTHONPATH
 
 # 4. fault injection, every unit
 foreach ($u in @('gemv','actq','rms','vec','attn','attn15','top','qspi','board','qspi_ddr','board_ddr')) { Invoke-Logged "fault_$u" @('tools/decode/fault_inject.py',$u) }
