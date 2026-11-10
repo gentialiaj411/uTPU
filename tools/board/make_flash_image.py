@@ -72,15 +72,18 @@ def verify_mcs(mcs: Path, bitstream: Path, weights: Path) -> dict:
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--ddr", action="store_true")
+    ap.add_argument("--pruned", action="store_true")
     ap.add_argument("--bitstream", type=Path)
     ap.add_argument("--weights", type=Path, default=ROOT / "build/decode/decode_image_15m/image.bin")
     ap.add_argument("--out", type=Path)
     ap.add_argument("--vivado", default=r"C:\AMDDesignTools\2025.2\Vivado\bin\vivado.bat")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args(argv)
-    name = "ddr" if a.ddr else "sdr"
+    name = "pruned_ddr" if a.pruned else "ddr" if a.ddr else "sdr"
     bit = a.bitstream or ROOT / "build/board" / name / "boolean_top.bit"
     out = a.out or ROOT / "build/board" / name / "boolean_top.mcs"
+    if a.pruned and a.weights == ROOT / "build/decode/decode_image_15m/image.bin":
+        a.weights = ROOT / "build/vocabprune/vocab_8192.image.bin"
     bit, weights, out = map(lambda p: p.resolve(), (bit, a.weights, out))
     if not bit.exists(): raise FileNotFoundError(bit)
     if not weights.exists(): raise FileNotFoundError(f"{weights}; run tools/decode/pack_decode_image.py --model 15m first")

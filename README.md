@@ -1,5 +1,7 @@
 ﻿# uTPU: Scoped ML Compiler + CUDA/uTPU Backend Lab
 
+[Default fast path: K=8192 vocabulary pruning](docs/BRINGUP_PRUNED.md) — 2.30 -> 3.78 tok/s is pending strict artifact regeneration.
+
 [![CI](https://github.com/gentialiaj411/uTPU/actions/workflows/ci.yml/badge.svg)](https://github.com/gentialiaj411/uTPU/actions/workflows/ci.yml)
 [![Pages](https://img.shields.io/badge/Evidence_Explorer-live-0A7EA4)](https://gentialiaj411.github.io/uTPU/)
 

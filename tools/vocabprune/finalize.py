@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
+import sys  # noqa: E402
+sys.path.insert(0, str(ROOT))
 OUT = ROOT / "bench/results/vocab_prune_study.json"
 
 
@@ -42,8 +44,15 @@ def main() -> None:
         "config_params": "CLS_TILE_BYTES, CLS_KB, CLS_G, VOCAB are generated in params.json and passed as top_decode parameters",
     }
     result["rtl"] = json.loads((ROOT / "bench/results/vocab_prune_rtl.json").read_text(encoding="utf-8")) if (ROOT / "bench/results/vocab_prune_rtl.json").exists() else {"status": "NOT RUN"}
+    from tools.decode.provenance import provenance
+    from tools.vocabprune.pruned_sources import PRUNED_SOURCES
+    complete = (isinstance(result.get('integer', {}).get('8192', {}).get('bits_per_byte'), (int, float)) and
+                result.get('hardware', {}).get('candidates', {}).get('8192', {}).get('predicted_tok_s', 0) > 0 and
+                result['rtl'].get('status') == 'pass' and result['decision']['result'] == 'GO')
+    result['status'] = 'pass' if complete else 'incomplete'
+    result['provenance'] = provenance(PRUNED_SOURCES['vocab_prune_study'])
     result["not_run"] = [
-        "Board synthesis, implementation, and physical-board throughput: NOT RUN; no RTL changes were authorized.",
+        "Physical-board throughput: NOT RUN (implementation: bench/results/pruned_ddr_impl.json; DDR-flash RTL: bench/results/vocab_prune_ddr_rtl.json).",
         "Host-client code changes: NOT RUN by design; the remap is documented only.",
         "RTL smoke for K=2048, 4096, 6144: NOT RUN; only the recommended K=8192 was run.",
     ]

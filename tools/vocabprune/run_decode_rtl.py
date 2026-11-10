@@ -14,9 +14,11 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from tools.decode.harness import BUILD, parse_summary, write_mem
 from tools.decode.pack_decode_image import pack, load_export_15m
-from tools.decode.run_decode_rtl import FLASH_IDEAL, SRCS, TB
+from tools.decode.run_decode_rtl import FLASH_IDEAL, FLASH_QSPI, SRCS, TB
 from tools.decode.sim import VVP, compile_and_run
 from tools.vocabprune.core import prune_export
+from tools.decode.provenance import provenance
+from tools.vocabprune.pruned_sources import PRUNED_SOURCES
 
 
 def ensure_rtl_luts() -> None:
@@ -42,6 +44,8 @@ def main() -> None:
     ap.add_argument("--model", choices=("15m", "260k"), default="15m")
     ap.add_argument("--prompts", type=int, default=1)
     ap.add_argument("--gen", type=int, default=2)
+    ap.add_argument("--flash", choices=("ideal", "qspi-ddr"), default="ideal")
+    ap.add_argument("--timeout", type=int, default=None, help="vvp wall-clock limit, s (default 3600 ideal, 21600 qspi-ddr)")
     ap.add_argument("--output", type=Path, default=ROOT / "bench/results/vocab_prune_rtl.json")
     args = ap.parse_args()
     ensure_rtl_luts()
@@ -87,21 +91,33 @@ def main() -> None:
         plist += ', .ROPE_CS("rtl/decode/luts/rope_cs_q15_h48_p128.mem"), .ROPE_DEPTH(3072)'
     steps = sum(len(x[0]) for x in seqs)
     tb = BUILD / f"e2e_{tag}_tb.sv"
-    tb.write_text(TB % dict(flash=FLASH_IDEAL, ns=steps, vocab=keep, nbytes=len(image), period=1,
-                            params=plist, pw=7, limit=80_000_000, **files))
+    ddr = args.flash == "qspi-ddr"
+    if args.timeout is None:
+        args.timeout = 21600 if ddr else 3600   # the DDR flash model runs ~40M cycles for 3 pruned steps (~1.2 h at the 15M DDR rate)
+    flash = FLASH_IDEAL if not ddr else FLASH_QSPI % dict(
+        img=files['img'], rparams='.CAP_DLY(2), .DDR(1)',
+        mparams=", .LC_INIT(2'b00), .QUAD_INIT(1'b1), .DTV(0.65), .DTHO(0.15), .DTSU(0.2), .DTHD(0.2)")
+    tb.write_text(TB % dict(flash=flash, ns=steps, vocab=keep, nbytes=len(image), period=1,
+                            params=plist, pw=7, limit=(200_000_000 if ddr else 80_000_000), **files))
     srcs = [ROOT / "rtl/decode" / s for s in SRCS]
+    if ddr:
+        srcs += [ROOT / 'rtl/decode/qspi_reader.sv', ROOT / 'rtl/board/qspi_pad_regs.sv', ROOT / 'tools/decode/tb/qspi_flash_model.sv']
     t0 = time.time()
-    rc, out = compile_and_run(srcs, "e2e_tb", tb, timeout=3600)
+    rc, out = compile_and_run(srcs, "e2e_tb", tb, timeout=args.timeout)
     line, kv = parse_summary(out)
     result = {"status": "pass" if rc == 0 and kv.get("errors") == "0" else "fail",
               "vocab": keep, "prompts": len(prompts), "generated_tokens_per_prompt": args.gen,
               "image_bytes": len(image), "image_sha256": hashlib.sha256(image).hexdigest(),
               "logit_mismatches": int(kv.get("errors", -1)), "token_mismatches": int(kv.get("token_errors", -1)),
-              "argmax_errors": int(kv.get("argmax_errors", -1)), "summary": line or out[-1000:],
+              "argmax_errors": int(kv.get("argmax_errors", -1)), "index_order_ok": int(kv.get('idx_errors', 1)) == 0,
+              "flash": args.flash, "flash_bytes_per_cycle": 0.5 if ddr else 1.0, "flash_bytes_per_cycle_note": "nominal reader rate; cycles_per_token_mean is the measurement",
+              "cycles_per_token_mean": float(kv.get('cycles', 0)) / steps,
+              "summary": line or out[-1000:],
               "first_mismatches": [x for x in out.splitlines() if x.startswith(("MISMATCH", "TOKEN", "INDEX"))][:8],
               "vvp_command": f"{VVP} build/decode/e2e_tb.vvp", "wall_seconds": round(time.time() - t0, 1),
               "model": args.model,
-              "command": f"python tools/vocabprune/run_decode_rtl.py --model {args.model} --vocab-keep {args.vocab_keep} --prompts 1 --gen {args.gen}"}
+              "command": f"python tools/vocabprune/run_decode_rtl.py --model {args.model} --vocab-keep {args.vocab_keep} --prompts 1 --gen {args.gen} --flash {args.flash}",
+              "provenance": provenance(PRUNED_SOURCES['vocab_prune_ddr_rtl' if ddr else 'vocab_prune_rtl'])}
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(result, indent=2))

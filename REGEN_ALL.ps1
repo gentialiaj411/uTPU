@@ -57,6 +57,16 @@ Invoke-Logged 'uart_ddr_rtl' @('tools/board/run_uart_rtl.py','--ddr')   # DDR bu
 Invoke-Logged 'e2e_15m_kv4_p1' @('tools/decode/run_decode_rtl.py','--model','15m','--kv-bits','4','--gen','8','--output','bench/results/decode_e2e_rtl_15m_kv4_p1.json')
 Invoke-Logged 'e2e_15m_qspiddr' @('tools/decode/run_decode_rtl.py','--model','15m','--kv-bits','4','--gen','8','--flash','qspi-ddr','--timeout','86400','--output','bench/results/decode_e2e_rtl_15m_kv4_p1_qspiddr.json')
 
+# 3b. K=8192 vocab-pruned image: idmaps, bpb study, RTL bit-exactness with the ideal stream and through the DDR flash reader
+Invoke-Logged 'prune_maps' @('tools/vocabprune/study.py','--maps')
+Invoke-Logged 'prune_pack' @('tools/vocabprune/pack_pruned_image.py','--vocab-keep','tools/vocabprune/idmaps/idmap_8192.json','--output','build/vocabprune/vocab_8192.image.bin')
+Invoke-Logged 'prune_hardware' @('tools/vocabprune/hardware.py')
+Invoke-Logged 'prune_quality' @('tools/vocabprune/study.py','--quality')
+Invoke-Logged 'prune_generation' @('tools/vocabprune/study.py','--generation')
+Invoke-Logged 'prune_rtl' @('tools/vocabprune/run_decode_rtl.py','--model','15m','--vocab-keep','tools/vocabprune/idmaps/idmap_8192.json','--gen','2','--output','bench/results/vocab_prune_rtl.json')
+Invoke-Logged 'prune_ddr_rtl' @('tools/vocabprune/run_decode_rtl.py','--model','15m','--vocab-keep','tools/vocabprune/idmaps/idmap_8192.json','--gen','2','--flash','qspi-ddr','--timeout','43200','--output','bench/results/vocab_prune_ddr_rtl.json')
+Invoke-Logged 'prune_finalize' @('tools/vocabprune/finalize.py')
+
 # 4. fault injection, every unit
 foreach ($u in @('gemv','actq','rms','vec','attn','attn15','top','qspi','board','qspi_ddr','board_ddr')) { Invoke-Logged "fault_$u" @('tools/decode/fault_inject.py',$u) }
 
@@ -79,6 +89,7 @@ $synthJobs = @(
 foreach ($j in $synthJobs) { Invoke-Logged "synth_$($j[0])" (@('tools/decode/synth_ooc.py') + [string[]]$j) }
 Invoke-Logged 'boolean_top_impl' @('tools/board/impl_top.py')
 Invoke-Logged 'boolean_top_impl_ddr' @('tools/board/impl_top.py','--ddr')   # boolean_top DDR=1; the pin check below keeps consuming the default impl
+Invoke-Logged 'pruned_ddr_impl' @('tools/board/impl_top.py','--pruned')   # K=8192 image, DDR=1, generated boolean_top_pruned wrapper
 Invoke-Logged 'boolean_pin_check' @('tools/board/pin_check.py')
 
 # 6. strict gate

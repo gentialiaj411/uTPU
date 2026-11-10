@@ -29,7 +29,7 @@ def build_valid(d: Path):
 
     for u in gate.UNITS:
         o = {'status': 'pass', 'mismatch_count': 0, 'mutation_mismatch_count': 7, 'mutation_expected': 7,
-             'provenance': pv.provenance(pv.ARTIFACT_SOURCES[u])}
+             'provenance': pv.provenance(gate.ARTIFACT_SOURCES[u])}
         for k in gate.UNIT_COUNTS[u]:
             o[k] = 100
         if u == 'decode_qspi_rtl':
@@ -62,20 +62,29 @@ def build_valid(d: Path):
                 'logit_mismatches': 0, 'token_mismatches': 0, 'index_errors': 0, 'argmax_errors': 0, 'index_order_ok': True,
                 'cycles_per_token_mean': 1000.0, 'flash_bytes_per_cycle': 0.5 if flash == 'qspi-ddr' else 1.0,
                 'provenance': pv.provenance(pv.e2e_sources(model, flash))})
+    for name, ddr in (('vocab_prune_rtl', False), ('vocab_prune_ddr_rtl', True)):
+        put(name, {'status': 'pass', 'vocab': 8192, 'logit_mismatches': 0, 'token_mismatches': 0,
+                   'index_order_ok': True, 'cycles_per_token_mean': 123.0,
+                   'flash': 'qspi-ddr' if ddr else 'ideal', 'flash_bytes_per_cycle': 0.5 if ddr else 1.0,
+                   'provenance': pv.provenance(gate.ARTIFACT_SOURCES[name])})
+    put('vocab_prune_study', {'status': 'pass', 'integer': {'8192': {'bits_per_byte': 1.0}},
+                              'hardware': {'candidates': {'8192': {'predicted_tok_s': 3.78}}},
+                              'provenance': pv.provenance(gate.ARTIFACT_SOURCES['vocab_prune_study'])})
     for un in ('boolean_uart_rtl', 'boolean_uart_ddr_rtl'):
         put(un, {'status': 'pass', 'mismatch_count': 0, 'mutation_mismatch_count': 3, 'steps': 1, 'checks': 1,
                  'negative_quad0_read_trips_flash_model': True, 'quad_enable_via_uart': {'wrr_commands_applied': 1},
                  **({'ddr': 1, 'build_version': 2, 'flash_model_cr1_powerup': 0, 'flash_cr1_after_host_procedure': 0x02,
                      'negative_lc00_under_ddr_build_detected': True} if un.endswith('_ddr_rtl') else {}),
-                 'provenance': pv.provenance(pv.ARTIFACT_SOURCES[un])})
-    put('boolean_pin_check', {'pins': ['a'], 'all_agree': True, 'provenance': pv.provenance(pv.ARTIFACT_SOURCES['boolean_pin_check'])})
+                 'provenance': pv.provenance(gate.ARTIFACT_SOURCES[un])})
+    put('boolean_pin_check', {'pins': ['a'], 'all_agree': True, 'provenance': pv.provenance(gate.ARTIFACT_SOURCES['boolean_pin_check'])})
     io = {'qspi_cs_n': {'out_setup': {'slack_ns': 1.0}, 'out_hold': {'slack_ns': 1.0}}}
     for i in range(4):
         io[f'qspi_dq[{i}]'] = {k: {'slack_ns': 1.0} for k in ('in_setup', 'in_hold', 'out_setup', 'out_hold')}
-    for bn in ('boolean_top_impl', 'boolean_top_impl_ddr'):
+    for bn in ('boolean_top_impl', 'boolean_top_impl_ddr', 'pruned_ddr_impl'):
         put(bn, {'status': 'ok', 'wns_ns': 0.1, 'whs_ns': 0.1, 'lut': 1000, 'bram36_equiv': 10, 'drc_error_rules': [],
                  'timing_met': True, 'qspi_io_slack': io, **({'ddr': 1, 'generics': {'DDR': '1'}} if bn.endswith('_ddr') else {}),
-                 'provenance': pv.provenance(pv.ARTIFACT_SOURCES[bn])})
+                 **({'ddr': 1, 'pruned': 1, 'vocab': 8192, 'generics': {'DDR': '1', 'VOCAB': '8192'}} if bn == 'pruned_ddr_impl' else {}),
+                 'provenance': pv.provenance(gate.ARTIFACT_SOURCES[bn])})
 
 
 @pytest.fixture(scope='module', autouse=True)
@@ -191,14 +200,24 @@ def test_missing_provenance_fails(work):
     assert 'no provenance in decode_rms_rtl' in unmet(work)
 
 
+def test_pruned_rtl_mismatch_fails(work):
+    edit(work, 'vocab_prune_rtl', lambda o: o.update(logit_mismatches=1))
+    assert 'vocab_prune_rtl not pass' in unmet(work)
+
+
+def test_pruned_stale_provenance_fails(work):
+    edit(work, 'vocab_prune_study', lambda o: o['provenance'].update({'tools/vocabprune/core.py': '0' * 64}))
+    assert any('stale vocab_prune_study: tools/vocabprune/core.py changed' in x for x in unmet(work))
+
+
 @pytest.mark.parametrize('name', ['boolean_uart_rtl', 'boolean_pin_check', 'boolean_top_impl'])
 def test_board_artifacts_need_provenance_coverage_and_freshness(work, name):
     edit(work, name, lambda o: o.pop('provenance'))
     assert f'no provenance in {name}' in unmet(work)
     edit(work, name, lambda o: o.update(provenance={'tools/decode/provenance.py': pv.sha256_file(pv.ROOT / 'tools/decode/provenance.py')}))
     assert any(m.startswith(f'provenance of {name} lacks') for m in unmet(work))
-    edit(work, name, lambda o: o.update(provenance={**pv.provenance(pv.ARTIFACT_SOURCES[name]), 'constraints/boolean_xc7s50.xdc': '4' * 64}
-                                        if name != 'boolean_uart_rtl' else {**pv.provenance(pv.ARTIFACT_SOURCES[name]), 'rtl/board/board_ctrl.sv': '4' * 64}))
+    edit(work, name, lambda o: o.update(provenance={**pv.provenance(gate.ARTIFACT_SOURCES[name]), 'constraints/boolean_xc7s50.xdc': '4' * 64}
+                                        if name != 'boolean_uart_rtl' else {**pv.provenance(gate.ARTIFACT_SOURCES[name]), 'rtl/board/board_ctrl.sv': '4' * 64}))
     assert any(m.startswith(f'stale {name}') for m in unmet(work))
 
 
@@ -374,8 +393,8 @@ def test_ddr_impl_io_slack_is_checked(work):
 
 
 def test_pin_check_still_consumes_the_default_impl():
-    assert 'bench/results/boolean_top_impl.json' in pv.ARTIFACT_SOURCES['boolean_pin_check']
-    assert not any('impl_ddr' in x for x in pv.ARTIFACT_SOURCES['boolean_pin_check'])
+    assert 'bench/results/boolean_top_impl.json' in gate.ARTIFACT_SOURCES['boolean_pin_check']
+    assert not any('impl_ddr' in x for x in gate.ARTIFACT_SOURCES['boolean_pin_check'])
 
 
 def test_qspi_ddr_missing_or_empty_fault_results_fail(work):

@@ -13,8 +13,8 @@ VIVADO = r"C:\AMDDesignTools\2025.2\Vivado\bin\vivado.bat"
 PART = "xc7s50csga324-1"
 FLASH_OFFSET = 0x280000
 
-def variant(ddr: bool):
-    return ("ddr", "boolean_top_ddr") if ddr else ("sdr", "boolean_top")
+def variant(ddr: bool, pruned: bool):
+    return ("pruned_ddr", "pruned_ddr") if pruned else (("ddr", "boolean_top_ddr") if ddr else ("sdr", "boolean_top"))
 
 def parse_reports(out: Path) -> dict:
     timing = (out / "timing.rpt").read_text(errors="replace")
@@ -47,22 +47,24 @@ def bitstream_tcl(dcp: Path, out_bit: Path) -> str:
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--ddr", action="store_true")
+    ap.add_argument("--pruned", action="store_true")
     ap.add_argument("--dry-run", action="store_true", help="print the bitstream Tcl; run nothing")
     ap.add_argument("--skip-impl", action="store_true", help="reuse the last routed.dcp (its reports are still checked)")
     a = ap.parse_args(argv)
-    name, tag = variant(a.ddr)
+    name, tag = variant(a.ddr, a.pruned)
     out = ROOT / "build/decode/synth" / tag
     dcp = out / "routed.dcp"
     bit = ROOT / "build/board" / name / "boolean_top.bit"
     tcl_text = bitstream_tcl(dcp, bit)
     if a.dry_run:
-        print(f"# step 1: {PYTHON} tools/board/impl_top.py{' --ddr' if a.ddr else ''}")
+        print(f"# step 1: {PYTHON} tools/board/impl_top.py{' --ddr' if a.ddr or a.pruned else ''}{' --pruned' if a.pruned else ''}")
         print("# step 2 (Vivado batch):")
         print(tcl_text)
         return 0
     if not a.skip_impl:
         # the full implementation flow, including its params.json consistency check and result JSON
-        subprocess.run([sys.executable, str(ROOT / "tools/board/impl_top.py"), *(["--ddr"] if a.ddr else [])], cwd=ROOT, check=True)
+        impl_args = ["--ddr", "--pruned"] if a.pruned else (["--ddr"] if a.ddr else [])
+        subprocess.run([sys.executable, str(ROOT / "tools/board/impl_top.py"), *impl_args], cwd=ROOT, check=True)
     if not dcp.exists():
         raise RuntimeError(f"no routed checkpoint at {dcp}; run without --skip-impl")
     reports = parse_reports(out)          # raises (refuses) on timing or DRC failure

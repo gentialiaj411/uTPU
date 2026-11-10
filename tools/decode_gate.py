@@ -33,6 +33,9 @@ RES = ROOT / 'bench/results'
 sys.path.insert(0, str(ROOT / 'tools/decode'))
 import provenance as prov_mod                           # noqa: E402  (stdlib only; one source list per artifact type)
 from provenance import ARTIFACT_SOURCES, FAULT_SOURCES, SYNTH_SOURCES, e2e_sources   # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent / 'vocabprune'))
+from pruned_sources import PRUNED_SOURCES               # noqa: E402  (K=8192 artifacts; kept out of provenance.py)
+ARTIFACT_SOURCES = {**ARTIFACT_SOURCES, **PRUNED_SOURCES}
 import fault_inject                                     # noqa: E402  (FAULTS is the single source of expected fault names)
 
 UNITS = ['decode_gemv_rtl', 'decode_act_quant_rtl', 'decode_rms_rtl', 'decode_vec_alu_rtl', 'decode_attention_rtl',
@@ -51,6 +54,7 @@ UNIT_COUNTS = {'decode_gemv_rtl': ['real_output_elements', 'random_output_elemen
                'decode_attention15_rtl': ['output_elements'], 'decode_qspi_rtl': ['bytes_checked'],
                'decode_qspi_ddr_rtl': ['bytes_checked']}
 VOCAB = {'stories260K': 512, 'stories15M': 32000}
+PRUNED_VOCAB = 8192
 SYNTH = ['gemv_unit', 'act_quant', 'rmsnorm', 'vec_alu', 'attention', 'top_decode_260k', 'top_decode_15m',
          'qspi_reader', 'top_decode_15m_qspi',   # M4: QSPI flash reader alone and 15M top_decode + reader
          'qspi_reader_ddr', 'top_decode_15m_qspi_ddr']   # the same two with the DDR=1 (EDh) reader
@@ -59,6 +63,7 @@ LUT_LIMIT_15M = 0.85 * 32600
 E2E = ['decode_e2e_rtl_kv8_p1', 'decode_e2e_rtl_kv4_p1', 'decode_e2e_rtl_kv8_p2', 'decode_e2e_rtl_kv8_p4', 'decode_e2e_rtl_15m_kv4_p1',
        'decode_e2e_rtl_kv8_p1_qspi',   # M4: top_decode + qspi_reader + independent flash model
        'decode_e2e_rtl_kv8_p1_qspiddr', 'decode_e2e_rtl_15m_kv4_p1_qspiddr']   # the same through the DDR=1 reader (flash model CR1 LC=00), 260K and 15M
+PRUNED = ['vocab_prune_rtl', 'vocab_prune_ddr_rtl', 'vocab_prune_study']
 
 
 def run_gate(res_dir=RES):
@@ -160,6 +165,31 @@ def run_gate(res_dir=RES):
                     f"{o['cycles_per_token_mean']:.0f} cycles/token at {o['flash_bytes_per_cycle']} B/cycle"
         if not ok:
             unmet.append(f'{e} not pass')
+    for name, ddr in (('vocab_prune_rtl', False), ('vocab_prune_ddr_rtl', True)):
+        o = load(name)
+        if o is None:
+            unmet.append(f'missing {name}')
+            continue
+        ok = (o.get('status') == 'pass' and o.get('vocab') == PRUNED_VOCAB and
+              o.get('logit_mismatches') == 0 and o.get('token_mismatches') == 0 and
+              o.get('cycles_per_token_mean', 0) > 0 and o.get('index_order_ok') is True)
+        if ddr:
+            ok = ok and o.get('flash') == 'qspi-ddr' and o.get('flash_bytes_per_cycle') == 0.5
+        check_prov(name, o.get('provenance'), ARTIFACT_SOURCES[name])
+        report[name] = f"{'pass' if ok else 'FAIL'}: {o.get('cycles_per_token_mean')} cycles/token"
+        if not ok:
+            unmet.append(f'{name} not pass')
+    study = load('vocab_prune_study')
+    if study is None:
+        unmet.append('missing vocab_prune_study')
+    else:
+        cand = study.get('hardware', {}).get('candidates', {}).get('8192', {})
+        bpb = study.get('integer', {}).get('8192', {}).get('bits_per_byte')
+        ok = study.get('status') == 'pass' and isinstance(bpb, (int, float)) and bpb > 0 and cand.get('predicted_tok_s', 0) > 0
+        check_prov('vocab_prune_study', study.get('provenance'), ARTIFACT_SOURCES['vocab_prune_study'])
+        report['vocab_prune_study'] = f"{'pass' if ok else 'FAIL'}: {bpb} bpb"
+        if not ok:
+            unmet.append('vocab_prune_study not pass')
     # M5 board top: UART path in simulation, pin verification, full implementation of boolean_top
     for un in ('boolean_uart_rtl', 'boolean_uart_ddr_rtl'):
         u = load(un)
@@ -183,7 +213,7 @@ def run_gate(res_dir=RES):
         report['boolean_pin_check'] = f"{len(pc['pins'])} pins, all_agree={pc['all_agree']}"
         if not pc['all_agree'] or pc.get('disagreements'):
             unmet.append(f"boolean pin check disagreements: {pc.get('disagreements')}")
-    for bn in ("boolean_top_impl", "boolean_top_impl_ddr"):   # default build and the DDR=1 build (impl_top.py --ddr): identical requirements
+    for bn in ("boolean_top_impl", "boolean_top_impl_ddr", "pruned_ddr_impl"):   # default, DDR, and K=8192 DDR implementations
         bi = load(bn)
         if bi is None or bi.get('status') != 'ok':
             unmet.append(f'missing or failed {bn}')
@@ -191,6 +221,8 @@ def run_gate(res_dir=RES):
             check_prov(bn, bi.get('provenance'), ARTIFACT_SOURCES[bn])
             if bn.endswith('_ddr') and (bi.get('ddr') != 1 or (bi.get('generics') or {}).get('DDR') != '1'):
                 unmet.append(f'{bn} was not implemented with boolean_top DDR=1')
+            if bn == 'pruned_ddr_impl' and (bi.get('pruned') != 1 or bi.get('vocab') != PRUNED_VOCAB or bi.get('ddr') != 1):
+                unmet.append(f'{bn} was not implemented for pruned K={PRUNED_VOCAB} DDR')
             report[bn] = f"WNS {bi['wns_ns']:+.3f} ns, WHS {bi['whs_ns']:+.3f} ns, {int(bi['lut'])} LUT, {bi['bram36_equiv']} BRAM36, DRC errors {len(bi['drc_error_rules'])}"
             if not bi['timing_met']:
                 unmet.append(f'{bn} timing not met')
