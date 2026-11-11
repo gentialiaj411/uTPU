@@ -1,6 +1,63 @@
-﻿# uTPU: Scoped ML Compiler + CUDA/uTPU Backend Lab
+﻿# uTPU: a Llama-architecture LLM decoder on a Spartan-7 FPGA
 
-[Default fast path: K=8192 vocabulary pruning](docs/BRINGUP_PRUNED.md) — stories15M decode through the DDR flash reader: 2.30 -> 3.69 tok/s at 50 MHz (13,559,450 cycles/token, RTL simulation, bit-exact; integer bpb +0.36%). Strict-gated; not yet run on the board.
+A from-scratch SystemVerilog decoder that runs Karpathy's llama2.c **stories15M** (15M parameters, Llama architecture:
+RMSNorm, RoPE, grouped-query attention, SwiGLU) on the Real Digital Boolean board (**xc7s50**, 75 BRAM36 = 337 KB on chip).
+The INT4/INT8 model is 13 MB, so weights stream from the board's QSPI flash every token through a DDR quad-SPI reader; the
+KV cache, activations and all arithmetic stay on chip. Every logit is **bit-exact** against an integer reference runtime.
+
+```text
+ S25FL128S QSPI flash (16 MB)                xc7s50 @ 50 MHz
+ weights @ 0x280000 --EDh DDR quad, 25 MB/s--> qspi_reader -> 4 KiB prefetch FIFO -> top_decode (fixed-function sequencer)
+                                                                                     |- gemv_unit: 16 lanes, INT4/INT8 x INT8, INT32 acc
+                                                                                     |- rmsnorm, act_quant, vec_alu (RoPE, SwiGLU, residual)
+                                                                                     |- attention: on-chip INT4 KV cache, integer softmax
+ host PC <------------------ UART ------------------ board_ctrl <------------------- classifier GEMV + argmax -> token
+```
+
+### Results (RTL simulation at 50 MHz; not yet run on the board)
+
+| configuration | cycles/token | tok/s | artifact |
+|---|---:|---:|---|
+| stories15M, weights through the DDR flash reader + flash model | 21,744,985 | 2.30 | `bench/results/decode_e2e_rtl_15m_kv4_p1_qspiddr.json` |
+| **stories15M, vocab pruned to 8,192 tokens, through the DDR flash reader** | **13,559,450** | **3.69** | `bench/results/vocab_prune_ddr_rtl.json` |
+| compute floor, full vocab (ideal 1 B/cycle stream) | 12,338,619 | 4.05 | `bench/results/decode_e2e_rtl_15m_kv4_p1.json` |
+| compute floor, pruned (ideal stream) | 7,734,699 | 6.46 | `bench/results/vocab_prune_rtl.json` |
+
+- Vocabulary pruning keeps the 8,192 most frequent tokens (the rest fall back to byte tokens): 1.60x faster for +0.36% integer
+  bits-per-byte (0.564346 vs 0.562313). [docs/VOCAB_PRUNE_STUDY.md](docs/VOCAB_PRUNE_STUDY.md)
+- The flash-bound runs are ~1.75x off the compute floor. Closing that gap needs ~1 B/cycle from flash: a calibrated 50 MHz DDR
+  capture is the only viable path (conditional GO, needs an on-board eye sweep). [docs/QSPI_FASTCLK_STUDY.md](docs/QSPI_FASTCLK_STUDY.md)
+- Post-route on xc7s50 at 50 MHz, all three builds meet timing: ~20.8k LUT (64%), 67/75 BRAM36, 73 DSP, WNS +0.873 ns (SDR),
+  +1.484 ns (DDR), +1.317 ns (pruned). Bitstreams and flash images build; board bring-up is next
+  ([docs/BRINGUP_BOOLEAN.md](docs/BRINGUP_BOOLEAN.md), [docs/BRINGUP_PRUNED.md](docs/BRINGUP_PRUNED.md)).
+
+### How it is verified
+
+- Each unit (GEMV, RMSNorm, activation quantizer, vector ALU, attention, QSPI reader) is bit-exact against the integer runtime it
+  implements, using golden captures from the real stories260K and stories15M runs plus directed rounding-tie and range cases.
+- End-to-end: every logit, token and argmax of multi-step decodes is compared, through both an ideal stream and a datasheet-based
+  S25FL128S flash model.
+- Fault injection: 109 RTL mutations across all units and the board top; 99 are caught, the other 10 are proven equivalent
+  (unreachable), each with a written reason. `bench/results/decode_fault_injection.json`
+- Strict gate (`tools/decode_gate.py`): every artifact records the hashes of the sources that produced it; an edited source makes
+  its artifacts stale and the gate fails. `REGEN_ALL.ps1` regenerates everything from a clean checkout.
+
+### Studies that decided what not to build
+
+| idea | result | decision |
+|---|---|---|
+| Vocabulary pruning to 8,192 | 1.60x tok/s, +0.36% bpb | GO (default fast path) |
+| INT4 for more weight classes | every class costs >1% bpb (wo +1.48%, w2 +1.58%, qkv +1.84%) | NO-GO ([study](docs/INT4_STUDY.md)) |
+| Lossless speculative decoding (host-side drafters) | 1.03-1.04 tokens accepted per verify pass | NO-GO ([study](docs/SPECDEC_STUDY.md)) |
+| Lossless weight compression (canonical Huffman) | +11.4% (15M), +5.7% (pruned) projected, for a decoder in the stream path | NO-GO for the pruned default ([study](docs/WEIGHT_COMPRESSION_STUDY.md)) |
+| Faster QSPI clock | 66/80 MHz fail the board timing budget; SDR at 50 MHz adds no bandwidth | NO-GO; calibrated 50 MHz DDR is conditional GO ([study](docs/QSPI_FASTCLK_STUDY.md)) |
+
+Microarchitecture: [docs/decode_engine.md](docs/decode_engine.md). Numerics: [docs/numerics_v2.md](docs/numerics_v2.md).
+Reproduce: [docs/REPRODUCE_DECODE.md](docs/REPRODUCE_DECODE.md).
+
+---
+
+## Earlier work in this repo: scoped ML compiler + CUDA/uTPU backend lab
 
 [![CI](https://github.com/gentialiaj411/uTPU/actions/workflows/ci.yml/badge.svg)](https://github.com/gentialiaj411/uTPU/actions/workflows/ci.yml)
 [![Pages](https://img.shields.io/badge/Evidence_Explorer-live-0A7EA4)](https://gentialiaj411.github.io/uTPU/)
