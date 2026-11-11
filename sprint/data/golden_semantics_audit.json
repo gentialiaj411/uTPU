@@ -1,0 +1,5 @@
+{
+  "status": "pass",
+  "command": "git diff e8d9282 --exit-code -- firmware/host/numerics_v2/runq_runtime.py firmware/host/numerics_v2/fixed.py",
+  "timestamp": "2026-10-30T15:16:20.832950"
+}

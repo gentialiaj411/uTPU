@@ -38,6 +38,10 @@ OPCODE_BSTORE = 0b110 # 6 - burst store sequential 16-bit words to buffer
 OPCODE_DTYPE = 0b111  # 7 - multi-PE / dataflow extensions (sim-validated; not in current RTL)
 # Part A descriptor ISA (4-bit opcode, bit[3]=1). Frozen in docs/descriptor_isa_part_a_design.md.
 OPCODE_TILE_GEMM = 0x8
+OPCODE_VEC = 0x9
+# A benign legacy NOP word followed by a VEC descriptor.  The old RTL sees
+# this prefix as NOP (low3=101, bit3=0); only VECTOR_UNIT_EN consumes it.
+VEC_ESCAPE_WORD = 0x05A5
 NOP_SUBOP_REQUANT = 0b1
 
 TILE_GEMM_FLAG_ACC_CLEAR_FIRST = 1 << 0
@@ -45,6 +49,20 @@ TILE_GEMM_FLAG_FINALIZE_LAST = 1 << 1
 TILE_GEMM_FLAG_HOIST_PAYLOADS = 1 << 2
 TILE_GEMM_FLAG_WEIGHT_OVERLAP = 1 << 3  # parked; golden model ignores unless overlap enabled
 TILE_GEMM_WORD_COUNT = 6
+VEC_WORD_COUNT = 6
+VEC_DESCRIPTOR_WORD_COUNT = 5
+VEC_SUBOP_VADD_RQ = 0
+VEC_SUBOP_VRMSNORM = 1
+VEC_SUBOP_VPOS_ADD = 2
+VEC_SUBOP_VSOFTMAX = 3
+VEC_SUBOP_VMATMUL = 4
+VEC_SUBOP_VLAYOUT = 5
+VEC_PARAM_KIND_VADD_RQ = 1
+VEC_PARAM_KIND_VRMSNORM = 2
+VEC_PARAM_KIND_VPOS_ADD = 3
+VEC_PARAM_KIND_VSOFTMAX = 4
+VEC_PARAM_KIND_VMATMUL = 5
+VEC_PARAM_KIND_VLAYOUT = 6
 
 DTYPE_SUBOP_BUFFER_XFER = 0b00
 DTYPE_SUBOP_BARRIER = 0b01
@@ -88,6 +106,7 @@ class IsaConfig:
     address_width: int = 9
     compute_data_width: int = 4
     descriptor_isa: bool = False
+    vector_unit: bool = False
 
     @property
     def items_per_word(self) -> int:
@@ -122,6 +141,8 @@ class IsaConfig:
             raise ValueError(
                 f"address_width must be in [9, 16]; got {self.address_width}"
             )
+        if self.vector_unit and not self.descriptor_isa:
+            raise ValueError("vector_unit requires descriptor_isa=True")
 
 
 # Legacy default — byte-identical to pre-Phase-4 behaviour. Every
@@ -631,6 +652,133 @@ def decodeTileGemmWords(words: Sequence[int], cfg: Optional[IsaConfig] = None) -
     }
 
 
+_VEC_KIND_BY_SUBOP = {
+    VEC_SUBOP_VADD_RQ: VEC_PARAM_KIND_VADD_RQ,
+    VEC_SUBOP_VRMSNORM: VEC_PARAM_KIND_VRMSNORM,
+    VEC_SUBOP_VPOS_ADD: VEC_PARAM_KIND_VPOS_ADD,
+    VEC_SUBOP_VSOFTMAX: VEC_PARAM_KIND_VSOFTMAX,
+    VEC_SUBOP_VMATMUL: VEC_PARAM_KIND_VMATMUL,
+    VEC_SUBOP_VLAYOUT: VEC_PARAM_KIND_VLAYOUT,
+}
+
+
+def _require_vector_cfg(cfg: IsaConfig) -> None:
+    if not cfg.descriptor_isa or not cfg.vector_unit:
+        raise ValueError("VEC requires IsaConfig(descriptor_isa=True, vector_unit=True)")
+
+
+def encodeVec(
+    *,
+    subop: int,
+    dst: int,
+    src0: int,
+    param_record: int,
+    length: int,
+    causal: bool = False,
+    head_id: int = 0,
+    cfg: Optional[IsaConfig] = None,
+) -> bytes:
+    """Encode the escaped six-word Phase-2 VEC descriptor."""
+    cfg = _resolve_cfg(cfg)
+    _require_vector_cfg(cfg)
+    subop = int(subop)
+    expected_kind = _VEC_KIND_BY_SUBOP.get(subop)
+    if expected_kind is None:
+        raise ValueError(f"unsupported/reserved VEC subop {subop}")
+    if not 1 <= int(length) <= 0xFFFF:
+        raise ValueError(f"VEC length must be in [1, 65535]; got {length}")
+    if not 0 <= int(head_id) <= 3:
+        raise ValueError(f"VEC head_id must be in [0, 3]; got {head_id}")
+    if subop == VEC_SUBOP_VSOFTMAX:
+        if not causal or head_id > 2:
+            raise ValueError("VSOFTMAX requires causal=True and head_id in [0, 2]")
+    elif subop == VEC_SUBOP_VMATMUL:
+        if head_id:
+            raise ValueError("VMATMUL reserves head_id=0")
+    elif causal or head_id:
+        raise ValueError("only VSOFTMAX/VMATMUL may carry causal flags")
+    flags = (int(causal) & 1) | ((int(head_id) & 0x3) << 1) | ((expected_kind & 0x1F) << 3)
+    header = OPCODE_VEC | ((subop & 0xF) << 4) | ((flags & 0xFF) << 8)
+    return b"".join(
+        instructionToBytes(word)
+        for word in (
+            VEC_ESCAPE_WORD,
+            header,
+            encodeAddress(dst, cfg),
+            encodeAddress(src0, cfg),
+            encodeAddress(param_record, cfg),
+            int(length) & 0xFFFF,
+        )
+    )
+
+
+def encode_vec_vadd_rq(dst: int, src0: int, param_record: int, length: int, *, cfg: Optional[IsaConfig] = None) -> bytes:
+    return encodeVec(subop=VEC_SUBOP_VADD_RQ, dst=dst, src0=src0, param_record=param_record, length=length, cfg=cfg)
+
+
+def encode_vec_vrmsnorm(dst: int, src0: int, param_record: int, length: int, *, cfg: Optional[IsaConfig] = None) -> bytes:
+    return encodeVec(subop=VEC_SUBOP_VRMSNORM, dst=dst, src0=src0, param_record=param_record, length=length, cfg=cfg)
+
+
+def encode_vec_vpos_add(dst: int, src0: int, param_record: int, length: int = 1536, *, cfg: Optional[IsaConfig] = None) -> bytes:
+    return encodeVec(subop=VEC_SUBOP_VPOS_ADD, dst=dst, src0=src0, param_record=param_record, length=length, cfg=cfg)
+
+
+def encode_vec_vsoftmax(dst: int, src0: int, param_record: int, length: int = 1024, *, head_id: int = 0, cfg: Optional[IsaConfig] = None) -> bytes:
+    return encodeVec(subop=VEC_SUBOP_VSOFTMAX, dst=dst, src0=src0, param_record=param_record, length=length, causal=True, head_id=head_id, cfg=cfg)
+
+
+def encode_vec_vmatmul(dst: int, src0: int, param_record: int, length: int, *, causal: bool = False, cfg: Optional[IsaConfig] = None) -> bytes:
+    """Encode VEC subop 4; dimensions and signedness live in its record."""
+    return encodeVec(subop=VEC_SUBOP_VMATMUL, dst=dst, src0=src0,
+                     param_record=param_record, length=length, causal=causal, cfg=cfg)
+
+
+def encode_vec_vlayout(dst: int, src0: int, param_record: int, length: int, *, cfg: Optional[IsaConfig] = None) -> bytes:
+    """Encode VEC subop 5; layouts and strides live in its record."""
+    return encodeVec(subop=VEC_SUBOP_VLAYOUT, dst=dst, src0=src0,
+                     param_record=param_record, length=length, cfg=cfg)
+
+
+def decodeVecWords(words: Sequence[int], cfg: Optional[IsaConfig] = None) -> dict:
+    """Decode and validate VEC header/word layout (buffer records are runtime-validated)."""
+    cfg = _resolve_cfg(cfg)
+    _require_vector_cfg(cfg)
+    if len(words) < VEC_WORD_COUNT:
+        raise ValueError("truncated VEC descriptor")
+    if (int(words[0]) & 0xFFFF) != VEC_ESCAPE_WORD:
+        raise ValueError("expected VEC escape word")
+    word0 = int(words[1]) & 0xFFFF
+    if (word0 & 0xF) != OPCODE_VEC:
+        raise ValueError(f"expected VEC opcode 0x9, got {(word0 & 0xF):#x}")
+    subop = (word0 >> 4) & 0xF
+    expected_kind = _VEC_KIND_BY_SUBOP.get(subop)
+    if expected_kind is None:
+        raise ValueError(f"unknown/reserved VEC subop {subop}")
+    flags = (word0 >> 8) & 0xFF
+    causal, head_id, param_kind = bool(flags & 1), (flags >> 1) & 0x3, (flags >> 3) & 0x1F
+    if param_kind != expected_kind:
+        raise ValueError(f"VEC param_kind={param_kind} does not match subop={subop}")
+    if subop == VEC_SUBOP_VSOFTMAX:
+        if not causal or head_id > 2:
+            raise ValueError("VSOFTMAX requires causal=1 and head_id <= 2")
+    elif subop == VEC_SUBOP_VMATMUL:
+        if head_id:
+            raise ValueError("VMATMUL reserves head_id=0")
+    elif causal or head_id:
+        raise ValueError("non-softmax/non-VMATMUL VEC flags must be zero")
+    length = int(words[5]) & 0xFFFF
+    if length == 0:
+        raise ValueError("VEC zero length")
+    return {
+        "opcode": OPCODE_VEC, "subop": subop, "flags": flags, "causal": causal,
+        "head_id": head_id, "param_kind": param_kind,
+        "dst": int(words[2]) & cfg.address_max, "src0": int(words[3]) & cfg.address_max,
+        "param_record": int(words[4]) & cfg.address_max, "length": length,
+        "word_count": VEC_WORD_COUNT,
+    }
+
+
 # ---------------------------------------------------------------------------
 # ISAEncoder convenience class
 # ---------------------------------------------------------------------------
@@ -757,6 +905,22 @@ class ISAEncoder:
                 weight_overlap=weight_overlap,
             )
         )
+        return self
+
+    def vec_vadd_rq(self, dst: int, src0: int, param_record: int, length: int) -> "ISAEncoder":
+        self.instructions.append(encode_vec_vadd_rq(dst, src0, param_record, length, cfg=self.cfg))
+        return self
+
+    def vec_vrmsnorm(self, dst: int, src0: int, param_record: int, length: int) -> "ISAEncoder":
+        self.instructions.append(encode_vec_vrmsnorm(dst, src0, param_record, length, cfg=self.cfg))
+        return self
+
+    def vec_vpos_add(self, dst: int, src0: int, param_record: int, length: int = 1536) -> "ISAEncoder":
+        self.instructions.append(encode_vec_vpos_add(dst, src0, param_record, length, cfg=self.cfg))
+        return self
+
+    def vec_vsoftmax(self, dst: int, src0: int, param_record: int, length: int = 1024, *, head_id: int = 0) -> "ISAEncoder":
+        self.instructions.append(encode_vec_vsoftmax(dst, src0, param_record, length, head_id=head_id, cfg=self.cfg))
         return self
 
     def buffer_xfer(

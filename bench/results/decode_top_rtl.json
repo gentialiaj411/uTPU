@@ -1,0 +1,16 @@
+{
+  "models": [
+    "stories260K",
+    "stories15M"
+  ],
+  "fifo_bytes": 4096,
+  "throttle_bytes_per_cycle": [
+    0.5,
+    1,
+    2
+  ],
+  "cycles_per_token": null,
+  "status": "not_run",
+  "simulator": "missing",
+  "blocker": "iverilog is not installed"
+}

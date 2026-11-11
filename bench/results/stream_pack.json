@@ -1,0 +1,9 @@
+{
+  "format": "UTPUDEC1 v1, 16-byte aligned sequential tensor blocks",
+  "models": {
+    "stories260K": {"image_bytes": 515056, "tokens_checked": 8, "bit_identical": true},
+    "stories15M": {"image_bytes": 13168912, "flash_limit_bytes": 14155776, "fits_flash": true, "tokens_checked": 8, "bit_identical": true}
+  },
+  "read_order": "embedding, layers[0..], classifier, gamma; each tensor code plane then scale plane; monotonically increasing offsets",
+  "sequential": true
+}

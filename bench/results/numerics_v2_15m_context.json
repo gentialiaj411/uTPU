@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "model": "stories15M",
+  "artifact": "models/numerics_v2/gptq_qkv_wo_w2_int8_g32.npz",
+  "source_commit": "6858e90",
+  "command": "python -m firmware.host.numerics_v2.eval_context --artifact models/numerics_v2/gptq_qkv_wo_w2_int8_g32.npz --context <L> --kv-bits <b> --tokens 50000 --output build/numerics_v2_eval/ctx<L>_kv<b>.json",
+  "bram36_source": "docs/decode_engine.md generated table (2102cff)",
+  "configs": [
+    {
+      "artifact_sha256": "ecf950f452d052ce5909add99d7443d5d5be75dd12d78900e7bcb0ca38afe03d",
+      "context_length": 64,
+      "kv_bits": 8,
+      "eval_tokens": 50000,
+      "float_perplexity": 3.6313461411815977,
+      "perplexity": 3.8862000305264717,
+      "teacher_forced_top1_agreement_pct": 87.296,
+      "elapsed_seconds": 2133.930212497711,
+      "name": "ctx64_kv8",
+      "bram36_budget": 56,
+      "fits_bram": true,
+      "delta_vs_same_context_float": 0.07018165700445933
+    },
+    {
+      "artifact_sha256": "ecf950f452d052ce5909add99d7443d5d5be75dd12d78900e7bcb0ca38afe03d",
+      "context_length": 96,
+      "kv_bits": 4,
+      "eval_tokens": 50000,
+      "float_perplexity": 3.2404799653872582,
+      "perplexity": 3.6578241880830444,
+      "teacher_forced_top1_agreement_pct": 84.27,
+      "elapsed_seconds": 2139.9252078533173,
+      "name": "ctx96_kv4",
+      "bram36_budget": 44,
+      "fits_bram": true,
+      "delta_vs_same_context_float": 0.12879086652396898
+    },
+    {
+      "artifact_sha256": "ecf950f452d052ce5909add99d7443d5d5be75dd12d78900e7bcb0ca38afe03d",
+      "context_length": 128,
+      "kv_bits": 4,
+      "eval_tokens": 50000,
+      "float_perplexity": 3.0427117951921447,
+      "perplexity": 3.436682526200733,
+      "teacher_forced_top1_agreement_pct": 84.762,
+      "elapsed_seconds": 2188.1683292388916,
+      "name": "ctx128_kv4",
+      "bram36_budget": 56,
+      "fits_bram": true,
+      "delta_vs_same_context_float": 0.12948013401437164
+    },
+    {
+      "artifact_sha256": "ecf950f452d052ce5909add99d7443d5d5be75dd12d78900e7bcb0ca38afe03d",
+      "context_length": 256,
+      "kv_bits": 8,
+      "eval_tokens": 50000,
+      "float_perplexity": 2.735893220079784,
+      "perplexity": 2.9177662257256882,
+      "teacher_forced_top1_agreement_pct": 88.92,
+      "elapsed_seconds": 2775.2940015792847,
+      "name": "ctx256_kv8",
+      "bram36_budget": 152,
+      "fits_bram": false,
+      "delta_vs_same_context_float": 0.06647664620500082
+    }
+  ],
+  "selected": "ctx128_kv4",
+  "selection_reason": "lowest absolute perplexity among configs that fit <=70 BRAM36; ctx256_kv8 shown as the unconstrained reference"
+}

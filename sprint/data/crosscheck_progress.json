@@ -1,0 +1,137 @@
+[
+  {
+    "label": "golden_gemv15",
+    "returncode": 0,
+    "seconds": 5.052793999988353
+  },
+  {
+    "label": "golden_rms",
+    "returncode": 0,
+    "seconds": 16.604130299994722
+  },
+  {
+    "label": "golden_vec",
+    "returncode": 0,
+    "seconds": 8.205070100011653
+  },
+  {
+    "label": "golden_attn",
+    "returncode": 0,
+    "seconds": 2.8487616000056732
+  },
+  {
+    "label": "golden_attn15",
+    "returncode": 0,
+    "seconds": 11.500536199993803
+  },
+  {
+    "label": "gemv_verilator",
+    "returncode": 0,
+    "seconds": 18.182147200001054
+  },
+  {
+    "label": "gemv_icarus",
+    "returncode": 0,
+    "seconds": 8.015594299999066
+  },
+  {
+    "label": "gemv15_verilator",
+    "returncode": 0,
+    "seconds": 102.07013350000489
+  },
+  {
+    "label": "gemv15_icarus",
+    "returncode": 0,
+    "seconds": 75.998571300006
+  },
+  {
+    "label": "actq_verilator",
+    "returncode": 0,
+    "seconds": 88.0746966000006
+  },
+  {
+    "label": "actq_icarus",
+    "returncode": 0,
+    "seconds": 8.825927099998808
+  },
+  {
+    "label": "rms_verilator",
+    "returncode": 0,
+    "seconds": 16.347098599988385
+  },
+  {
+    "label": "rms_icarus",
+    "returncode": 0,
+    "seconds": 52.85925039999711
+  },
+  {
+    "label": "vec_verilator",
+    "returncode": 0,
+    "seconds": 27.60536209998827
+  },
+  {
+    "label": "vec_icarus",
+    "returncode": 0,
+    "seconds": 8.499720099993283
+  },
+  {
+    "label": "attn_verilator",
+    "returncode": 0,
+    "seconds": 34.6732553000038
+  },
+  {
+    "label": "attn_icarus",
+    "returncode": 0,
+    "seconds": 280.9932329000003
+  },
+  {
+    "label": "attn15_verilator",
+    "returncode": 0,
+    "seconds": 73.75811030001205
+  },
+  {
+    "label": "attn15_icarus",
+    "returncode": 0,
+    "seconds": 1120.0262377999898
+  },
+  {
+    "label": "qspi_verilator",
+    "returncode": 1,
+    "seconds": 960.0093219999981
+  },
+  {
+    "label": "qspi_icarus",
+    "returncode": 0,
+    "seconds": 93.05227200000081
+  },
+  {
+    "label": "uart_verilator",
+    "returncode": 1,
+    "seconds": 0.8097876000101678
+  },
+  {
+    "label": "uart_icarus",
+    "returncode": 0,
+    "seconds": 535.8468674999895
+  },
+  {
+    "label": "e2e_ideal_verilator",
+    "returncode": 0,
+    "seconds": 12.95776200000546
+  },
+  {
+    "label": "e2e_ideal_icarus",
+    "returncode": 0,
+    "seconds": 146.16978100000415
+  },
+  {
+    "label": "e2e_qspi_verilator",
+    "returncode": 0,
+    "seconds": 17.7913075999968
+  },
+  {
+    "label": "e2e_qspi_icarus",
+    "returncode": 0,
+    "seconds": 382.58793409999635
+  }
+]

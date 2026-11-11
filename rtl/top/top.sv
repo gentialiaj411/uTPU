@@ -25,6 +25,11 @@ module top #(
     // When 0 (default), legacy 9-bit address-in-opcode-word layout is used
     // and behaviour is byte-identical to pre-Phase-4.
     parameter EXT_ADDR_EN            = 0,
+`ifdef PHASE3_VECTOR_UNIT_EN
+    parameter VECTOR_UNIT_EN          = `PHASE3_VECTOR_UNIT_EN,
+`else
+    parameter VECTOR_UNIT_EN          = 0,
+`endif
     parameter OPCODE_WIDTH           = 3,
     // Finalize datapath width. Default ARRAY_SIZE matches the PE output rate
     // (one column of rows per cycle). Override to ARRAY_SIZE*ARRAY_SIZE to
@@ -174,6 +179,9 @@ module top #(
     logic [(QUANTIZER_SIZE*COMPUTE_DATA_WIDTH)-1:0] quantizer_out_flat;
     logic [(QUANTIZER_SIZE*16)-1:0]           requant_multiplier_flat;
     logic [(QUANTIZER_SIZE*16)-1:0]           requant_right_shift_flat;
+    logic                        requant_finalize_enable;
+    logic [15:0]                 requant_multiplier_latched [ARRAY_SIZE-1:0];
+    logic [15:0]                 requant_right_shift_latched [ARRAY_SIZE-1:0];
 
     // ReLU
     logic signed [COMPUTE_DATA_WIDTH-1:0] relu_in  [RELU_SIZE-1:0];
@@ -185,6 +193,35 @@ module top #(
     logic signed [COMPUTE_DATA_WIDTH-1:0] compute_to_buffer [NUM_COMPUTE_LANES-1:0];
     logic [STORE_DATA_WIDTH-1:0] controller_to_buffer;
     logic [STORE_DATA_WIDTH-1:0] buffer_to_controller;
+    logic [$clog2(BSTORE_WIDTH+1)-1:0] buffer_store_count;
+    logic [BUFFER_WORD_SIZE-1:0] buffer_store_wide [BSTORE_WIDTH-1:0];
+    logic vec_busy, vec_done, vec_error, vec_start;
+    logic [15:0] vec_desc [0:4];
+    logic [2:0] vec_desc_index;
+    logic vec_header_invalid;
+    always_comb begin
+        vec_header_invalid = (vec_desc[0][3:0] != 4'h9) ||
+            (vec_desc[4] == 0) || (vec_desc[0][7:4] > 4'd5) ||
+            (vec_desc[0][15:11] != (vec_desc[0][7:4] + 1'b1));
+        if (!vec_header_invalid) begin
+            if (vec_desc[0][7:4] == 4'd3) begin
+                if (!vec_desc[0][8] || vec_desc[0][10:9] > 2 || vec_desc[4] != 1024)
+                    vec_header_invalid = 1'b1;
+            end else if (vec_desc[0][7:4] == 4'd4) begin
+                if (vec_desc[0][10:9] != 0) vec_header_invalid = 1'b1;
+            end else begin
+                if (vec_desc[0][10:8] != 0) vec_header_invalid = 1'b1;
+                if ((vec_desc[0][7:4] == 4'd2 && vec_desc[4] != 1536) ||
+                    ((vec_desc[0][7:4] < 4'd2) && ((vec_desc[4] % 48) != 0 || vec_desc[4] > 1536)))
+                    vec_header_invalid = 1'b1;
+            end
+        end
+    end
+    logic vec_buffer_we, vec_buffer_re, vec_buffer_store_en;
+    logic [ADDRESS_SIZE-1:0] vec_buffer_addr;
+    logic [15:0] vec_buffer_wdata;
+    logic vec_port_active;
+    assign vec_port_active = vec_busy || vec_start;
 
     // Misc
     logic [23:0] rst_blink;
@@ -205,6 +242,11 @@ module top #(
     logic        tx_selftest_sent;
     logic [63:0] perf_cycle_counter;
     logic [63:0] perf_busy_counter;
+    logic [7:0]  vector_error_code;
+    logic vec_seen;
+    logic vec_return_prefetched;
+    // Set only when DECODE receives a post-VEC instruction from the explicit
+    // return prefetch rather than the regular BRAM fetch cadence.
     logic [63:0] perf_program_count;
     // Program wall-clock: MAGIC_START -> HALT (excludes UART upload / post-HALT idle).
     logic [63:0] perf_program_cycle_counter;
@@ -221,6 +263,8 @@ module top #(
     logic [63:0] perf_attr_requant;
     logic [63:0] perf_attr_result_fetch; // FETCH_BUFFER_STATE (UART result drain)
     logic [831:0] perf_snapshot;         // 13 x 64-bit words
+    logic [63:0]  perf_busy_status_word;
+    assign perf_busy_status_word = {vector_error_code, perf_busy_counter[55:0]};
     logic         perf_stream_active;
     logic [6:0]   perf_stream_idx;       // 0..103
     logic         perf_busy_active;
@@ -358,22 +402,44 @@ module top #(
         .STORE_WIDE(BSTORE_WIDTH)
     ) u_unified_buffer (
         .clk(clk),
-        .we(buffer_we), .re(buffer_re),
-        .compute_en(buffer_compute_en),
-        .fifo_en(buffer_fifo_en),
-        .store_en(buffer_store_en),
+        .we(vec_port_active ? vec_buffer_we : buffer_we), .re(vec_port_active ? vec_buffer_re : buffer_re),
+        .compute_en(vec_port_active ? 1'b0 : buffer_compute_en),
+        .fifo_en(vec_port_active ? 1'b0 : buffer_fifo_en),
+        .store_en(vec_port_active ? vec_buffer_store_en : buffer_store_en),
         .done(buffer_done),
         .section(section),
-        .address(address),
+        .address(vec_port_active ? vec_buffer_addr : address),
         .fifo_in(rx_fifo_to_mem),
         .fifo_out(mem_to_tx_fifo),
         .compute_in(compute_to_buffer),
         .compute_out(mem_to_compute),
-        .store_in(controller_to_buffer),
+        .store_in(vec_port_active ? vec_buffer_wdata : controller_to_buffer),
         .store_out(buffer_to_controller),
         .store_count(buffer_store_count),
         .store_wide_in(buffer_store_wide)
     );
+
+    generate
+        if (VECTOR_UNIT_EN) begin: g_vector_unit
+            vector_sequencer #(.ADDRESS_SIZE(ADDRESS_SIZE), .BUFFER_WORDS(BUFFER_SIZE)) u_vector_sequencer (
+                .clk(clk), .rst(rst_int), .start(vec_start), .subop(vec_desc[0][7:4]), .causal(vec_desc[0][8]),
+                .dst(vec_desc[1][ADDRESS_SIZE-1:0]), .src0(vec_desc[2][ADDRESS_SIZE-1:0]),
+                .param(vec_desc[3][ADDRESS_SIZE-1:0]), .length(vec_desc[4]),
+                .buf_rdata(buffer_to_controller), .busy(vec_busy), .done(vec_done), .error(vec_error),
+                .buf_we(vec_buffer_we), .buf_re(vec_buffer_re), .buf_store_en(vec_buffer_store_en),
+                .buf_addr(vec_buffer_addr), .buf_wdata(vec_buffer_wdata)
+            );
+        end else begin: g_vector_absent
+            assign vec_busy = 1'b0;
+            assign vec_done = 1'b0;
+            assign vec_error = 1'b0;
+            assign vec_buffer_we = 1'b0;
+            assign vec_buffer_re = 1'b0;
+            assign vec_buffer_store_en = 1'b0;
+            assign vec_buffer_addr = '0;
+            assign vec_buffer_wdata = '0;
+        end
+    endgenerate
 
     instr_bram #(
         .DEPTH(PROG_DEPTH),
@@ -413,6 +479,7 @@ module top #(
         WAIT_START_STATE,      // 5  wait for 0xA2
         FETCH_BRAM_STATE,      // 6  issue BRAM read at pc; pc++
         FETCH_BRAM_WAIT_STATE, // 7  latch bram_rd_data → instruction
+        FETCH_BRAM_LATCH_STATE,// additional response latch after VEC activation
         DECODE_STATE,          // 8
         STORE_FETCH_W2_STATE,  // 9  issue BRAM read for STORE word2; pc++
         STORE_FETCH_W3_STATE,  // 10 latch word2; issue BRAM read for word3; pc++
@@ -437,7 +504,17 @@ module top #(
         BUF_FILL_DEST_HI_STATE,   // 29 A5 dest address high
         BUF_FILL_COUNT_LO_STATE,  // 30 A5 word count low
         BUF_FILL_COUNT_HI_STATE,  // 31 A5 word count high
-        BUF_FILL_BODY_STATE       // 32 A5 payload → unified buffer
+        BUF_FILL_BODY_STATE,      // 32 A5 payload → unified buffer
+        VEC_FETCH_STATE,          // escaped descriptor read beat
+        VEC_FETCH_WAIT_STATE,     // synchronous BRAM read latency
+        VEC_LATCH_STATE,          // latch descriptor word and advance
+        VEC_VALIDATE_STATE,       // allow final descriptor word to settle
+        VEC_START_STATE,
+        VEC_EXEC_STATE,
+        VEC_RETURN_WAIT_STATE,
+        VEC_RETURN_FETCH_STATE,
+        VEC_RETURN_FETCH_WAIT_STATE,
+        VEC_RETURN_FETCH_LATCH_STATE
     } state_e;
 
     state_e current_state, next_state;
@@ -461,8 +538,6 @@ module top #(
     logic [BUFFER_WORD_SIZE-1:0] bstore_data_word;
     logic [BUFFER_WORD_SIZE-1:0] bstore_skid [BSTORE_WIDTH-1:0];
     logic [$clog2(BSTORE_WIDTH+1)-1:0] bstore_fill;
-    logic [$clog2(BSTORE_WIDTH+1)-1:0] buffer_store_count;
-    logic [BUFFER_WORD_SIZE-1:0] buffer_store_wide [BSTORE_WIDTH-1:0];
     logic bstore_skid_ready;
     logic bstore_more;
     logic bstore_count_latched;
@@ -487,12 +562,9 @@ module top #(
     // QUANTIZER_PIPE_DEPTH==0 (combo) keeps this at 0 and captures immediately.
     logic [3:0]                       writeback_pipe_fill_cnt;
     logic                        requant_enable_latched;
-    logic [15:0]                 requant_multiplier_latched [ARRAY_SIZE-1:0];
-    logic [15:0]                 requant_right_shift_latched [ARRAY_SIZE-1:0];
     logic                        requant_vector_mode_latched;
     logic [7:0]                  requant_vector_count_latched;
     logic [7:0]                  requant_vector_index_latched;
-    logic                        requant_finalize_enable;
     assign requant_finalize_enable = requant_enable_latched && !compute_en && quantizer_en;
     // Phase 4: latched opcode for routing the EXT_ADDR_LATCH_STATE -> target
     // state in 2-word extended-address mode. Only used when EXT_ADDR_EN=1.
@@ -648,10 +720,6 @@ module top #(
             perf_program_count <= '0;
             perf_program_cycle_counter <= '0;
             perf_program_active <= 1'b0;
-            perf_busy_active <= 1'b0;
-            perf_waiting_for_immediate_finalize <= 1'b0;
-            perf_span_measuring <= 1'b0;
-            perf_compute_span_counter <= '0;
             perf_attr_fetch_decode <= '0;
             perf_attr_store <= '0;
             perf_attr_load <= '0;
@@ -665,8 +733,6 @@ module top #(
             perf_cycle_counter <= perf_cycle_counter + 1'b1;
             if (perf_busy_active)
                 perf_busy_counter <= perf_busy_counter + 1'b1;
-            if (perf_span_measuring)
-                perf_compute_span_counter <= perf_compute_span_counter + 1'b1;
             if (current_state == DECODE_STATE && opcode == HALT_OP)
                 perf_program_count <= perf_program_count + 1'b1;
             // total_program_cycles: start on MAGIC_START, freeze on HALT entry.
@@ -691,6 +757,7 @@ module top #(
                 case (current_state)
                     FETCH_BRAM_STATE,
                     FETCH_BRAM_WAIT_STATE,
+                    FETCH_BRAM_LATCH_STATE,
                     DECODE_STATE:
                         perf_attr_fetch_decode <= perf_attr_fetch_decode + 1'b1;
                     STORE_FETCH_W2_STATE,
@@ -831,8 +898,17 @@ module top #(
             FETCH_BRAM_WAIT_STATE:
                 next_state = DECODE_STATE;
 
+            FETCH_BRAM_LATCH_STATE:
+                next_state = DECODE_STATE;
+
             DECODE_STATE:
-                case (opcode)
+                if (instruction == 16'h05A5) begin
+                    // Do not let the old NOP decode consume descriptor words.
+                    // VECTOR_UNIT_EN=0 reports an architected "unit absent"
+                    // code; enabled hardware replaces code 02 with controller
+                    // completion/error status in the vector integration.
+                    next_state = VECTOR_UNIT_EN ? VEC_FETCH_STATE : HALT_STATE;
+                end else case (opcode)
                     STORE_OP: next_state = STORE_FETCH_W2_STATE;
                     FETCH_OP: next_state = EXT_ADDR_EN ? EXT_ADDR_FETCH_STATE : FETCH_BUFFER_STATE;
                     RUN_OP:   next_state = EXT_ADDR_EN ? EXT_ADDR_FETCH_STATE : COMPUTE_STATE;
@@ -847,6 +923,65 @@ module top #(
                     end
                     default:  next_state = FETCH_BRAM_STATE;
                 endcase
+
+            VEC_FETCH_STATE:
+                // A VEC escape consumes exactly five descriptor words.  Do
+                // not fetch past the uploaded program length: an absent word
+                // is a truncated descriptor, not an instruction-memory
+                // default value.
+                if (pc >= prog_len)
+                    next_state = HALT_STATE;
+                else
+                    next_state = VEC_FETCH_WAIT_STATE;
+
+            VEC_FETCH_WAIT_STATE:
+                next_state = VEC_LATCH_STATE;
+
+            VEC_LATCH_STATE:
+                if (vec_desc_index == 3'd4)
+                    next_state = VEC_VALIDATE_STATE;
+                else
+                    next_state = VEC_FETCH_STATE;
+
+            VEC_VALIDATE_STATE:
+                next_state = VEC_START_STATE;
+
+            VEC_START_STATE:
+                if (vec_header_invalid)
+                    next_state = HALT_STATE;
+                else
+                    next_state = VEC_EXEC_STATE;
+
+            VEC_EXEC_STATE:
+                if (vec_done) begin
+                    if (vec_error)
+                        next_state = HALT_STATE;
+                    else
+                        next_state = VEC_RETURN_WAIT_STATE;
+                end
+
+            VEC_RETURN_WAIT_STATE:
+                next_state = VEC_RETURN_FETCH_STATE;
+
+            // Descriptor reads leave instruction BRAM response timing
+            // unrelated to the legacy fetch cadence. Prime the first
+            // post-VEC instruction with the descriptor path's proven
+            // request/wait/latch sequence, then resume at DECODE.
+            VEC_RETURN_FETCH_STATE:
+                next_state = VEC_RETURN_FETCH_WAIT_STATE;
+
+            VEC_RETURN_FETCH_WAIT_STATE:
+                next_state = VEC_RETURN_FETCH_LATCH_STATE;
+
+            VEC_RETURN_FETCH_LATCH_STATE:
+                // A following VEC escape and extended requant header are
+                // already completely present in bram_rd_data.  Decode those
+                // directly; ordinary legacy opcodes retain the established
+                // fetch cadence below.
+                if (bram_rd_data == 16'h05A5)
+                    next_state = DECODE_STATE;
+                else
+                    next_state = FETCH_BRAM_STATE;
 
             // STORE multi-word fetch from BRAM
             STORE_FETCH_W2_STATE:
@@ -1003,7 +1138,10 @@ module top #(
         tx_we      <= 1'b0;
         bram_wr_en <= 1'b0;
         bram_rd_en <= 1'b0;
+        vec_start  <= 1'b0;
         compute_weight_commit <= 1'b0;
+        if (perf_span_measuring)
+            perf_compute_span_counter <= perf_compute_span_counter + 1'b1;
         // Legacy single-word stores unless BSTORE_WRITE overrides.
         if (current_state != BSTORE_WRITE_STATE && current_state != BSTORE_FETCH_DATA_STATE)
             buffer_store_count <= '0;
@@ -1033,7 +1171,6 @@ module top #(
                 tx_pending_data  <= '0;
                 tx_selftest_sent <= 1'b0;
                 uart_spam_div    <= '0;
-                rx_led           <= 1'b0;
                 store_src_addr      <= '0;
                 store_dest_addr     <= '0;
                 compute_result_addr <= '0;
@@ -1108,6 +1245,12 @@ module top #(
                 perf_waiting_for_immediate_finalize <= 1'b0;
                 perf_span_measuring <= 1'b0;
                 perf_compute_span_counter <= '0;
+                vector_error_code <= '0;
+                vec_seen <= 1'b0;
+                vec_return_prefetched <= 1'b0;
+                vec_start <= 1'b0;
+                vec_desc_index <= '0;
+                for (int vi = 0; vi < 5; vi++) vec_desc[vi] <= '0;
                 for (int ai = 0; ai < ARRAY_SIZE; ai++) begin
                     acc_partial_sums[ai] <= '0;
                     for (int bj = 0; bj < MAX_BATCH_COUNT; bj++) begin
@@ -1197,7 +1340,7 @@ module top #(
                             end else if (rx_fifo_to_mem == MAGIC_READ_PERF) begin
                                 // 104 bytes: legacy 4x64 + 9x64 state-group attribution
                                 perf_snapshot <= {
-                                    perf_cycle_counter, perf_busy_counter,
+                                    perf_cycle_counter, perf_busy_status_word,
                                     perf_program_count, perf_program_cycle_counter,
                                     perf_attr_fetch_decode, perf_attr_store,
                                     perf_attr_load, perf_attr_compute,
@@ -1213,7 +1356,7 @@ module top #(
                         HALT_STATE: begin
                             if (rx_fifo_to_mem == MAGIC_READ_PERF) begin
                                 perf_snapshot <= {
-                                    perf_cycle_counter, perf_busy_counter,
+                                    perf_cycle_counter, perf_busy_status_word,
                                     perf_program_count, perf_program_cycle_counter,
                                     perf_attr_fetch_decode, perf_attr_store,
                                     perf_attr_load, perf_attr_compute,
@@ -1329,12 +1472,36 @@ module top #(
                 end
             end
 
+            FETCH_BRAM_LATCH_STATE: begin
+                instruction <= bram_rd_data;
+                if (perf_waiting_for_immediate_finalize) begin
+                    if (!(
+                        (opcode_e'(bram_rd_data[OPCODE_WIDTH-1:0]) == RUN_OP) &&
+                        (bram_rd_data[3] == 1'b0) &&
+                        (bram_rd_data[4] == 1'b1)
+                    ))
+                        perf_busy_active <= 1'b0;
+                    perf_waiting_for_immediate_finalize <= 1'b0;
+                end
+            end
+
             // -----------------------------------------------------------------
             DECODE_STATE: begin
                 pending_opcode <= opcode;
                 residual_en <= 1'b0;
                 run_residual_addr_stage <= 1'b0;
-                case (opcode)
+                if (instruction == 16'h05A5) begin
+                    vector_error_code <= VECTOR_UNIT_EN ? 8'h02 : 8'h01;
+                    // A normal fetch needs one rewind for the descriptor
+                    // reader's synchronous cadence.  The return-prefetch
+                    // path has already positioned PC at descriptor word 0.
+                    if (!vec_return_prefetched) pc <= pc - 1'b1;
+                    vec_return_prefetched <= 1'b0;
+                    vec_seen <= 1'b1;
+                    vec_desc_index <= '0;
+                end else begin
+                    vec_return_prefetched <= 1'b0;
+                    case (opcode)
                     STORE_OP: begin
                         address_indicator <= instruction[4];
                     end
@@ -1398,7 +1565,51 @@ module top #(
                         end
                     end
                     default: ;
-                endcase
+                    endcase
+                end
+            end
+
+            VEC_FETCH_STATE: begin
+                if (pc >= prog_len) begin
+                    vector_error_code <= 8'h03;
+                end else begin
+                    bram_rd_addr <= pc[PC_WIDTH-1:0];
+                    bram_rd_en   <= 1'b1;
+                    pc           <= pc + 1'b1;
+                end
+            end
+
+            VEC_LATCH_STATE: begin
+                vec_desc[vec_desc_index] <= bram_rd_data;
+                if (vec_desc_index != 3'd4) vec_desc_index <= vec_desc_index + 1'b1;
+            end
+
+            VEC_START_STATE: begin
+                // Header validation is deliberately before the unit gains the
+                // buffer port; malformed headers never execute payload data.
+                if (vec_header_invalid) begin
+                    vector_error_code <= 8'h03;
+                end else begin
+                    vector_error_code <= 8'h00;
+                    vec_start <= 1'b1;
+                end
+            end
+
+            VEC_EXEC_STATE: begin
+                if (vec_done && vec_error) vector_error_code <= 8'h04;
+            end
+
+            VEC_RETURN_FETCH_STATE: begin
+                bram_rd_addr <= pc[PC_WIDTH-1:0];
+                bram_rd_en   <= 1'b1;
+                // This read is the pipeline's look-ahead word; the regular
+                // FETCH state consumes it while requesting the next word.
+                pc           <= pc + 1'b1;
+            end
+
+            VEC_RETURN_FETCH_LATCH_STATE: begin
+                instruction <= bram_rd_data;
+                vec_return_prefetched <= 1'b1;
             end
 
             // -----------------------------------------------------------------
@@ -2193,6 +2404,7 @@ module top #(
             rx_we_d         <= 1'b0;
             tx_re           <= 1'b0;
             tx_pop_inflight <= 1'b0;
+            rx_led          <= 1'b0;
         end else begin
             if (rx_valid && ~rx_full) begin
                 rx_data_buf <= rx_to_fifo;

@@ -1,0 +1,168 @@
+{
+  "batch_starts": [
+    1003854,
+    1003886,
+    1003918,
+    1003950,
+    1003982,
+    1004014,
+    1004046,
+    1004078
+  ],
+  "checkpoint_sha256": "9d780164c631d37521f4b0cd4ce41313aa5c407dc4c81342c3af0ddb90aacf02",
+  "first_cosine_below_0_99": null,
+  "non_sparse_exemptions": [
+    "softmax_probs masked entries",
+    "leaky_relu negative branch"
+  ],
+  "source_tree": {
+    "blobs": {
+      "firmware/host/fixtures/tiny_transformer_integer_luts.json": "19cebf28bbb3b16d691e0bd19d847b396cf73ea1",
+      "firmware/host/fixtures/tiny_transformer_split.json": "799b2ef72744b782ef29a9a92337656aab52ca5e",
+      "firmware/host/fixtures/tiny_transformer_vocab.json": "caedc5818933da3f3caaf345588002a8697e65e8",
+      "firmware/host/requantization.py": "33cc828f377181bbcce1ab05b4ea0cf92a6d47f0",
+      "firmware/host/run_tiny_transformer_divergence.py": "6f0442854beb603306af0a61e57e62587dc80339",
+      "firmware/host/run_tiny_transformer_numerics.py": "79d4c4c23eb4e5452af7944a429da4eb4b177ed7",
+      "firmware/host/tiny_transformer_export.py": "4adfb4763ae9e830b167d3634ebb1a9f233df5fb",
+      "firmware/host/tiny_transformer_model.py": "78a7a6484fe724c354e36e4d54583dc80011196d",
+      "firmware/host/tiny_transformer_reference.py": "b3af8254db05a5d6a4e258f73bf763c3b11ce53a",
+      "tools/gen_tiny_transformer_luts.py": "d4899ccef84b502e30cff2d366a97a7db3c718e6",
+      "tools/phase_fingerprints.py": "bbce3f33b8116e97b9b78fcfa2fac619a221ea10"
+    },
+    "files": [
+      "firmware/host/run_tiny_transformer_numerics.py",
+      "firmware/host/run_tiny_transformer_divergence.py",
+      "firmware/host/tiny_transformer_model.py",
+      "firmware/host/tiny_transformer_reference.py",
+      "firmware/host/tiny_transformer_export.py",
+      "firmware/host/requantization.py",
+      "firmware/host/fixtures/tiny_transformer_integer_luts.json",
+      "firmware/host/fixtures/tiny_transformer_vocab.json",
+      "firmware/host/fixtures/tiny_transformer_split.json",
+      "tools/gen_tiny_transformer_luts.py",
+      "tools/phase_fingerprints.py"
+    ]
+  },
+  "stages": {
+    "av": {
+      "cosine": 0.9959847163015121,
+      "integer_exponent": -4,
+      "max_abs_code": 65,
+      "max_abs_error": 0.5151684284210205,
+      "pct_codes_in_neg1_zero_pos1": 8.064778645833332
+    },
+    "ffn1": {
+      "cosine": 0.9963631372694596,
+      "integer_exponent": -3,
+      "max_abs_code": 87,
+      "max_abs_error": 0.8458443880081177,
+      "pct_codes_in_neg1_zero_pos1": 7.489013671875
+    },
+    "ffn2": {
+      "cosine": 0.9974850184186915,
+      "integer_exponent": -1,
+      "max_abs_code": 93,
+      "max_abs_error": 2.435832977294922,
+      "pct_codes_in_neg1_zero_pos1": 11.271158854166668
+    },
+    "final_norm": {
+      "cosine": 0.9941224051504672,
+      "integer_exponent": -5,
+      "max_abs_code": 94,
+      "max_abs_error": 0.5496404767036438,
+      "pct_codes_in_neg1_zero_pos1": 4.264322916666666
+    },
+    "k": {
+      "cosine": 0.9991631107545552,
+      "integer_exponent": -4,
+      "max_abs_code": 120,
+      "max_abs_error": 0.27912425994873047,
+      "pct_codes_in_neg1_zero_pos1": 4.484049479166666
+    },
+    "leaky_relu": {
+      "cosine": 0.9957157274293112,
+      "integer_exponent": -3,
+      "max_abs_code": 75,
+      "max_abs_error": 0.8286935091018677,
+      "pct_codes_in_neg1_zero_pos1": 14.921061197916666
+    },
+    "logits": {
+      "cosine": 0.9937868257077744,
+      "integer_exponent": -2,
+      "max_abs_code": 69,
+      "max_abs_error": 3.2443530559539795,
+      "pct_codes_in_neg1_zero_pos1": 4.7956730769230775
+    },
+    "out_proj": {
+      "cosine": 0.9956663738039349,
+      "integer_exponent": -4,
+      "max_abs_code": 93,
+      "max_abs_error": 0.5664689540863037,
+      "pct_codes_in_neg1_zero_pos1": 6.363932291666667
+    },
+    "pos_add": {
+      "cosine": 0.9995870096494518,
+      "integer_exponent": -4,
+      "max_abs_code": 70,
+      "max_abs_error": 0.09351801872253418,
+      "pct_codes_in_neg1_zero_pos1": 5.696614583333334
+    },
+    "q": {
+      "cosine": 0.9991089491060559,
+      "integer_exponent": -4,
+      "max_abs_code": 93,
+      "max_abs_error": 0.26442933082580566,
+      "pct_codes_in_neg1_zero_pos1": 4.947916666666666
+    },
+    "residual1": {
+      "cosine": 0.9968837312856472,
+      "integer_exponent": -4,
+      "max_abs_code": 102,
+      "max_abs_error": 0.563676118850708,
+      "pct_codes_in_neg1_zero_pos1": 4.825846354166666
+    },
+    "residual2": {
+      "cosine": 0.9973957996829457,
+      "integer_exponent": -1,
+      "max_abs_code": 95,
+      "max_abs_error": 2.700140953063965,
+      "pct_codes_in_neg1_zero_pos1": 10.579427083333332
+    },
+    "rmsnorm1": {
+      "cosine": 0.9992736946310738,
+      "integer_exponent": -4,
+      "max_abs_code": 63,
+      "max_abs_error": 0.15194380283355713,
+      "pct_codes_in_neg1_zero_pos1": 5.989583333333334
+    },
+    "rmsnorm2": {
+      "cosine": 0.9966193015689263,
+      "integer_exponent": -4,
+      "max_abs_code": 73,
+      "max_abs_error": 0.47462502121925354,
+      "pct_codes_in_neg1_zero_pos1": 5.5908203125
+    },
+    "scores": {
+      "cosine": 0.9991289420386888,
+      "integer_exponent": -4,
+      "max_abs_code": 128,
+      "max_abs_error": 0.7163254022598267,
+      "pct_codes_in_neg1_zero_pos1": 2.042643229166667
+    },
+    "softmax_probs": {
+      "cosine": 0.9990003786863962,
+      "integer_exponent": "p/255",
+      "max_abs_code": 255,
+      "max_abs_error": 0.11224230621375286,
+      "pct_codes_in_neg1_zero_pos1": 84.16341145833334
+    },
+    "v": {
+      "cosine": 0.9986968888815434,
+      "integer_exponent": -4,
+      "max_abs_code": 70,
+      "max_abs_error": 0.2350679636001587,
+      "pct_codes_in_neg1_zero_pos1": 6.624348958333333
+    }
+  },
+  "status": "phase1_export_scale_aware"
+}

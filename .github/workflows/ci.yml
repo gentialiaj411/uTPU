@@ -26,6 +26,9 @@ jobs:
           python -m pip install cupy-cuda12x || true
           python -m pip install pytest scipy
 
+      - name: Verify claims and evidence bundle against committed artifacts (before any step regenerates them)
+        run: python -m pytest firmware/host/test_claim_drift.py -q
+
       - name: Best-effort pipeline inspect
         run: python examples/inspect_compiler_pipeline.py || true
 
@@ -67,11 +70,11 @@ jobs:
       - name: Regenerate scheduler RTL cross-check stub (Phase 7 remediation P4.1; CI runner has no iverilog)
         run: python firmware/host/run_scheduler_rtl_crosscheck.py --skip-iverilog
 
-      - name: Regenerate megakernel-payoff stub (Task 1, CPU runner emits cuda_unavailable artifact)
-        run: python firmware/host/run_megakernel_benchmark.py
+      - name: Smoke-run megakernel-payoff stub (CPU runner emits cuda_unavailable; written to build/ci so the committed GPU-measured artifact is not overwritten)
+        run: python firmware/host/run_megakernel_benchmark.py --output build/ci/megakernel_payoff_stub.json
 
       - name: Recompute megakernel-payoff aggregate in-place (Task 1 v1.1; surfaces launch-count reduction + 4th-arm slots without re-running CUDA)
-        run: python firmware/host/run_megakernel_benchmark.py --recompute-aggregate-only --output bench/results/megakernel_payoff.json
+        run: python firmware/host/run_megakernel_benchmark.py --recompute-aggregate-only --output bench/results/megakernel_payoff.json   # recomputes the committed GPU measurement's aggregate in place
 
       - name: Regenerate Nsight Compute profile stub (Task 1 v1.1, CI runner has no ncu)
         run: python firmware/host/run_nsight_compute_profile.py --skip-ncu --output bench/results/nsight_compute_profile.json
@@ -85,7 +88,9 @@ jobs:
       - name: Verify resume-facing claim artifacts
         run: |
           python firmware/host/evaluate_pruned_autotuner.py --calibration-json bench/fixtures/cost_model_calibration_seed.json --top-k 4 --output-json bench/results/pruned_autotuner_replay.json
-          python -m pytest firmware/host/test_claim_drift.py -q
+          # Claims re-checked against the artifacts regenerated above. The byte-exact evidence-bundle test already ran on the
+          # committed artifacts (first step); regenerated floats differ in late digits across platforms, so it is not repeated here.
+          python -m pytest firmware/host/test_claim_drift.py -q --deselect firmware/host/test_claim_drift.py::test_frontend_evidence_bundle_matches_generator
 
       - name: Regenerate latency-determinism artifact (Task 4 deterministic-latency static analysis; stub mode -- CI runner has no iverilog)
         run: python firmware/host/run_latency_determinism.py --skip-iverilog --output bench/results/latency_determinism.json

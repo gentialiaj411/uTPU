@@ -1,0 +1,109 @@
+{
+  "command": "python tools/run_phase4a_evidence.py",
+  "decode_errors": {
+    "cases": 10,
+    "classes": {
+      "layout_bad_record_kind": {
+        "mismatches": 0,
+        "passed": true
+      },
+      "layout_invalid_stride": {
+        "mismatches": 0,
+        "passed": true
+      },
+      "layout_physical_shape": {
+        "mismatches": 0,
+        "passed": true
+      },
+      "layout_prohibited_overlap": {
+        "mismatches": 0,
+        "passed": true
+      },
+      "layout_reserved_record_bits": {
+        "mismatches": 0,
+        "passed": true
+      },
+      "matmul_bad_record_kind": {
+        "mismatches": 0,
+        "passed": true
+      },
+      "matmul_illegal_causal_shape": {
+        "mismatches": 0,
+        "passed": true
+      },
+      "matmul_invalid_stride": {
+        "mismatches": 0,
+        "passed": true
+      },
+      "matmul_prohibited_overlap": {
+        "mismatches": 0,
+        "passed": true
+      },
+      "matmul_reserved_record_bits": {
+        "mismatches": 0,
+        "passed": true
+      }
+    },
+    "mismatches": 0,
+    "passed": true
+  },
+  "f4_legacy_gemm": {
+    "cases": 1,
+    "cycles": 839,
+    "isa_mismatches": 0,
+    "numpy_mismatches": 0,
+    "passed": true,
+    "rtl_mismatches": 0,
+    "shape": "4x8x8"
+  },
+  "full_top": {
+    "cases": 1,
+    "cycles": 176,
+    "mismatches": 0,
+    "passed": true
+  },
+  "layout": {
+    "cases": 38,
+    "mismatches": 0,
+    "mode_cases": {
+      "0": 7,
+      "1": 7,
+      "2": 7,
+      "3": 7,
+      "4": 1,
+      "5": 1,
+      "6": 3,
+      "7": 3
+    },
+    "passed": true,
+    "physical_legacy_load_round_trips": 3,
+    "round_trips": 12,
+    "tails_and_padding": true
+  },
+  "matmul": {
+    "edge_cases": [
+      "max_magnitude",
+      "K=1",
+      "M=N=1",
+      "causal_row_0"
+    ],
+    "families": 14,
+    "rtl": {
+      "cases": 2048,
+      "compared_bytes": 8192,
+      "cycles": 307506,
+      "mismatches": 0,
+      "passed": true
+    },
+    "sim_cases": 2048
+  },
+  "reference_score_av": {
+    "av_cases": 1536,
+    "mismatches": 0,
+    "passed": true,
+    "score_cases": 1536,
+    "sequences": 512
+  },
+  "seed": 4104,
+  "status": "passed"
+}

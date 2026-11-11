@@ -1,0 +1,18 @@
+{
+  "decode_fault_injection[rms]": 53,
+  "decode_fault_injection[vec]": 53,
+  "decode_fault_injection[attn]": 53,
+  "decode_fault_injection[attn15]": 53,
+  "decode_fault_injection[qspi]": 53,
+  "decode_synth_ooc[gemv_unit]": 3,
+  "decode_synth_ooc[act_quant]": 3,
+  "decode_synth_ooc[rmsnorm]": 3,
+  "decode_synth_ooc[vec_alu]": 3,
+  "decode_synth_ooc[attention]": 3,
+  "decode_synth_ooc[top_decode_260k]": 4,
+  "decode_synth_ooc[top_decode_15m]": 8,
+  "decode_synth_ooc[qspi_reader]": 3,
+  "decode_synth_ooc[top_decode_15m_qspi]": 9,
+  "boolean_pin_check": 4,
+  "boolean_top_impl": 8
+}

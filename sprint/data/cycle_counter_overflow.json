@@ -1,0 +1,16 @@
+[
+  {
+    "artifact": "15m_big.json",
+    "summary_signed_cycles": -232483942,
+    "derived_cycles": 4062483354,
+    "formula": "round(cycles_per_token_mean * steps)",
+    "signed_modulo_check": true
+  },
+  {
+    "artifact": "15m_big_compact.json",
+    "summary_signed_cycles": -519156838,
+    "derived_cycles": 3775810458,
+    "formula": "round(cycles_per_token_mean * steps)",
+    "signed_modulo_check": true
+  }
+]

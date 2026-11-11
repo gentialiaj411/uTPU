@@ -1,0 +1,5 @@
+{
+  "rtn_weighted_reconstruction_error": 5368491.806753313,
+  "gptq_weighted_reconstruction_error": 5323541.003295122,
+  "gptq_lower_than_rtn": true
+}

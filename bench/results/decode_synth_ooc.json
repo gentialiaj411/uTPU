@@ -1,0 +1,430 @@
+{
+  "rmsnorm": {
+    "part": "xc7s50csga324-1",
+    "period_ns": 20.0,
+    "top": "rmsnorm",
+    "sources": [
+      "rtl/decode/decode_pkg.sv",
+      "rtl/decode/seq_mul.sv",
+      "rtl/decode/rmsnorm.sv"
+    ],
+    "generics": {},
+    "provenance": {
+      "rtl/decode/decode_pkg.sv": "feb1c78dda92aed8916291d0560d96b0c64507922f811b2c11ed0590506bc01d",
+      "rtl/decode/rmsnorm.sv": "58655ec0ece79b10c864b3f87db3e8355d008a1b7bf39c5fb318a2ab4f1c640c",
+      "rtl/decode/seq_mul.sv": "f9aadb368b2fbb784a01e4f771165320bcb75dd04c2a50f8c168be7ff9c38b2d",
+      "tools/decode/synth_ooc.py": "7b1e6103da077f364b261e21ce3fe7d451e43feb867d0c251e14f8c85d736a6a",
+      "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96",
+      "tool:simulator": {
+        "name": "icarus",
+        "version": "Icarus Verilog runtime version 12.0 (devel) (s20150603-1539-g2693dd32b)\n\nCopyright (c) 2001-2021 Stephen Williams (steve@icarus.com)\n\n  This program is free software; you can redistribute it and/or modify\n  it under the terms of the GNU General Public License as published by\n  the Free Software Foundation; either version 2 of the License, or\n  (at your option) any later version.\n\n  This program is distributed in the hope that it will be useful,\n  but WITHOUT ANY WARRANTY; without even the implied warranty of\n  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n  GNU General Public License for more details.\n\n  You should have received a copy of the GNU General Public License along\n  with this program; if not, write to the Free Software Foundation, Inc.,\n  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.",
+        "executable": "C:\\iverilog\\bin\\vvp.exe",
+        "executable_sha256": "e2f442f4d5aa76e55c85c3ff77e4446fbfdb9946b7cfe8a2dff87f275da17b62",
+        "compiler_sha256": "803b8844af2cc8ed70b5f08b07ffa749901280e81339617ca3e72cbbb852bd2b"
+      },
+      "runtime:python": "c0c26871ec1aae748b7914a09c9566d5234775c7a1a2915bf8f401eb6d5cd964",
+      "runtime:numpy": "4b0379678f664340b010747a4ad1436f29a4e92e8b245932f19cec020dff8770"
+    },
+    "lut": 3224.0,
+    "ff": 992.0,
+    "dsp": 12.0,
+    "bram36_equiv": 0.0,
+    "wns_ns": 0.96,
+    "timing_met": true
+  },
+  "vec_alu": {
+    "part": "xc7s50csga324-1",
+    "period_ns": 20.0,
+    "top": "vec_alu",
+    "sources": [
+      "rtl/decode/decode_pkg.sv",
+      "rtl/decode/vec_alu.sv"
+    ],
+    "generics": {},
+    "provenance": {
+      "rtl/decode/decode_pkg.sv": "feb1c78dda92aed8916291d0560d96b0c64507922f811b2c11ed0590506bc01d",
+      "rtl/decode/vec_alu.sv": "5cde195056490d2c34307ace3407ab705f278f7a03b56aca66d3d1d5cdd4b87a",
+      "tools/decode/synth_ooc.py": "7b1e6103da077f364b261e21ce3fe7d451e43feb867d0c251e14f8c85d736a6a",
+      "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96",
+      "tool:simulator": {
+        "name": "icarus",
+        "version": "Icarus Verilog runtime version 12.0 (devel) (s20150603-1539-g2693dd32b)\n\nCopyright (c) 2001-2021 Stephen Williams (steve@icarus.com)\n\n  This program is free software; you can redistribute it and/or modify\n  it under the terms of the GNU General Public License as published by\n  the Free Software Foundation; either version 2 of the License, or\n  (at your option) any later version.\n\n  This program is distributed in the hope that it will be useful,\n  but WITHOUT ANY WARRANTY; without even the implied warranty of\n  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n  GNU General Public License for more details.\n\n  You should have received a copy of the GNU General Public License along\n  with this program; if not, write to the Free Software Foundation, Inc.,\n  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.",
+        "executable": "C:\\iverilog\\bin\\vvp.exe",
+        "executable_sha256": "e2f442f4d5aa76e55c85c3ff77e4446fbfdb9946b7cfe8a2dff87f275da17b62",
+        "compiler_sha256": "803b8844af2cc8ed70b5f08b07ffa749901280e81339617ca3e72cbbb852bd2b"
+      },
+      "runtime:python": "c0c26871ec1aae748b7914a09c9566d5234775c7a1a2915bf8f401eb6d5cd964",
+      "runtime:numpy": "4b0379678f664340b010747a4ad1436f29a4e92e8b245932f19cec020dff8770"
+    },
+    "lut": 4375.0,
+    "ff": 605.0,
+    "dsp": 4.0,
+    "bram36_equiv": 0.0,
+    "wns_ns": 3.366,
+    "timing_met": true
+  },
+  "attention": {
+    "part": "xc7s50csga324-1",
+    "period_ns": 20.0,
+    "top": "attention",
+    "sources": [
+      "rtl/decode/decode_pkg.sv",
+      "rtl/decode/mul_pipe.sv",
+      "rtl/decode/div_const_pipe.sv",
+      "rtl/decode/attention.sv"
+    ],
+    "generics": {},
+    "provenance": {
+      "rtl/decode/attention.sv": "dffafd384c2c1c8f24ff38490fff2edef40dd6e97f6a46ec215895a9f362385d",
+      "rtl/decode/decode_pkg.sv": "feb1c78dda92aed8916291d0560d96b0c64507922f811b2c11ed0590506bc01d",
+      "rtl/decode/div_const_pipe.sv": "a879eeb669a1e37c5ddc9c67b4b73b38a04b416f805884cc981fe5d56ef4eb7c",
+      "rtl/decode/mul_pipe.sv": "635d879b52692ca6c35f579e00a9bc45af2d20ee00c2f486ec52fd528789086d",
+      "tools/decode/synth_ooc.py": "7b1e6103da077f364b261e21ce3fe7d451e43feb867d0c251e14f8c85d736a6a",
+      "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96",
+      "tool:simulator": {
+        "name": "icarus",
+        "version": "Icarus Verilog runtime version 12.0 (devel) (s20150603-1539-g2693dd32b)\n\nCopyright (c) 2001-2021 Stephen Williams (steve@icarus.com)\n\n  This program is free software; you can redistribute it and/or modify\n  it under the terms of the GNU General Public License as published by\n  the Free Software Foundation; either version 2 of the License, or\n  (at your option) any later version.\n\n  This program is distributed in the hope that it will be useful,\n  but WITHOUT ANY WARRANTY; without even the implied warranty of\n  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n  GNU General Public License for more details.\n\n  You should have received a copy of the GNU General Public License along\n  with this program; if not, write to the Free Software Foundation, Inc.,\n  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.",
+        "executable": "C:\\iverilog\\bin\\vvp.exe",
+        "executable_sha256": "e2f442f4d5aa76e55c85c3ff77e4446fbfdb9946b7cfe8a2dff87f275da17b62",
+        "compiler_sha256": "803b8844af2cc8ed70b5f08b07ffa749901280e81339617ca3e72cbbb852bd2b"
+      },
+      "runtime:python": "c0c26871ec1aae748b7914a09c9566d5234775c7a1a2915bf8f401eb6d5cd964",
+      "runtime:numpy": "4b0379678f664340b010747a4ad1436f29a4e92e8b245932f19cec020dff8770"
+    },
+    "lut": 4692.0,
+    "ff": 1913.0,
+    "dsp": 27.0,
+    "bram36_equiv": 8.0,
+    "wns_ns": 2.452,
+    "timing_met": true
+  },
+  "top_decode_260k": {
+    "part": "xc7s50csga324-1",
+    "period_ns": 20.0,
+    "top": "top_decode",
+    "sources": [
+      "rtl/decode/decode_pkg.sv",
+      "rtl/decode/seq_mul.sv",
+      "rtl/decode/mul_pipe.sv",
+      "rtl/decode/div_const_pipe.sv",
+      "rtl/decode/gemv_unit.sv",
+      "rtl/decode/act_quant.sv",
+      "rtl/decode/rmsnorm.sv",
+      "rtl/decode/vec_alu.sv",
+      "rtl/decode/attention.sv",
+      "rtl/decode/top_decode.sv"
+    ],
+    "generics": {},
+    "provenance": {
+      "rtl/decode/act_quant.sv": "ba7a58c2d414fea72e239718a8ae438ff54a489260af31978b416625c9e37c44",
+      "rtl/decode/attention.sv": "dffafd384c2c1c8f24ff38490fff2edef40dd6e97f6a46ec215895a9f362385d",
+      "rtl/decode/decode_pkg.sv": "feb1c78dda92aed8916291d0560d96b0c64507922f811b2c11ed0590506bc01d",
+      "rtl/decode/div_const_pipe.sv": "a879eeb669a1e37c5ddc9c67b4b73b38a04b416f805884cc981fe5d56ef4eb7c",
+      "rtl/decode/gemv_unit.sv": "428ba02cbd61fbe1742cc7f4e28efcdc4dd1aad2cecb63167ac200e7764491bc",
+      "rtl/decode/mul_pipe.sv": "635d879b52692ca6c35f579e00a9bc45af2d20ee00c2f486ec52fd528789086d",
+      "rtl/decode/rmsnorm.sv": "58655ec0ece79b10c864b3f87db3e8355d008a1b7bf39c5fb318a2ab4f1c640c",
+      "rtl/decode/seq_mul.sv": "f9aadb368b2fbb784a01e4f771165320bcb75dd04c2a50f8c168be7ff9c38b2d",
+      "rtl/decode/top_decode.sv": "ed235a06192186d398811df9828225015e36620ae63c9fac012280bea9aac37d",
+      "rtl/decode/vec_alu.sv": "5cde195056490d2c34307ace3407ab705f278f7a03b56aca66d3d1d5cdd4b87a",
+      "tools/decode/synth_ooc.py": "7b1e6103da077f364b261e21ce3fe7d451e43feb867d0c251e14f8c85d736a6a",
+      "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96",
+      "tool:simulator": {
+        "name": "icarus",
+        "version": "Icarus Verilog runtime version 12.0 (devel) (s20150603-1539-g2693dd32b)\n\nCopyright (c) 2001-2021 Stephen Williams (steve@icarus.com)\n\n  This program is free software; you can redistribute it and/or modify\n  it under the terms of the GNU General Public License as published by\n  the Free Software Foundation; either version 2 of the License, or\n  (at your option) any later version.\n\n  This program is distributed in the hope that it will be useful,\n  but WITHOUT ANY WARRANTY; without even the implied warranty of\n  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n  GNU General Public License for more details.\n\n  You should have received a copy of the GNU General Public License along\n  with this program; if not, write to the Free Software Foundation, Inc.,\n  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.",
+        "executable": "C:\\iverilog\\bin\\vvp.exe",
+        "executable_sha256": "e2f442f4d5aa76e55c85c3ff77e4446fbfdb9946b7cfe8a2dff87f275da17b62",
+        "compiler_sha256": "803b8844af2cc8ed70b5f08b07ffa749901280e81339617ca3e72cbbb852bd2b"
+      },
+      "runtime:python": "c0c26871ec1aae748b7914a09c9566d5234775c7a1a2915bf8f401eb6d5cd964",
+      "runtime:numpy": "4b0379678f664340b010747a4ad1436f29a4e92e8b245932f19cec020dff8770"
+    },
+    "lut": 15513.0,
+    "ff": 7002.0,
+    "dsp": 73.0,
+    "bram36_equiv": 12.0,
+    "wns_ns": 0.826,
+    "timing_met": true
+  },
+  "gemv_unit": {
+    "part": "xc7s50csga324-1",
+    "period_ns": 20.0,
+    "top": "decode_gemv_unit",
+    "sources": [
+      "rtl/decode/gemv_unit.sv"
+    ],
+    "generics": {},
+    "provenance": {
+      "rtl/decode/gemv_unit.sv": "428ba02cbd61fbe1742cc7f4e28efcdc4dd1aad2cecb63167ac200e7764491bc",
+      "tools/decode/synth_ooc.py": "7b1e6103da077f364b261e21ce3fe7d451e43feb867d0c251e14f8c85d736a6a",
+      "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96",
+      "tool:simulator": {
+        "name": "icarus",
+        "version": "Icarus Verilog runtime version 12.0 (devel) (s20150603-1539-g2693dd32b)\n\nCopyright (c) 2001-2021 Stephen Williams (steve@icarus.com)\n\n  This program is free software; you can redistribute it and/or modify\n  it under the terms of the GNU General Public License as published by\n  the Free Software Foundation; either version 2 of the License, or\n  (at your option) any later version.\n\n  This program is distributed in the hope that it will be useful,\n  but WITHOUT ANY WARRANTY; without even the implied warranty of\n  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n  GNU General Public License for more details.\n\n  You should have received a copy of the GNU General Public License along\n  with this program; if not, write to the Free Software Foundation, Inc.,\n  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.",
+        "executable": "C:\\iverilog\\bin\\vvp.exe",
+        "executable_sha256": "e2f442f4d5aa76e55c85c3ff77e4446fbfdb9946b7cfe8a2dff87f275da17b62",
+        "compiler_sha256": "803b8844af2cc8ed70b5f08b07ffa749901280e81339617ca3e72cbbb852bd2b"
+      },
+      "runtime:python": "c0c26871ec1aae748b7914a09c9566d5234775c7a1a2915bf8f401eb6d5cd964",
+      "runtime:numpy": "4b0379678f664340b010747a4ad1436f29a4e92e8b245932f19cec020dff8770"
+    },
+    "lut": 4953.0,
+    "ff": 2499.0,
+    "dsp": 25.0,
+    "bram36_equiv": 0.0,
+    "wns_ns": 1.87,
+    "timing_met": true
+  },
+  "act_quant": {
+    "part": "xc7s50csga324-1",
+    "period_ns": 20.0,
+    "top": "act_quant",
+    "sources": [
+      "rtl/decode/act_quant.sv"
+    ],
+    "generics": {},
+    "provenance": {
+      "rtl/decode/act_quant.sv": "ba7a58c2d414fea72e239718a8ae438ff54a489260af31978b416625c9e37c44",
+      "tools/decode/synth_ooc.py": "7b1e6103da077f364b261e21ce3fe7d451e43feb867d0c251e14f8c85d736a6a",
+      "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96",
+      "tool:simulator": {
+        "name": "icarus",
+        "version": "Icarus Verilog runtime version 12.0 (devel) (s20150603-1539-g2693dd32b)\n\nCopyright (c) 2001-2021 Stephen Williams (steve@icarus.com)\n\n  This program is free software; you can redistribute it and/or modify\n  it under the terms of the GNU General Public License as published by\n  the Free Software Foundation; either version 2 of the License, or\n  (at your option) any later version.\n\n  This program is distributed in the hope that it will be useful,\n  but WITHOUT ANY WARRANTY; without even the implied warranty of\n  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n  GNU General Public License for more details.\n\n  You should have received a copy of the GNU General Public License along\n  with this program; if not, write to the Free Software Foundation, Inc.,\n  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.",
+        "executable": "C:\\iverilog\\bin\\vvp.exe",
+        "executable_sha256": "e2f442f4d5aa76e55c85c3ff77e4446fbfdb9946b7cfe8a2dff87f275da17b62",
+        "compiler_sha256": "803b8844af2cc8ed70b5f08b07ffa749901280e81339617ca3e72cbbb852bd2b"
+      },
+      "runtime:python": "c0c26871ec1aae748b7914a09c9566d5234775c7a1a2915bf8f401eb6d5cd964",
+      "runtime:numpy": "4b0379678f664340b010747a4ad1436f29a4e92e8b245932f19cec020dff8770"
+    },
+    "lut": 477.0,
+    "ff": 203.0,
+    "dsp": 4.0,
+    "bram36_equiv": 0.0,
+    "wns_ns": 5.058,
+    "timing_met": true
+  },
+  "top_decode_15m": {
+    "part": "xc7s50csga324-1",
+    "period_ns": 20.0,
+    "top": "top_decode_15m",
+    "sources": [
+      "rtl/decode/decode_pkg.sv",
+      "rtl/decode/seq_mul.sv",
+      "rtl/decode/mul_pipe.sv",
+      "rtl/decode/div_const_pipe.sv",
+      "rtl/decode/gemv_unit.sv",
+      "rtl/decode/act_quant.sv",
+      "rtl/decode/rmsnorm.sv",
+      "rtl/decode/vec_alu.sv",
+      "rtl/decode/attention.sv",
+      "rtl/decode/top_decode.sv",
+      "build/decode/top_decode_15m_wrap.sv"
+    ],
+    "generics": {},
+    "provenance": {
+      "build/decode/decode_image_15m/params.json": "f097060b246263b7331bc38d81471d18351972c2b3203801d57af4efe90c9bfe",
+      "build/decode/top_decode_15m_wrap.sv": "e9ffac856f37d5ab76fd6c82cd3f85d63b17466010ca98778127b5e88b970bc2",
+      "rtl/decode/act_quant.sv": "ba7a58c2d414fea72e239718a8ae438ff54a489260af31978b416625c9e37c44",
+      "rtl/decode/attention.sv": "dffafd384c2c1c8f24ff38490fff2edef40dd6e97f6a46ec215895a9f362385d",
+      "rtl/decode/decode_pkg.sv": "feb1c78dda92aed8916291d0560d96b0c64507922f811b2c11ed0590506bc01d",
+      "rtl/decode/div_const_pipe.sv": "a879eeb669a1e37c5ddc9c67b4b73b38a04b416f805884cc981fe5d56ef4eb7c",
+      "rtl/decode/gemv_unit.sv": "428ba02cbd61fbe1742cc7f4e28efcdc4dd1aad2cecb63167ac200e7764491bc",
+      "rtl/decode/mul_pipe.sv": "635d879b52692ca6c35f579e00a9bc45af2d20ee00c2f486ec52fd528789086d",
+      "rtl/decode/rmsnorm.sv": "58655ec0ece79b10c864b3f87db3e8355d008a1b7bf39c5fb318a2ab4f1c640c",
+      "rtl/decode/seq_mul.sv": "f9aadb368b2fbb784a01e4f771165320bcb75dd04c2a50f8c168be7ff9c38b2d",
+      "rtl/decode/top_decode.sv": "ed235a06192186d398811df9828225015e36620ae63c9fac012280bea9aac37d",
+      "rtl/decode/vec_alu.sv": "5cde195056490d2c34307ace3407ab705f278f7a03b56aca66d3d1d5cdd4b87a",
+      "tools/decode/gen_15m_wrap.py": "ee0410450723cf182acffc8e3ce7447686b62ba8fff4a24ceaee760bab1dde21",
+      "tools/decode/pack_decode_image.py": "525ab2e8a4c588a7d92ecc330bf98aa4420092607ec8237b5108bd78507d09b7",
+      "tools/decode/synth_ooc.py": "7b1e6103da077f364b261e21ce3fe7d451e43feb867d0c251e14f8c85d736a6a",
+      "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96",
+      "tool:simulator": {
+        "name": "icarus",
+        "version": "Icarus Verilog runtime version 12.0 (devel) (s20150603-1539-g2693dd32b)\n\nCopyright (c) 2001-2021 Stephen Williams (steve@icarus.com)\n\n  This program is free software; you can redistribute it and/or modify\n  it under the terms of the GNU General Public License as published by\n  the Free Software Foundation; either version 2 of the License, or\n  (at your option) any later version.\n\n  This program is distributed in the hope that it will be useful,\n  but WITHOUT ANY WARRANTY; without even the implied warranty of\n  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n  GNU General Public License for more details.\n\n  You should have received a copy of the GNU General Public License along\n  with this program; if not, write to the Free Software Foundation, Inc.,\n  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.",
+        "executable": "C:\\iverilog\\bin\\vvp.exe",
+        "executable_sha256": "e2f442f4d5aa76e55c85c3ff77e4446fbfdb9946b7cfe8a2dff87f275da17b62",
+        "compiler_sha256": "803b8844af2cc8ed70b5f08b07ffa749901280e81339617ca3e72cbbb852bd2b"
+      },
+      "runtime:python": "c0c26871ec1aae748b7914a09c9566d5234775c7a1a2915bf8f401eb6d5cd964",
+      "runtime:numpy": "4b0379678f664340b010747a4ad1436f29a4e92e8b245932f19cec020dff8770"
+    },
+    "lut": 20300.0,
+    "ff": 9221.0,
+    "dsp": 73.0,
+    "bram36_equiv": 67.0,
+    "wns_ns": 1.344,
+    "timing_met": true
+  },
+  "qspi_reader": {
+    "part": "xc7s50csga324-1",
+    "period_ns": 20.0,
+    "top": "qspi_reader",
+    "sources": [
+      "rtl/decode/qspi_reader.sv"
+    ],
+    "generics": {},
+    "provenance": {
+      "rtl/decode/qspi_reader.sv": "c46d66cb17c9d0423a740bb41732e3059623b604bb23d79b58e7352cc2e3f6c5",
+      "tools/decode/synth_ooc.py": "7b1e6103da077f364b261e21ce3fe7d451e43feb867d0c251e14f8c85d736a6a",
+      "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96",
+      "tool:simulator": {
+        "name": "icarus",
+        "version": "Icarus Verilog runtime version 12.0 (devel) (s20150603-1539-g2693dd32b)\n\nCopyright (c) 2001-2021 Stephen Williams (steve@icarus.com)\n\n  This program is free software; you can redistribute it and/or modify\n  it under the terms of the GNU General Public License as published by\n  the Free Software Foundation; either version 2 of the License, or\n  (at your option) any later version.\n\n  This program is distributed in the hope that it will be useful,\n  but WITHOUT ANY WARRANTY; without even the implied warranty of\n  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n  GNU General Public License for more details.\n\n  You should have received a copy of the GNU General Public License along\n  with this program; if not, write to the Free Software Foundation, Inc.,\n  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.",
+        "executable": "C:\\iverilog\\bin\\vvp.exe",
+        "executable_sha256": "e2f442f4d5aa76e55c85c3ff77e4446fbfdb9946b7cfe8a2dff87f275da17b62",
+        "compiler_sha256": "803b8844af2cc8ed70b5f08b07ffa749901280e81339617ca3e72cbbb852bd2b"
+      },
+      "runtime:python": "c0c26871ec1aae748b7914a09c9566d5234775c7a1a2915bf8f401eb6d5cd964",
+      "runtime:numpy": "4b0379678f664340b010747a4ad1436f29a4e92e8b245932f19cec020dff8770"
+    },
+    "lut": 65.0,
+    "ff": 98.0,
+    "dsp": 0.0,
+    "bram36_equiv": 0.0,
+    "wns_ns": 15.005,
+    "timing_met": true
+  },
+  "top_decode_15m_qspi": {
+    "part": "xc7s50csga324-1",
+    "period_ns": 20.0,
+    "top": "top_decode_15m_qspi",
+    "sources": [
+      "rtl/decode/decode_pkg.sv",
+      "rtl/decode/seq_mul.sv",
+      "rtl/decode/mul_pipe.sv",
+      "rtl/decode/div_const_pipe.sv",
+      "rtl/decode/gemv_unit.sv",
+      "rtl/decode/act_quant.sv",
+      "rtl/decode/rmsnorm.sv",
+      "rtl/decode/vec_alu.sv",
+      "rtl/decode/attention.sv",
+      "rtl/decode/top_decode.sv",
+      "rtl/decode/qspi_reader.sv",
+      "build/decode/top_decode_15m_qspi_wrap.sv"
+    ],
+    "generics": {},
+    "provenance": {
+      "build/decode/decode_image_15m/params.json": "f097060b246263b7331bc38d81471d18351972c2b3203801d57af4efe90c9bfe",
+      "build/decode/top_decode_15m_qspi_wrap.sv": "0c156e0bd3f185cf12f8e7d0ead3736ed6d1c30fb78ef16957655bcac96a74b4",
+      "build/decode/top_decode_15m_wrap.sv": "e9ffac856f37d5ab76fd6c82cd3f85d63b17466010ca98778127b5e88b970bc2",
+      "rtl/decode/act_quant.sv": "ba7a58c2d414fea72e239718a8ae438ff54a489260af31978b416625c9e37c44",
+      "rtl/decode/attention.sv": "dffafd384c2c1c8f24ff38490fff2edef40dd6e97f6a46ec215895a9f362385d",
+      "rtl/decode/decode_pkg.sv": "feb1c78dda92aed8916291d0560d96b0c64507922f811b2c11ed0590506bc01d",
+      "rtl/decode/div_const_pipe.sv": "a879eeb669a1e37c5ddc9c67b4b73b38a04b416f805884cc981fe5d56ef4eb7c",
+      "rtl/decode/gemv_unit.sv": "428ba02cbd61fbe1742cc7f4e28efcdc4dd1aad2cecb63167ac200e7764491bc",
+      "rtl/decode/mul_pipe.sv": "635d879b52692ca6c35f579e00a9bc45af2d20ee00c2f486ec52fd528789086d",
+      "rtl/decode/qspi_reader.sv": "c46d66cb17c9d0423a740bb41732e3059623b604bb23d79b58e7352cc2e3f6c5",
+      "rtl/decode/rmsnorm.sv": "58655ec0ece79b10c864b3f87db3e8355d008a1b7bf39c5fb318a2ab4f1c640c",
+      "rtl/decode/seq_mul.sv": "f9aadb368b2fbb784a01e4f771165320bcb75dd04c2a50f8c168be7ff9c38b2d",
+      "rtl/decode/top_decode.sv": "ed235a06192186d398811df9828225015e36620ae63c9fac012280bea9aac37d",
+      "rtl/decode/vec_alu.sv": "5cde195056490d2c34307ace3407ab705f278f7a03b56aca66d3d1d5cdd4b87a",
+      "tools/decode/gen_15m_wrap.py": "ee0410450723cf182acffc8e3ce7447686b62ba8fff4a24ceaee760bab1dde21",
+      "tools/decode/gen_qspi_wrap.py": "3ad4fdb4acfd25aef3c538e585cf3eb161681431604e0670e3b4e469995ce246",
+      "tools/decode/pack_decode_image.py": "525ab2e8a4c588a7d92ecc330bf98aa4420092607ec8237b5108bd78507d09b7",
+      "tools/decode/synth_ooc.py": "7b1e6103da077f364b261e21ce3fe7d451e43feb867d0c251e14f8c85d736a6a",
+      "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96",
+      "tool:simulator": {
+        "name": "icarus",
+        "version": "Icarus Verilog runtime version 12.0 (devel) (s20150603-1539-g2693dd32b)\n\nCopyright (c) 2001-2021 Stephen Williams (steve@icarus.com)\n\n  This program is free software; you can redistribute it and/or modify\n  it under the terms of the GNU General Public License as published by\n  the Free Software Foundation; either version 2 of the License, or\n  (at your option) any later version.\n\n  This program is distributed in the hope that it will be useful,\n  but WITHOUT ANY WARRANTY; without even the implied warranty of\n  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n  GNU General Public License for more details.\n\n  You should have received a copy of the GNU General Public License along\n  with this program; if not, write to the Free Software Foundation, Inc.,\n  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.",
+        "executable": "C:\\iverilog\\bin\\vvp.exe",
+        "executable_sha256": "e2f442f4d5aa76e55c85c3ff77e4446fbfdb9946b7cfe8a2dff87f275da17b62",
+        "compiler_sha256": "803b8844af2cc8ed70b5f08b07ffa749901280e81339617ca3e72cbbb852bd2b"
+      },
+      "runtime:python": "c0c26871ec1aae748b7914a09c9566d5234775c7a1a2915bf8f401eb6d5cd964",
+      "runtime:numpy": "4b0379678f664340b010747a4ad1436f29a4e92e8b245932f19cec020dff8770"
+    },
+    "lut": 20371.0,
+    "ff": 9316.0,
+    "dsp": 73.0,
+    "bram36_equiv": 67.0,
+    "wns_ns": 0.511,
+    "timing_met": true
+  },
+  "qspi_reader_ddr": {
+    "part": "xc7s50csga324-1",
+    "period_ns": 20.0,
+    "top": "qspi_reader",
+    "sources": [
+      "rtl/decode/qspi_reader.sv"
+    ],
+    "generics": {
+      "DDR": "1"
+    },
+    "provenance": {
+      "rtl/decode/qspi_reader.sv": "c46d66cb17c9d0423a740bb41732e3059623b604bb23d79b58e7352cc2e3f6c5",
+      "tools/decode/synth_ooc.py": "7b1e6103da077f364b261e21ce3fe7d451e43feb867d0c251e14f8c85d736a6a",
+      "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96",
+      "tool:simulator": {
+        "name": "icarus",
+        "version": "Icarus Verilog runtime version 12.0 (devel) (s20150603-1539-g2693dd32b)\n\nCopyright (c) 2001-2021 Stephen Williams (steve@icarus.com)\n\n  This program is free software; you can redistribute it and/or modify\n  it under the terms of the GNU General Public License as published by\n  the Free Software Foundation; either version 2 of the License, or\n  (at your option) any later version.\n\n  This program is distributed in the hope that it will be useful,\n  but WITHOUT ANY WARRANTY; without even the implied warranty of\n  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n  GNU General Public License for more details.\n\n  You should have received a copy of the GNU General Public License along\n  with this program; if not, write to the Free Software Foundation, Inc.,\n  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.",
+        "executable": "C:\\iverilog\\bin\\vvp.exe",
+        "executable_sha256": "e2f442f4d5aa76e55c85c3ff77e4446fbfdb9946b7cfe8a2dff87f275da17b62",
+        "compiler_sha256": "803b8844af2cc8ed70b5f08b07ffa749901280e81339617ca3e72cbbb852bd2b"
+      },
+      "runtime:python": "c0c26871ec1aae748b7914a09c9566d5234775c7a1a2915bf8f401eb6d5cd964",
+      "runtime:numpy": "4b0379678f664340b010747a4ad1436f29a4e92e8b245932f19cec020dff8770"
+    },
+    "lut": 114.0,
+    "ff": 145.0,
+    "dsp": 0.0,
+    "bram36_equiv": 0.0,
+    "wns_ns": 13.988,
+    "timing_met": true
+  },
+  "top_decode_15m_qspi_ddr": {
+    "part": "xc7s50csga324-1",
+    "period_ns": 20.0,
+    "top": "top_decode_15m_qspi_ddr",
+    "sources": [
+      "rtl/decode/decode_pkg.sv",
+      "rtl/decode/seq_mul.sv",
+      "rtl/decode/mul_pipe.sv",
+      "rtl/decode/div_const_pipe.sv",
+      "rtl/decode/gemv_unit.sv",
+      "rtl/decode/act_quant.sv",
+      "rtl/decode/rmsnorm.sv",
+      "rtl/decode/vec_alu.sv",
+      "rtl/decode/attention.sv",
+      "rtl/decode/top_decode.sv",
+      "rtl/decode/qspi_reader.sv",
+      "build/decode/top_decode_15m_qspi_ddr_wrap.sv"
+    ],
+    "generics": {},
+    "provenance": {
+      "build/decode/decode_image_15m/params.json": "f097060b246263b7331bc38d81471d18351972c2b3203801d57af4efe90c9bfe",
+      "build/decode/top_decode_15m_qspi_ddr_wrap.sv": "27f2620d37784a9190e703790e840111bd9a94f7029175ef31e57bc077928bcb",
+      "build/decode/top_decode_15m_wrap.sv": "e9ffac856f37d5ab76fd6c82cd3f85d63b17466010ca98778127b5e88b970bc2",
+      "rtl/decode/act_quant.sv": "ba7a58c2d414fea72e239718a8ae438ff54a489260af31978b416625c9e37c44",
+      "rtl/decode/attention.sv": "dffafd384c2c1c8f24ff38490fff2edef40dd6e97f6a46ec215895a9f362385d",
+      "rtl/decode/decode_pkg.sv": "feb1c78dda92aed8916291d0560d96b0c64507922f811b2c11ed0590506bc01d",
+      "rtl/decode/div_const_pipe.sv": "a879eeb669a1e37c5ddc9c67b4b73b38a04b416f805884cc981fe5d56ef4eb7c",
+      "rtl/decode/gemv_unit.sv": "428ba02cbd61fbe1742cc7f4e28efcdc4dd1aad2cecb63167ac200e7764491bc",
+      "rtl/decode/mul_pipe.sv": "635d879b52692ca6c35f579e00a9bc45af2d20ee00c2f486ec52fd528789086d",
+      "rtl/decode/qspi_reader.sv": "c46d66cb17c9d0423a740bb41732e3059623b604bb23d79b58e7352cc2e3f6c5",
+      "rtl/decode/rmsnorm.sv": "58655ec0ece79b10c864b3f87db3e8355d008a1b7bf39c5fb318a2ab4f1c640c",
+      "rtl/decode/seq_mul.sv": "f9aadb368b2fbb784a01e4f771165320bcb75dd04c2a50f8c168be7ff9c38b2d",
+      "rtl/decode/top_decode.sv": "ed235a06192186d398811df9828225015e36620ae63c9fac012280bea9aac37d",
+      "rtl/decode/vec_alu.sv": "5cde195056490d2c34307ace3407ab705f278f7a03b56aca66d3d1d5cdd4b87a",
+      "tools/decode/gen_15m_wrap.py": "ee0410450723cf182acffc8e3ce7447686b62ba8fff4a24ceaee760bab1dde21",
+      "tools/decode/gen_qspi_wrap.py": "3ad4fdb4acfd25aef3c538e585cf3eb161681431604e0670e3b4e469995ce246",
+      "tools/decode/pack_decode_image.py": "525ab2e8a4c588a7d92ecc330bf98aa4420092607ec8237b5108bd78507d09b7",
+      "tools/decode/synth_ooc.py": "7b1e6103da077f364b261e21ce3fe7d451e43feb867d0c251e14f8c85d736a6a",
+      "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96",
+      "tool:simulator": {
+        "name": "icarus",
+        "version": "Icarus Verilog runtime version 12.0 (devel) (s20150603-1539-g2693dd32b)\n\nCopyright (c) 2001-2021 Stephen Williams (steve@icarus.com)\n\n  This program is free software; you can redistribute it and/or modify\n  it under the terms of the GNU General Public License as published by\n  the Free Software Foundation; either version 2 of the License, or\n  (at your option) any later version.\n\n  This program is distributed in the hope that it will be useful,\n  but WITHOUT ANY WARRANTY; without even the implied warranty of\n  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n  GNU General Public License for more details.\n\n  You should have received a copy of the GNU General Public License along\n  with this program; if not, write to the Free Software Foundation, Inc.,\n  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.",
+        "executable": "C:\\iverilog\\bin\\vvp.exe",
+        "executable_sha256": "e2f442f4d5aa76e55c85c3ff77e4446fbfdb9946b7cfe8a2dff87f275da17b62",
+        "compiler_sha256": "803b8844af2cc8ed70b5f08b07ffa749901280e81339617ca3e72cbbb852bd2b"
+      },
+      "runtime:python": "c0c26871ec1aae748b7914a09c9566d5234775c7a1a2915bf8f401eb6d5cd964",
+      "runtime:numpy": "4b0379678f664340b010747a4ad1436f29a4e92e8b245932f19cec020dff8770"
+    },
+    "lut": 20413.0,
+    "ff": 9363.0,
+    "dsp": 73.0,
+    "bram36_equiv": 67.0,
+    "wns_ns": 0.743,
+    "timing_met": true
+  }
+}

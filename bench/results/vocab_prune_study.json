@@ -1,0 +1,771 @@
+{
+  "maps": {
+    "status": "MEASURED",
+    "tokenizer": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\models\\llama2c\\tokenizer.bin",
+    "tokenizer_sha256": "50a52ef822ee9e83de5ce9d0be0a025a773d019437f58b5ff9dcafb063ece361",
+    "train_sample": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU-codesign\\build\\codesign\\data\\train_sample_256MiB.txt",
+    "train_sample_bytes": 268435178,
+    "train_sample_sha256": "25943627765881018888a7f8a44174fc91450ee20c208535bd10e93ff9e55dbf",
+    "token_occurrences": 71013221,
+    "distinct_tokens": 11468,
+    "maps": {
+      "2048": {
+        "path": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\tools\\vocabprune\\idmaps\\idmap_2048.json",
+        "top_frequency_rows": [
+          {
+            "original_id": 29889,
+            "count": 5031220
+          },
+          {
+            "original_id": 29892,
+            "count": 2811229
+          },
+          {
+            "original_id": 278,
+            "count": 2511228
+          },
+          {
+            "original_id": 322,
+            "count": 2345523
+          },
+          {
+            "original_id": 304,
+            "count": 1990424
+          },
+          {
+            "original_id": 263,
+            "count": 1842183
+          },
+          {
+            "original_id": 471,
+            "count": 1287659
+          },
+          {
+            "original_id": 2688,
+            "count": 626259
+          },
+          {
+            "original_id": 372,
+            "count": 618900
+          },
+          {
+            "original_id": 940,
+            "count": 582594
+          }
+        ],
+        "kept_rows": 2048
+      },
+      "4096": {
+        "path": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\tools\\vocabprune\\idmaps\\idmap_4096.json",
+        "top_frequency_rows": [
+          {
+            "original_id": 29889,
+            "count": 5031220
+          },
+          {
+            "original_id": 29892,
+            "count": 2811229
+          },
+          {
+            "original_id": 278,
+            "count": 2511228
+          },
+          {
+            "original_id": 322,
+            "count": 2345523
+          },
+          {
+            "original_id": 304,
+            "count": 1990424
+          },
+          {
+            "original_id": 263,
+            "count": 1842183
+          },
+          {
+            "original_id": 471,
+            "count": 1287659
+          },
+          {
+            "original_id": 2688,
+            "count": 626259
+          },
+          {
+            "original_id": 372,
+            "count": 618900
+          },
+          {
+            "original_id": 940,
+            "count": 582594
+          }
+        ],
+        "kept_rows": 4096
+      },
+      "6144": {
+        "path": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\tools\\vocabprune\\idmaps\\idmap_6144.json",
+        "top_frequency_rows": [
+          {
+            "original_id": 29889,
+            "count": 5031220
+          },
+          {
+            "original_id": 29892,
+            "count": 2811229
+          },
+          {
+            "original_id": 278,
+            "count": 2511228
+          },
+          {
+            "original_id": 322,
+            "count": 2345523
+          },
+          {
+            "original_id": 304,
+            "count": 1990424
+          },
+          {
+            "original_id": 263,
+            "count": 1842183
+          },
+          {
+            "original_id": 471,
+            "count": 1287659
+          },
+          {
+            "original_id": 2688,
+            "count": 626259
+          },
+          {
+            "original_id": 372,
+            "count": 618900
+          },
+          {
+            "original_id": 940,
+            "count": 582594
+          }
+        ],
+        "kept_rows": 6144
+      },
+      "8192": {
+        "path": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\tools\\vocabprune\\idmaps\\idmap_8192.json",
+        "top_frequency_rows": [
+          {
+            "original_id": 29889,
+            "count": 5031220
+          },
+          {
+            "original_id": 29892,
+            "count": 2811229
+          },
+          {
+            "original_id": 278,
+            "count": 2511228
+          },
+          {
+            "original_id": 322,
+            "count": 2345523
+          },
+          {
+            "original_id": 304,
+            "count": 1990424
+          },
+          {
+            "original_id": 263,
+            "count": 1842183
+          },
+          {
+            "original_id": 471,
+            "count": 1287659
+          },
+          {
+            "original_id": 2688,
+            "count": 626259
+          },
+          {
+            "original_id": 372,
+            "count": 618900
+          },
+          {
+            "original_id": 940,
+            "count": 582594
+          }
+        ],
+        "kept_rows": 8192
+      }
+    }
+  },
+  "eval": {
+    "path": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU-codesign\\build\\codesign\\eval_text.txt",
+    "sha256": "c8191cfe5a461bc825b3e3326a2921dfe978a63878b4c14547033b7217adea17",
+    "bytes": 261818,
+    "documents": 323,
+    "fallback": {
+      "2048": {
+        "fallback_tokens": 2508,
+        "original_tokens": 69534,
+        "fraction": 0.036068685822762965
+      },
+      "4096": {
+        "fallback_tokens": 249,
+        "original_tokens": 69534,
+        "fraction": 0.0035809819656570886
+      },
+      "6144": {
+        "fallback_tokens": 32,
+        "original_tokens": 69534,
+        "fraction": 0.00046020651767480656
+      },
+      "8192": {
+        "fallback_tokens": 5,
+        "original_tokens": 69534,
+        "fraction": 7.190726838668853e-05
+      }
+    }
+  },
+  "hardware": {
+    "status": "DERIVED",
+    "default_pack_sha256_before": "d0ac5863710ddec7f9b3cc2d9b526c1070fb7ecf3b07f656373dfdd0aca95541",
+    "default_pack_sha256_after": "d0ac5863710ddec7f9b3cc2d9b526c1070fb7ecf3b07f656373dfdd0aca95541",
+    "default_pack_byte_identical": true,
+    "baseline": {
+      "image_bytes": 12124224,
+      "stream_bytes_per_token": 10684413,
+      "stream_cycles_per_token": 21368826.0,
+      "compute_cycles_measured": 12338619,
+      "classifier_cycles_measured_from_rtl_schedule": 6130002,
+      "non_classifier_cycles_measured_from_rtl_schedule": 6208617,
+      "limiting_cycles_per_token": 21368826.0,
+      "predicted_tok_s": 2.3398571358108304
+    },
+    "candidates": {
+      "2048": {
+        "status": "DERIVED",
+        "image_path": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\vocabprune\\vocab_2048.image.bin",
+        "image_sha256": "5ba2472b43512f7c7bd1ae1819782e8e178dbdaa23263b3801d199737634af8f",
+        "image_bytes": 5654592,
+        "stream_bytes_per_token": 5562621,
+        "stream_cycles_per_token_at_0_5B_cycle": 11125242.0,
+        "stream_bound_tok_s_at_50MHz": 4.494284259164879,
+        "classifier_cycles_estimate": 392320.128,
+        "non_classifier_cycles_measured": 6208617,
+        "compute_cycles_estimate": 6600937.1280000005,
+        "limiting_cycles_per_token": 11125242.0,
+        "predicted_tok_s": 4.494284259164879,
+        "speedup_vs_unpruned_stream": 1.9207515665726642,
+        "params": {
+          "D": 288,
+          "H": 768,
+          "NL": 6,
+          "NH": 6,
+          "NKV": 6,
+          "HS": 48,
+          "VOCAB": 2048,
+          "CLS_BASE": 0,
+          "EMB_SCALE_BASE": 350208,
+          "LAYERS_BASE": 442368,
+          "IMAGE_BYTES": 5654592,
+          "CLS4": 1,
+          "WQ4": 0,
+          "WK4": 0,
+          "WV4": 0,
+          "WO4": 0,
+          "W14": 1,
+          "W34": 1,
+          "W24": 0,
+          "CLS_TILE_BYTES": 2736,
+          "CLS_KB": 144,
+          "CLS_G": 9,
+          "RECIP_D": 14913081,
+          "GFB": 12,
+          "NORM_MULT": 828896808,
+          "NORM_SHIFT": 34,
+          "EPS": 1034,
+          "SILU_MULT": 884304146,
+          "SILU_SHIFT": 37,
+          "SWIGLU_MULT": 742221392,
+          "SWIGLU_SHIFT": 43,
+          "SCORE_MULT": 801779553,
+          "SCORE_SHIFT": 50
+        }
+      },
+      "4096": {
+        "status": "DERIVED",
+        "image_path": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\vocabprune\\vocab_4096.image.bin",
+        "image_sha256": "642b31c07755844fd633158437edd24a61cea74758ac8ba1d13def0a6826ab0a",
+        "image_bytes": 6096960,
+        "stream_bytes_per_token": 5912829,
+        "stream_cycles_per_token_at_0_5B_cycle": 11825658.0,
+        "stream_bound_tok_s_at_50MHz": 4.228094538164388,
+        "classifier_cycles_estimate": 784640.256,
+        "non_classifier_cycles_measured": 6208617,
+        "compute_cycles_estimate": 6993257.256,
+        "limiting_cycles_per_token": 11825658.0,
+        "predicted_tok_s": 4.228094538164388,
+        "speedup_vs_unpruned_stream": 1.8069883299517033,
+        "params": {
+          "D": 288,
+          "H": 768,
+          "NL": 6,
+          "NH": 6,
+          "NKV": 6,
+          "HS": 48,
+          "VOCAB": 4096,
+          "CLS_BASE": 0,
+          "EMB_SCALE_BASE": 700416,
+          "LAYERS_BASE": 884736,
+          "IMAGE_BYTES": 6096960,
+          "CLS4": 1,
+          "WQ4": 0,
+          "WK4": 0,
+          "WV4": 0,
+          "WO4": 0,
+          "W14": 1,
+          "W34": 1,
+          "W24": 0,
+          "CLS_TILE_BYTES": 2736,
+          "CLS_KB": 144,
+          "CLS_G": 9,
+          "RECIP_D": 14913081,
+          "GFB": 12,
+          "NORM_MULT": 828896808,
+          "NORM_SHIFT": 34,
+          "EPS": 1034,
+          "SILU_MULT": 884304146,
+          "SILU_SHIFT": 37,
+          "SWIGLU_MULT": 742221392,
+          "SWIGLU_SHIFT": 43,
+          "SCORE_MULT": 801779553,
+          "SCORE_SHIFT": 50
+        }
+      },
+      "6144": {
+        "status": "DERIVED",
+        "image_path": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\vocabprune\\vocab_6144.image.bin",
+        "image_sha256": "bb868b9e2789da69a0fbc5538cae562a604f792bf5909a463803d11a3a992e7c",
+        "image_bytes": 6539328,
+        "stream_bytes_per_token": 6263037,
+        "stream_cycles_per_token_at_0_5B_cycle": 12526074.0,
+        "stream_bound_tok_s_at_50MHz": 3.991673688020684,
+        "classifier_cycles_estimate": 1176960.384,
+        "non_classifier_cycles_measured": 6208617,
+        "compute_cycles_estimate": 7385577.384,
+        "limiting_cycles_per_token": 12526074.0,
+        "predicted_tok_s": 3.991673688020684,
+        "speedup_vs_unpruned_stream": 1.7059476097618456,
+        "params": {
+          "D": 288,
+          "H": 768,
+          "NL": 6,
+          "NH": 6,
+          "NKV": 6,
+          "HS": 48,
+          "VOCAB": 6144,
+          "CLS_BASE": 0,
+          "EMB_SCALE_BASE": 1050624,
+          "LAYERS_BASE": 1327104,
+          "IMAGE_BYTES": 6539328,
+          "CLS4": 1,
+          "WQ4": 0,
+          "WK4": 0,
+          "WV4": 0,
+          "WO4": 0,
+          "W14": 1,
+          "W34": 1,
+          "W24": 0,
+          "CLS_TILE_BYTES": 2736,
+          "CLS_KB": 144,
+          "CLS_G": 9,
+          "RECIP_D": 14913081,
+          "GFB": 12,
+          "NORM_MULT": 828896808,
+          "NORM_SHIFT": 34,
+          "EPS": 1034,
+          "SILU_MULT": 884304146,
+          "SILU_SHIFT": 37,
+          "SWIGLU_MULT": 742221392,
+          "SWIGLU_SHIFT": 43,
+          "SCORE_MULT": 801779553,
+          "SCORE_SHIFT": 50
+        }
+      },
+      "8192": {
+        "status": "DERIVED",
+        "image_path": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\vocabprune\\vocab_8192.image.bin",
+        "image_sha256": "c2dc9c29a946b7a747f526eb8b9229944a65cb4437ed45338c3802829bc939b3",
+        "image_bytes": 6981696,
+        "stream_bytes_per_token": 6613245,
+        "stream_cycles_per_token_at_0_5B_cycle": 13226490.0,
+        "stream_bound_tok_s_at_50MHz": 3.7802924283010837,
+        "classifier_cycles_estimate": 1569280.512,
+        "non_classifier_cycles_measured": 6208617,
+        "compute_cycles_estimate": 7777897.512,
+        "limiting_cycles_per_token": 13226490.0,
+        "predicted_tok_s": 3.7802924283010837,
+        "speedup_vs_unpruned_stream": 1.6156082225896666,
+        "params": {
+          "D": 288,
+          "H": 768,
+          "NL": 6,
+          "NH": 6,
+          "NKV": 6,
+          "HS": 48,
+          "VOCAB": 8192,
+          "CLS_BASE": 0,
+          "EMB_SCALE_BASE": 1400832,
+          "LAYERS_BASE": 1769472,
+          "IMAGE_BYTES": 6981696,
+          "CLS4": 1,
+          "WQ4": 0,
+          "WK4": 0,
+          "WV4": 0,
+          "WO4": 0,
+          "W14": 1,
+          "W34": 1,
+          "W24": 0,
+          "CLS_TILE_BYTES": 2736,
+          "CLS_KB": 144,
+          "CLS_G": 9,
+          "RECIP_D": 14913081,
+          "GFB": 12,
+          "NORM_MULT": 828896808,
+          "NORM_SHIFT": 34,
+          "EPS": 1034,
+          "SILU_MULT": 884304146,
+          "SILU_SHIFT": 37,
+          "SWIGLU_MULT": 742221392,
+          "SWIGLU_SHIFT": 43,
+          "SCORE_MULT": 801779553,
+          "SCORE_SHIFT": 50
+        }
+      }
+    },
+    "schedule_source": "bench/results/decode_e2e_rtl_15m_kv4_p1.json; classifier profile divided by 11 steps"
+  },
+  "float": {
+    "32000": {
+      "status": "MEASURED",
+      "eval_tokens": 69211,
+      "nll_nats": 93654.55120420456,
+      "validation_bytes_scored": 261818,
+      "bits_per_byte": 0.5160644286450413,
+      "token_loss": 1.353174368297013,
+      "device": "cpu",
+      "elapsed_seconds": 33.628865003585815,
+      "softmax": "restricted to kept rows"
+    },
+    "2048": {
+      "status": "MEASURED",
+      "eval_tokens": 80079,
+      "nll_nats": 287456.42687416077,
+      "validation_bytes_scored": 261818,
+      "bits_per_byte": 1.5839703974631718,
+      "token_loss": 3.5896605461376985,
+      "device": "cpu",
+      "elapsed_seconds": 33.628865003585815,
+      "softmax": "restricted to kept rows"
+    },
+    "4096": {
+      "status": "MEASURED",
+      "eval_tokens": 70246,
+      "nll_nats": 113216.00732088089,
+      "validation_bytes_scored": 261818,
+      "bits_per_byte": 0.6238538691422417,
+      "token_loss": 1.6117075323987258,
+      "device": "cpu",
+      "elapsed_seconds": 33.628865003585815,
+      "softmax": "restricted to kept rows"
+    },
+    "6144": {
+      "status": "MEASURED",
+      "eval_tokens": 69359,
+      "nll_nats": 96413.34591627121,
+      "validation_bytes_scored": 261818,
+      "bits_per_byte": 0.5312662079342011,
+      "token_loss": 1.3900625141116685,
+      "device": "cpu",
+      "elapsed_seconds": 33.628865003585815,
+      "softmax": "restricted to kept rows"
+    },
+    "8192": {
+      "status": "MEASURED",
+      "eval_tokens": 69230,
+      "nll_nats": 94010.14936828613,
+      "validation_bytes_scored": 261818,
+      "bits_per_byte": 0.518023880278885,
+      "token_loss": 1.357939467980444,
+      "device": "cpu",
+      "elapsed_seconds": 33.628865003585815,
+      "softmax": "restricted to kept rows"
+    }
+  },
+  "integer": {
+    "32000": {
+      "status": "MEASURED",
+      "eval_tokens": 69211,
+      "nll_nats": 102047.70287795937,
+      "validation_bytes_scored": 261818,
+      "bits_per_byte": 0.5623131903694261,
+      "token_loss": 1.4744434104110526,
+      "kv_bits": 4,
+      "logit_scale": 0.0009853192201749546,
+      "elapsed_seconds": 7760.560054063797,
+      "softmax": "restricted to kept rows",
+      "implementation": "RunQIntegerLlama hidden path plus pruned classifier row slice"
+    },
+    "2048": {
+      "status": "MEASURED",
+      "eval_tokens": 80079,
+      "nll_nats": 333369.1911270959,
+      "validation_bytes_scored": 261818,
+      "bits_per_byte": 1.836963382289324,
+      "token_loss": 4.163003922715018,
+      "kv_bits": 4,
+      "logit_scale": 0.0009853192201749546,
+      "elapsed_seconds": 7760.560054063797,
+      "softmax": "restricted to kept rows",
+      "implementation": "RunQIntegerLlama hidden path plus pruned classifier row slice"
+    },
+    "4096": {
+      "status": "MEASURED",
+      "eval_tokens": 70246,
+      "nll_nats": 124530.8598238487,
+      "validation_bytes_scored": 261818,
+      "bits_per_byte": 0.6862020713071874,
+      "token_loss": 1.7727822199676666,
+      "kv_bits": 4,
+      "logit_scale": 0.0009853192201749546,
+      "elapsed_seconds": 7760.560054063797,
+      "softmax": "restricted to kept rows",
+      "implementation": "RunQIntegerLlama hidden path plus pruned classifier row slice"
+    },
+    "6144": {
+      "status": "MEASURED",
+      "eval_tokens": 69359,
+      "nll_nats": 105128.67043513636,
+      "validation_bytes_scored": 261818,
+      "bits_per_byte": 0.5792902378446915,
+      "token_loss": 1.515717793439011,
+      "kv_bits": 4,
+      "logit_scale": 0.0009853192201749546,
+      "elapsed_seconds": 7760.560054063797,
+      "softmax": "restricted to kept rows",
+      "implementation": "RunQIntegerLlama hidden path plus pruned classifier row slice"
+    },
+    "8192": {
+      "status": "MEASURED",
+      "eval_tokens": 69230,
+      "nll_nats": 102416.58519654407,
+      "validation_bytes_scored": 261818,
+      "bits_per_byte": 0.5643458416450975,
+      "token_loss": 1.4793671124735528,
+      "kv_bits": 4,
+      "logit_scale": 0.0009853192201749546,
+      "elapsed_seconds": 7760.560054063797,
+      "softmax": "restricted to kept rows",
+      "implementation": "RunQIntegerLlama hidden path plus pruned classifier row slice"
+    }
+  },
+  "generation": {
+    "2048": {
+      "prompts": 20,
+      "generated_steps": 1280,
+      "full_argmax_outside": 37,
+      "sequence_mismatches": 11,
+      "full_argmax_outside_fraction": 0.02890625
+    },
+    "4096": {
+      "prompts": 20,
+      "generated_steps": 1280,
+      "full_argmax_outside": 1,
+      "sequence_mismatches": 1,
+      "full_argmax_outside_fraction": 0.00078125
+    },
+    "6144": {
+      "prompts": 20,
+      "generated_steps": 1280,
+      "full_argmax_outside": 0,
+      "sequence_mismatches": 0,
+      "full_argmax_outside_fraction": 0.0
+    },
+    "8192": {
+      "prompts": 20,
+      "generated_steps": 1280,
+      "full_argmax_outside": 0,
+      "sequence_mismatches": 0,
+      "full_argmax_outside_fraction": 0.0
+    }
+  },
+  "decision": {
+    "result": "GO",
+    "rule": "GO iff predicted tok/s >= 1.3x unpruned stream-bound tok/s and integer bpb <= 1.01x unpruned integer bpb",
+    "baseline_integer_bpb": 0.5623131903694261,
+    "integer_bpb_limit": 0.5679363222731203,
+    "baseline_predicted_tok_s": 2.3398571358108304,
+    "speed_limit_tok_s": 3.0418142765540797,
+    "candidates": {
+      "2048": {
+        "speed_pass": true,
+        "quality_pass": false,
+        "speedup": 1.920751566572664,
+        "integer_bpb_delta_pct": 226.67976027424928
+      },
+      "4096": {
+        "speed_pass": true,
+        "quality_pass": false,
+        "speedup": 1.8069883299517033,
+        "integer_bpb_delta_pct": 22.032006906394862
+      },
+      "6144": {
+        "speed_pass": true,
+        "quality_pass": false,
+        "speedup": 1.7059476097618456,
+        "integer_bpb_delta_pct": 3.019144449396949
+      },
+      "8192": {
+        "speed_pass": true,
+        "quality_pass": true,
+        "speedup": 1.6156082225896664,
+        "integer_bpb_delta_pct": 0.3614802765583347
+      }
+    },
+    "recommended_vocab": 8192
+  },
+  "rtl_constraints": {
+    "token_and_output_id_width": "16 bits; VOCAB must fit <= 65535 (rtl/decode/top_decode.sv:35,44,198,306-310)",
+    "classifier_tiling": "g_ntiles=ceil(VOCAB/16), final tile rows are bounds-checked; all tested K are multiples of 16 (rtl/decode/top_decode.sv:306-310, tools/decode/pack_decode_image.py:9-44)",
+    "int4_row_width": "CLS_KB=D/2=144 and D=288; K must be even for INT4 packing (top_decode.sv:24; pack_decode_image.py:38-40,71-76)",
+    "grouping": "CLS_G=ceil(D/32)=9; K does not change CLS_G, only tile count/prefix sizes",
+    "config_params": "CLS_TILE_BYTES, CLS_KB, CLS_G, VOCAB are generated in params.json and passed as top_decode parameters"
+  },
+  "rtl": {
+    "status": "pass",
+    "vocab": 8192,
+    "prompts": 1,
+    "generated_tokens_per_prompt": 2,
+    "image_bytes": 6981696,
+    "image_sha256": "c2dc9c29a946b7a747f526eb8b9229944a65cb4437ed45338c3802829bc939b3",
+    "logit_mismatches": 0,
+    "token_mismatches": 0,
+    "argmax_errors": 0,
+    "index_order_ok": true,
+    "flash": "ideal",
+    "flash_bytes_per_cycle": 1.0,
+    "flash_bytes_per_cycle_note": "nominal reader rate; cycles_per_token_mean is the measurement",
+    "cycles_per_token_mean": 7734699.0,
+    "summary": "SUMMARY steps=3 errors=0 token_errors=0 idx_errors=0 argmax_errors=0 stray=0 cycles=23204097",
+    "first_mismatches": [],
+    "vvp_command": "C:\\iverilog\\bin\\vvp.exe build/decode/e2e_tb.vvp",
+    "wall_seconds": 1824.6,
+    "model": "15m",
+    "command": "python tools/vocabprune/run_decode_rtl.py --model 15m --vocab-keep tools\\vocabprune\\idmaps\\idmap_8192.json --prompts 1 --gen 2 --flash ideal",
+    "provenance": {
+      "firmware/host/numerics_v2/calibration_260k.json": "4c4afb9d3273da0bd151ce3b00a82f8719ce01beeb907f5dd3941cdb9095a43f",
+      "firmware/host/numerics_v2/export.py": "950b752e280762d593b442f0daa6ff55848f60e035f22ae82150d181278bce0e",
+      "firmware/host/numerics_v2/fixed.py": "dd4990f31e0dbae1c216e59c41c4ca031042af31cbacc4ee8dce00e472cfe293",
+      "firmware/host/numerics_v2/luts/exp_q15.mem": "967dcd75c5c9cfb8f4c9781f33672ff9bf9de24fe6db9d5c6e44aa29528efea0",
+      "firmware/host/numerics_v2/luts/luts.json": "995b46d6522a0d3ef4525c26679b9eb325432f8fb7d136f965f64db600cdcf7d",
+      "firmware/host/numerics_v2/luts/rope_cos_q15_h48.mem": "9f076d2c03dedbca7e98f8ff14a237b9c03431923827f9c1364b999f1c83d3b1",
+      "firmware/host/numerics_v2/luts/rope_cos_q15_h8.mem": "428964f96c71764cc24c463348dbb7a805206cd79e29a122a2c4f96cd2c94bff",
+      "firmware/host/numerics_v2/luts/rope_sin_q15_h48.mem": "d60fdb8e99844b3846c099294ee0bbb71b12c3b01a4e868a893f866791df271d",
+      "firmware/host/numerics_v2/luts/rope_sin_q15_h8.mem": "1a0358f58480b7fdf7bf94c91cb5485cab377137ac5ab4c9f63a1c2342071eb7",
+      "firmware/host/numerics_v2/luts/sigmoid_q15.mem": "5e589a6b1ee3ff8017e247fab181fe1548cfb41a594d84b6031a4ce34ccce2a1",
+      "firmware/host/numerics_v2/luts/silu_i8.mem": "e1839736cc9c217ea3b34799db22263e47209bcd6a574fea0d3a8c8abc09b643",
+      "firmware/host/numerics_v2/runq_runtime.py": "dce95ea0eb264fcfa4633145f7e53ac34770b688a24033a4f23938e4b8741934",
+      "models/numerics_v2/gptq_qkv_wo_w2_int8_g32.npz": "ecf950f452d052ce5909add99d7443d5d5be75dd12d78900e7bcb0ca38afe03d",
+      "rtl/decode/act_quant.sv": "ba7a58c2d414fea72e239718a8ae438ff54a489260af31978b416625c9e37c44",
+      "rtl/decode/attention.sv": "dffafd384c2c1c8f24ff38490fff2edef40dd6e97f6a46ec215895a9f362385d",
+      "rtl/decode/decode_pkg.sv": "feb1c78dda92aed8916291d0560d96b0c64507922f811b2c11ed0590506bc01d",
+      "rtl/decode/div_const_pipe.sv": "a879eeb669a1e37c5ddc9c67b4b73b38a04b416f805884cc981fe5d56ef4eb7c",
+      "rtl/decode/gemv_unit.sv": "428ba02cbd61fbe1742cc7f4e28efcdc4dd1aad2cecb63167ac200e7764491bc",
+      "rtl/decode/luts/exp_q15.mem": "967dcd75c5c9cfb8f4c9781f33672ff9bf9de24fe6db9d5c6e44aa29528efea0",
+      "rtl/decode/luts/rope_cos_q15_h48.mem": "9f076d2c03dedbca7e98f8ff14a237b9c03431923827f9c1364b999f1c83d3b1",
+      "rtl/decode/luts/rope_cos_q15_h48_p128.mem": "bf884c779b4b40262efb00ebeaadc3536c7d5a1f1acf29e192cc6cff25f0637e",
+      "rtl/decode/luts/rope_cos_q15_h8.mem": "428964f96c71764cc24c463348dbb7a805206cd79e29a122a2c4f96cd2c94bff",
+      "rtl/decode/luts/rope_cs_q15_h48.mem": "fee9d12e5f5841a81b302f34b2c92248f4d5ad1fc79345e3ada752c190d83eba",
+      "rtl/decode/luts/rope_cs_q15_h48_p128.mem": "6a89122adc2e093b4f87266565bf93a61c714eddf23fe856b8056cc15d23ea5e",
+      "rtl/decode/luts/rope_cs_q15_h8.mem": "6ca0e04b9d060a8688513fbdc928d7360869f7d17df381774f863b293eaf0b25",
+      "rtl/decode/luts/rope_sin_q15_h48.mem": "d60fdb8e99844b3846c099294ee0bbb71b12c3b01a4e868a893f866791df271d",
+      "rtl/decode/luts/rope_sin_q15_h48_p128.mem": "a19c02b866db76640c81c6e43d58fa962a30b25c4f86435fe6a3dc68ab78c00b",
+      "rtl/decode/luts/rope_sin_q15_h8.mem": "1a0358f58480b7fdf7bf94c91cb5485cab377137ac5ab4c9f63a1c2342071eb7",
+      "rtl/decode/luts/sigmoid_q15.mem": "5e589a6b1ee3ff8017e247fab181fe1548cfb41a594d84b6031a4ce34ccce2a1",
+      "rtl/decode/mul_pipe.sv": "635d879b52692ca6c35f579e00a9bc45af2d20ee00c2f486ec52fd528789086d",
+      "rtl/decode/rmsnorm.sv": "58655ec0ece79b10c864b3f87db3e8355d008a1b7bf39c5fb318a2ab4f1c640c",
+      "rtl/decode/seq_mul.sv": "f9aadb368b2fbb784a01e4f771165320bcb75dd04c2a50f8c168be7ff9c38b2d",
+      "rtl/decode/top_decode.sv": "ed235a06192186d398811df9828225015e36620ae63c9fac012280bea9aac37d",
+      "rtl/decode/vec_alu.sv": "5cde195056490d2c34307ace3407ab705f278f7a03b56aca66d3d1d5cdd4b87a",
+      "tools/decode/gen_luts.py": "ee95f135a7e3e7854dc5fb545608b64b33e0f116a8f91dc3405a078d0c6c27b0",
+      "tools/decode/harness.py": "d3a46950a8112eda93bc48aa2e985e521abde4a5ccfe37a06de9a6a1d9ff634f",
+      "tools/decode/pack_decode_image.py": "525ab2e8a4c588a7d92ecc330bf98aa4420092607ec8237b5108bd78507d09b7",
+      "tools/decode/provenance.py": "95773cac9f4a02b7ee821daacbb8442693380271ef4a5ac706107d2bc1790627",
+      "tools/decode/run_decode_rtl.py": "f8e94c941621aaa804e02b0c00648463f9a9d9afb5400f2636c0de6738f0c1cc",
+      "tools/decode/sim.py": "ecc37ef8432b7197b6fe09c96a69565d9186c2c7e53f451c2288bf7293fa317b",
+      "tools/llama2c/reference.py": "c668cb8c8c63f3ed57ccd127788c934c30d9f8164bb3212a9a97fc44ed253c36",
+      "tools/vocabprune/__init__.py": "225772dbd7f52ed397fa5a6cf79a87a265d8f5fa72861aaed579a1d3c1a0de07",
+      "tools/vocabprune/core.py": "44ebc7a56f0d476db45116f3ad419e0440ba1371d924445dd7f22a673e17057a",
+      "tools/vocabprune/finalize.py": "8c3241de24c167d2b7fe52bbb728f9153b02050c8cee5a2186b55761f844c8da",
+      "tools/vocabprune/hardware.py": "d71ba539a964a039f5c6de276575902c63a490971252e22bd75f9c61156c1f91",
+      "tools/vocabprune/idmaps/idmap_8192.json": "7c5b1dc2b9896550cca5e6370d86c3b19ac5487353546dc3cf343feec2ed626f",
+      "tools/vocabprune/pack_pruned_image.py": "23956b71fcc5338adddf3610cde0bdb2966e0763cb0d408f3796a79a61304acf",
+      "tools/vocabprune/pruned_sources.py": "9d08be239cc20b0c62bc5791e25d93ce6a97914b09cb25bc10fd3984d8f851bb",
+      "tools/vocabprune/run_decode_rtl.py": "e6f253fff8ce31d3aebe09f2787c2124c7bcb73c0359dc8d942ff058e2d7602d",
+      "tools/vocabprune/study.py": "0b1389328b62d719801d7448ad9e262d0dc968f4548c72ebccedcc6257d72fd6",
+      "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96",
+      "tool:simulator": {
+        "name": "icarus",
+        "version": "Icarus Verilog runtime version 12.0 (devel) (s20150603-1539-g2693dd32b)\n\nCopyright (c) 2001-2021 Stephen Williams (steve@icarus.com)\n\n  This program is free software; you can redistribute it and/or modify\n  it under the terms of the GNU General Public License as published by\n  the Free Software Foundation; either version 2 of the License, or\n  (at your option) any later version.\n\n  This program is distributed in the hope that it will be useful,\n  but WITHOUT ANY WARRANTY; without even the implied warranty of\n  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n  GNU General Public License for more details.\n\n  You should have received a copy of the GNU General Public License along\n  with this program; if not, write to the Free Software Foundation, Inc.,\n  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.",
+        "executable": "C:\\iverilog\\bin\\vvp.exe",
+        "executable_sha256": "e2f442f4d5aa76e55c85c3ff77e4446fbfdb9946b7cfe8a2dff87f275da17b62",
+        "compiler_sha256": "803b8844af2cc8ed70b5f08b07ffa749901280e81339617ca3e72cbbb852bd2b"
+      },
+      "runtime:python": "c0c26871ec1aae748b7914a09c9566d5234775c7a1a2915bf8f401eb6d5cd964",
+      "runtime:numpy": "4b0379678f664340b010747a4ad1436f29a4e92e8b245932f19cec020dff8770"
+    }
+  },
+  "not_run": [
+    "Physical-board throughput: NOT RUN (implementation: bench/results/pruned_ddr_impl.json; DDR-flash RTL: bench/results/vocab_prune_ddr_rtl.json).",
+    "Host-client code changes: NOT RUN by design; the remap is documented only.",
+    "RTL smoke for K=2048, 4096, 6144: NOT RUN; only the recommended K=8192 was run."
+  ],
+  "status": "pass",
+  "provenance": {
+    "bench/results/decode_e2e_rtl_15m_kv4_p1_qspiddr.json": "8a19a0344560974fbcd32091484a0bd99ede26126c0ae2ee6092983c9e8947ba",
+    "firmware/host/numerics_v2/calibration_260k.json": "4c4afb9d3273da0bd151ce3b00a82f8719ce01beeb907f5dd3941cdb9095a43f",
+    "firmware/host/numerics_v2/export.py": "950b752e280762d593b442f0daa6ff55848f60e035f22ae82150d181278bce0e",
+    "firmware/host/numerics_v2/fixed.py": "dd4990f31e0dbae1c216e59c41c4ca031042af31cbacc4ee8dce00e472cfe293",
+    "firmware/host/numerics_v2/luts/exp_q15.mem": "967dcd75c5c9cfb8f4c9781f33672ff9bf9de24fe6db9d5c6e44aa29528efea0",
+    "firmware/host/numerics_v2/luts/luts.json": "995b46d6522a0d3ef4525c26679b9eb325432f8fb7d136f965f64db600cdcf7d",
+    "firmware/host/numerics_v2/luts/rope_cos_q15_h48.mem": "9f076d2c03dedbca7e98f8ff14a237b9c03431923827f9c1364b999f1c83d3b1",
+    "firmware/host/numerics_v2/luts/rope_cos_q15_h8.mem": "428964f96c71764cc24c463348dbb7a805206cd79e29a122a2c4f96cd2c94bff",
+    "firmware/host/numerics_v2/luts/rope_sin_q15_h48.mem": "d60fdb8e99844b3846c099294ee0bbb71b12c3b01a4e868a893f866791df271d",
+    "firmware/host/numerics_v2/luts/rope_sin_q15_h8.mem": "1a0358f58480b7fdf7bf94c91cb5485cab377137ac5ab4c9f63a1c2342071eb7",
+    "firmware/host/numerics_v2/luts/sigmoid_q15.mem": "5e589a6b1ee3ff8017e247fab181fe1548cfb41a594d84b6031a4ce34ccce2a1",
+    "firmware/host/numerics_v2/luts/silu_i8.mem": "e1839736cc9c217ea3b34799db22263e47209bcd6a574fea0d3a8c8abc09b643",
+    "firmware/host/numerics_v2/runq_runtime.py": "dce95ea0eb264fcfa4633145f7e53ac34770b688a24033a4f23938e4b8741934",
+    "models/numerics_v2/gptq_qkv_wo_w2_int8_g32.npz": "ecf950f452d052ce5909add99d7443d5d5be75dd12d78900e7bcb0ca38afe03d",
+    "tools/decode/pack_decode_image.py": "525ab2e8a4c588a7d92ecc330bf98aa4420092607ec8237b5108bd78507d09b7",
+    "tools/llama2c/reference.py": "c668cb8c8c63f3ed57ccd127788c934c30d9f8164bb3212a9a97fc44ed253c36",
+    "tools/vocabprune/__init__.py": "225772dbd7f52ed397fa5a6cf79a87a265d8f5fa72861aaed579a1d3c1a0de07",
+    "tools/vocabprune/core.py": "44ebc7a56f0d476db45116f3ad419e0440ba1371d924445dd7f22a673e17057a",
+    "tools/vocabprune/finalize.py": "8c3241de24c167d2b7fe52bbb728f9153b02050c8cee5a2186b55761f844c8da",
+    "tools/vocabprune/hardware.py": "d71ba539a964a039f5c6de276575902c63a490971252e22bd75f9c61156c1f91",
+    "tools/vocabprune/idmaps/idmap_2048.json": "9cc5fe21311eeda562852ba6a718e5edc2d57469ca07f6a9885111674b5bfec6",
+    "tools/vocabprune/idmaps/idmap_4096.json": "74d2c4446b4cf5cbec4d3c90f14ccffe34d6a425e461df6553f17fb593c5be7c",
+    "tools/vocabprune/idmaps/idmap_6144.json": "a7a4f250b9f638c77905bd6c4d5805266ba93fb80f8898a761dd8d9b2193a550",
+    "tools/vocabprune/idmaps/idmap_8192.json": "7c5b1dc2b9896550cca5e6370d86c3b19ac5487353546dc3cf343feec2ed626f",
+    "tools/vocabprune/pack_pruned_image.py": "23956b71fcc5338adddf3610cde0bdb2966e0763cb0d408f3796a79a61304acf",
+    "tools/vocabprune/pruned_sources.py": "9d08be239cc20b0c62bc5791e25d93ce6a97914b09cb25bc10fd3984d8f851bb",
+    "tools/vocabprune/run_decode_rtl.py": "e6f253fff8ce31d3aebe09f2787c2124c7bcb73c0359dc8d942ff058e2d7602d",
+    "tools/vocabprune/study.py": "0b1389328b62d719801d7448ad9e262d0dc968f4548c72ebccedcc6257d72fd6",
+    "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96",
+    "tool:simulator": {
+      "name": "icarus",
+      "version": "Icarus Verilog runtime version 12.0 (devel) (s20150603-1539-g2693dd32b)\n\nCopyright (c) 2001-2021 Stephen Williams (steve@icarus.com)\n\n  This program is free software; you can redistribute it and/or modify\n  it under the terms of the GNU General Public License as published by\n  the Free Software Foundation; either version 2 of the License, or\n  (at your option) any later version.\n\n  This program is distributed in the hope that it will be useful,\n  but WITHOUT ANY WARRANTY; without even the implied warranty of\n  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n  GNU General Public License for more details.\n\n  You should have received a copy of the GNU General Public License along\n  with this program; if not, write to the Free Software Foundation, Inc.,\n  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.",
+      "executable": "C:\\iverilog\\bin\\vvp.exe",
+      "executable_sha256": "e2f442f4d5aa76e55c85c3ff77e4446fbfdb9946b7cfe8a2dff87f275da17b62",
+      "compiler_sha256": "803b8844af2cc8ed70b5f08b07ffa749901280e81339617ca3e72cbbb852bd2b"
+    },
+    "runtime:python": "c0c26871ec1aae748b7914a09c9566d5234775c7a1a2915bf8f401eb6d5cd964",
+    "runtime:numpy": "4b0379678f664340b010747a4ad1436f29a4e92e8b245932f19cec020dff8770"
+  }
+}

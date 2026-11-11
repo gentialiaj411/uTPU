@@ -143,8 +143,8 @@ class BoardConfig:
             # The INT8 196->256->10 network needs 27,648 tiled weight words:
             # 25,600 for 200x256 FC1 and 2,048 for padded 16x256 FC2.
             # The 32,768-word buffer leaves 5,120 words for activation scratch.
-            # FC1 control is 29,057 words, so 32,768 is the smallest power-of-2
-            # instruction depth that admits it.
+            # The measured transformer program is 25,551 words, so the
+            # Boolean profile is intentionally fixed at the 32K gate.
             prog_depth=32768,
             buffer_size=32768,
             array_size=8,

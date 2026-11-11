@@ -1,0 +1,30 @@
+{
+  "metadata": {
+    "dataset": "roneneldan/TinyStories",
+    "revision": "f54c09fd23315a6f9c86f9dc80f725de7d8f9c64",
+    "split": "train",
+    "sequences": 128,
+    "sequence_tokens": 64,
+    "activation_percentile": 99.9,
+    "source_range": "bytes=0-1048575",
+    "source_sha256": "1c00f67921651ecf58c88044983fa9fe93ce4b3a372d2633bfc1d1de9dd3710a",
+    "calibration_corpus_bytes": 101641,
+    "calibration_corpus_sha256": "6974b5ad09714553e105f644308d4b2ff99c0406140aa68c6bd1c3b62210c1d6",
+    "eval_slice_sha256": "ae55d9eb37d0e99c6e1051dbeb212f51b6c1d2d98858fccd81f5676bee92a4e7",
+    "provably_disjoint": true,
+    "disjoint_reason": "different named upstream splits (train vs validation) and unequal SHA-256 digests"
+  },
+  "activation_scales": {
+    "x": 0.046968155958521086,
+    "norm": 0.06256309268981453,
+    "q": 0.22397847813884103,
+    "k": 0.18900560394046814,
+    "v": 0.018100787335493432,
+    "av": 0.011668522526898721,
+    "h1": 0.027085339929175188,
+    "h3": 0.025121946034469003,
+    "hidden": 0.02630920485248716,
+    "logits": 0.15366528728815515,
+    "silu": 0.023544232676348347
+  }
+}

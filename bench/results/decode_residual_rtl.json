@@ -1,0 +1,9 @@
+{
+  "unit": "residual",
+  "real_cases": 2000,
+  "random_cases": 2000,
+  "mismatches": null,
+  "status": "not_run",
+  "simulator": "missing",
+  "blocker": "iverilog is not installed"
+}

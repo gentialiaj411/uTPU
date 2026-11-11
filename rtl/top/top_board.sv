@@ -10,6 +10,7 @@ module top_board #(
     parameter integer ACCUMULATOR_DATA_WIDTH = 32,
     parameter integer ARRAY_SIZE = 8,
     parameter integer EXT_ADDR_EN = 1,
+    parameter integer VECTOR_UNIT_EN = 0,
     parameter integer QUANTIZER_LANES = ARRAY_SIZE,
     parameter integer RELU_LANES = ARRAY_SIZE,
     parameter integer QUANTIZER_PIPE_DEPTH = 3,
@@ -52,7 +53,7 @@ module top_board #(
         .CLKFBOUT(mmcm_fb),
         .CLKOUT0(mmcm_clk),
         .LOCKED(mmcm_locked),
-        .PWRDN(1'b0),
+        .PWRDWN(1'b0),
         .RST(1'b0)
     );
 
@@ -80,6 +81,7 @@ module top_board #(
         .ACCUMULATOR_DATA_WIDTH(ACCUMULATOR_DATA_WIDTH),
         .ARRAY_SIZE(ARRAY_SIZE),
         .EXT_ADDR_EN(EXT_ADDR_EN),
+        .VECTOR_UNIT_EN(VECTOR_UNIT_EN),
         .QUANTIZER_LANES(QUANTIZER_LANES),
         .RELU_LANES(RELU_LANES),
         .QUANTIZER_PIPE_DEPTH(QUANTIZER_PIPE_DEPTH),

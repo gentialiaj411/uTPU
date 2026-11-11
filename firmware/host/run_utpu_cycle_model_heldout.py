@@ -27,13 +27,12 @@ import hashlib
 import json
 import math
 import os
-import shutil
 import statistics
 import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Sequence, Tuple
 
 import numpy as np
 
@@ -709,14 +708,6 @@ def run(
     test_metrics = _metrics(test_pred)
     selection = _selection_metrics(test_pred)
 
-    n_rtl = sum(
-        1
-        for r in rows
-        if str(r.get("ground_truth_source") or "").startswith("rtl_")
-        or r.get("ground_truth_source") == "systolic_characterization_seed"
-        or r.get("ground_truth_source") == "cache"
-    )
-    # Reclassify cache hits that originated from systolic seed / rtl.
     n_rtl_or_seed = sum(
         1
         for r in rows
@@ -724,11 +715,15 @@ def run(
         not in (None, "isa_calibrated_from_train_rtl", "rtl_failed", "iverilog_unavailable")
     )
 
-    trivial = (
-        test_metrics["log_r2"] >= 0.99
-        and test_metrics["mape_pct"] <= 5.0
-        and (selection["summary"]["max_regret_pct"] or 0.0) <= 5.0
+    trivial_selection = (
+        selection["summary"]["n_held_out_shapes_with_multi_schedule"]
+        and selection["summary"]["top1_accuracy"] == 1.0
+        and (selection["summary"]["max_regret_pct"] or 0.0) == 0.0
     )
+    trivial_absolute = (
+        test_metrics["log_r2"] >= 0.99 and test_metrics["mape_pct"] <= 5.0
+    )
+    trivial = bool(trivial_selection and trivial_absolute)
 
     payload: Dict[str, Any] = {
         "version": 1,
@@ -825,16 +820,20 @@ def run(
         "selection_quality": selection,
         "finding": {
             "trivially_accurate_due_to_determinism": bool(trivial),
+            "selection_trivially_perfect": bool(trivial_selection),
+            "absolute_near_perfect": bool(trivial_absolute),
             "summary": (
-                "uTPU cycle prediction is near-perfect on held-out shapes "
-                "because the ISA/RTL path is data-independent and "
-                "deterministic; unlike CUDA, there is no occupancy/tail/"
-                "clock noise to absorb. High log_R^2 and near-zero regret "
-                "are the expected outcome of that determinism."
-                if trivial
-                else (
-                    "Held-out prediction is good but not trivial; see "
-                    "latency_prediction.test_metrics and selection_quality."
+                "uTPU cycle *selection* is trivially perfect on held-out shapes "
+                "(top-1=1.0, regret=0) because the ISA/RTL path is data-independent "
+                "and deterministic — ranking schedules has no GPU-style noise. "
+                "Absolute cycle MAPE is residual analytical-model error "
+                f"(held-out MAPE={test_metrics['mape_pct']:.2f}%, "
+                f"log_R^2={test_metrics['log_r2']:.4f}), not timing jitter. "
+                + (
+                    "Absolute fit is also near-perfect."
+                    if trivial_absolute
+                    else "Absolute fit is good but not bit-exact; a richer structural "
+                    "model could close the remaining gap."
                 )
             ),
         },

@@ -1,0 +1,12 @@
+[
+  {
+    "label": "qspi_verilator_recovery",
+    "returncode": 0,
+    "seconds": 2066.28568239999
+  },
+  {
+    "label": "uart_verilator_recovery",
+    "returncode": 0,
+    "seconds": 127.41648770000029
+  }
+]

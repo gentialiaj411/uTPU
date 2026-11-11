@@ -1,0 +1,9 @@
+{
+  "corpus_length": 1115394,
+  "seed": 20261013,
+  "train_start": 0,
+  "train_end_exclusive": 1003854,
+  "validation_start": 1003854,
+  "validation_end_exclusive": 1115394,
+  "split": "contiguous_90_10"
+}

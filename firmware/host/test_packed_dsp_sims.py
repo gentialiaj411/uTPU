@@ -58,5 +58,6 @@ def test_packed_dsp_synth_pending_schema() -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(build_artifact(), indent=2) + "\n", encoding="utf-8")
     data = _load(path)
-    assert data["version"] == 1
-    assert len(data["runs"]) == 4
+    assert data["version"] == 2          # v2: measured OOC DSP counts (write_packed_mac_budget.py)
+    assert len(data["runs"]) == 3
+    assert all(isinstance(run["measured_dsp"], int) for run in data["runs"])

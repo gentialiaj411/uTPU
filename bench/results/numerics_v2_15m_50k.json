@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "model": "stories15M",
+  "float_perplexity": 2.7358931072039208,
+  "command": "python -m firmware.host.numerics_v2.eval_exported --artifact models/numerics_v2/<config>.npz --output build/numerics_v2_eval/<config>.json",
+  "decision_rule": "fits flash (<= 16 MiB - 2.5 MiB bitstream reserve) and perplexity <= 1.08x float",
+  "configs": [
+    {
+      "config": "gptq_g32",
+      "artifact_sha256": "5383f4d6fe7594e8d4f021a84b455575bdb33c382e6ae82bbfb4831ca84554e4",
+      "eval_tokens": 50000,
+      "perplexity": 3.1127428389295018,
+      "teacher_forced_top1_agreement_pct": 84.956,
+      "logit_kl_float_to_candidate": 0.12821866098124068,
+      "hardware_budget": {
+        "weight_bytes_including_scales": 11414592,
+        "kv_cache_bytes_seq256_including_scales": 958464,
+        "bytes_streamed_per_token": 9974781,
+        "estimated_tokens_per_second": {
+          "25_MBps": 2.5063206901484856,
+          "50_MBps": 5.012641380296971,
+          "100_MBps": 10.025282760593942
+        },
+        "fits_flash": true,
+        "flash_limit_bytes": 14155776,
+        "byte_breakdown": {
+          "layers": 3919104,
+          "classifier_scales": 1440000,
+          "embedding_table_and_scales": 6048000,
+          "gamma": 7488
+        },
+        "embedding_classifier_tied": true,
+        "estimate_assumption": "bandwidth-only QSPI limit; decimal MB/s; no compute/command overhead"
+      },
+      "peak_tracemalloc_bytes": 441837355,
+      "perplexity_delta_vs_float": 0.137742856522169,
+      "passes_decision_rule": false
+    },
+    {
+      "config": "gptq_qkv_wo_int8_g32",
+      "artifact_sha256": "595f215156f9bc2df63dd2723fb21b35c3d183a5cc5570e5193efda483213863",
+      "eval_tokens": 50000,
+      "perplexity": 2.992085985640062,
+      "teacher_forced_top1_agreement_pct": 87.284,
+      "logit_kl_float_to_candidate": 0.08857486341633591,
+      "hardware_budget": {
+        "weight_bytes_including_scales": 12409920,
+        "kv_cache_bytes_seq256_including_scales": 958464,
+        "bytes_streamed_per_token": 10970109,
+        "estimated_tokens_per_second": {
+          "25_MBps": 2.278919926866725,
+          "50_MBps": 4.55783985373345,
+          "100_MBps": 9.1156797074669
+        },
+        "fits_flash": true,
+        "flash_limit_bytes": 14155776,
+        "byte_breakdown": {
+          "layers": 4914432,
+          "classifier_scales": 1440000,
+          "embedding_table_and_scales": 6048000,
+          "gamma": 7488
+        },
+        "embedding_classifier_tied": true,
+        "estimate_assumption": "bandwidth-only QSPI limit; decimal MB/s; no compute/command overhead"
+      },
+      "peak_tracemalloc_bytes": 441837297,
+      "perplexity_delta_vs_float": 0.0936414064429476,
+      "passes_decision_rule": false
+    },
+    {
+      "config": "gptq_qkv_wo_w2_int8_g32",
+      "artifact_sha256": "ecf950f452d052ce5909add99d7443d5d5be75dd12d78900e7bcb0ca38afe03d",
+      "eval_tokens": 50000,
+      "perplexity": 2.9181389945402825,
+      "teacher_forced_top1_agreement_pct": 88.988,
+      "logit_kl_float_to_candidate": 0.06410596721266387,
+      "hardware_budget": {
+        "weight_bytes_including_scales": 13073472,
+        "kv_cache_bytes_seq256_including_scales": 958464,
+        "bytes_streamed_per_token": 11633661,
+        "estimated_tokens_per_second": {
+          "25_MBps": 2.1489366073156164,
+          "50_MBps": 4.297873214631233,
+          "100_MBps": 8.595746429262466
+        },
+        "fits_flash": true,
+        "flash_limit_bytes": 14155776,
+        "byte_breakdown": {
+          "layers": 5577984,
+          "classifier_scales": 1440000,
+          "embedding_table_and_scales": 6048000,
+          "gamma": 7488
+        },
+        "embedding_classifier_tied": true,
+        "estimate_assumption": "bandwidth-only QSPI limit; decimal MB/s; no compute/command overhead"
+      },
+      "peak_tracemalloc_bytes": 441840472,
+      "perplexity_delta_vs_float": 0.06661294144003183,
+      "passes_decision_rule": true
+    }
+  ],
+  "selected": [
+    "gptq_qkv_wo_w2_int8_g32"
+  ]
+}

@@ -1,0 +1,865 @@
+{
+  "version": 1,
+  "description": "Registry of numeric claim strings in the resume-facing docs. Each claim is formatted from one committed artifact field (field grammar: dot keys, [index], [key=value] selectors; ratio denominators may be len:<path>). Each ref names a doc and an anchor: every line of that doc containing the anchor must contain the claim string, and at least one such line must exist. A changed digit in a doc, or a changed artifact value, fails tests/firmware/host/test_claim_drift.py.",
+  "formats": {
+    "fixed": "value * scale, printed with `decimals`, prefixed by `prefix` and suffixed by `suffix`",
+    "int": "integer value printed with no decimals, followed by `suffix`",
+    "ratio": "integer numerator / integer denominator (denominator is a field or len:<path>)",
+    "upper_bound": "value must be strictly below `threshold`; printed as <threshold followed by `suffix`"
+  },
+  "claims": [
+    {
+      "id": "pruned_autotuner_search_reduction",
+      "claim": "3.12x",
+      "artifact": "bench/results/pruned_autotuner_replay.json",
+      "field": "summary.search_reduction_x",
+      "format": {
+        "kind": "fixed",
+        "decimals": 2,
+        "suffix": "x"
+      },
+      "refs": [
+        {
+          "doc": "README.md",
+          "anchor": "candidate-count reduction over a 16-schedule"
+        },
+        {
+          "doc": "RESUME_CLAIMS.md",
+          "anchor": "candidate-count reduction over a 16-schedule"
+        },
+        {
+          "doc": "INTERVIEW_GUIDE.md",
+          "anchor": "candidate-count reduction over a 16-schedule"
+        }
+      ]
+    },
+    {
+      "id": "pruned_autotuner_max_regression",
+      "claim": "<0.5%",
+      "artifact": "bench/results/pruned_autotuner_replay.json",
+      "field": "summary.max_quality_regression_pct",
+      "format": {
+        "kind": "upper_bound",
+        "threshold": 0.5,
+        "suffix": "%"
+      },
+      "refs": [
+        {
+          "doc": "README.md",
+          "anchor": "candidate-count reduction over a 16-schedule"
+        },
+        {
+          "doc": "RESUME_CLAIMS.md",
+          "anchor": "candidate-count reduction over a 16-schedule"
+        },
+        {
+          "doc": "INTERVIEW_GUIDE.md",
+          "anchor": "candidate-count reduction over a 16-schedule"
+        }
+      ]
+    },
+    {
+      "id": "cuda_cost_model_heldout_log_r2",
+      "claim": "0.926",
+      "artifact": "bench/results/cost_model_heldout.json",
+      "field": "latency_prediction.test_metrics.log_r2",
+      "format": {
+        "kind": "fixed",
+        "decimals": 3
+      },
+      "refs": [
+        {
+          "doc": "README.md",
+          "anchor": "generalization on unseen shapes"
+        },
+        {
+          "doc": "RESUME_CLAIMS.md",
+          "anchor": "held-out CUDA log_R"
+        }
+      ]
+    },
+    {
+      "id": "cuda_cost_model_heldout_mape",
+      "claim": "14.32%",
+      "artifact": "bench/results/cost_model_heldout.json",
+      "field": "latency_prediction.test_metrics.mape_pct",
+      "format": {
+        "kind": "fixed",
+        "decimals": 2,
+        "suffix": "%"
+      },
+      "refs": [
+        {
+          "doc": "README.md",
+          "anchor": "generalization on unseen shapes"
+        },
+        {
+          "doc": "RESUME_CLAIMS.md",
+          "anchor": "held-out CUDA log_R"
+        }
+      ]
+    },
+    {
+      "id": "cuda_cost_model_heldout_mean_regret",
+      "claim": "5.21%",
+      "artifact": "bench/results/cost_model_heldout.json",
+      "field": "selection_quality.summary.mean_regret_pct",
+      "format": {
+        "kind": "fixed",
+        "decimals": 2,
+        "suffix": "%"
+      },
+      "refs": [
+        {
+          "doc": "README.md",
+          "anchor": "CUDA held-out mean regret"
+        },
+        {
+          "doc": "README.md",
+          "anchor": "generalization on unseen shapes"
+        },
+        {
+          "doc": "RESUME_CLAIMS.md",
+          "anchor": "CUDA comparison is 16-candidate"
+        },
+        {
+          "doc": "RESUME_CLAIMS.md",
+          "anchor": "held-out CUDA log_R"
+        }
+      ]
+    },
+    {
+      "id": "cuda_cost_model_heldout_max_regret",
+      "claim": "11.90%",
+      "artifact": "bench/results/cost_model_heldout.json",
+      "field": "selection_quality.summary.max_regret_pct",
+      "format": {
+        "kind": "fixed",
+        "decimals": 2,
+        "suffix": "%"
+      },
+      "refs": [
+        {
+          "doc": "README.md",
+          "anchor": "generalization on unseen shapes"
+        }
+      ]
+    },
+    {
+      "id": "cuda_cost_model_regression_median_abs_error",
+      "claim": "8.98%",
+      "artifact": "bench/results/cost_model_regression.json",
+      "field": "baseline.median_abs_percent_error",
+      "format": {
+        "kind": "fixed",
+        "decimals": 2,
+        "suffix": "%"
+      },
+      "refs": [
+        {
+          "doc": "RESUME_CLAIMS.md",
+          "anchor": "CUDA cost-model regression gate"
+        },
+        {
+          "doc": "CLAIMS_MATRIX.md",
+          "anchor": "median absolute percent error within 8.98%"
+        }
+      ]
+    },
+    {
+      "id": "cuda_cost_model_regression_p95_error",
+      "claim": "15.71%",
+      "artifact": "bench/results/cost_model_regression.json",
+      "field": "baseline.p95_abs_percent_error",
+      "format": {
+        "kind": "fixed",
+        "decimals": 2,
+        "suffix": "%"
+      },
+      "refs": [
+        {
+          "doc": "RESUME_CLAIMS.md",
+          "anchor": "CUDA cost-model regression gate"
+        }
+      ]
+    },
+    {
+      "id": "utpu_cost_model_heldout_log_r2",
+      "claim": "0.924",
+      "artifact": "bench/results/utpu_cycle_model_heldout.json",
+      "field": "latency_prediction.test_metrics.log_r2",
+      "format": {
+        "kind": "fixed",
+        "decimals": 3
+      },
+      "refs": [
+        {
+          "doc": "README.md",
+          "anchor": "uTPU cycle cost model"
+        },
+        {
+          "doc": "RESUME_CLAIMS.md",
+          "anchor": "uTPU cycle cost model held-out"
+        },
+        {
+          "doc": "CLAIMS_MATRIX.md",
+          "anchor": "uTPU cycle cost-model held-out"
+        }
+      ]
+    },
+    {
+      "id": "utpu_cost_model_heldout_mape",
+      "claim": "10.04%",
+      "artifact": "bench/results/utpu_cycle_model_heldout.json",
+      "field": "latency_prediction.test_metrics.mape_pct",
+      "format": {
+        "kind": "fixed",
+        "decimals": 2,
+        "suffix": "%"
+      },
+      "refs": [
+        {
+          "doc": "README.md",
+          "anchor": "uTPU cycle cost model"
+        },
+        {
+          "doc": "RESUME_CLAIMS.md",
+          "anchor": "uTPU cycle cost model held-out"
+        },
+        {
+          "doc": "CLAIMS_MATRIX.md",
+          "anchor": "uTPU cycle cost-model held-out"
+        }
+      ]
+    },
+    {
+      "id": "determinism_median_latency_loss_factor",
+      "claim": "1.89×",
+      "artifact": "bench/results/latency_determinism_vs_gpu.json",
+      "field": "comparison.median_latency_loss.median_latency_loss_factor",
+      "format": {
+        "kind": "fixed",
+        "decimals": 2,
+        "suffix": "×"
+      },
+      "refs": [
+        {
+          "doc": "README.md",
+          "anchor": "Determinism vs GPU:"
+        },
+        {
+          "doc": "RESUME_CLAIMS.md",
+          "anchor": "modeled median latency"
+        },
+        {
+          "doc": "README.md",
+          "anchor": "showed zero FPGA cycle variance"
+        },
+        {
+          "doc": "CLAIMS_MATRIX.md",
+          "anchor": "Determinism vs GPU tail latency"
+        }
+      ]
+    },
+    {
+      "id": "determinism_fpga_p50_ns",
+      "claim": "33408",
+      "artifact": "bench/results/latency_determinism_vs_gpu.json",
+      "field": "comparison.median_latency_loss.fpga_p50_ns",
+      "format": {
+        "kind": "int"
+      },
+      "refs": [
+        {
+          "doc": "CLAIMS_MATRIX.md",
+          "anchor": "Determinism vs GPU tail latency"
+        }
+      ]
+    },
+    {
+      "id": "determinism_rtl_cycles",
+      "claim": "2784",
+      "artifact": "bench/results/latency_determinism.json",
+      "field": "rtl_arm.distribution_rtl_cycles_observed[0]",
+      "format": {
+        "kind": "int"
+      },
+      "refs": [
+        {
+          "doc": "CLAIMS_MATRIX.md",
+          "anchor": "Determinism vs GPU tail latency"
+        }
+      ]
+    },
+    {
+      "id": "artix7_12ns_wns_shipping",
+      "claim": "+0.271",
+      "artifact": "bench/results/design_space_sweep.json",
+      "field": "shipping_point.timing.wns_ns",
+      "format": {
+        "kind": "fixed",
+        "decimals": 3,
+        "prefix": "+"
+      },
+      "refs": [
+        {
+          "doc": "README.md",
+          "anchor": "DSP rightsizing and Artix-7 timing"
+        },
+        {
+          "doc": "RESUME_CLAIMS.md",
+          "anchor": "Artix-7 A7-100T"
+        },
+        {
+          "doc": "README.md",
+          "anchor": "showed zero FPGA cycle variance"
+        },
+        {
+          "doc": "CLAIMS_MATRIX.md",
+          "anchor": "Determinism vs GPU tail latency"
+        }
+      ]
+    },
+    {
+      "id": "bstore_widen_e2e_speedup",
+      "claim": "1.89×",
+      "artifact": "bench/results/bstore_path_measure.json",
+      "field": "implementation.post_widen_mnist_attr.e2e_speedup_vs_pre_widen",
+      "format": {
+        "kind": "fixed",
+        "decimals": 2,
+        "suffix": "×"
+      },
+      "refs": [
+        {
+          "doc": "README.md",
+          "anchor": "BSTORE write-arm widening"
+        },
+        {
+          "doc": "RESUME_CLAIMS.md",
+          "anchor": "BSTORE_WIDTH=8` delivers"
+        },
+        {
+          "doc": "CLAIMS_MATRIX.md",
+          "anchor": "E2e vs pre-widen"
+        },
+        {
+          "doc": "CLAIMS_MATRIX.md",
+          "anchor": "BSTORE write-arm widen (implemented"
+        }
+      ]
+    },
+    {
+      "id": "bstore_widen_pre_cycles",
+      "claim": "6523",
+      "artifact": "bench/results/bstore_path_measure.json",
+      "field": "workload.pre_widen_total_program_cycles",
+      "format": {
+        "kind": "int"
+      },
+      "refs": [
+        {
+          "doc": "README.md",
+          "anchor": "BSTORE write-arm widening"
+        },
+        {
+          "doc": "CLAIMS_MATRIX.md",
+          "anchor": "Multi-layer reference attribution"
+        }
+      ]
+    },
+    {
+      "id": "bstore_widen_post_cycles",
+      "claim": "3445",
+      "artifact": "bench/results/bstore_path_measure.json",
+      "field": "implementation.post_widen_mnist_attr.total_program_cycles",
+      "format": {
+        "kind": "int"
+      },
+      "refs": [
+        {
+          "doc": "README.md",
+          "anchor": "BSTORE write-arm widening"
+        },
+        {
+          "doc": "CLAIMS_MATRIX.md",
+          "anchor": "Multi-layer reference attribution"
+        }
+      ]
+    },
+    {
+      "id": "steady_state_compute_share",
+      "claim": "56.2%",
+      "artifact": "bench/results/steady_state_attribution.json",
+      "field": "steady_state.mean_compute_share",
+      "format": {
+        "kind": "fixed",
+        "decimals": 1,
+        "scale": 100,
+        "suffix": "%"
+      },
+      "refs": [
+        {
+          "doc": "README.md",
+          "anchor": "Steady-state compute share"
+        },
+        {
+          "doc": "RESUME_CLAIMS.md",
+          "anchor": "Buffer-resident weights (A5): steady-state compute share"
+        }
+      ]
+    },
+    {
+      "id": "cold_compute_share",
+      "claim": "20.6%",
+      "artifact": "bench/results/steady_state_attribution.json",
+      "field": "cold.compute_share",
+      "format": {
+        "kind": "fixed",
+        "decimals": 1,
+        "scale": 100,
+        "suffix": "%"
+      },
+      "refs": [
+        {
+          "doc": "README.md",
+          "anchor": "Steady-state compute share"
+        },
+        {
+          "doc": "RESUME_CLAIMS.md",
+          "anchor": "Buffer-resident weights (A5): steady-state compute share"
+        }
+      ]
+    },
+    {
+      "id": "steady_state_mean_cycles",
+      "claim": "1261",
+      "artifact": "bench/results/steady_state_attribution.json",
+      "field": "steady_state.mean_total_program_cycles",
+      "format": {
+        "kind": "int"
+      },
+      "refs": [
+        {
+          "doc": "README.md",
+          "anchor": "Steady-state compute share"
+        },
+        {
+          "doc": "RESUME_CLAIMS.md",
+          "anchor": "Buffer-resident weights (A5): steady-state compute share"
+        }
+      ]
+    },
+    {
+      "id": "instruction_stream_share_flagship",
+      "claim": "66%",
+      "artifact": "bench/results/cycle_attribution.json",
+      "field": "amdahl_part_a.instruction_stream_pct",
+      "format": {
+        "kind": "fixed",
+        "decimals": 0,
+        "scale": 100,
+        "suffix": "%"
+      },
+      "refs": [
+        {
+          "doc": "README.md",
+          "anchor": "Instruction-stream attribution"
+        },
+        {
+          "doc": "RESUME_CLAIMS.md",
+          "anchor": "Instruction-stream dominates"
+        }
+      ]
+    },
+    {
+      "id": "instruction_stream_share_flagship_1dp",
+      "claim": "66.2%",
+      "artifact": "bench/results/cycle_attribution.json",
+      "field": "cases[11].hypothesis_metrics.instruction_stream_pct",
+      "format": {
+        "kind": "fixed",
+        "decimals": 1,
+        "scale": 100,
+        "suffix": "%"
+      },
+      "refs": [
+        {
+          "doc": "CLAIMS_MATRIX.md",
+          "anchor": "RTL FSM cycle attribution"
+        }
+      ]
+    },
+    {
+      "id": "load_share_flagship",
+      "claim": "1.1%",
+      "artifact": "bench/results/cycle_attribution.json",
+      "field": "cases[11].hypothesis_metrics.load_over_total",
+      "format": {
+        "kind": "fixed",
+        "decimals": 1,
+        "scale": 100,
+        "suffix": "%"
+      },
+      "refs": [
+        {
+          "doc": "README.md",
+          "anchor": "Instruction-stream attribution"
+        },
+        {
+          "doc": "RESUME_CLAIMS.md",
+          "anchor": "Instruction-stream dominates"
+        },
+        {
+          "doc": "CLAIMS_MATRIX.md",
+          "anchor": "RTL FSM cycle attribution"
+        }
+      ]
+    },
+    {
+      "id": "compute_share_flagship",
+      "claim": "5.7%",
+      "artifact": "bench/results/cycle_attribution.json",
+      "field": "cases[11].hypothesis_metrics.compute_over_total",
+      "format": {
+        "kind": "fixed",
+        "decimals": 1,
+        "scale": 100,
+        "suffix": "%"
+      },
+      "refs": [
+        {
+          "doc": "README.md",
+          "anchor": "Instruction-stream attribution"
+        },
+        {
+          "doc": "CLAIMS_MATRIX.md",
+          "anchor": "RTL FSM cycle attribution"
+        }
+      ]
+    },
+    {
+      "id": "result_fetch_share_flagship",
+      "claim": "26.7%",
+      "artifact": "bench/results/cycle_attribution.json",
+      "field": "cases[11].groups.result_fetch.pct_of_total_program_cycles",
+      "format": {
+        "kind": "fixed",
+        "decimals": 1,
+        "scale": 100,
+        "suffix": "%"
+      },
+      "refs": [
+        {
+          "doc": "CLAIMS_MATRIX.md",
+          "anchor": "RTL FSM cycle attribution"
+        }
+      ]
+    },
+    {
+      "id": "board_fit_pynqz2_baseline",
+      "claim": "4/14",
+      "artifact": "bench/results/board_fit_audit.json",
+      "field": "aggregate.per_board.pynqz2_baseline.shapes_fit_count",
+      "format": {
+        "kind": "ratio",
+        "denominator": "len:per_shape"
+      },
+      "refs": [
+        {
+          "doc": "README.md",
+          "anchor": "Instruction capacity:"
+        },
+        {
+          "doc": "README.md",
+          "anchor": "Board-fit audit:"
+        },
+        {
+          "doc": "RESUME_CLAIMS.md",
+          "anchor": "Instruction BRAM capacity"
+        }
+      ]
+    },
+    {
+      "id": "board_fit_artix_a7100t",
+      "claim": "10/14",
+      "artifact": "bench/results/board_fit_audit.json",
+      "field": "aggregate.per_board.artix_a7100t_bram_max.shapes_fit_count",
+      "format": {
+        "kind": "ratio",
+        "denominator": "len:per_shape"
+      },
+      "refs": [
+        {
+          "doc": "README.md",
+          "anchor": "Instruction capacity:"
+        },
+        {
+          "doc": "README.md",
+          "anchor": "Board-fit audit:"
+        },
+        {
+          "doc": "RESUME_CLAIMS.md",
+          "anchor": "Instruction BRAM capacity"
+        }
+      ]
+    },
+    {
+      "id": "board_fit_pynqz2_bram_max",
+      "claim": "8/14",
+      "artifact": "bench/results/board_fit_audit.json",
+      "field": "aggregate.per_board.pynqz2_bram_max.shapes_fit_count",
+      "format": {
+        "kind": "ratio",
+        "denominator": "len:per_shape"
+      },
+      "refs": [
+        {
+          "doc": "README.md",
+          "anchor": "Board-fit audit:"
+        }
+      ]
+    },
+    {
+      "id": "board_fit_vu13p_uram",
+      "claim": "12/14",
+      "artifact": "bench/results/board_fit_audit.json",
+      "field": "aggregate.per_board.vu13p_uram.shapes_fit_count",
+      "format": {
+        "kind": "ratio",
+        "denominator": "len:per_shape"
+      },
+      "refs": [
+        {
+          "doc": "README.md",
+          "anchor": "Board-fit audit:"
+        }
+      ]
+    },
+    {
+      "id": "scheduler_sim_cycle_reduction",
+      "claim": "4.67%",
+      "artifact": "bench/results/scheduler_cycles.json",
+      "field": "aggregate.cycle_reduction_pct",
+      "format": {
+        "kind": "fixed",
+        "decimals": 2,
+        "suffix": "%"
+      },
+      "refs": [
+        {
+          "doc": "README.md",
+          "anchor": "Scheduler RTL cycle cross-check"
+        },
+        {
+          "doc": "RESUME_CLAIMS.md",
+          "anchor": "Scheduler + allocator"
+        }
+      ]
+    },
+    {
+      "id": "megakernel_pooled_launch_reduction",
+      "claim": "62.5%",
+      "artifact": "bench/results/megakernel_payoff.json",
+      "field": "aggregate.launch_reduction_vs_op_by_op_pct_pooled",
+      "format": {
+        "kind": "fixed",
+        "decimals": 1,
+        "suffix": "%"
+      },
+      "refs": [
+        {
+          "doc": "RESUME_CLAIMS.md",
+          "anchor": "pooled launch reduction"
+        }
+      ]
+    },
+    {
+      "id": "multi_pe_k_split_reduction",
+      "claim": "24.1%",
+      "artifact": "bench/results/multi_pe_sim.json",
+      "field": "summary.case2_multi_k.parallel_cycle_reduction_pct",
+      "format": {
+        "kind": "fixed",
+        "decimals": 1,
+        "suffix": "%"
+      },
+      "refs": [
+        {
+          "doc": "RESUME_CLAIMS.md",
+          "anchor": "2-PE K-split FC1"
+        }
+      ]
+    },
+    {
+      "id": "mnist_int8_accuracy",
+      "claim": "97.33%",
+      "artifact": "bench/results/real_model_accelerator.json",
+      "field": "accuracy_comparison.int8.per_layer_accuracy",
+      "format": {
+        "kind": "fixed",
+        "decimals": 2,
+        "scale": 100,
+        "suffix": "%"
+      },
+      "refs": [
+        {
+          "doc": "RESUME_CLAIMS.md",
+          "anchor": "Deployed INT8 accuracy"
+        },
+        {
+          "doc": "CLAIMS_MATRIX.md",
+          "anchor": "Deployed INT8 accuracy"
+        }
+      ]
+    },
+    {
+      "id": "mnist_float_accuracy",
+      "claim": "97.30%",
+      "artifact": "bench/results/real_model_accelerator.json",
+      "field": "accuracy_comparison.float_accuracy",
+      "format": {
+        "kind": "fixed",
+        "decimals": 2,
+        "scale": 100,
+        "suffix": "%"
+      },
+      "refs": [
+        {
+          "doc": "RESUME_CLAIMS.md",
+          "anchor": "Deployed INT8 accuracy"
+        },
+        {
+          "doc": "CLAIMS_MATRIX.md",
+          "anchor": "Deployed INT8 accuracy"
+        }
+      ]
+    },
+    {
+      "id": "mnist_int4_accuracy",
+      "claim": "58.32%",
+      "artifact": "bench/results/real_model_accelerator.json",
+      "field": "accuracy_comparison.int4.per_layer_accuracy",
+      "format": {
+        "kind": "fixed",
+        "decimals": 2,
+        "scale": 100,
+        "suffix": "%"
+      },
+      "refs": [
+        {
+          "doc": "RESUME_CLAIMS.md",
+          "anchor": "Deployed INT8 accuracy"
+        }
+      ]
+    },
+    {
+      "id": "cifar_cnn_int8_accuracy",
+      "claim": "69.11%",
+      "artifact": "bench/results/utpu_small_cnn_validation.json",
+      "field": "accuracy.deployed_int8_accuracy_integer_oracle_full_test",
+      "format": {
+        "kind": "fixed",
+        "decimals": 2,
+        "scale": 100,
+        "suffix": "%"
+      },
+      "refs": [
+        {
+          "doc": "RESUME_CLAIMS.md",
+          "anchor": "CIFAR-10 all-conv CNN"
+        },
+        {
+          "doc": "CLAIMS_MATRIX.md",
+          "anchor": "CIFAR-10 all-conv CNN runs"
+        }
+      ]
+    },
+    {
+      "id": "cifar_cnn_float_accuracy",
+      "claim": "70.45%",
+      "artifact": "bench/results/utpu_small_cnn_validation.json",
+      "field": "accuracy.float_accuracy",
+      "format": {
+        "kind": "fixed",
+        "decimals": 2,
+        "scale": 100,
+        "suffix": "%"
+      },
+      "refs": [
+        {
+          "doc": "RESUME_CLAIMS.md",
+          "anchor": "CIFAR-10 all-conv CNN"
+        },
+        {
+          "doc": "CLAIMS_MATRIX.md",
+          "anchor": "CIFAR-10 all-conv CNN runs"
+        }
+      ]
+    },
+    {
+      "id": "prog_depth_65536_wns",
+      "claim": "+2.789",
+      "artifact": "bench/results/prog_depth_sweep.json",
+      "field": "summary.prog_depth_65536_point.timing.wns_ns",
+      "format": {
+        "kind": "fixed",
+        "decimals": 3,
+        "prefix": "+"
+      },
+      "refs": [
+        {
+          "doc": "CLAIMS_MATRIX.md",
+          "anchor": "Artix PROG_DEPTH / BUFFER_SIZE capacity sweep"
+        }
+      ]
+    },
+    {
+      "id": "prog_depth_65536_lut",
+      "claim": "41631",
+      "artifact": "bench/results/prog_depth_sweep.json",
+      "field": "summary.prog_depth_65536_point.utilization.lut_used",
+      "format": {
+        "kind": "int"
+      },
+      "refs": [
+        {
+          "doc": "CLAIMS_MATRIX.md",
+          "anchor": "Artix PROG_DEPTH / BUFFER_SIZE capacity sweep"
+        }
+      ]
+    },
+    {
+      "id": "max_batch_48_wns",
+      "claim": "+2.949",
+      "artifact": "bench/results/timing_closure_sweep.json",
+      "field": "max_batch_lut_bisect.largest_closing_point.timing.wns_ns",
+      "format": {
+        "kind": "fixed",
+        "decimals": 3,
+        "prefix": "+"
+      },
+      "refs": [
+        {
+          "doc": "CLAIMS_MATRIX.md",
+          "anchor": "Architectural batch ceiling"
+        }
+      ]
+    },
+    {
+      "id": "max_batch_48_lut",
+      "claim": "51751",
+      "artifact": "bench/results/timing_closure_sweep.json",
+      "field": "max_batch_lut_bisect.largest_closing_point.utilization.lut_used",
+      "format": {
+        "kind": "int"
+      },
+      "refs": [
+        {
+          "doc": "CLAIMS_MATRIX.md",
+          "anchor": "Architectural batch ceiling"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,2 @@
+from pathlib import Path
+p=Path('SPRINT_STATE.md');s=p.read_text();s=s.replace('P3 IN-PROGRESS diversity repair: original 50 records contained only 9 unique prefixes. Reusing nine distinct results and measuring 41 additional distinct prefixes; final decision awaits repaired 6000-position sweep.', 'P3 DONE / NO-GO for tested bounds: repaired sweep contains 50 distinct prefixes and 6000 generated positions, with zero rows skipped and exact argmax/max-logit agreement. The original repeated-prefix data is excluded.');p.write_text(s)

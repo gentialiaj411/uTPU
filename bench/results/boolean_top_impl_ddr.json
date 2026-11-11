@@ -1,0 +1,297 @@
+{
+  "status": "ok",
+  "part": "xc7s50csga324-1",
+  "top": "boolean_top",
+  "ddr": 1,
+  "generics": {
+    "DDR": "1"
+  },
+  "constraints": [
+    "constraints/boolean_xc7s50.xdc",
+    "constraints/boolean_xc7s50_qspi_ddr.xdc"
+  ],
+  "bitstream_generated": false,
+  "sources": [
+    "rtl/decode/decode_pkg.sv",
+    "rtl/decode/seq_mul.sv",
+    "rtl/decode/mul_pipe.sv",
+    "rtl/decode/div_const_pipe.sv",
+    "rtl/decode/gemv_unit.sv",
+    "rtl/decode/act_quant.sv",
+    "rtl/decode/rmsnorm.sv",
+    "rtl/decode/vec_alu.sv",
+    "rtl/decode/attention.sv",
+    "rtl/decode/top_decode.sv",
+    "rtl/decode/qspi_reader.sv",
+    "rtl/board/uart_rx.sv",
+    "rtl/board/uart_tx.sv",
+    "rtl/board/board_ctrl.sv",
+    "rtl/board/boolean_core.sv",
+    "rtl/board/qspi_pad_regs.sv",
+    "rtl/board/qspi_pads.sv",
+    "rtl/board/boolean_top.sv"
+  ],
+  "lut": 20865.0,
+  "lut_pct": 64.0,
+  "ff": 9873.0,
+  "dsp": 73.0,
+  "bram36_equiv": 67.0,
+  "wns_ns": 1.484,
+  "tns_ns": 0.0,
+  "whs_ns": 0.023,
+  "ths_ns": 0.0,
+  "timing_met": true,
+  "drc_checks_found": 36,
+  "drc_summary_rules": [
+    [
+      "DPIP-1",
+      "Warning",
+      "36"
+    ]
+  ],
+  "drc_error_rules": [],
+  "bitstream_note": "write_bitstream is not in the Tcl; no bitstream was generated",
+  "qspi_io_slack": {
+    "qspi_cs_n": {
+      "out_setup": {
+        "slack_ns": 14.242,
+        "from": "u_core/u_pr/cs_n_r_reg/C",
+        "to": "qspi_cs_n"
+      },
+      "out_hold": {
+        "slack_ns": 29.706,
+        "from": "u_core/u_pr/cs_n_r_reg/C",
+        "to": "qspi_cs_n"
+      }
+    },
+    "qspi_dq[0]": {
+      "out_setup": {
+        "slack_ns": 12.624,
+        "from": "u_core/u_pr/io_t_r_reg[0]/C",
+        "to": "qspi_dq[0]"
+      },
+      "out_hold": {
+        "slack_ns": 30.723,
+        "from": "u_core/u_pr/io_o_r_reg[0]/C",
+        "to": "qspi_dq[0]"
+      },
+      "in_setup": {
+        "slack_ns": 1.484,
+        "from": "qspi_dq[0]",
+        "to": "u_core/u_pr/io_i_r_reg[0]/D"
+      },
+      "in_hold": {
+        "slack_ns": 2.479,
+        "from": "qspi_dq[0]",
+        "to": "u_core/u_pr/io_i_r_reg[0]/D"
+      }
+    },
+    "qspi_dq[1]": {
+      "out_setup": {
+        "slack_ns": 14.138,
+        "from": "u_core/u_pr/io_t_r_reg[1]/C",
+        "to": "qspi_dq[1]"
+      },
+      "out_hold": {
+        "slack_ns": 30.342,
+        "from": "u_core/u_pr/io_t_r_reg[1]/C",
+        "to": "qspi_dq[1]"
+      },
+      "in_setup": {
+        "slack_ns": 1.494,
+        "from": "qspi_dq[1]",
+        "to": "u_core/u_pr/io_i_r_reg[1]/D"
+      },
+      "in_hold": {
+        "slack_ns": 2.469,
+        "from": "qspi_dq[1]",
+        "to": "u_core/u_pr/io_i_r_reg[1]/D"
+      }
+    },
+    "qspi_dq[2]": {
+      "out_setup": {
+        "slack_ns": 14.158,
+        "from": "u_core/u_pr/io_t_r_reg[2]/C",
+        "to": "qspi_dq[2]"
+      },
+      "out_hold": {
+        "slack_ns": 30.341,
+        "from": "u_core/u_pr/io_t_r_reg[2]/C",
+        "to": "qspi_dq[2]"
+      },
+      "in_setup": {
+        "slack_ns": 1.511,
+        "from": "qspi_dq[2]",
+        "to": "u_core/u_pr/io_i_r_reg[2]/D"
+      },
+      "in_hold": {
+        "slack_ns": 2.452,
+        "from": "qspi_dq[2]",
+        "to": "u_core/u_pr/io_i_r_reg[2]/D"
+      }
+    },
+    "qspi_dq[3]": {
+      "out_setup": {
+        "slack_ns": 14.163,
+        "from": "u_core/u_pr/io_t_r_reg[3]/C",
+        "to": "qspi_dq[3]"
+      },
+      "out_hold": {
+        "slack_ns": 30.341,
+        "from": "u_core/u_pr/io_t_r_reg[3]/C",
+        "to": "qspi_dq[3]"
+      },
+      "in_setup": {
+        "slack_ns": 1.516,
+        "from": "qspi_dq[3]",
+        "to": "u_core/u_pr/io_i_r_reg[3]/D"
+      },
+      "in_hold": {
+        "slack_ns": 2.447,
+        "from": "qspi_dq[3]",
+        "to": "u_core/u_pr/io_i_r_reg[3]/D"
+      }
+    },
+    "worst_hold": {
+      "slack_ns": 0.023,
+      "from": "u_core/u_rd/sh_reg[10]/C",
+      "to": "u_core/u_rd/sh_reg[11]/D"
+    },
+    "worst_setup": {
+      "slack_ns": 1.484,
+      "from": "qspi_dq[0]",
+      "to": "u_core/u_pr/io_i_r_reg[0]/D"
+    }
+  },
+  "bram36_physical_limit": 75,
+  "placed_ports": {
+    "UART_rxd": {
+      "package_pin": "V12",
+      "iostandard": "LVCMOS33",
+      "direction": "IN"
+    },
+    "UART_txd": {
+      "package_pin": "U11",
+      "iostandard": "LVCMOS33",
+      "direction": "OUT"
+    },
+    "clk": {
+      "package_pin": "F14",
+      "iostandard": "LVCMOS33",
+      "direction": "IN"
+    },
+    "qspi_cs_n": {
+      "package_pin": "M13",
+      "iostandard": "LVCMOS33",
+      "direction": "OUT"
+    },
+    "qspi_dq[0]": {
+      "package_pin": "K17",
+      "iostandard": "LVCMOS33",
+      "direction": "INOUT"
+    },
+    "qspi_dq[1]": {
+      "package_pin": "K18",
+      "iostandard": "LVCMOS33",
+      "direction": "INOUT"
+    },
+    "qspi_dq[2]": {
+      "package_pin": "L14",
+      "iostandard": "LVCMOS33",
+      "direction": "INOUT"
+    },
+    "qspi_dq[3]": {
+      "package_pin": "M15",
+      "iostandard": "LVCMOS33",
+      "direction": "INOUT"
+    }
+  },
+  "methodology": {
+    "by_severity": {
+      "Warning": 146
+    },
+    "by_rule": {
+      "SYNTH-6": {
+        "severity": "Warning",
+        "count": 68
+      },
+      "SYNTH-9": {
+        "severity": "Warning",
+        "count": 9
+      },
+      "SYNTH-10": {
+        "severity": "Warning",
+        "count": 68
+      },
+      "SYNTH-16": {
+        "severity": "Warning",
+        "count": 1
+      }
+    },
+    "report": "build/decode/synth/boolean_top_ddr/methodology.rpt"
+  },
+  "cdc": {
+    "by_severity": {
+      "Info": 1
+    },
+    "by_rule": {
+      "CDC-3": {
+        "severity": "Info",
+        "count": 1
+      }
+    },
+    "report": "build/decode/synth/boolean_top_ddr/cdc.rpt"
+  },
+  "reports": {
+    "util.rpt": "build/decode/synth/boolean_top_ddr/util.rpt",
+    "timing.rpt": "build/decode/synth/boolean_top_ddr/timing.rpt",
+    "drc.rpt": "build/decode/synth/boolean_top_ddr/drc.rpt",
+    "io.rpt": "build/decode/synth/boolean_top_ddr/io.rpt",
+    "clock_util.rpt": "build/decode/synth/boolean_top_ddr/clock_util.rpt",
+    "qspi_io_slack.txt": "build/decode/synth/boolean_top_ddr/qspi_io_slack.txt",
+    "qspi_in_paths.rpt": "build/decode/synth/boolean_top_ddr/qspi_in_paths.rpt",
+    "qspi_out_paths.rpt": "build/decode/synth/boolean_top_ddr/qspi_out_paths.rpt",
+    "methodology.rpt": "build/decode/synth/boolean_top_ddr/methodology.rpt",
+    "cdc.rpt": "build/decode/synth/boolean_top_ddr/cdc.rpt",
+    "ports_placed.txt": "build/decode/synth/boolean_top_ddr/ports_placed.txt",
+    "clocks.rpt": "build/decode/synth/boolean_top_ddr/clocks.rpt",
+    "check_timing.rpt": "build/decode/synth/boolean_top_ddr/check_timing.rpt"
+  },
+  "provenance": {
+    "build/decode/decode_image_15m/params.json": "f097060b246263b7331bc38d81471d18351972c2b3203801d57af4efe90c9bfe",
+    "constraints/boolean_xc7s50.xdc": "c5907b812771eb9b151e9d41a4b9c3df13a8620cd2f55de212baff267ac62ef4",
+    "constraints/boolean_xc7s50_qspi_ddr.xdc": "26d3f8b191a1c1f6d3bb559c0eb70560d6c703852daee5a9cfd9d511034d9001",
+    "models/numerics_v2/gptq_qkv_wo_w2_int8_g32.npz": "ecf950f452d052ce5909add99d7443d5d5be75dd12d78900e7bcb0ca38afe03d",
+    "rtl/board/board_ctrl.sv": "653ea5890efd3036275b01b6b5c956b47a46d3d2ef477ad525b0f099083b3580",
+    "rtl/board/boolean_core.sv": "7e868a2fcbd582493c761efb64206f3a19e8709d10949c1ce40f02e2b3d04d43",
+    "rtl/board/boolean_top.sv": "1590ff49a453748ad4aa597478effeea63206c5259450f378f7eee1726394dde",
+    "rtl/board/qspi_pad_regs.sv": "a2a288b8ac3f45f278a4b0f825b379a672667e3d1ccee2da88b0f9611551bdbe",
+    "rtl/board/qspi_pads.sv": "8dd97946a62880d05782a4a6b5f54ae5f5fe69a3e98f21085c12675916b53818",
+    "rtl/board/uart_rx.sv": "5c49019524ef282374eeb148d296b16eb19be003b823870abf8a5d11303aba17",
+    "rtl/board/uart_tx.sv": "1947759999bcfee390fd02ae820f1ed708b1ecfa67bf38f5879dc7ef81d13360",
+    "rtl/decode/act_quant.sv": "ba7a58c2d414fea72e239718a8ae438ff54a489260af31978b416625c9e37c44",
+    "rtl/decode/attention.sv": "dffafd384c2c1c8f24ff38490fff2edef40dd6e97f6a46ec215895a9f362385d",
+    "rtl/decode/decode_pkg.sv": "feb1c78dda92aed8916291d0560d96b0c64507922f811b2c11ed0590506bc01d",
+    "rtl/decode/div_const_pipe.sv": "a879eeb669a1e37c5ddc9c67b4b73b38a04b416f805884cc981fe5d56ef4eb7c",
+    "rtl/decode/gemv_unit.sv": "428ba02cbd61fbe1742cc7f4e28efcdc4dd1aad2cecb63167ac200e7764491bc",
+    "rtl/decode/mul_pipe.sv": "635d879b52692ca6c35f579e00a9bc45af2d20ee00c2f486ec52fd528789086d",
+    "rtl/decode/qspi_reader.sv": "c46d66cb17c9d0423a740bb41732e3059623b604bb23d79b58e7352cc2e3f6c5",
+    "rtl/decode/rmsnorm.sv": "58655ec0ece79b10c864b3f87db3e8355d008a1b7bf39c5fb318a2ab4f1c640c",
+    "rtl/decode/seq_mul.sv": "f9aadb368b2fbb784a01e4f771165320bcb75dd04c2a50f8c168be7ff9c38b2d",
+    "rtl/decode/top_decode.sv": "ed235a06192186d398811df9828225015e36620ae63c9fac012280bea9aac37d",
+    "rtl/decode/vec_alu.sv": "5cde195056490d2c34307ace3407ab705f278f7a03b56aca66d3d1d5cdd4b87a",
+    "tools/board/impl_top.py": "173fc96ce9f5883545958f817e232e3c4af8005be53577ecac3b6bbc1ca44ae0",
+    "tools/decode/pack_decode_image.py": "525ab2e8a4c588a7d92ecc330bf98aa4420092607ec8237b5108bd78507d09b7",
+    "tools/decode/provenance.py": "95773cac9f4a02b7ee821daacbb8442693380271ef4a5ac706107d2bc1790627",
+    "tool:iverilog": "30ecdf8d4bca08faa28bfff76da01eea11c2656d361976f9048c100b4b245f96",
+    "tool:simulator": {
+      "name": "icarus",
+      "version": "Icarus Verilog runtime version 12.0 (devel) (s20150603-1539-g2693dd32b)\n\nCopyright (c) 2001-2021 Stephen Williams (steve@icarus.com)\n\n  This program is free software; you can redistribute it and/or modify\n  it under the terms of the GNU General Public License as published by\n  the Free Software Foundation; either version 2 of the License, or\n  (at your option) any later version.\n\n  This program is distributed in the hope that it will be useful,\n  but WITHOUT ANY WARRANTY; without even the implied warranty of\n  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n  GNU General Public License for more details.\n\n  You should have received a copy of the GNU General Public License along\n  with this program; if not, write to the Free Software Foundation, Inc.,\n  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.",
+      "executable": "C:\\iverilog\\bin\\vvp.exe",
+      "executable_sha256": "e2f442f4d5aa76e55c85c3ff77e4446fbfdb9946b7cfe8a2dff87f275da17b62",
+      "compiler_sha256": "803b8844af2cc8ed70b5f08b07ffa749901280e81339617ca3e72cbbb852bd2b"
+    },
+    "runtime:python": "c0c26871ec1aae748b7914a09c9566d5234775c7a1a2915bf8f401eb6d5cd964",
+    "runtime:numpy": "4b0379678f664340b010747a4ad1436f29a4e92e8b245932f19cec020dff8770"
+  }
+}
