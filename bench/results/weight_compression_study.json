@@ -1,0 +1,1395 @@
+{
+  "study": "lossless_weight_compression",
+  "script": "tools/wcomp/weight_compression_study.py",
+  "models": {
+    "15m": {
+      "image": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU\\build\\decode\\decode_image_15m\\image.bin",
+      "image_bytes": 12124224,
+      "params": {
+        "D": 288,
+        "H": 768,
+        "NL": 6,
+        "NH": 6,
+        "NKV": 6,
+        "HS": 48,
+        "VOCAB": 32000,
+        "CLS_BASE": 0,
+        "EMB_SCALE_BASE": 5472000,
+        "LAYERS_BASE": 6912000,
+        "IMAGE_BYTES": 12124224,
+        "CLS4": 1,
+        "WQ4": 0,
+        "WK4": 0,
+        "WV4": 0,
+        "WO4": 0,
+        "W14": 1,
+        "W34": 1,
+        "W24": 0,
+        "CLS_TILE_BYTES": 2736,
+        "CLS_KB": 144,
+        "CLS_G": 9,
+        "RECIP_D": 14913081,
+        "GFB": 12,
+        "NORM_MULT": 828896808,
+        "NORM_SHIFT": 34,
+        "EPS": 1034,
+        "SILU_MULT": 884304146,
+        "SILU_SHIFT": 37,
+        "SWIGLU_MULT": 742221392,
+        "SWIGLU_SHIFT": 43,
+        "SCORE_MULT": 801779553,
+        "SCORE_SHIFT": 50
+      },
+      "stream_raw_bytes_per_token": 10684413,
+      "order0_entropy_bits_per_byte": 7.230298949091933,
+      "order0_entropy_code_bytes": 9252864,
+      "metadata_bytes": 2871360,
+      "tensors": [
+        {
+          "name": "classifier",
+          "raw_bytes": 5472000,
+          "code_bytes": 4608000,
+          "metadata_bytes": 864000,
+          "rows": 32000,
+          "int4": true
+        },
+        {
+          "name": "layer0.gamma_att",
+          "raw_bytes": 576,
+          "code_bytes": 0,
+          "metadata_bytes": 576,
+          "rows": null,
+          "int4": null
+        },
+        {
+          "name": "layer0.wq",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer0.wk",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer0.wv",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer0.wo",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer0.gamma_ffn",
+          "raw_bytes": 576,
+          "code_bytes": 0,
+          "metadata_bytes": 576,
+          "rows": null,
+          "int4": null
+        },
+        {
+          "name": "layer0.w1",
+          "raw_bytes": 131328,
+          "code_bytes": 110592,
+          "metadata_bytes": 20736,
+          "rows": 768,
+          "int4": true
+        },
+        {
+          "name": "layer0.w3",
+          "raw_bytes": 131328,
+          "code_bytes": 110592,
+          "metadata_bytes": 20736,
+          "rows": 768,
+          "int4": true
+        },
+        {
+          "name": "layer0.w2",
+          "raw_bytes": 241920,
+          "code_bytes": 221184,
+          "metadata_bytes": 20736,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer1.gamma_att",
+          "raw_bytes": 576,
+          "code_bytes": 0,
+          "metadata_bytes": 576,
+          "rows": null,
+          "int4": null
+        },
+        {
+          "name": "layer1.wq",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer1.wk",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer1.wv",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer1.wo",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer1.gamma_ffn",
+          "raw_bytes": 576,
+          "code_bytes": 0,
+          "metadata_bytes": 576,
+          "rows": null,
+          "int4": null
+        },
+        {
+          "name": "layer1.w1",
+          "raw_bytes": 131328,
+          "code_bytes": 110592,
+          "metadata_bytes": 20736,
+          "rows": 768,
+          "int4": true
+        },
+        {
+          "name": "layer1.w3",
+          "raw_bytes": 131328,
+          "code_bytes": 110592,
+          "metadata_bytes": 20736,
+          "rows": 768,
+          "int4": true
+        },
+        {
+          "name": "layer1.w2",
+          "raw_bytes": 241920,
+          "code_bytes": 221184,
+          "metadata_bytes": 20736,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer2.gamma_att",
+          "raw_bytes": 576,
+          "code_bytes": 0,
+          "metadata_bytes": 576,
+          "rows": null,
+          "int4": null
+        },
+        {
+          "name": "layer2.wq",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer2.wk",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer2.wv",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer2.wo",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer2.gamma_ffn",
+          "raw_bytes": 576,
+          "code_bytes": 0,
+          "metadata_bytes": 576,
+          "rows": null,
+          "int4": null
+        },
+        {
+          "name": "layer2.w1",
+          "raw_bytes": 131328,
+          "code_bytes": 110592,
+          "metadata_bytes": 20736,
+          "rows": 768,
+          "int4": true
+        },
+        {
+          "name": "layer2.w3",
+          "raw_bytes": 131328,
+          "code_bytes": 110592,
+          "metadata_bytes": 20736,
+          "rows": 768,
+          "int4": true
+        },
+        {
+          "name": "layer2.w2",
+          "raw_bytes": 241920,
+          "code_bytes": 221184,
+          "metadata_bytes": 20736,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer3.gamma_att",
+          "raw_bytes": 576,
+          "code_bytes": 0,
+          "metadata_bytes": 576,
+          "rows": null,
+          "int4": null
+        },
+        {
+          "name": "layer3.wq",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer3.wk",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer3.wv",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer3.wo",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer3.gamma_ffn",
+          "raw_bytes": 576,
+          "code_bytes": 0,
+          "metadata_bytes": 576,
+          "rows": null,
+          "int4": null
+        },
+        {
+          "name": "layer3.w1",
+          "raw_bytes": 131328,
+          "code_bytes": 110592,
+          "metadata_bytes": 20736,
+          "rows": 768,
+          "int4": true
+        },
+        {
+          "name": "layer3.w3",
+          "raw_bytes": 131328,
+          "code_bytes": 110592,
+          "metadata_bytes": 20736,
+          "rows": 768,
+          "int4": true
+        },
+        {
+          "name": "layer3.w2",
+          "raw_bytes": 241920,
+          "code_bytes": 221184,
+          "metadata_bytes": 20736,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer4.gamma_att",
+          "raw_bytes": 576,
+          "code_bytes": 0,
+          "metadata_bytes": 576,
+          "rows": null,
+          "int4": null
+        },
+        {
+          "name": "layer4.wq",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer4.wk",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer4.wv",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer4.wo",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer4.gamma_ffn",
+          "raw_bytes": 576,
+          "code_bytes": 0,
+          "metadata_bytes": 576,
+          "rows": null,
+          "int4": null
+        },
+        {
+          "name": "layer4.w1",
+          "raw_bytes": 131328,
+          "code_bytes": 110592,
+          "metadata_bytes": 20736,
+          "rows": 768,
+          "int4": true
+        },
+        {
+          "name": "layer4.w3",
+          "raw_bytes": 131328,
+          "code_bytes": 110592,
+          "metadata_bytes": 20736,
+          "rows": 768,
+          "int4": true
+        },
+        {
+          "name": "layer4.w2",
+          "raw_bytes": 241920,
+          "code_bytes": 221184,
+          "metadata_bytes": 20736,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer5.gamma_att",
+          "raw_bytes": 576,
+          "code_bytes": 0,
+          "metadata_bytes": 576,
+          "rows": null,
+          "int4": null
+        },
+        {
+          "name": "layer5.wq",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer5.wk",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer5.wv",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer5.wo",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer5.gamma_ffn",
+          "raw_bytes": 576,
+          "code_bytes": 0,
+          "metadata_bytes": 576,
+          "rows": null,
+          "int4": null
+        },
+        {
+          "name": "layer5.w1",
+          "raw_bytes": 131328,
+          "code_bytes": 110592,
+          "metadata_bytes": 20736,
+          "rows": 768,
+          "int4": true
+        },
+        {
+          "name": "layer5.w3",
+          "raw_bytes": 131328,
+          "code_bytes": 110592,
+          "metadata_bytes": 20736,
+          "rows": 768,
+          "int4": true
+        },
+        {
+          "name": "layer5.w2",
+          "raw_bytes": 241920,
+          "code_bytes": 221184,
+          "metadata_bytes": 20736,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "gamma_final",
+          "raw_bytes": 576,
+          "code_bytes": 0,
+          "metadata_bytes": 576,
+          "rows": null,
+          "int4": null
+        }
+      ],
+      "regions": {
+        "classifier": {
+          "raw_bytes": 5472000,
+          "code_bytes": 4608000,
+          "metadata_bytes": 864000,
+          "order0_entropy_bits_per_code_byte": 6.268968835006668
+        },
+        "gamma_att": {
+          "raw_bytes": 3456,
+          "code_bytes": 0,
+          "metadata_bytes": 3456,
+          "order0_entropy_bits_per_code_byte": null
+        },
+        "wq": {
+          "raw_bytes": 544320,
+          "code_bytes": 497664,
+          "metadata_bytes": 46656,
+          "order0_entropy_bits_per_code_byte": 7.683265316900681
+        },
+        "wk": {
+          "raw_bytes": 544320,
+          "code_bytes": 497664,
+          "metadata_bytes": 46656,
+          "order0_entropy_bits_per_code_byte": 7.680446090507411
+        },
+        "wv": {
+          "raw_bytes": 544320,
+          "code_bytes": 497664,
+          "metadata_bytes": 46656,
+          "order0_entropy_bits_per_code_byte": 7.677100168926602
+        },
+        "wo": {
+          "raw_bytes": 544320,
+          "code_bytes": 497664,
+          "metadata_bytes": 46656,
+          "order0_entropy_bits_per_code_byte": 7.672856274885834
+        },
+        "gamma_ffn": {
+          "raw_bytes": 3456,
+          "code_bytes": 0,
+          "metadata_bytes": 3456,
+          "order0_entropy_bits_per_code_byte": null
+        },
+        "w1": {
+          "raw_bytes": 787968,
+          "code_bytes": 663552,
+          "metadata_bytes": 124416,
+          "order0_entropy_bits_per_code_byte": 7.357383368243758
+        },
+        "w3": {
+          "raw_bytes": 787968,
+          "code_bytes": 663552,
+          "metadata_bytes": 124416,
+          "order0_entropy_bits_per_code_byte": 7.354139144943811
+        },
+        "w2": {
+          "raw_bytes": 1451520,
+          "code_bytes": 1327104,
+          "metadata_bytes": 124416,
+          "order0_entropy_bits_per_code_byte": 7.681121030849437
+        },
+        "gamma_final": {
+          "raw_bytes": 576,
+          "code_bytes": 0,
+          "metadata_bytes": 576,
+          "order0_entropy_bits_per_code_byte": null
+        },
+        "embedding_scales": {
+          "raw_bytes": 1440000,
+          "code_bytes": 0,
+          "metadata_bytes": 1440000,
+          "order0_entropy_bits_per_code_byte": null
+        }
+      },
+      "codecs": {
+        "huffman12": {
+          "compressed_image_bytes": 11013536,
+          "stream_bytes_per_token_avg": 9573695.5605,
+          "stream_bytes_per_token_max": 9573709,
+          "payload_bits": 63731068,
+          "table_bytes": 11008,
+          "seek_index_bytes": 128000,
+          "block_count": 3116
+        },
+        "huffman13": {
+          "compressed_image_bytes": 11013536,
+          "stream_bytes_per_token_avg": 9573695.5605,
+          "stream_bytes_per_token_max": 9573709,
+          "payload_bits": 63731058,
+          "table_bytes": 11008,
+          "seek_index_bytes": 128000,
+          "block_count": 3116
+        },
+        "huffman14": {
+          "compressed_image_bytes": 11013536,
+          "stream_bytes_per_token_avg": 9573695.5605,
+          "stream_bytes_per_token_max": 9573709,
+          "payload_bits": 63731058,
+          "table_bytes": 11008,
+          "seek_index_bytes": 128000,
+          "block_count": 3116
+        },
+        "huffman15": {
+          "compressed_image_bytes": 11013536,
+          "stream_bytes_per_token_avg": 9573695.5605,
+          "stream_bytes_per_token_max": 9573709,
+          "payload_bits": 63731058,
+          "table_bytes": 11008,
+          "seek_index_bytes": 128000,
+          "block_count": 3116
+        },
+        "zero_rle": {
+          "compressed_image_bytes": 21442208,
+          "stream_bytes_per_token_avg": 20002546.5865,
+          "stream_bytes_per_token_max": 20002557,
+          "payload_bits": 147226192,
+          "table_bytes": 0,
+          "seek_index_bytes": 128000,
+          "block_count": 3116
+        },
+        "rice": {
+          "compressed_image_bytes": 28091456,
+          "stream_bytes_per_token_avg": 26651855.526,
+          "stream_bytes_per_token_max": 26652013,
+          "payload_bits": 200444458,
+          "table_bytes": 0,
+          "seek_index_bytes": 128000,
+          "block_count": 3116
+        },
+        "raw": {
+          "compressed_image_bytes": 12302080,
+          "stream_bytes_per_token_avg": 10862285.0,
+          "stream_bytes_per_token_max": 10862285,
+          "payload_bits": 74022912,
+          "table_bytes": 0,
+          "seek_index_bytes": 128000,
+          "block_count": 3116
+        }
+      }
+    },
+    "vocab8192": {
+      "image": "C:\\Users\\bhask\\Documents\\PROJECTS\\uTPU-vocabprune\\build\\vocabprune\\vocab_8192.image.bin",
+      "image_bytes": 6981696,
+      "params": {
+        "D": 288,
+        "H": 768,
+        "NL": 6,
+        "NH": 6,
+        "NKV": 6,
+        "HS": 48,
+        "VOCAB": 8192,
+        "CLS_BASE": 0,
+        "EMB_SCALE_BASE": 1400832,
+        "LAYERS_BASE": 1769472,
+        "IMAGE_BYTES": 6981696,
+        "CLS4": 1,
+        "WQ4": 0,
+        "WK4": 0,
+        "WV4": 0,
+        "WO4": 0,
+        "W14": 1,
+        "W34": 1,
+        "W24": 0,
+        "CLS_TILE_BYTES": 2736,
+        "CLS_KB": 144,
+        "CLS_G": 9,
+        "RECIP_D": 14913081,
+        "GFB": 12,
+        "NORM_MULT": 828896808,
+        "NORM_SHIFT": 34,
+        "EPS": 1034,
+        "SILU_MULT": 884304146,
+        "SILU_SHIFT": 37,
+        "SWIGLU_MULT": 742221392,
+        "SWIGLU_SHIFT": 43,
+        "SCORE_MULT": 801779553,
+        "SCORE_SHIFT": 50
+      },
+      "stream_raw_bytes_per_token": 6613245,
+      "order0_entropy_bits_per_byte": 7.598224542134147,
+      "order0_entropy_code_bytes": 5824512,
+      "metadata_bytes": 1157184,
+      "tensors": [
+        {
+          "name": "classifier",
+          "raw_bytes": 1400832,
+          "code_bytes": 1179648,
+          "metadata_bytes": 221184,
+          "rows": 8192,
+          "int4": true
+        },
+        {
+          "name": "layer0.gamma_att",
+          "raw_bytes": 576,
+          "code_bytes": 0,
+          "metadata_bytes": 576,
+          "rows": null,
+          "int4": null
+        },
+        {
+          "name": "layer0.wq",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer0.wk",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer0.wv",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer0.wo",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer0.gamma_ffn",
+          "raw_bytes": 576,
+          "code_bytes": 0,
+          "metadata_bytes": 576,
+          "rows": null,
+          "int4": null
+        },
+        {
+          "name": "layer0.w1",
+          "raw_bytes": 131328,
+          "code_bytes": 110592,
+          "metadata_bytes": 20736,
+          "rows": 768,
+          "int4": true
+        },
+        {
+          "name": "layer0.w3",
+          "raw_bytes": 131328,
+          "code_bytes": 110592,
+          "metadata_bytes": 20736,
+          "rows": 768,
+          "int4": true
+        },
+        {
+          "name": "layer0.w2",
+          "raw_bytes": 241920,
+          "code_bytes": 221184,
+          "metadata_bytes": 20736,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer1.gamma_att",
+          "raw_bytes": 576,
+          "code_bytes": 0,
+          "metadata_bytes": 576,
+          "rows": null,
+          "int4": null
+        },
+        {
+          "name": "layer1.wq",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer1.wk",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer1.wv",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer1.wo",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer1.gamma_ffn",
+          "raw_bytes": 576,
+          "code_bytes": 0,
+          "metadata_bytes": 576,
+          "rows": null,
+          "int4": null
+        },
+        {
+          "name": "layer1.w1",
+          "raw_bytes": 131328,
+          "code_bytes": 110592,
+          "metadata_bytes": 20736,
+          "rows": 768,
+          "int4": true
+        },
+        {
+          "name": "layer1.w3",
+          "raw_bytes": 131328,
+          "code_bytes": 110592,
+          "metadata_bytes": 20736,
+          "rows": 768,
+          "int4": true
+        },
+        {
+          "name": "layer1.w2",
+          "raw_bytes": 241920,
+          "code_bytes": 221184,
+          "metadata_bytes": 20736,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer2.gamma_att",
+          "raw_bytes": 576,
+          "code_bytes": 0,
+          "metadata_bytes": 576,
+          "rows": null,
+          "int4": null
+        },
+        {
+          "name": "layer2.wq",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer2.wk",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer2.wv",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer2.wo",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer2.gamma_ffn",
+          "raw_bytes": 576,
+          "code_bytes": 0,
+          "metadata_bytes": 576,
+          "rows": null,
+          "int4": null
+        },
+        {
+          "name": "layer2.w1",
+          "raw_bytes": 131328,
+          "code_bytes": 110592,
+          "metadata_bytes": 20736,
+          "rows": 768,
+          "int4": true
+        },
+        {
+          "name": "layer2.w3",
+          "raw_bytes": 131328,
+          "code_bytes": 110592,
+          "metadata_bytes": 20736,
+          "rows": 768,
+          "int4": true
+        },
+        {
+          "name": "layer2.w2",
+          "raw_bytes": 241920,
+          "code_bytes": 221184,
+          "metadata_bytes": 20736,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer3.gamma_att",
+          "raw_bytes": 576,
+          "code_bytes": 0,
+          "metadata_bytes": 576,
+          "rows": null,
+          "int4": null
+        },
+        {
+          "name": "layer3.wq",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer3.wk",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer3.wv",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer3.wo",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer3.gamma_ffn",
+          "raw_bytes": 576,
+          "code_bytes": 0,
+          "metadata_bytes": 576,
+          "rows": null,
+          "int4": null
+        },
+        {
+          "name": "layer3.w1",
+          "raw_bytes": 131328,
+          "code_bytes": 110592,
+          "metadata_bytes": 20736,
+          "rows": 768,
+          "int4": true
+        },
+        {
+          "name": "layer3.w3",
+          "raw_bytes": 131328,
+          "code_bytes": 110592,
+          "metadata_bytes": 20736,
+          "rows": 768,
+          "int4": true
+        },
+        {
+          "name": "layer3.w2",
+          "raw_bytes": 241920,
+          "code_bytes": 221184,
+          "metadata_bytes": 20736,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer4.gamma_att",
+          "raw_bytes": 576,
+          "code_bytes": 0,
+          "metadata_bytes": 576,
+          "rows": null,
+          "int4": null
+        },
+        {
+          "name": "layer4.wq",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer4.wk",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer4.wv",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer4.wo",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer4.gamma_ffn",
+          "raw_bytes": 576,
+          "code_bytes": 0,
+          "metadata_bytes": 576,
+          "rows": null,
+          "int4": null
+        },
+        {
+          "name": "layer4.w1",
+          "raw_bytes": 131328,
+          "code_bytes": 110592,
+          "metadata_bytes": 20736,
+          "rows": 768,
+          "int4": true
+        },
+        {
+          "name": "layer4.w3",
+          "raw_bytes": 131328,
+          "code_bytes": 110592,
+          "metadata_bytes": 20736,
+          "rows": 768,
+          "int4": true
+        },
+        {
+          "name": "layer4.w2",
+          "raw_bytes": 241920,
+          "code_bytes": 221184,
+          "metadata_bytes": 20736,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer5.gamma_att",
+          "raw_bytes": 576,
+          "code_bytes": 0,
+          "metadata_bytes": 576,
+          "rows": null,
+          "int4": null
+        },
+        {
+          "name": "layer5.wq",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer5.wk",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer5.wv",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer5.wo",
+          "raw_bytes": 90720,
+          "code_bytes": 82944,
+          "metadata_bytes": 7776,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "layer5.gamma_ffn",
+          "raw_bytes": 576,
+          "code_bytes": 0,
+          "metadata_bytes": 576,
+          "rows": null,
+          "int4": null
+        },
+        {
+          "name": "layer5.w1",
+          "raw_bytes": 131328,
+          "code_bytes": 110592,
+          "metadata_bytes": 20736,
+          "rows": 768,
+          "int4": true
+        },
+        {
+          "name": "layer5.w3",
+          "raw_bytes": 131328,
+          "code_bytes": 110592,
+          "metadata_bytes": 20736,
+          "rows": 768,
+          "int4": true
+        },
+        {
+          "name": "layer5.w2",
+          "raw_bytes": 241920,
+          "code_bytes": 221184,
+          "metadata_bytes": 20736,
+          "rows": 288,
+          "int4": false
+        },
+        {
+          "name": "gamma_final",
+          "raw_bytes": 576,
+          "code_bytes": 0,
+          "metadata_bytes": 576,
+          "rows": null,
+          "int4": null
+        }
+      ],
+      "regions": {
+        "classifier": {
+          "raw_bytes": 1400832,
+          "code_bytes": 1179648,
+          "metadata_bytes": 221184,
+          "order0_entropy_bits_per_code_byte": 6.959892440835117
+        },
+        "gamma_att": {
+          "raw_bytes": 3456,
+          "code_bytes": 0,
+          "metadata_bytes": 3456,
+          "order0_entropy_bits_per_code_byte": null
+        },
+        "wq": {
+          "raw_bytes": 544320,
+          "code_bytes": 497664,
+          "metadata_bytes": 46656,
+          "order0_entropy_bits_per_code_byte": 7.683265316900681
+        },
+        "wk": {
+          "raw_bytes": 544320,
+          "code_bytes": 497664,
+          "metadata_bytes": 46656,
+          "order0_entropy_bits_per_code_byte": 7.680446090507411
+        },
+        "wv": {
+          "raw_bytes": 544320,
+          "code_bytes": 497664,
+          "metadata_bytes": 46656,
+          "order0_entropy_bits_per_code_byte": 7.677100168926602
+        },
+        "wo": {
+          "raw_bytes": 544320,
+          "code_bytes": 497664,
+          "metadata_bytes": 46656,
+          "order0_entropy_bits_per_code_byte": 7.672856274885834
+        },
+        "gamma_ffn": {
+          "raw_bytes": 3456,
+          "code_bytes": 0,
+          "metadata_bytes": 3456,
+          "order0_entropy_bits_per_code_byte": null
+        },
+        "w1": {
+          "raw_bytes": 787968,
+          "code_bytes": 663552,
+          "metadata_bytes": 124416,
+          "order0_entropy_bits_per_code_byte": 7.357383368243758
+        },
+        "w3": {
+          "raw_bytes": 787968,
+          "code_bytes": 663552,
+          "metadata_bytes": 124416,
+          "order0_entropy_bits_per_code_byte": 7.354139144943811
+        },
+        "w2": {
+          "raw_bytes": 1451520,
+          "code_bytes": 1327104,
+          "metadata_bytes": 124416,
+          "order0_entropy_bits_per_code_byte": 7.681121030849437
+        },
+        "gamma_final": {
+          "raw_bytes": 576,
+          "code_bytes": 0,
+          "metadata_bytes": 576,
+          "order0_entropy_bits_per_code_byte": null
+        },
+        "embedding_scales": {
+          "raw_bytes": 368640,
+          "code_bytes": 0,
+          "metadata_bytes": 368640,
+          "order0_entropy_bits_per_code_byte": null
+        }
+      },
+      "codecs": {
+        "huffman12": {
+          "compressed_image_bytes": 6627456,
+          "stream_bytes_per_token_avg": 6258982.982421875,
+          "stream_bytes_per_token_max": 6258989,
+          "payload_bits": 43256913,
+          "table_bytes": 11008,
+          "seek_index_bytes": 32768,
+          "block_count": 1628
+        },
+        "huffman13": {
+          "compressed_image_bytes": 6627456,
+          "stream_bytes_per_token_avg": 6258982.982421875,
+          "stream_bytes_per_token_max": 6258989,
+          "payload_bits": 43256903,
+          "table_bytes": 11008,
+          "seek_index_bytes": 32768,
+          "block_count": 1628
+        },
+        "huffman14": {
+          "compressed_image_bytes": 6627456,
+          "stream_bytes_per_token_avg": 6258982.982421875,
+          "stream_bytes_per_token_max": 6258989,
+          "payload_bits": 43256903,
+          "table_bytes": 11008,
+          "seek_index_bytes": 32768,
+          "block_count": 1628
+        },
+        "huffman15": {
+          "compressed_image_bytes": 6627456,
+          "stream_bytes_per_token_avg": 6258982.982421875,
+          "stream_bytes_per_token_max": 6258989,
+          "payload_bits": 43256903,
+          "table_bytes": 11008,
+          "seek_index_bytes": 32768,
+          "block_count": 1628
+        },
+        "zero_rle": {
+          "compressed_image_bytes": 12849088,
+          "stream_bytes_per_token_avg": 12480794.232421875,
+          "stream_bytes_per_token_max": 12480797,
+          "payload_bits": 93089568,
+          "table_bytes": 0,
+          "seek_index_bytes": 32768,
+          "block_count": 1628
+        },
+        "rice": {
+          "compressed_image_bytes": 18189808,
+          "stream_bytes_per_token_avg": 17821588.55859375,
+          "stream_bytes_per_token_max": 17821725,
+          "payload_bits": 135843773,
+          "table_bytes": 0,
+          "seek_index_bytes": 32768,
+          "block_count": 1628
+        },
+        "raw": {
+          "compressed_image_bytes": 7040512,
+          "stream_bytes_per_token_avg": 6672077.0,
+          "stream_bytes_per_token_max": 6672077,
+          "payload_bits": 46596096,
+          "table_bytes": 0,
+          "seek_index_bytes": 32768,
+          "block_count": 1628
+        }
+      }
+    }
+  },
+  "projections": {
+    "15m": {
+      "compute_floor_cycles": 12338619,
+      "baseline_cycles": 21744984.545454547,
+      "baseline_tok_s": 2.29938080183422,
+      "codecs": {
+        "huffman12": {
+          "cycles_per_token": 19523549.666454546,
+          "tok_s": 2.561009696198342,
+          "gain_pct": 11.378232529184395
+        },
+        "huffman13": {
+          "cycles_per_token": 19523549.666454546,
+          "tok_s": 2.561009696198342,
+          "gain_pct": 11.378232529184395
+        },
+        "huffman14": {
+          "cycles_per_token": 19523549.666454546,
+          "tok_s": 2.561009696198342,
+          "gain_pct": 11.378232529184395
+        },
+        "huffman15": {
+          "cycles_per_token": 19523549.666454546,
+          "tok_s": 2.561009696198342,
+          "gain_pct": 11.378232529184395
+        },
+        "zero_rle": {
+          "cycles_per_token": 40381251.71845455,
+          "tok_s": 1.2381983686045475,
+          "gain_pct": -46.15079122097416
+        },
+        "rice": {
+          "cycles_per_token": 53679869.59745455,
+          "tok_s": 0.9314478663035157,
+          "gain_pct": -59.491361084666885
+        },
+        "raw": {
+          "cycles_per_token": 22100728.545454547,
+          "tok_s": 2.262368857984254,
+          "gain_pct": -1.6096482940294976
+        }
+      }
+    },
+    "vocab8192": {
+      "compute_floor_cycles": 7734699,
+      "baseline_cycles": 13232649,
+      "baseline_tok_s": 3.778532930178984,
+      "codecs": {
+        "huffman12": {
+          "cycles_per_token": 12524124.96484375,
+          "tok_s": 3.992294882105865,
+          "gain_pct": 5.65727375880658
+        },
+        "huffman13": {
+          "cycles_per_token": 12524124.96484375,
+          "tok_s": 3.992294882105865,
+          "gain_pct": 5.65727375880658
+        },
+        "huffman14": {
+          "cycles_per_token": 12524124.96484375,
+          "tok_s": 3.992294882105865,
+          "gain_pct": 5.65727375880658
+        },
+        "huffman15": {
+          "cycles_per_token": 12524124.96484375,
+          "tok_s": 3.992294882105865,
+          "gain_pct": 5.65727375880658
+        },
+        "zero_rle": {
+          "cycles_per_token": 24967747.46484375,
+          "tok_s": 2.002583535835715,
+          "gain_pct": -47.00102995421413
+        },
+        "rice": {
+          "cycles_per_token": 35649336.1171875,
+          "tok_s": 1.4025506628128668,
+          "gain_pct": -62.88107874855996
+        },
+        "raw": {
+          "cycles_per_token": 13350313.0,
+          "tok_s": 3.7452305425348453,
+          "gain_pct": -0.8813576131136425
+        }
+      }
+    }
+  },
+  "reference_round_trip": [
+    {
+      "model": "15m",
+      "sample": 0,
+      "bytes": 2304,
+      "pass": true
+    },
+    {
+      "model": "15m",
+      "sample": 1558,
+      "bytes": 2304,
+      "pass": true
+    },
+    {
+      "model": "15m",
+      "sample": 3115,
+      "bytes": 12288,
+      "pass": true
+    },
+    {
+      "model": "vocab8192",
+      "sample": 0,
+      "bytes": 2304,
+      "pass": true
+    },
+    {
+      "model": "vocab8192",
+      "sample": 814,
+      "bytes": 2304,
+      "pass": true
+    },
+    {
+      "model": "vocab8192",
+      "sample": 1627,
+      "bytes": 12288,
+      "pass": true
+    }
+  ],
+  "verdict": "NO-GO"
+}
